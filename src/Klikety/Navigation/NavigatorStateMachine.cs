@@ -19,22 +19,30 @@ public enum NavigatorState
     L3_AwaitAction,
 }
 
+public enum ScreenHalf { Left, Right }
+
 /// <summary>
 /// Core navigation state machine. Processes VKey inputs and raises events
 /// for overlay visual updates, cursor movement, and action dispatch.
+/// Supports split-screen: left-hand keys control the left half, right-hand keys the right.
 /// </summary>
 public sealed class NavigatorStateMachine
 {
-    private readonly VKey[] _firstKeys;
-    private readonly VKey[] _secondKeys;
+    private readonly HalfKeySetsConfig _leftKeys;
+    private readonly HalfKeySetsConfig _rightKeys;
     private readonly ActionMapper _actionMapper;
     private readonly NavigationMode _navigationMode;
     private readonly int _level3Threshold;
 
+    // Active half — determined by first key press
+    private ScreenHalf _activeHalf;
+    private VKey[] _activeFirstKeys = [];
+    private VKey[] _activeSecondKeys = [];
+
     // State
     public NavigatorState State { get; private set; } = NavigatorState.Idle;
     private Point _originPoint;
-    private int _selectedCol; // first key → column index
+    private int _selectedCol;
 
     // Grid cells per level
     private IReadOnlyList<GridCell> _l1Cells = [];
@@ -49,30 +57,31 @@ public sealed class NavigatorStateMachine
     private int _arrowIndex;
     private IReadOnlyList<GridCell> _currentLevelCells = [];
 
-    // Events
-    public event Action<int>? ColumnHighlighted;
+    // Events — HalfSelected carries which half was chosen (raised once at L1)
+    public event Action<ScreenHalf, int>? ColumnHighlighted;
     public event Action<GridCell>? CellHighlighted;
     public event Action<GridCell, int>? CellEntered;
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action<Point>? Cancelled;
-  public event Action? InvalidKeyPressed;
+    public event Action? InvalidKeyPressed;
 
-  public NavigatorStateMachine(
-        VKey[] firstKeys,
-        VKey[] secondKeys,
+    public NavigatorStateMachine(
+        HalfKeySetsConfig leftKeys,
+        HalfKeySetsConfig rightKeys,
         ActionMapper actionMapper,
         NavigationMode navigationMode,
         int level3Threshold)
     {
-        _firstKeys = firstKeys;
-        _secondKeys = secondKeys;
+        _leftKeys = leftKeys;
+        _rightKeys = rightKeys;
         _actionMapper = actionMapper;
         _navigationMode = navigationMode;
         _level3Threshold = level3Threshold;
     }
 
     /// <summary>
-    /// Activates the navigator with the given screen grid cells and current cursor position.
+    /// Activates the navigator with the given L1 cell list and current cursor position.
+    /// The active half is determined by the first key pressed.
     /// </summary>
     public void Activate(IReadOnlyList<GridCell> l1Cells, Point cursorOrigin)
     {
@@ -80,6 +89,10 @@ public sealed class NavigatorStateMachine
         _originPoint = cursorOrigin;
         _arrowIndex = 0;
         _currentLevelCells = l1Cells;
+        // Default to left half for arrow navigation at L1 (half is selected on first key press)
+        _activeHalf = ScreenHalf.Left;
+        _activeFirstKeys = _leftKeys.FirstKeys;
+        _activeSecondKeys = _leftKeys.SecondKeys;
         State = NavigatorState.L1_AwaitFirst;
     }
 
@@ -171,9 +184,9 @@ public sealed class NavigatorStateMachine
 
     private void HandleArrow(VKey vkey)
     {
-        if (_currentLevelCells.Count == 0) return;
+        if (_currentLevelCells.Count == 0 || _activeFirstKeys.Length == 0) return;
 
-        int cols = _firstKeys.Length;
+        int cols = _activeFirstKeys.Length;
         int total = _currentLevelCells.Count;
 
         _arrowIndex = vkey switch
@@ -207,11 +220,11 @@ public sealed class NavigatorStateMachine
         switch (State)
         {
             case NavigatorState.L1_AwaitFirst:
-                HandleFirstKey(vkey, NavigatorState.L1_AwaitSecond, _l1Cells);
+                HandleL1FirstKey(vkey);
                 break;
             case NavigatorState.L1_AwaitSecond:
-        HandleSecondKey(vkey, NavigatorState.L1_AwaitSecond, NavigatorState.L1_AwaitAction, _l1Cells, 1, ref _l1SelectedCell);
-        break;
+                HandleSecondKey(vkey, NavigatorState.L1_AwaitSecond, NavigatorState.L1_AwaitAction, _l1Cells, 1, ref _l1SelectedCell);
+                break;
             case NavigatorState.L1_AwaitAction:
                 HandleActionOrNav(vkey, NavigatorState.L2_AwaitFirst, _l1SelectedCell, 2);
                 break;
@@ -219,8 +232,8 @@ public sealed class NavigatorStateMachine
                 HandleFirstKey(vkey, NavigatorState.L2_AwaitSecond, _l2Cells);
                 break;
             case NavigatorState.L2_AwaitSecond:
-        HandleSecondKey(vkey, NavigatorState.L2_AwaitSecond, NavigatorState.L2_AwaitAction, _l2Cells, 2, ref _l2SelectedCell);
-        break;
+                HandleSecondKey(vkey, NavigatorState.L2_AwaitSecond, NavigatorState.L2_AwaitAction, _l2Cells, 2, ref _l2SelectedCell);
+                break;
             case NavigatorState.L2_AwaitAction:
                 HandleActionOrNav(vkey, NavigatorState.L3_AwaitFirst, _l2SelectedCell, 3);
                 break;
@@ -228,59 +241,113 @@ public sealed class NavigatorStateMachine
                 HandleFirstKey(vkey, NavigatorState.L3_AwaitSecond, _l3Cells);
                 break;
             case NavigatorState.L3_AwaitSecond:
-        HandleSecondKey(vkey, NavigatorState.L3_AwaitSecond, NavigatorState.L3_AwaitAction, _l3Cells, 3, ref _l2SelectedCell /* L3 has no child */);
-        break;
+                HandleSecondKey(vkey, NavigatorState.L3_AwaitSecond, NavigatorState.L3_AwaitAction, _l3Cells, 3, ref _l2SelectedCell);
+                break;
             case NavigatorState.L3_AwaitAction:
                 HandleActionFinal(vkey);
                 break;
         }
     }
 
+    /// <summary>
+    /// Handles first key at L1 — determines which screen half based on the key.
+    /// </summary>
+    private void HandleL1FirstKey(VKey vkey)
+    {
+        int col = Array.IndexOf(_leftKeys.FirstKeys, vkey);
+        if (col >= 0)
+        {
+            _activeHalf = ScreenHalf.Left;
+            _activeFirstKeys = _leftKeys.FirstKeys;
+            _activeSecondKeys = _leftKeys.SecondKeys;
+            _selectedCol = col;
+            State = NavigatorState.L1_AwaitSecond;
+            ColumnHighlighted?.Invoke(_activeHalf, col);
+            return;
+        }
+
+        col = Array.IndexOf(_rightKeys.FirstKeys, vkey);
+        if (col >= 0)
+        {
+            _activeHalf = ScreenHalf.Right;
+            _activeFirstKeys = _rightKeys.FirstKeys;
+            _activeSecondKeys = _rightKeys.SecondKeys;
+            _selectedCol = col;
+            State = NavigatorState.L1_AwaitSecond;
+            ColumnHighlighted?.Invoke(_activeHalf, col);
+            return;
+        }
+
+        InvalidKeyPressed?.Invoke();
+    }
+
     private void HandleFirstKey(VKey vkey, NavigatorState nextState, IReadOnlyList<GridCell> cells)
     {
-        int col = Array.IndexOf(_firstKeys, vkey);
-    if (col < 0)
-    {
-      InvalidKeyPressed?.Invoke();
-      return;
-    }
+        int col = Array.IndexOf(_activeFirstKeys, vkey);
+        if (col < 0)
+        {
+            InvalidKeyPressed?.Invoke();
+            return;
+        }
 
-    _selectedCol = col;
-        State = nextState;
-        ColumnHighlighted?.Invoke(col);
-    }
-
-  private void HandleSecondKey(VKey vkey, NavigatorState currentState, NavigatorState nextState, IReadOnlyList<GridCell> cells, int level, ref GridCell selectedCell)
-  {
-        int row = Array.IndexOf(_secondKeys, vkey);
-    if (row < 0)
-    {
-      // Re-entry: if it's a valid first key, restart column selection
-      int col = Array.IndexOf(_firstKeys, vkey);
-      if (col >= 0)
-      {
         _selectedCol = col;
-        // Stay in AwaitSecond — just update column highlight
-        ColumnHighlighted?.Invoke(col);
-        return;
-      }
-
-      InvalidKeyPressed?.Invoke();
-      return;
+        State = nextState;
+        ColumnHighlighted?.Invoke(_activeHalf, col);
     }
 
-    int index = row * _firstKeys.Length + _selectedCol;
+    private void HandleSecondKey(VKey vkey, NavigatorState currentState, NavigatorState nextState, IReadOnlyList<GridCell> cells, int level, ref GridCell selectedCell)
+    {
+        int row = Array.IndexOf(_activeSecondKeys, vkey);
+        if (row < 0)
+        {
+            // Re-entry: if it's a valid first key for the active half, restart column selection
+            int col = Array.IndexOf(_activeFirstKeys, vkey);
+            if (col >= 0)
+            {
+                _selectedCol = col;
+                ColumnHighlighted?.Invoke(_activeHalf, col);
+                return;
+            }
+
+            // At L1, also allow switching half
+            if (level == 1)
+            {
+                col = Array.IndexOf(_leftKeys.FirstKeys, vkey);
+                if (col >= 0)
+                {
+                    _activeHalf = ScreenHalf.Left;
+                    _activeFirstKeys = _leftKeys.FirstKeys;
+                    _activeSecondKeys = _leftKeys.SecondKeys;
+                    _selectedCol = col;
+                    ColumnHighlighted?.Invoke(_activeHalf, col);
+                    return;
+                }
+                col = Array.IndexOf(_rightKeys.FirstKeys, vkey);
+                if (col >= 0)
+                {
+                    _activeHalf = ScreenHalf.Right;
+                    _activeFirstKeys = _rightKeys.FirstKeys;
+                    _activeSecondKeys = _rightKeys.SecondKeys;
+                    _selectedCol = col;
+                    ColumnHighlighted?.Invoke(_activeHalf, col);
+                    return;
+                }
+            }
+
+            InvalidKeyPressed?.Invoke();
+            return;
+        }
+
+        int index = row * _activeFirstKeys.Length + _selectedCol;
         if (index >= cells.Count) return;
 
         selectedCell = cells[index];
-        var center = GridCalculator.CenterOf(selectedCell);
         State = nextState;
         CellEntered?.Invoke(selectedCell, level);
     }
 
     private void HandleActionOrNav(VKey vkey, NavigatorState nextNavState, GridCell parentCell, int nextLevel)
     {
-        // Check if it's an action key
         var action = _actionMapper.Map(vkey);
         if (action.HasValue)
         {
@@ -290,16 +357,14 @@ public sealed class NavigatorStateMachine
             return;
         }
 
-        // Check if it's a first key → start next level
-        int col = Array.IndexOf(_firstKeys, vkey);
-    if (col < 0)
-    {
-      InvalidKeyPressed?.Invoke();
-      return;
-    }
+        int col = Array.IndexOf(_activeFirstKeys, vkey);
+        if (col < 0)
+        {
+            InvalidKeyPressed?.Invoke();
+            return;
+        }
 
-    // Calculate subgrid
-    var subCells = SubgridCalculator.Calculate(parentCell, _firstKeys.Length, _secondKeys.Length);
+        var subCells = SubgridCalculator.Calculate(parentCell, _activeFirstKeys.Length, _activeSecondKeys.Length);
 
         if (nextLevel == 2)
         {
@@ -307,7 +372,6 @@ public sealed class NavigatorStateMachine
         }
         else if (nextLevel == 3)
         {
-            // Check L3 threshold
             if (!SubgridCalculator.ShouldActivateLevel3(parentCell, _level3Threshold))
                 return;
             _l3Cells = subCells;
@@ -318,9 +382,8 @@ public sealed class NavigatorStateMachine
         _selectedCol = col;
         State = nextNavState;
 
-        // Transition past AwaitFirst since we already have the first key
         State = nextLevel == 2 ? NavigatorState.L2_AwaitSecond : NavigatorState.L3_AwaitSecond;
-        ColumnHighlighted?.Invoke(col);
+        ColumnHighlighted?.Invoke(_activeHalf, col);
     }
 
     private void HandleActionFinal(VKey vkey)

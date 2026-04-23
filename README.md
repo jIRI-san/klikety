@@ -6,9 +6,10 @@ Keyboard-driven mouse navigator for Windows. Press a hotkey, type two keys to se
 
 ## Features
 
-- **Two-key grid navigation**: 9×8 grid covering the full primary monitor. First key selects column, second key selects row.
+- **Split-screen two-key grid**: Screen split in half. Left-hand keys (ASDF/WERT) control the left half, right-hand keys (JKL;/YUIO) the right. 4×4 = 16 cells per half.
 - **Multi-level zoom**: Level 1 → Level 2 → Level 3 subgrids for pixel-precise targeting.
 - **Arrow key navigation**: Optional arrow-key cell movement with Enter to confirm (configurable via `navigationMode`).
+- **Auto-scaling labels**: Font sizes adapt to cell height (80% at L1, 90% at L2/L3). External labels with connector lines when cells get too small.
 - **Configurable actions**: Space = left click (default). Bind any key to right-click, double-click, middle-click, or drag.
 - **Keyboard layout aware**: Labels auto-adapt to QWERTY, DVORAK, Colemak, or any layout via Win32 `ToUnicodeEx`.
 - **Theme support**: Built-in dark and light themes. Create custom `.theme.json` files.
@@ -57,8 +58,10 @@ First run extracts default config and theme files automatically.
 |---|---|---|---|
 | `hotKey.modifiers` | string (flags) | `"Alt"` | Modifier keys: `Alt`, `Control`, `Shift`, `Win` (combine with `,`) |
 | `hotKey.key` | string (VKey) | `"Space"` | Trigger key (any VKey name) |
-| `keySets.firstKeys` | VKey[] | `["A","S","D","F","G","H","J","K","L"]` | Column selection keys (9 keys) |
-| `keySets.secondKeys` | VKey[] | `["W","E","R","T","Y","U","I","O"]` | Row selection keys (8 keys) |
+| `keySets.left.firstKeys` | VKey[] | `["A","S","D","F"]` | Left half column selection keys |
+| `keySets.left.secondKeys` | VKey[] | `["W","E","R","T"]` | Left half row selection keys |
+| `keySets.right.firstKeys` | VKey[] | `["J","K","L","OemSemicolon"]` | Right half column selection keys |
+| `keySets.right.secondKeys` | VKey[] | `["Y","U","I","O"]` | Right half row selection keys |
 | `actionBindings` | object | `{}` | Map VKey names to actions: `LeftClick`, `RightClick`, `DoubleClick`, `MiddleClick`, `DragStart`, `DragEnd` |
 | `level3CellSizeThreshold` | int | `40000` | Cell area (px²) above which level-3 subgrid activates |
 | `logLevel` | string | `"Warning"` | Log level: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None` |
@@ -90,19 +93,33 @@ For **DVORAK**:
 ```jsonc
 {
     "keySets": {
-        "firstKeys": ["A", "O", "E", "U", "I", "D", "H", "T", "N"],
-        "secondKeys": ["OemComma", "OemPeriod", "P", "Y", "F", "G", "C", "R"]
+        "left": {
+            "firstKeys": ["A", "O", "E", "U"],
+            "secondKeys": ["OemComma", "OemPeriod", "P", "Y"]
+        },
+        "right": {
+            "firstKeys": ["H", "T", "N", "S"],
+            "secondKeys": ["F", "G", "C", "R"]
+        }
     }
 }
 ```
 
 For **Colemak**:
 
+For **Colemak**:
+
 ```jsonc
 {
     "keySets": {
-        "firstKeys": ["A", "R", "S", "T", "D", "H", "N", "E", "I"],
-        "secondKeys": ["W", "F", "P", "G", "J", "L", "U", "Y"]
+        "left": {
+            "firstKeys": ["A", "R", "S", "T"],
+            "secondKeys": ["W", "F", "P", "G"]
+        },
+        "right": {
+            "firstKeys": ["N", "E", "I", "O"],
+            "secondKeys": ["J", "L", "U", "Y"]
+        }
     }
 }
 ```

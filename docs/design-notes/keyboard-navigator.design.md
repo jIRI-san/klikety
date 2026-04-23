@@ -26,16 +26,26 @@ Idle → L1_AwaitFirst → L1_AwaitSecond → L1_AwaitAction
                                                                          → L3_AwaitFirst → L3_AwaitSecond → L3_AwaitAction
 ```
 
+### Split-Screen Half Selection
+
+At L1, the screen is divided into left and right halves, each with its own key set (`HalfKeySetsConfig`). The state machine holds `_leftKeys` and `_rightKeys` and determines the active half on the first key press:
+
+- `HandleL1FirstKey(VKey)` checks both halves' `FirstKeys` arrays to identify which half the key belongs to.
+- Sets `_activeHalf`, `_activeFirstKeys`, `_activeSecondKeys` accordingly.
+- All subsequent key handling (L1 second key, L2/L3 navigation) uses `_activeFirstKeys`/`_activeSecondKeys`.
+- At L1 `AwaitSecond`, pressing a first key from the *other* half switches the active half (re-entry).
+- `ColumnHighlighted` event signature: `Action<ScreenHalf, int>` — carries which half was selected.
+
 ### Transitions
 
 | From | Input | To | Side-effect |
 |---|---|---|---|
 | `Idle` | `HotKeyService.Activated` | `L1_AwaitFirst` | Save cursor origin; show overlay; enable hook |
-| `L1_AwaitFirst` | first-key VKey | `L1_AwaitSecond` | Raise `ColumnHighlighted(col)` |
+| `L1_AwaitFirst` | first-key VKey (left or right) | `L1_AwaitSecond` | Detect half; raise `ColumnHighlighted(half, col)` |
 | `L1_AwaitSecond` | second-key VKey | `L1_AwaitAction` | Move cursor to L1 cell center; raise `CellEntered(cell, 1)` |
 | `L1_AwaitAction` | action VKey | `Idle` | Raise `ActionRequested(point, action)`; `DeactivateOverlay()` |
 | `L1_AwaitAction` | nav VKey | `L2_AwaitFirst` | Render L2 subgrid |
-| `L2_AwaitFirst` | first-key VKey | `L2_AwaitSecond` | Raise `ColumnHighlighted(col)` within subgrid |
+| `L2_AwaitFirst` | first-key VKey | `L2_AwaitSecond` | Raise `ColumnHighlighted(half, col)` within subgrid |
 | `L2_AwaitSecond` | second-key VKey | `L2_AwaitAction` | Move cursor to L2 cell center; raise `CellEntered(cell, 2)`; check L3 threshold |
 | `L2_AwaitAction` | action VKey | `Idle` | Raise `ActionRequested(point, action)`; `DeactivateOverlay()` |
 | `L2_AwaitAction` | nav VKey | `L3_AwaitFirst` | Render L3 subgrid (only if threshold met) |
@@ -44,9 +54,9 @@ Idle → L1_AwaitFirst → L1_AwaitSecond → L1_AwaitAction
 
 ### Events raised by state machine
 
-- `ColumnHighlighted(int col)` — first key received; dim non-matching cells, highlight column
+- `ColumnHighlighted(ScreenHalf half, int col)` — first key received; identifies which screen half, dims non-matching cells, highlights column
 - `CellHighlighted(GridCell cell)` — arrow navigation; highlight cell without dimming others
-- `CellEntered(GridCell cell, int level)` — two-key pair complete; switch to subgrid view
+- `CellEntered(GridCell cell, int level)` — two-key pair complete; move cursor to cell center, switch to subgrid view
 - `ActionRequested(Point physicalPoint, MouseAction action)` — fire mouse action
 - `Cancelled(Point originPoint)` — restore cursor to saved origin
 
@@ -118,18 +128,31 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 
 ## Key Scheme
 
-### Two-key grid
+### Split-screen two-key grid
 
-- First-key set: QWERTY home row — `a s d f g h j k l` (9 keys)
-- Second-key set: QWERTY top row non-pinky — `w e r t y u i o` (8 keys)
-- Grid: 9×8 = 72 cells per level
-- Default key sets cover QWERTY and QWERTZ (identical home/top rows). DVORAK and Colemak users override `firstKeys`/`secondKeys` in config.
+The screen is split in half. Left-hand keys control the left half, right-hand keys the right half.
+
+- Left half: first keys `A S D F`, second keys `W E R T` → 4×4 = 16 cells
+- Right half: first keys `J K L ;`, second keys `Y U I O` → 4×4 = 16 cells
+- Total: 32 cells per level
+- L2/L3 subgrids use the active half's key set (4×4 = 16 cells per sublevel)
+
+Config structure:
+```jsonc
+"keySets": {
+    "left": { "firstKeys": ["A","S","D","F"], "secondKeys": ["W","E","R","T"] },
+    "right": { "firstKeys": ["J","K","L","OemSemicolon"], "secondKeys": ["Y","U","I","O"] }
+}
+```
+
+`KeySetsConfig` has `Left` and `Right` properties of type `HalfKeySetsConfig`, each with `FirstKeys` and `SecondKeys` arrays.
 
 ### `LabelGenerator`
 
-- Input: `VKey[]` firstKeys × `VKey[]` secondKeys
+- Input: `VKey[]` firstKeys × `VKey[]` secondKeys (per half)
 - Output: bijective map — each (row, col) pair → display string derived from `ToUnicode(vkey, HKL)`
-- API: `LabelFor(int row, int col) → string`, `CellFor(string label) → (row, col)?`
+- API: `LabelFor(int row, int col) → CellLabel`, `Cols`/`Rows` properties
+- `GridRenderer` holds two instances (`_leftLabelGenerator`, `_rightLabelGenerator`), switches `_activeLabelGenerator` based on the active half.
 
 ### Arrow navigation (`ArrowNavigator` helper)
 
@@ -150,6 +173,32 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 - `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; fall back to built-in dark on any error + tray notification.
 - Built-in `dark.theme.json` and `light.theme.json` shipped as embedded resources; extracted to `%APPDATA%\Klikety\themes\` on first run.
 
+## Grid Rendering
+
+### DIP-Space Grid Computation
+
+`GridRenderer` works entirely in DIP (device-independent pixel) space to avoid scaling artifacts at non-100% DPI:
+
+- `EnsureTransform()` auto-reads the device→DIP matrix from `PresentationSource.FromVisual(_canvas)` on first render. Falls back to identity if unavailable.
+- `ComputeRegionFromCells(cells)` transforms only the two corners (top-left of first cell, bottom-right of last cell) to DIP, producing a `Rect` region.
+- `DipRectForCell(row, col, region, cols, rows)` subdivides the region evenly — no per-cell integer rounding, so cells tile perfectly at any DPI.
+
+### Font Auto-Scaling
+
+Labels auto-scale to fill a fraction of cell height:
+
+- **L1 grid**: 80% of cell height (`heightFraction = 0.8`)
+- **L2/L3 subgrids**: 90% of cell height (`heightFraction = 0.9`) for tighter packing before switching to external labels
+- Primary constraint is height (cells are wider than tall), with a secondary cap at 95% of half-width to prevent horizontal overflow.
+- Font size clamped to `[minLabelFontSize .. theme.LabelFontSize * 3]`.
+- Method: `ComputeAutoFontSize(cellHalfWidth, cellHeight, heightFraction)`.
+
+### Split-Screen Rendering
+
+- `RenderBothHalves(leftCells, rightCells)` renders both halves in a single pass, switching `_activeLabelGenerator` for each half.
+- `SetActiveHalf(ScreenHalf)` switches the active label generator for subsequent `HighlightColumn`/`HighlightCell`/`RenderSubgrid` calls.
+- `NavigatorCoordinator` tracks `_activeHalf` and sets `_currentCells` to the active half's cell list on `ColumnHighlighted`.
+
 ### External Label Rendering
 
 When subgrid cells are too small to fit labels (cell DIP height < `MinLabelFontSize * 1.8`), `GridRenderer.RenderSubgrid` switches to external label layout:
@@ -165,8 +214,8 @@ When subgrid cells are too small to fit labels (cell DIP height < `MinLabelFontS
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.
 - Written on first run from embedded `config.json` template if absent.
-- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `firstKeys`/`secondKeys` (VKey lists), `level3CellSizeThreshold`, `logLevel`, `navigationMode`, `theme`.
-- Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; all violations collected and surfaced via tray notification list.
+- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `keySets.left`/`keySets.right` (each with `firstKeys`/`secondKeys` VKey arrays), `level3CellSizeThreshold`, `logLevel`, `navigationMode`, `theme`.
+- Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; left/right first-key overlap (must be disjoint); per-half first/second key overlap; all violations collected and surfaced via tray notification list.
 
 ## Logging
 

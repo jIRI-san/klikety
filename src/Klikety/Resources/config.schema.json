@@ -50,27 +50,73 @@
     },
     "keySets": {
       "type": "object",
-      "description": "VKey lists for the two-key grid navigation scheme.",
+      "description": "Split-screen two-key grid navigation. Screen is divided in half; left-hand keys control the left half, right-hand keys control the right half.",
       "properties": {
-        "firstKeys": {
-          "type": "array",
-          "description": "First-key VKey list (selects grid column). Default: QWERTY home row (9 keys).",
-          "items": { "type": "string" },
-          "default": ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-          "examples": [
-            ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-            ["A", "O", "E", "U", "I", "D", "H", "T", "N"]
-          ]
+        "left": {
+          "type": "object",
+          "description": "Key bindings for the left screen half.",
+          "properties": {
+            "firstKeys": {
+              "type": "array",
+              "description": "First-key VKey list for left half (selects grid column).",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "A",
+                "S",
+                "D",
+                "F"
+              ]
+            },
+            "secondKeys": {
+              "type": "array",
+              "description": "Second-key VKey list for left half (selects grid row).",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "W",
+                "E",
+                "R",
+                "T"
+              ]
+            }
+          },
+          "additionalProperties": false
         },
-        "secondKeys": {
-          "type": "array",
-          "description": "Second-key VKey list (selects grid row). Default: QWERTY top row non-pinky (8 keys).",
-          "items": { "type": "string" },
-          "default": ["W", "E", "R", "T", "Y", "U", "I", "O"],
-          "examples": [
-            ["W", "E", "R", "T", "Y", "U", "I", "O"],
-            ["OemComma", "OemPeriod", "P", "Y", "F", "G", "C", "R"]
-          ]
+        "right": {
+          "type": "object",
+          "description": "Key bindings for the right screen half.",
+          "properties": {
+            "firstKeys": {
+              "type": "array",
+              "description": "First-key VKey list for right half (selects grid column).",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "J",
+                "K",
+                "L",
+                "OemSemicolon"
+              ]
+            },
+            "secondKeys": {
+              "type": "array",
+              "description": "Second-key VKey list for right half (selects grid row).",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "Y",
+                "U",
+                "I",
+                "O"
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

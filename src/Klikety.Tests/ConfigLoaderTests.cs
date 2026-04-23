@@ -11,9 +11,11 @@ public class ConfigLoaderTests
         var result = ConfigLoader.Load(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));
         Assert.Empty(result.Violations);
         Assert.Equal(NavigationMode.Both, result.Config.NavigationMode);
-        Assert.Equal(9, result.Config.KeySets.FirstKeys.Length);
-        Assert.Equal(8, result.Config.KeySets.SecondKeys.Length);
-    }
+    Assert.Equal(4, result.Config.KeySets.Left.FirstKeys.Length);
+    Assert.Equal(4, result.Config.KeySets.Left.SecondKeys.Length);
+    Assert.Equal(4, result.Config.KeySets.Right.FirstKeys.Length);
+    Assert.Equal(4, result.Config.KeySets.Right.SecondKeys.Length);
+  }
 
     [Fact]
     public void Load_ValidJsonc_ParsesCorrectly()
@@ -56,8 +58,8 @@ public class ConfigLoaderTests
         var json = """
         {
             "keySets": {
-                "firstKeys": ["A", "S", "Escape", "F"],
-                "secondKeys": ["W", "E", "R", "T"]
+                "left": { "firstKeys": ["A", "S", "Escape", "F"], "secondKeys": ["W", "E", "R", "T"] },
+                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
             }
         }
         """;
@@ -76,8 +78,8 @@ public class ConfigLoaderTests
         var json = """
         {
             "keySets": {
-                "firstKeys": ["A", "S", "D", "F"],
-                "secondKeys": ["W", "Return", "R", "T"]
+                "left": { "firstKeys": ["A", "S", "D", "F"], "secondKeys": ["W", "Return", "R", "T"] },
+                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
             }
         }
         """;
@@ -96,8 +98,8 @@ public class ConfigLoaderTests
         var json = """
         {
             "keySets": {
-                "firstKeys": ["A", "S", "D", "W"],
-                "secondKeys": ["W", "E", "R", "T"]
+                "left": { "firstKeys": ["A", "S", "D", "W"], "secondKeys": ["W", "E", "R", "T"] },
+                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
             }
         }
         """;
@@ -116,8 +118,8 @@ public class ConfigLoaderTests
         var json = """
         {
             "keySets": {
-                "firstKeys": ["A", "S", "D", "F"],
-                "secondKeys": ["W", "E", "R", "T"]
+                "left": { "firstKeys": ["A", "S", "D", "F"], "secondKeys": ["W", "E", "R", "T"] },
+                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
             },
             "actionBindings": {
                 "A": "RightClick"
@@ -139,8 +141,8 @@ public class ConfigLoaderTests
         var json = """
         {
             "keySets": {
-                "firstKeys": ["A", "S", "A", "F"],
-                "secondKeys": ["W", "E", "R", "T"]
+                "left": { "firstKeys": ["A", "S", "A", "F"], "secondKeys": ["W", "E", "R", "T"] },
+                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
             }
         }
         """;

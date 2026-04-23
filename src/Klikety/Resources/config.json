@@ -21,22 +21,38 @@
     "V": "RightClick"
   },
 
-  // VKey lists for the two-key grid navigation scheme.
-  // First key selects a column, second key selects a row → 9×8 = 72 cells per level.
+  // VKey lists for split-screen two-key grid navigation.
+  // Screen is split in half. Left half uses left-hand keys, right half uses right-hand keys.
+  // First key selects a column, second key selects a row → 4×4 = 16 cells per half per level.
   "keySets": {
-    // First-key: QWERTY home row (9 keys). Selects grid column.
-    "firstKeys": ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-
-    // Second-key: QWERTY top row non-pinky (8 keys). Selects grid row.
-    "secondKeys": ["W", "E", "R", "T", "Y", "U", "I", "O"]
-
-    // DVORAK example:
-    // "firstKeys": ["A", "O", "E", "U", "I", "D", "H", "T", "N"],
-    // "secondKeys": ["OemComma", "OemPeriod", "P", "Y", "F", "G", "C", "R"]
-
-    // Colemak example:
-    // "firstKeys": ["A", "R", "S", "T", "D", "H", "N", "E", "I"],
-    // "secondKeys": ["W", "F", "P", "G", "J", "L", "U", "Y"]
+    "left": {
+      "firstKeys": [
+        "A",
+        "S",
+        "D",
+        "F"
+      ],
+      "secondKeys": [
+        "W",
+        "E",
+        "R",
+        "T"
+      ]
+    },
+    "right": {
+      "firstKeys": [
+        "J",
+        "K",
+        "L",
+        "OemSemicolon"
+      ],
+      "secondKeys": [
+        "Y",
+        "U",
+        "I",
+        "O"
+      ]
+    }
   },
 
   // Physical pixel² area threshold for level-3 auto-activation.

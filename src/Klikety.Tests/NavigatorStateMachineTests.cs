@@ -14,8 +14,10 @@ public class NavigatorStateMachineTests
     private static NavigatorStateMachine CreateMachine(NavigationMode mode = NavigationMode.Both)
     {
         var mapper = new ActionMapper(new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase));
-        return new NavigatorStateMachine(FirstKeys, SecondKeys, mapper, mode, 40000);
-    }
+    var left = new HalfKeySetsConfig { FirstKeys = FirstKeys, SecondKeys = SecondKeys };
+    var right = new HalfKeySetsConfig { FirstKeys = [VKey.J, VKey.K, VKey.L], SecondKeys = [VKey.U, VKey.I] };
+    return new NavigatorStateMachine(left, right, mapper, mode, 40000);
+  }
 
     private static IReadOnlyList<GridCell> CreateGrid()
     {
@@ -36,9 +38,9 @@ public class NavigatorStateMachineTests
         var sm = CreateMachine();
         sm.Activate(CreateGrid(), new Point(0, 0));
         int? highlightedCol = null;
-        sm.ColumnHighlighted += col => highlightedCol = col;
+    sm.ColumnHighlighted += (half, col) => highlightedCol = col;
 
-        sm.OnKey(VKey.A); // firstKeys[0]
+    sm.OnKey(VKey.A); // firstKeys[0]
         Assert.Equal(NavigatorState.L1_AwaitSecond, sm.State);
         Assert.Equal(0, highlightedCol);
     }
@@ -178,8 +180,8 @@ public class NavigatorStateMachineTests
     {
         var sm = CreateMachine();
         bool anyEvent = false;
-        sm.ColumnHighlighted += _ => anyEvent = true;
-        sm.CellHighlighted += _ => anyEvent = true;
+    sm.ColumnHighlighted += (_, _) => anyEvent = true;
+    sm.CellHighlighted += _ => anyEvent = true;
         sm.ActionRequested += (_, _) => anyEvent = true;
         sm.Cancelled += _ => anyEvent = true;
 
@@ -258,9 +260,9 @@ public class NavigatorStateMachineTests
         sm.OnKey(VKey.A); // col 0 → AwaitSecond
 
         int? newCol = null;
-        sm.ColumnHighlighted += col => newCol = col;
+    sm.ColumnHighlighted += (half, col) => newCol = col;
 
-        sm.OnKey(VKey.S); // first key (col 1) at AwaitSecond → re-entry
+    sm.OnKey(VKey.S); // first key (col 1) at AwaitSecond → re-entry
         Assert.Equal(NavigatorState.L1_AwaitSecond, sm.State);
         Assert.Equal(1, newCol); // column changed to S's index
     }

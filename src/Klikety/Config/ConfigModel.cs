@@ -25,27 +25,43 @@ public sealed class HotKeyConfig
 }
 
 /// <summary>
-/// First-key and second-key sets used by the two-key grid navigation scheme.
+/// First-key and second-key sets for one half of the screen.
+/// </summary>
+public sealed class HalfKeySetsConfig
+{
+  /// <summary>
+  /// First-key VKey list (selects grid column within this half).
+  /// </summary>
+  public VKey[] FirstKeys { get; init; } = [];
+
+  /// <summary>
+  /// Second-key VKey list (selects grid row within this half).
+  /// </summary>
+  public VKey[] SecondKeys { get; init; } = [];
+}
+
+/// <summary>
+/// Split-screen key sets: left-hand keys control the left half, right-hand keys the right half.
 /// </summary>
 public sealed class KeySetsConfig
 {
-    /// <summary>
-    /// First-key VKey list (selects grid column). Default: QWERTY home row.
-    /// </summary>
-    public VKey[] FirstKeys { get; init; } =
-    [
-        VKey.A, VKey.S, VKey.D, VKey.F, VKey.G,
-        VKey.H, VKey.J, VKey.K, VKey.L,
-    ];
+  /// <summary>
+  /// Left half of the screen — left-hand keys. Default: ASDF / WERT (4×4).
+  /// </summary>
+  public HalfKeySetsConfig Left { get; init; } = new()
+  {
+    FirstKeys = [VKey.A, VKey.S, VKey.D, VKey.F],
+    SecondKeys = [VKey.W, VKey.E, VKey.R, VKey.T],
+  };
 
-    /// <summary>
-    /// Second-key VKey list (selects grid row). Default: QWERTY top row (non-pinky).
-    /// </summary>
-    public VKey[] SecondKeys { get; init; } =
-    [
-        VKey.W, VKey.E, VKey.R, VKey.T,
-        VKey.Y, VKey.U, VKey.I, VKey.O,
-    ];
+  /// <summary>
+  /// Right half of the screen — right-hand keys. Default: JKL; / YUIO (4×4).
+  /// </summary>
+  public HalfKeySetsConfig Right { get; init; } = new()
+  {
+    FirstKeys = [VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
+    SecondKeys = [VKey.Y, VKey.U, VKey.I, VKey.O],
+  };
 }
 
 /// <summary>

@@ -18,15 +18,14 @@ public class NavigatorCoordinatorTests
         var hotKey = new FakeHotKeyService();
         var hook = new FakeKeyboardHookService();
         var mouse = new FakeMouseActionService();
-        var overlay = new FakeOverlayWindow();
-        var labelGen = new LabelGenerator(config.KeySets.FirstKeys, config.KeySets.SecondKeys);
-        var actionMapper = new ActionMapper(config.ActionBindings);
+    var overlay = new FakeOverlayWindow();
+    var actionMapper = new ActionMapper(config.ActionBindings);
         var sm = new NavigatorStateMachine(
-            config.KeySets.FirstKeys, config.KeySets.SecondKeys,
+            config.KeySets.Left, config.KeySets.Right,
             actionMapper, config.NavigationMode, config.Level3CellSizeThreshold);
 
         var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sm, null, labelGen, config,
+            hotKey, hook, mouse, overlay, sm, null, config,
             NullLogger.Instance);
 
         return (coordinator, hotKey, hook, mouse, overlay);

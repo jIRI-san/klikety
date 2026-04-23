@@ -16,45 +16,119 @@ public sealed class GridRenderer
 {
     private readonly Canvas _canvas;
     private readonly ThemeModel _theme;
-    private readonly LabelGenerator _labelGenerator;
-    private readonly double _minLabelFontSize;
+  private readonly LabelGenerator _leftLabelGenerator;
+  private readonly LabelGenerator _rightLabelGenerator;
+  private readonly double _minLabelFontSize;
 
-    // DIP transform — set once when overlay is shown
-    private Matrix _transformFromDevice = Matrix.Identity;
+  // Which label generator to use for current render operations
+  private LabelGenerator _activeLabelGenerator;
 
-    public GridRenderer(Canvas canvas, ThemeModel theme, LabelGenerator labelGenerator, double minLabelFontSize = 10.0)
-    {
+  // DIP transform — auto-initialized from canvas PresentationSource on first render
+  private Matrix _transformFromDevice = Matrix.Identity;
+  private bool _transformInitialized;
+
+  public GridRenderer(Canvas canvas, ThemeModel theme, LabelGenerator leftLabelGenerator, LabelGenerator rightLabelGenerator, double minLabelFontSize = 10.0)
+  {
         _canvas = canvas;
         _theme = theme;
-        _labelGenerator = labelGenerator;
-        _minLabelFontSize = minLabelFontSize;
-    }
-
-    /// <summary>
-    /// Sets the device→DIP transform matrix. Call once when overlay is shown.
-    /// </summary>
-    public void SetTransform(Matrix transformFromDevice)
-    {
-        _transformFromDevice = transformFromDevice;
+    _leftLabelGenerator = leftLabelGenerator;
+    _rightLabelGenerator = rightLabelGenerator;
+    _activeLabelGenerator = leftLabelGenerator;
+    _minLabelFontSize = minLabelFontSize;
     }
 
   /// <summary>
-  /// Adds two TextBlocks for a cell label: First centered in the left half,
-  /// Second centered in the right half.
+  /// Sets the device→DIP transform matrix. Call once when overlay is shown.
+  /// If never called, auto-initialized from the canvas PresentationSource.
   /// </summary>
-  private void AddLabel(Rect dipRect, int row, int col, Brush foreground, double opacity = 1.0)
+  public void SetTransform(Matrix transformFromDevice)
+    {
+        _transformFromDevice = transformFromDevice;
+    _transformInitialized = true;
+  }
+
+  /// <summary>
+  /// Auto-initializes transform from the canvas's PresentationSource if not set.
+  /// </summary>
+  private void EnsureTransform()
   {
-    var cellLabel = _labelGenerator.LabelFor(row, col);
+    if (_transformInitialized) return;
+    var source = PresentationSource.FromVisual(_canvas);
+    if (source?.CompositionTarget != null)
+    {
+      _transformFromDevice = source.CompositionTarget.TransformFromDevice;
+      _transformInitialized = true;
+    }
+  }
+
+  /// <summary>
+  /// Computes the DIP region covered by a set of cells, accounting for DPI scaling.
+  /// Transforms only the corners of the full cell range to DIP, then uses that
+  /// as the basis for even subdivision — no per-cell int rounding.
+  /// </summary>
+  private Rect ComputeRegionFromCells(IReadOnlyList<GridCell> cells)
+  {
+    var first = cells[0].Bounds;
+    var last = cells[^1].Bounds;
+    var topLeft = _transformFromDevice.Transform(new Point(first.X, first.Y));
+    var bottomRight = _transformFromDevice.Transform(new Point(
+        last.X + last.Width,
+        last.Y + last.Height));
+    return new Rect(topLeft, bottomRight);
+  }
+
+  /// <summary>
+  /// Computes the DIP rect for a specific cell by evenly subdividing a region.
+  /// No int rounding — cells tile perfectly.
+  /// </summary>
+  private static Rect DipRectForCell(int row, int col, Rect region, int totalCols, int totalRows)
+  {
+    double cellWidth = region.Width / totalCols;
+    double cellHeight = region.Height / totalRows;
+    return new Rect(
+        region.X + col * cellWidth,
+        region.Y + row * cellHeight,
+        cellWidth,
+        cellHeight);
+  }
+
+  /// <summary>
+  /// Computes auto-scaled font size so characters fill a fraction of cell height.
+  /// <paramref name="heightFraction"/> is 0.8 for L1, 0.9 for L2/L3 subgrids.
+  /// Clamped to [_minLabelFontSize .. theme.LabelFontSize * 3].
+  /// </summary>
+  private double ComputeAutoFontSize(double cellHalfWidth, double cellHeight, double heightFraction = 0.8)
+  {
+    // Target: fill heightFraction of cell height
+    // WPF text line height ≈ 1.2 × fontSize
+    double fontFromHeight = cellHeight * heightFraction / 1.2;
+
+    // Also cap by half-width so character doesn't overflow horizontally
+    // Approximate character aspect ratio for Segoe UI: width ≈ 0.55 × fontSize
+    double fontFromWidth = cellHalfWidth * 0.95 / 0.55;
+
+    double fontSize = Math.Min(fontFromHeight, fontFromWidth);
+    return Math.Clamp(fontSize, _minLabelFontSize, _theme.LabelFontSize * 3);
+  }
+
+  /// <summary>
+  /// Adds two TextBlocks for a cell label: First centered in the left half,
+  /// Second centered in the right half. Font auto-scaled to 80% of cell half-width.
+  /// </summary>
+  private void AddLabel(Rect dipRect, int row, int col, Brush foreground, double opacity = 1.0, double heightFraction = 0.8)
+  {
+    var cellLabel = _activeLabelGenerator.LabelFor(row, col);
     double halfWidth = dipRect.Width / 2;
     var fontFamily = new FontFamily(_theme.LabelFontFamily);
     var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
+    double fontSize = ComputeAutoFontSize(halfWidth, dipRect.Height, heightFraction);
 
     var first = new TextBlock
     {
       Text = cellLabel.First,
       Foreground = foreground,
       FontFamily = fontFamily,
-      FontSize = _theme.LabelFontSize,
+      FontSize = fontSize,
       FontWeight = fontWeight,
       TextAlignment = TextAlignment.Center,
       Opacity = opacity,
@@ -69,7 +143,7 @@ public sealed class GridRenderer
       Text = cellLabel.Second,
       Foreground = foreground,
       FontFamily = fontFamily,
-      FontSize = _theme.LabelFontSize,
+      FontSize = fontSize,
       FontWeight = fontWeight,
       TextAlignment = TextAlignment.Center,
       Opacity = opacity,
@@ -81,22 +155,91 @@ public sealed class GridRenderer
   }
 
   /// <summary>
+  /// Sets the active label generator for subsequent render calls.
+  /// </summary>
+  public void SetActiveHalf(Navigation.ScreenHalf half)
+  {
+    _activeLabelGenerator = half == Navigation.ScreenHalf.Left ? _leftLabelGenerator : _rightLabelGenerator;
+  }
+
+  /// <summary>
+  /// Renders both halves of the split-screen grid with labels.
+  /// </summary>
+  public void RenderBothHalves(IReadOnlyList<GridCell> leftCells, IReadOnlyList<GridCell> rightCells)
+  {
+    _canvas.Children.Clear();
+    EnsureTransform();
+
+    var borderBrush = BrushFromHex(_theme.CellBorderColor);
+    var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
+    var labelBrush = BrushFromHex(_theme.LabelColor);
+
+    // Render left half
+    if (leftCells.Count > 0)
+    {
+      _activeLabelGenerator = _leftLabelGenerator;
+      var region = ComputeRegionFromCells(leftCells);
+      int cols = _leftLabelGenerator.Cols;
+      int rows = _leftLabelGenerator.Rows;
+      RenderCellsInRegion(leftCells, region, cols, rows, borderBrush, bgBrush, labelBrush);
+    }
+
+    // Render right half
+    if (rightCells.Count > 0)
+    {
+      _activeLabelGenerator = _rightLabelGenerator;
+      var region = ComputeRegionFromCells(rightCells);
+      int cols = _rightLabelGenerator.Cols;
+      int rows = _rightLabelGenerator.Rows;
+      RenderCellsInRegion(rightCells, region, cols, rows, borderBrush, bgBrush, labelBrush);
+    }
+  }
+
+  private void RenderCellsInRegion(IReadOnlyList<GridCell> cells, Rect region, int cols, int rows,
+      Brush borderBrush, Brush bgBrush, Brush labelBrush)
+  {
+    foreach (var cell in cells)
+    {
+      var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
+
+      var bg = new Rectangle
+      {
+        Width = dipRect.Width,
+        Height = dipRect.Height,
+        Fill = bgBrush,
+        Stroke = borderBrush,
+        StrokeThickness = _theme.CellBorderThickness,
+      };
+      Canvas.SetLeft(bg, dipRect.X);
+      Canvas.SetTop(bg, dipRect.Y);
+      _canvas.Children.Add(bg);
+
+      AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
+    }
+  }
+
+  /// <summary>
   /// Renders the full grid (all cells with borders and labels).
+  /// Used for single-half rendering after column highlight.
   /// </summary>
   public void RenderGrid(IReadOnlyList<GridCell> cells)
     {
         _canvas.Children.Clear();
+    EnsureTransform();
 
-        var borderBrush = BrushFromHex(_theme.CellBorderColor);
+    var region = ComputeRegionFromCells(cells);
+    int cols = _activeLabelGenerator.Cols;
+    int rows = _activeLabelGenerator.Rows;
+
+    var borderBrush = BrushFromHex(_theme.CellBorderColor);
         var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
         var labelBrush = BrushFromHex(_theme.LabelColor);
 
         foreach (var cell in cells)
         {
-            var dipRect = ToDip(cell.Bounds);
+      var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
 
-            // Cell background
-            var bg = new Rectangle
+      var bg = new Rectangle
             {
                 Width = dipRect.Width,
                 Height = dipRect.Height,
@@ -118,8 +261,13 @@ public sealed class GridRenderer
     public void HighlightColumn(IReadOnlyList<GridCell> cells, int col)
     {
         _canvas.Children.Clear();
+    EnsureTransform();
 
-        var borderBrush = BrushFromHex(_theme.CellBorderColor);
+    var region = ComputeRegionFromCells(cells);
+    int cols = _activeLabelGenerator.Cols;
+    int rows = _activeLabelGenerator.Rows;
+
+    var borderBrush = BrushFromHex(_theme.CellBorderColor);
         var normalBg = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
         var dimBrush = BrushFromHex(_theme.DimmedOverlayColor, _theme.DimmedOverlayOpacity);
         var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, 0.5);
@@ -128,8 +276,8 @@ public sealed class GridRenderer
 
         foreach (var cell in cells)
         {
-            var dipRect = ToDip(cell.Bounds);
-            bool isHighlighted = cell.Col == col;
+      var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
+      bool isHighlighted = cell.Col == col;
 
             var bg = new Rectangle
             {
@@ -153,8 +301,13 @@ public sealed class GridRenderer
     public void HighlightCell(IReadOnlyList<GridCell> cells, GridCell highlightedCell)
     {
         _canvas.Children.Clear();
+    EnsureTransform();
 
-        var borderBrush = BrushFromHex(_theme.CellBorderColor);
+    var region = ComputeRegionFromCells(cells);
+    int cols = _activeLabelGenerator.Cols;
+    int rows = _activeLabelGenerator.Rows;
+
+    var borderBrush = BrushFromHex(_theme.CellBorderColor);
         var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
         var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, 0.5);
         var highlightBorder = BrushFromHex(_theme.HighlightedColumnBorderColor);
@@ -162,8 +315,8 @@ public sealed class GridRenderer
 
         foreach (var cell in cells)
         {
-            var dipRect = ToDip(cell.Bounds);
-            bool isHighlighted = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
+      var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
+      bool isHighlighted = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
 
             var bg = new Rectangle
             {
@@ -190,9 +343,14 @@ public sealed class GridRenderer
         _canvas.Children.Clear();
 
         if (cells.Count == 0) return;
+    EnsureTransform();
 
-        var firstDip = ToDip(cells[0].Bounds);
-        bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, _minLabelFontSize);
+    var region = ComputeRegionFromCells(cells);
+    int cols = _activeLabelGenerator.Cols;
+    int rows = _activeLabelGenerator.Rows;
+
+    var firstDip = DipRectForCell(0, 0, region, cols, rows);
+    bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, _minLabelFontSize);
 
         var borderBrush = BrushFromHex(_theme.SubgridBorderColor);
         var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
@@ -200,9 +358,9 @@ public sealed class GridRenderer
         // Draw cell backgrounds
         foreach (var cell in cells)
         {
-            var dipRect = ToDip(cell.Bounds);
+      var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
 
-            var bg = new Rectangle
+      var bg = new Rectangle
             {
                 Width = dipRect.Width,
                 Height = dipRect.Height,
@@ -217,48 +375,44 @@ public sealed class GridRenderer
 
         if (useExternalLabels)
         {
-            RenderExternalLabels(cells);
-        }
+      RenderExternalLabels(cells, region);
+    }
         else
         {
-            var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
+      // Subgrids use 90% height fill for tighter packing before going external
+      var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
             foreach (var cell in cells)
             {
-                AddLabel(ToDip(cell.Bounds), cell.Row, cell.Col, labelBrush);
-            }
+        AddLabel(DipRectForCell(cell.Row, cell.Col, region, cols, rows), cell.Row, cell.Col, labelBrush, heightFraction: 0.9);
+      }
         }
     }
 
-    /// <summary>
-    /// Renders labels outside the subgrid: column keys along the top, row keys along
-    /// the left side, with connector lines linking labels to their grid column/row.
-    /// </summary>
-    private void RenderExternalLabels(IReadOnlyList<GridCell> cells)
-    {
+  /// <summary>
+  /// Renders labels outside the subgrid: column keys along the top, row keys along
+  /// the left side, with connector lines linking labels to their grid column/row.
+  /// </summary>
+  private void RenderExternalLabels(IReadOnlyList<GridCell> cells, Rect region)
+  {
         var extLabelBrush = BrushFromHex(_theme.ExternalLabelColor);
         var connectorBrush = BrushFromHex(_theme.ConnectorLineColor);
         var fontFamily = new FontFamily(_theme.LabelFontFamily);
         var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
         double fontSize = Math.Max(_minLabelFontSize, _theme.LabelFontSize * 0.8);
 
-        // Determine grid bounds from cells
-        var gridTopLeft = ToDip(cells[0].Bounds);
-        var lastCell = ToDip(cells[^1].Bounds);
-        double gridLeft = gridTopLeft.X;
-        double gridTop = gridTopLeft.Y;
-        double gridRight = lastCell.X + lastCell.Width;
-        double gridBottom = lastCell.Y + lastCell.Height;
+    int cols = _activeLabelGenerator.Cols;
+    int rows = _activeLabelGenerator.Rows;
 
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+    double gridLeft = region.X;
+    double gridTop = region.Y;
 
-        // External column labels (first keys) above the grid
-        double labelMargin = fontSize * 1.5;
+    // External column labels (first keys) above the grid
+    double labelMargin = fontSize * 1.5;
         for (int c = 0; c < cols && c < cells.Count; c++)
         {
-            var cellDip = ToDip(cells[c].Bounds);
-            var cellLabel = _labelGenerator.LabelFor(0, c);
-            double colCenter = cellDip.X + cellDip.Width / 2;
+      var cellDip = DipRectForCell(0, c, region, cols, rows);
+      var cellLabel = _activeLabelGenerator.LabelFor(0, c);
+      double colCenter = cellDip.X + cellDip.Width / 2;
 
             // Label above grid
             var tb = new TextBlock
@@ -293,9 +447,9 @@ public sealed class GridRenderer
             int cellIndex = r * cols;
             if (cellIndex >= cells.Count) break;
 
-            var cellDip = ToDip(cells[cellIndex].Bounds);
-            var cellLabel = _labelGenerator.LabelFor(r, 0);
-            double rowCenter = cellDip.Y + cellDip.Height / 2;
+      var cellDip = DipRectForCell(r, 0, region, cols, rows);
+      var cellLabel = _activeLabelGenerator.LabelFor(r, 0);
+      double rowCenter = cellDip.Y + cellDip.Height / 2;
 
             // Label to left of grid
             var tb = new TextBlock
@@ -325,16 +479,7 @@ public sealed class GridRenderer
         }
     }
 
-    private Rect ToDip(System.Drawing.Rectangle physicalRect)
-    {
-        var topLeft = _transformFromDevice.Transform(new Point(physicalRect.X, physicalRect.Y));
-        var bottomRight = _transformFromDevice.Transform(new Point(
-            physicalRect.X + physicalRect.Width,
-            physicalRect.Y + physicalRect.Height));
-        return new Rect(topLeft, bottomRight);
-    }
-
-    private static SolidColorBrush BrushFromHex(string hex, double opacity = 1.0)
+  private static SolidColorBrush BrushFromHex(string hex, double opacity = 1.0)
     {
         var color = (Color)ColorConverter.ConvertFromString(hex);
         var brush = new SolidColorBrush(color) { Opacity = opacity };

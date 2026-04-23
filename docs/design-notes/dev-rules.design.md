@@ -13,3 +13,6 @@ globs:
   - `dotnet build` not `& dotnet build`
   - `.github/agents/scripts/get-diff-uncommitted.ps1 --files` not `powershell -File .github/agents/scripts/get-diff-uncommitted.ps1 --files`
   - If calling a variable-path executable, assign it first then call by name.
+
+- **Never use `git add -A`, `git add .`, or `git add --all`** — stage only files the agent directly created or modified. Blanket staging risks committing unrelated or temporary files:
+  - `git add src/Foo.cs src/Bar.cs` not `git add -A`

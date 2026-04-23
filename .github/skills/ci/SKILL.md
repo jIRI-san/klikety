@@ -106,7 +106,7 @@ Ask: **"Ready to commit? (yes / no)"**
 Wait for explicit "yes" before proceeding.
 
 On approval:
-1. Stage all changes: `git add -A`
+1. Stage only the files touched in this step: `git add <file1> <file2> ...` (never `git add -A`)
 2. Commit: `git commit -m "feat(<scope>): <step title> [plan-NNN step X.Y]"`
    - `scope`: the primary subsystem changed (e.g. `scheduling`, `orchestration`)
 3. Mark the step `[x]` in the plan file.
@@ -129,6 +129,6 @@ If complete:
 1. Edit the plan file title to append `[DONE]`: `# NNN: Plan Title [DONE]`
 2. Move the file to `docs/implementation-plans/archive/` using PowerShell (Move-Item handles the delete of the original):
    `Move-Item docs/implementation-plans/<file>.md docs/implementation-plans/archive/<file>.md`
-3. Stage the move: `git add -A`
+3. Stage the move: `git add docs/implementation-plans/archive/<file>.md` and `git rm docs/implementation-plans/<file>.md`
 4. Commit: `git commit -m "chore: archive completed plan NNN"`
 5. Tell the user: "Plan NNN is complete and archived."

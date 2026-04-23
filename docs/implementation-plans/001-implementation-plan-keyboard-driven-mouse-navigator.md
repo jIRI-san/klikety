@@ -76,7 +76,7 @@
 ## Phase 1: Project Foundation
 
 - [x] 1.1 Scaffold solution: `Klikety.sln`, `src/Klikety/Klikety.csproj` (WPF, net9.0-windows), `src/Klikety.Tests/Klikety.Tests.csproj` (xUnit, net9.0-windows) (REQ-1, REQ-15)
-- [ ] 1.2 Create design note `docs/design-notes/keyboard-navigator.design.md` covering overlay lifecycle, state machine, Win32 interop, and key scheme (REQ-3, REQ-16)
+- [x] 1.2 Create design note `docs/design-notes/keyboard-navigator.design.md` covering overlay lifecycle, state machine, Win32 interop, and key scheme (REQ-3, REQ-16)
 
 ## Phase 2: Config System
 

@@ -75,12 +75,12 @@
 
 ## Phase 1: Project Foundation
 
-- [x] 1.1 Scaffold solution: `Klikety.sln`, `src/Klikety/Klikety.csproj` (WPF, net9.0-windows), `src/Klikety.Tests/Klikety.Tests.csproj` (xUnit, net9.0-windows) (REQ-1, REQ-15)
+- [x] 1.1 Scaffold solution: `Klikety.slnx`, `src/Klikety/Klikety.csproj` (WPF, net10.0-windows), `src/Klikety.Tests/Klikety.Tests.csproj` (xUnit, net10.0-windows) (REQ-1, REQ-15)
 - [x] 1.2 Create design note `docs/design-notes/keyboard-navigator.design.md` covering overlay lifecycle, state machine, Win32 interop, and key scheme (REQ-3, REQ-16)
 
 ## Phase 2: Config System
 
-- [ ] 2.1 Define `ConfigModel` POCO: `HotKey` (modifier + `VKey` enum), `ActionBindings` (`VKey` → `MouseAction` enum), `KeySets` (first-key `VKey` list, second-key `VKey` list), `Level3CellSizeThreshold` (int physical pixels²), `LogLevel`, `NavigationMode` enum (`TwoKey` | `Arrow` | `Both`; default `Both`) (REQ-13, REQ-24)
+- [~] 2.1 Define `ConfigModel` POCO: `HotKey` (modifier + `VKey` enum), `ActionBindings` (`VKey` → `MouseAction` enum), `KeySets` (first-key `VKey` list, second-key `VKey` list), `Level3CellSizeThreshold` (int physical pixels²), `LogLevel`, `NavigationMode` enum (`TwoKey` | `Arrow` | `Both`; default `Both`) (REQ-13, REQ-24)
 - [ ] 2.2 `ConfigLoader`: read `%APPDATA%\Klikety\config.json` via `System.Text.Json` with `JsonCommentHandling.Skip`; apply defaults when file absent or fields missing; validate key set constraints and key-binding conflicts (reserved keys, action/navigation overlaps; arrow VKeys + `VK_RETURN` always excluded from `firstKeys`/`secondKeys`/`ActionBindings` as permanently reserved); collect all violations and return as list for tray notification (REQ-13, REQ-22, REQ-24) [after: 2.1]
 - [ ] 2.3 `StartupValidator`: attempt `RegisterHotKey` probe; if conflict, store validation error for tray notification at startup (REQ-14) [after: 2.1]
 - [ ] 2.4 Author `config.schema.json` (embedded resource): full JSON Schema covering every `ConfigModel` field with `description`, `type`, `default`, and examples; VKey names enumerated; referenced via `$schema` in default config (REQ-13a) [after: 2.1]

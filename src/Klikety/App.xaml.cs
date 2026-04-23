@@ -1,18 +1,17 @@
-﻿using System.Configuration;
-using System.Data;
-using System.Windows;
+﻿using System.Windows;
 
 namespace Klikety;
 
-/// <summary>
-/// Interaction logic for App.xaml
-/// </summary>
 public partial class App : Application
 {
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        // TODO: bootstrap tray icon and hotkey service (Phase 7)
+        // TODO (Phase 7): bootstrap tray icon and hotkey service.
+        // Until then, shut down immediately so the process doesn't become a zombie.
+#if DEBUG
+        Shutdown();
+#endif
     }
 }
 

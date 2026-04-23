@@ -174,7 +174,7 @@
 
 ## Phase 10: EditorConfig
 
-- [ ] 10.1 Add `.editorconfig` at repo root — C# conventions (namespace style, var preferences, nullable, indentation), Markdown/JSON/YAML formatting rules, aligned with existing codebase style
+- [x] 10.1 Add `.editorconfig` at repo root — C# conventions (namespace style, var preferences, nullable, indentation), Markdown/JSON/YAML formatting rules, aligned with existing codebase style
 
 ## Phase 11: External Label Rendering for Small Subgrids
 

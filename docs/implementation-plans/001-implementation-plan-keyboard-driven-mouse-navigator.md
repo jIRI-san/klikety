@@ -14,9 +14,9 @@
 - Ship `config.schema.json` alongside the app with `description` on every property, enum values, defaults, and examples; referenced via `$schema` in config file
 - Ship a default `config.json` with inline `//` comments documenting every field; written to `%APPDATA%\Klikety\` on first run if absent
 - Global hotkey via Win32 `RegisterHotKey`; conflict detected at startup (return value check); surfaced as tray notification
-- System tray icon (WinForms NotifyIcon interop); `ShutdownMode=OnExplicitShutdown`; no main window; context menu: "About", "Open Configuration Folder", "Quit"
+- System tray icon via `H.NotifyIcon.Wpf` (pure WPF, no WinForms dependency); `ShutdownMode=OnExplicitShutdown`; no main window; context menu: "About", "Open Configuration Folder", "Quit"
 - Win32 `SendInput` for mouse movement and clicks; absolute coordinates normalized to 0–65535 range; all geometry in physical pixels; single DIP→physical-pixel conversion at WPF rendering boundary using `PresentationSource` transform
-- Screen bounds from `Screen.PrimaryScreen.Bounds` (WinForms); same source used by `GridCalculator` and `MouseActionService` to keep geometry consistent
+- Screen bounds from Win32 P/Invoke: `GetMonitorInfo` on the primary monitor HMONITOR (obtained via `MonitorFromPoint({0,0}, MONITOR_DEFAULTTOPRIMARY)`); wrapped in `NativeMethods.GetPrimaryScreenBounds()` returning a `System.Drawing.Rectangle` of physical-pixel coordinates; same source used by `GridCalculator` and `MouseActionService` to keep geometry consistent; no WinForms dependency
 - Low-level keyboard hook (`SetWindowsHookEx WH_KEYBOARD_LL`) for key capture while overlay is active; unhooked when overlay closes; hook callback does minimal work and dispatches to UI thread via `Dispatcher.InvokeAsync` to avoid OS timeout (~300ms)
 - Keyboard input model is virtual-key (`VKey` enum); character translation used only for display labels; config action bindings reference stable VKey names; navigation key sets defined as VKey lists
 - `DeactivateOverlay()` is a single idempotent method called from every exit path (action, cancel/Escape, focus loss, exception, quit); hides overlay, disables hook, resets state machine
@@ -75,7 +75,7 @@
 
 ## Phase 1: Project Foundation
 
-- [ ] 1.1 Scaffold solution: `Klikety.sln`, `src/Klikety/Klikety.csproj` (WPF, net9.0-windows), `src/Klikety.Tests/Klikety.Tests.csproj` (xUnit, net9.0-windows) (REQ-1, REQ-15)
+- [~] 1.1 Scaffold solution: `Klikety.sln`, `src/Klikety/Klikety.csproj` (WPF, net10.0-windows), `src/Klikety.Tests/Klikety.Tests.csproj` (xUnit, net10.0-windows) (REQ-1, REQ-15)
 - [ ] 1.2 Create design note `docs/design-notes/keyboard-navigator.design.md` covering overlay lifecycle, state machine, Win32 interop, and key scheme (REQ-3, REQ-16)
 
 ## Phase 2: Config System
@@ -93,7 +93,7 @@
 
 ## Phase 3: Grid Logic (pure, unit-testable)
 
-- [ ] 3.1 `GridCalculator`: screen bounds from `Screen.PrimaryScreen.Bounds` (physical pixels) + key set sizes → `IReadOnlyList<GridCell>` (physical-pixel bounds, row/col indices); test vectors for 96/120/144/192 DPI (REQ-3) [after: none]
+- [ ] 3.1 `GridCalculator`: screen bounds from `NativeMethods.GetPrimaryScreenBounds()` (physical pixels) + key set sizes → `IReadOnlyList<GridCell>` (physical-pixel bounds, row/col indices); test vectors for 96/120/144/192 DPI (REQ-3) [after: none]
 - [ ] 3.2 `LabelGenerator`: first-key `VKey` list × second-key `VKey` list → bijective display-char labels; display chars derived via Win32 `ToUnicode`/`MapVirtualKey` against current HKL so labels reflect the active keyboard layout; `LabelFor(row, col)` and `CellFor(label)`; falls back to VKey name string if `ToUnicode` returns no character (dead key, unmapped) (REQ-3, REQ-25) [after: none]
 - [ ] 3.3 `SubgridCalculator`: parent `GridCell` (physical pixels) + key sets → level-2 cells; level-3 threshold comparison in physical pixels²; test vectors for DPI variants (REQ-5, REQ-6, REQ-7) [after: 3.1]
 
@@ -102,7 +102,7 @@
 - [ ] 4.1 Define service interfaces: `IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`, `IOverlayWindow`; all production and test code depends only on these (REQ-1, REQ-4, REQ-8) [after: none]
 - [ ] 4.2 `HotKeyService` : `IHotKeyService` — `RegisterHotKey` / `UnregisterHotKey` via dispatcher message loop; raises `Activated`; reports conflict on failed registration (REQ-1, REQ-14) [after: 4.1, 2.3]
 - [ ] 4.3 `KeyboardHookService` : `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)` + `UnhookWindowsHookEx`; enabled only while overlay is visible; hook callback does minimal work (read `VKey` + `KeyboardState` from `KBDLLHOOKSTRUCT`, call `CallNextHookEx`, post to `Dispatcher.InvokeAsync`); raises `KeyPressed(VKey)` on UI thread (REQ-4, REQ-12) [after: 4.1]
-- [ ] 4.4 `MouseActionService` : `IMouseActionService` — `MoveTo(physicalPoint)` normalizes to 0–65535 using `Screen.PrimaryScreen.Bounds`; `SendInput` for `MOUSEMOVE` + `MOUSEEVENTF_LEFTDOWN/UP`, `RIGHTDOWN/UP`, `MIDDLEDOWN/UP`, double-click (two click pairs) (REQ-8, REQ-9) [after: 4.1]
+- [ ] 4.4 `MouseActionService` : `IMouseActionService` — `MoveTo(physicalPoint)` normalizes to 0–65535 using `NativeMethods.GetPrimaryScreenBounds()`; `SendInput` for `MOUSEMOVE` + `MOUSEEVENTF_LEFTDOWN/UP`, `RIGHTDOWN/UP`, `MIDDLEDOWN/UP`, double-click (two click pairs) (REQ-8, REQ-9) [after: 4.1]
 
 ## Phase 5: Navigation State Machine
 
@@ -120,7 +120,7 @@
 
 ## Phase 7: App Wiring & Tray
 
-- [ ] 7.1 `App.xaml.cs` startup: `ShutdownMode=OnExplicitShutdown`; create `NotifyIcon` with tray icon and context menu ("About", "Open Configuration Folder", "Quit"); load config + logging; run `StartupValidator`; show tray notification(s) for all validation violations (REQ-15, REQ-14, REQ-22) [after: 2.2, 2.3, 2.10]
+- [ ] 7.1 `App.xaml.cs` startup: `ShutdownMode=OnExplicitShutdown`; create `H.NotifyIcon.Wpf` `TaskbarIcon` with context menu ("About", "Open Configuration Folder", "Quit"); load config + logging; run `StartupValidator`; show tray notification(s) for all validation violations (REQ-15, REQ-14, REQ-22) [after: 2.2, 2.3, 2.10]
 - [ ] 7.2 Wire `HotKeyService.Activated` → capture cursor origin → show `OverlayWindow` → call `KeyboardHookService.Enable()`; if `Enable()` returns failure → immediately call `DeactivateOverlay()` + show tray notification (REQ-1, REQ-2, REQ-21) [after: 4.1, 6.1, 4.2, 5.1]
 - [ ] 7.3 Wire `KeyboardHookService.KeyPressed(VKey)` → `NavigatorStateMachine.OnKey(VKey)` (REQ-3–REQ-12) [after: 4.2, 5.1]
 - [ ] 7.4 Wire `NavigatorStateMachine.ActionRequested` → `MouseActionService` (move + click) → `DeactivateOverlay()` (REQ-8, REQ-11) [after: 5.1, 4.3, 6.1]

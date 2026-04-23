@@ -1,0 +1,13 @@
+{
+  "chat.tools.terminal.autoApprove": {
+    "dotnet test": true,
+    ".github/agents/scripts/get-diff-branch.ps1": true,
+    "/^dotnet --version$/": {
+      "approve": true,
+      "matchCommandLine": true
+    },
+    "dotnet build": true,
+    ".github/agents/scripts/get-diff-uncommitted.ps1": true,
+    ".github/agents/scripts/get-diff-smart-default.ps1": true
+  }
+}

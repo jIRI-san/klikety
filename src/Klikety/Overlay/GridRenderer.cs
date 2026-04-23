@@ -17,15 +17,17 @@ public sealed class GridRenderer
     private readonly Canvas _canvas;
     private readonly ThemeModel _theme;
     private readonly LabelGenerator _labelGenerator;
+    private readonly double _minLabelFontSize;
 
     // DIP transform — set once when overlay is shown
     private Matrix _transformFromDevice = Matrix.Identity;
 
-    public GridRenderer(Canvas canvas, ThemeModel theme, LabelGenerator labelGenerator)
+    public GridRenderer(Canvas canvas, ThemeModel theme, LabelGenerator labelGenerator, double minLabelFontSize = 10.0)
     {
         _canvas = canvas;
         _theme = theme;
         _labelGenerator = labelGenerator;
+        _minLabelFontSize = minLabelFontSize;
     }
 
     /// <summary>
@@ -181,15 +183,21 @@ public sealed class GridRenderer
 
     /// <summary>
     /// Renders a subgrid within a parent cell's bounds using distinct subgrid styling.
+    /// If cells are too small for labels at MinLabelFontSize, renders labels externally.
     /// </summary>
     public void RenderSubgrid(IReadOnlyList<GridCell> cells)
     {
         _canvas.Children.Clear();
 
+        if (cells.Count == 0) return;
+
+        var firstDip = ToDip(cells[0].Bounds);
+        bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, _minLabelFontSize);
+
         var borderBrush = BrushFromHex(_theme.SubgridBorderColor);
         var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
-        var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
 
+        // Draw cell backgrounds
         foreach (var cell in cells)
         {
             var dipRect = ToDip(cell.Bounds);
@@ -205,9 +213,116 @@ public sealed class GridRenderer
             Canvas.SetLeft(bg, dipRect.X);
             Canvas.SetTop(bg, dipRect.Y);
             _canvas.Children.Add(bg);
+        }
 
-      AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
+        if (useExternalLabels)
+        {
+            RenderExternalLabels(cells);
+        }
+        else
+        {
+            var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
+            foreach (var cell in cells)
+            {
+                AddLabel(ToDip(cell.Bounds), cell.Row, cell.Col, labelBrush);
+            }
+        }
     }
+
+    /// <summary>
+    /// Renders labels outside the subgrid: column keys along the top, row keys along
+    /// the left side, with connector lines linking labels to their grid column/row.
+    /// </summary>
+    private void RenderExternalLabels(IReadOnlyList<GridCell> cells)
+    {
+        var extLabelBrush = BrushFromHex(_theme.ExternalLabelColor);
+        var connectorBrush = BrushFromHex(_theme.ConnectorLineColor);
+        var fontFamily = new FontFamily(_theme.LabelFontFamily);
+        var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
+        double fontSize = Math.Max(_minLabelFontSize, _theme.LabelFontSize * 0.8);
+
+        // Determine grid bounds from cells
+        var gridTopLeft = ToDip(cells[0].Bounds);
+        var lastCell = ToDip(cells[^1].Bounds);
+        double gridLeft = gridTopLeft.X;
+        double gridTop = gridTopLeft.Y;
+        double gridRight = lastCell.X + lastCell.Width;
+        double gridBottom = lastCell.Y + lastCell.Height;
+
+        int cols = _labelGenerator.Cols;
+        int rows = _labelGenerator.Rows;
+
+        // External column labels (first keys) above the grid
+        double labelMargin = fontSize * 1.5;
+        for (int c = 0; c < cols && c < cells.Count; c++)
+        {
+            var cellDip = ToDip(cells[c].Bounds);
+            var cellLabel = _labelGenerator.LabelFor(0, c);
+            double colCenter = cellDip.X + cellDip.Width / 2;
+
+            // Label above grid
+            var tb = new TextBlock
+            {
+                Text = cellLabel.First,
+                Foreground = extLabelBrush,
+                FontFamily = fontFamily,
+                FontSize = fontSize,
+                FontWeight = fontWeight,
+                TextAlignment = TextAlignment.Center,
+            };
+            tb.Measure(new Size(cellDip.Width, labelMargin));
+            Canvas.SetLeft(tb, colCenter - tb.DesiredSize.Width / 2);
+            Canvas.SetTop(tb, gridTop - labelMargin);
+            _canvas.Children.Add(tb);
+
+            // Connector line from label bottom to grid top
+            var line = new Line
+            {
+                X1 = colCenter, Y1 = gridTop - labelMargin + tb.DesiredSize.Height + 2,
+                X2 = colCenter, Y2 = gridTop,
+                Stroke = connectorBrush,
+                StrokeThickness = _theme.ConnectorLineThickness,
+                StrokeDashArray = [2, 2],
+            };
+            _canvas.Children.Add(line);
+        }
+
+        // External row labels (second keys) to the left of the grid
+        for (int r = 0; r < rows; r++)
+        {
+            int cellIndex = r * cols;
+            if (cellIndex >= cells.Count) break;
+
+            var cellDip = ToDip(cells[cellIndex].Bounds);
+            var cellLabel = _labelGenerator.LabelFor(r, 0);
+            double rowCenter = cellDip.Y + cellDip.Height / 2;
+
+            // Label to left of grid
+            var tb = new TextBlock
+            {
+                Text = cellLabel.Second,
+                Foreground = extLabelBrush,
+                FontFamily = fontFamily,
+                FontSize = fontSize,
+                FontWeight = fontWeight,
+                TextAlignment = TextAlignment.Center,
+            };
+            tb.Measure(new Size(labelMargin, cellDip.Height));
+            Canvas.SetLeft(tb, gridLeft - labelMargin);
+            Canvas.SetTop(tb, rowCenter - tb.DesiredSize.Height / 2);
+            _canvas.Children.Add(tb);
+
+            // Connector line from label right to grid left
+            var line = new Line
+            {
+                X1 = gridLeft - labelMargin + tb.DesiredSize.Width + 2, Y1 = rowCenter,
+                X2 = gridLeft, Y2 = rowCenter,
+                Stroke = connectorBrush,
+                StrokeThickness = _theme.ConnectorLineThickness,
+                StrokeDashArray = [2, 2],
+            };
+            _canvas.Children.Add(line);
+        }
     }
 
     private Rect ToDip(System.Drawing.Rectangle physicalRect)
@@ -267,4 +382,11 @@ public sealed class GridRenderer
     animation.Completed += (_, _) => _canvas.Children.Remove(flash);
     flash.BeginAnimation(UIElement.OpacityProperty, animation);
   }
+
+    /// <summary>
+    /// Determines whether external labels should be used based on cell DIP height
+    /// and minimum label font size. The 1.8 multiplier accounts for line height.
+    /// </summary>
+    internal static bool ShouldUseExternalLabels(double cellDipHeight, double minLabelFontSize)
+        => cellDipHeight < minLabelFontSize * 1.8;
 }

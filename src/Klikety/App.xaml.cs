@@ -56,7 +56,7 @@ public partial class App : Application
 
         // Create label generator and grid renderer
         var labelGenerator = new LabelGenerator(config.KeySets.FirstKeys, config.KeySets.SecondKeys);
-        var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator);
+        var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
 
         // Create state machine
         var actionMapper = new ActionMapper(config.ActionBindings);

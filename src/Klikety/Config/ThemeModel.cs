@@ -31,4 +31,9 @@ public sealed class ThemeModel
     // Subgrid distinct styling
     public string SubgridBorderColor { get; init; } = "#00AAFF";
     public string SubgridLabelColor { get; init; } = "#00CCFF";
+
+    // External labels (when subgrid cells are too small for inline labels)
+    public string ExternalLabelColor { get; init; } = "#FFCC00";
+    public string ConnectorLineColor { get; init; } = "#FFCC00";
+    public double ConnectorLineThickness { get; init; } = 1.0;
 }

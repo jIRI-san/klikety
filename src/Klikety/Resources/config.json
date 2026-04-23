@@ -62,5 +62,9 @@
 
   // Theme: bare name (resolves to themes/<name>.theme.json) or relative path.
   // Built-in themes: "dark", "light".
-  "theme": "dark"
+  "theme": "dark",
+
+  // Minimum label font size in DIP. When subgrid cells are too small for labels
+  // at this size, labels render outside the grid with connector lines.
+  "minLabelFontSize": 10.0
 }

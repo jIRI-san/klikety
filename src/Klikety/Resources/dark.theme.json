@@ -27,5 +27,10 @@
 
   // Subgrid (level 2/3) distinct styling
   "subgridBorderColor": "#00AAFF",  // Blue borders for subgrid
-  "subgridLabelColor": "#00CCFF"    // Cyan labels for subgrid
+  "subgridLabelColor": "#00CCFF",   // Cyan labels for subgrid
+
+  // External labels (when cells too small for inline labels)
+  "externalLabelColor": "#FFCC00",  // Gold external labels
+  "connectorLineColor": "#FFCC00",  // Gold connector lines
+  "connectorLineThickness": 1.0     // 1px connector lines
 }

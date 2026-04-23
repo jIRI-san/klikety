@@ -146,9 +146,20 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 
 ## Theme System
 
-- `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color.
+- `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color; connector line color + thickness.
 - `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; fall back to built-in dark on any error + tray notification.
 - Built-in `dark.theme.json` and `light.theme.json` shipped as embedded resources; extracted to `%APPDATA%\Klikety\themes\` on first run.
+
+### External Label Rendering
+
+When subgrid cells are too small to fit labels (cell DIP height < `MinLabelFontSize * 1.8`), `GridRenderer.RenderSubgrid` switches to external label layout:
+
+- Column first-keys rendered above the grid, centered over their columns.
+- Row second-keys rendered to the left of the grid, centered on their rows.
+- Dashed connector lines link each external label to its grid column/row.
+- Theme properties: `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness`.
+- Config: `MinLabelFontSize` (default 10.0 DIP) controls the threshold.
+- Decision method: `GridRenderer.ShouldUseExternalLabels(cellDipHeight, minLabelFontSize)` — `internal static`, testable.
 
 ## Config
 
@@ -163,7 +174,7 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 
 ## Test Infrastructure
 
-- **Unit tests** (`Klikety.Tests`): xUnit, 63 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, and `NavigatorCoordinator` integration.
+- **Unit tests** (`Klikety.Tests`): xUnit, 75 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold logic.
 - **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss).
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.

@@ -178,8 +178,8 @@
 
 ## Phase 11: External Label Rendering for Small Subgrids
 
-- [ ] 11.1 Add `MinLabelFontSize` (double, default 10.0 DIP) to `ConfigModel`; update `config.json` template, `config.schema.json`, `README.md` [after: 2.2]
-- [ ] 11.2 In `GridRenderer.RenderSubgrid`, measure available cell DIP height against `MinLabelFontSize`; if label won't fit, switch to external label layout [after: 6.2, 11.1]
-- [ ] 11.3 External label layout: render labels outside the subgrid perimeter (top/bottom for row keys, left/right for column keys); draw thin connector lines from each label to its cell column/row; highlight the cell border or fill on the corresponding axis to visually link label → cell [after: 11.2]
-- [ ] 11.4 Theme support: add `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness` to `ThemeModel`; update `theme.schema.json` and built-in themes [after: 11.3]
-- [ ] 11.5 Tests: verify that `GridRenderer` picks external layout when cell height < `MinLabelFontSize`; verify internal layout otherwise [after: 11.2, 11.3]
+- [x] 11.1 Add `MinLabelFontSize` (double, default 10.0 DIP) to `ConfigModel`; update `config.json` template, `config.schema.json`, `README.md` [after: 2.2]
+- [x] 11.2 In `GridRenderer.RenderSubgrid`, measure available cell DIP height against `MinLabelFontSize`; if label won't fit, switch to external label layout [after: 6.2, 11.1]
+- [x] 11.3 External label layout: render labels outside the subgrid perimeter (top/bottom for row keys, left/right for column keys); draw thin connector lines from each label to its cell column/row; highlight the cell border or fill on the corresponding axis to visually link label → cell [after: 11.2]
+- [x] 11.4 Theme support: add `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness` to `ThemeModel`; update `theme.schema.json` and built-in themes [after: 11.3]
+- [x] 11.5 Tests: verify that `GridRenderer` picks external layout when cell height < `MinLabelFontSize`; verify internal layout otherwise [after: 11.2, 11.3]

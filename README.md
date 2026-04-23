@@ -66,6 +66,7 @@ First run extracts default config and theme files automatically.
 | `theme` | string | `"dark"` | Theme name or relative path to `.theme.json` |
 | `fileLoggingEnabled` | bool | `false` | Enable file logging to `%APPDATA%\Klikety\logs\`. No log folder created when disabled. |
 | `retainedLogFileCount` | int | `7` | Max rolling log files kept. Oldest deleted when exceeded. Only applies when `fileLoggingEnabled` is `true`. |
+| `minLabelFontSize` | double | `10.0` | Min label font size (DIP). When subgrid cells are too small, labels render outside the grid with connector lines. |
 
 ### Example: Custom Action Bindings
 

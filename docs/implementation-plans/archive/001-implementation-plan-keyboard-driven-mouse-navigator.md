@@ -1,4 +1,4 @@
-# 001: Keyboard-Driven Mouse Navigator
+# 001: Keyboard-Driven Mouse Navigator [DONE]
 
 ## Decisions
 - WPF transparent fullscreen overlay on primary monitor only (multi-monitor out of scope)

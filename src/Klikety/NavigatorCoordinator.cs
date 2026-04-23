@@ -59,7 +59,8 @@ public sealed class NavigatorCoordinator
         _stateMachine.CellEntered += OnCellEntered;
         _stateMachine.ActionRequested += OnActionRequested;
         _stateMachine.Cancelled += OnCancelled;
-    }
+    _stateMachine.InvalidKeyPressed += OnInvalidKeyPressed;
+  }
 
     private void OnHotKeyActivated(object? sender, EventArgs e)
     {
@@ -135,10 +136,16 @@ public sealed class NavigatorCoordinator
         DeactivateOverlay();
     }
 
-    /// <summary>
-    /// Single idempotent exit method. Called from action, cancel, focus-loss, exception, quit.
-    /// </summary>
-    public void DeactivateOverlay()
+  private void OnInvalidKeyPressed()
+  {
+    _logger.LogDebug("Invalid key pressed");
+    _gridRenderer?.FlashInvalidKey();
+  }
+
+  /// <summary>
+  /// Single idempotent exit method. Called from action, cancel, focus-loss, exception, quit.
+  /// </summary>
+  public void DeactivateOverlay()
     {
         if (_deactivating) return;
         _deactivating = true;

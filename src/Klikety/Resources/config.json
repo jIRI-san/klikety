@@ -16,9 +16,9 @@
   // Space → LeftClick is always the implicit default even if omitted.
   // Available actions: LeftClick, RightClick, MiddleClick, DoubleClick.
   "actionBindings": {
-    // "OemSemicolon": "RightClick",
-    // "OemQuotes": "DoubleClick",
-    // "OemOpenBrackets": "MiddleClick"
+    "X": "DoubleClick",
+    "C": "MiddleClick",
+    "V": "RightClick"
   },
 
   // VKey lists for the two-key grid navigation scheme.

@@ -55,8 +55,9 @@ public sealed class NavigatorStateMachine
     public event Action<GridCell, int>? CellEntered;
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action<Point>? Cancelled;
+  public event Action? InvalidKeyPressed;
 
-    public NavigatorStateMachine(
+  public NavigatorStateMachine(
         VKey[] firstKeys,
         VKey[] secondKeys,
         ActionMapper actionMapper,
@@ -96,8 +97,15 @@ public sealed class NavigatorStateMachine
             return;
         }
 
-        // Arrow key handling
-        if (IsArrowKey(vkey) && _navigationMode != NavigationMode.TwoKey)
+    // Backspace at AwaitSecond → undo first key, back to AwaitFirst
+    if (vkey == VKey.Back)
+    {
+      HandleBackspace();
+      return;
+    }
+
+    // Arrow key handling
+    if (IsArrowKey(vkey) && _navigationMode != NavigationMode.TwoKey)
         {
             HandleArrow(vkey);
             return;
@@ -202,8 +210,8 @@ public sealed class NavigatorStateMachine
                 HandleFirstKey(vkey, NavigatorState.L1_AwaitSecond, _l1Cells);
                 break;
             case NavigatorState.L1_AwaitSecond:
-                HandleSecondKey(vkey, NavigatorState.L1_AwaitAction, _l1Cells, 1, ref _l1SelectedCell);
-                break;
+        HandleSecondKey(vkey, NavigatorState.L1_AwaitSecond, NavigatorState.L1_AwaitAction, _l1Cells, 1, ref _l1SelectedCell);
+        break;
             case NavigatorState.L1_AwaitAction:
                 HandleActionOrNav(vkey, NavigatorState.L2_AwaitFirst, _l1SelectedCell, 2);
                 break;
@@ -211,8 +219,8 @@ public sealed class NavigatorStateMachine
                 HandleFirstKey(vkey, NavigatorState.L2_AwaitSecond, _l2Cells);
                 break;
             case NavigatorState.L2_AwaitSecond:
-                HandleSecondKey(vkey, NavigatorState.L2_AwaitAction, _l2Cells, 2, ref _l2SelectedCell);
-                break;
+        HandleSecondKey(vkey, NavigatorState.L2_AwaitSecond, NavigatorState.L2_AwaitAction, _l2Cells, 2, ref _l2SelectedCell);
+        break;
             case NavigatorState.L2_AwaitAction:
                 HandleActionOrNav(vkey, NavigatorState.L3_AwaitFirst, _l2SelectedCell, 3);
                 break;
@@ -220,8 +228,8 @@ public sealed class NavigatorStateMachine
                 HandleFirstKey(vkey, NavigatorState.L3_AwaitSecond, _l3Cells);
                 break;
             case NavigatorState.L3_AwaitSecond:
-                HandleSecondKey(vkey, NavigatorState.L3_AwaitAction, _l3Cells, 3, ref _l2SelectedCell /* L3 has no child */);
-                break;
+        HandleSecondKey(vkey, NavigatorState.L3_AwaitSecond, NavigatorState.L3_AwaitAction, _l3Cells, 3, ref _l2SelectedCell /* L3 has no child */);
+        break;
             case NavigatorState.L3_AwaitAction:
                 HandleActionFinal(vkey);
                 break;
@@ -231,19 +239,37 @@ public sealed class NavigatorStateMachine
     private void HandleFirstKey(VKey vkey, NavigatorState nextState, IReadOnlyList<GridCell> cells)
     {
         int col = Array.IndexOf(_firstKeys, vkey);
-        if (col < 0) return; // not a first-key
+    if (col < 0)
+    {
+      InvalidKeyPressed?.Invoke();
+      return;
+    }
 
-        _selectedCol = col;
+    _selectedCol = col;
         State = nextState;
         ColumnHighlighted?.Invoke(col);
     }
 
-    private void HandleSecondKey(VKey vkey, NavigatorState nextState, IReadOnlyList<GridCell> cells, int level, ref GridCell selectedCell)
-    {
+  private void HandleSecondKey(VKey vkey, NavigatorState currentState, NavigatorState nextState, IReadOnlyList<GridCell> cells, int level, ref GridCell selectedCell)
+  {
         int row = Array.IndexOf(_secondKeys, vkey);
-        if (row < 0) return; // not a second-key
+    if (row < 0)
+    {
+      // Re-entry: if it's a valid first key, restart column selection
+      int col = Array.IndexOf(_firstKeys, vkey);
+      if (col >= 0)
+      {
+        _selectedCol = col;
+        // Stay in AwaitSecond — just update column highlight
+        ColumnHighlighted?.Invoke(col);
+        return;
+      }
 
-        int index = row * _firstKeys.Length + _selectedCol;
+      InvalidKeyPressed?.Invoke();
+      return;
+    }
+
+    int index = row * _firstKeys.Length + _selectedCol;
         if (index >= cells.Count) return;
 
         selectedCell = cells[index];
@@ -266,10 +292,14 @@ public sealed class NavigatorStateMachine
 
         // Check if it's a first key → start next level
         int col = Array.IndexOf(_firstKeys, vkey);
-        if (col < 0) return;
+    if (col < 0)
+    {
+      InvalidKeyPressed?.Invoke();
+      return;
+    }
 
-        // Calculate subgrid
-        var subCells = SubgridCalculator.Calculate(parentCell, _firstKeys.Length, _secondKeys.Length);
+    // Calculate subgrid
+    var subCells = SubgridCalculator.Calculate(parentCell, _firstKeys.Length, _secondKeys.Length);
 
         if (nextLevel == 2)
         {
@@ -296,11 +326,15 @@ public sealed class NavigatorStateMachine
     private void HandleActionFinal(VKey vkey)
     {
         var action = _actionMapper.Map(vkey);
-        if (!action.HasValue) return;
+    if (!action.HasValue)
+    {
+      InvalidKeyPressed?.Invoke();
+      return;
+    }
 
-        // Find the last selected cell at L3
-        // Use the L3 cells' current arrow index or last entered cell
-        var cells = _l3Cells.Count > 0 ? _l3Cells : _l2Cells;
+    // Find the last selected cell at L3
+    // Use the L3 cells' current arrow index or last entered cell
+    var cells = _l3Cells.Count > 0 ? _l3Cells : _l2Cells;
         if (_arrowIndex >= 0 && _arrowIndex < cells.Count)
         {
             var center = GridCalculator.CenterOf(cells[_arrowIndex]);
@@ -311,4 +345,23 @@ public sealed class NavigatorStateMachine
 
     private static bool IsArrowKey(VKey vkey) =>
         vkey is VKey.Left or VKey.Right or VKey.Up or VKey.Down;
+
+  private void HandleBackspace()
+  {
+    switch (State)
+    {
+      case NavigatorState.L1_AwaitSecond:
+        State = NavigatorState.L1_AwaitFirst;
+        break;
+      case NavigatorState.L2_AwaitSecond:
+        State = NavigatorState.L2_AwaitFirst;
+        break;
+      case NavigatorState.L3_AwaitSecond:
+        State = NavigatorState.L3_AwaitFirst;
+        break;
+      default:
+        // Backspace at other states does nothing
+        break;
+    }
+  }
 }

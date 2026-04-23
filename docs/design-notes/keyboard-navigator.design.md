@@ -3,6 +3,7 @@ description: Overlay lifecycle, navigation state machine, Win32 interop patterns
 globs:
   - src/Klikety/**
   - src/Klikety.Tests/**
+  - src/Klikety.SmokeTests/**
 ---
 
 # Keyboard Navigator Design Note
@@ -96,9 +97,10 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 - `SendAction`: sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. Double-click = two left-click pairs in sequence.
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
 
-### `NativeMethods.GetPrimaryScreenBounds()` — `GetMonitorInfo`
+### `NativeMethods.GetPrimaryScreenBounds()` — `GetMonitorInfoW`
 
 - No WinForms dependency; no `Screen.PrimaryScreen`.
+- **Important**: `LibraryImport` (source-generated) does NOT auto-resolve `W` suffix like `DllImport`. Must use `EntryPoint = "GetMonitorInfoW"` explicitly.
 - Implementation:
   ```csharp
   var hMon = MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
@@ -158,6 +160,14 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 ## Logging
 
 - `Microsoft.Extensions.Logging` with rolling file sink → `%APPDATA%\Klikety\logs\`.
+
+## Test Infrastructure
+
+- **Unit tests** (`Klikety.Tests`): xUnit, 63 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, and `NavigatorCoordinator` integration.
+- **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss).
+- **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
+- `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.
+- `NavigatorCoordinator` integration tests inject fakes and simulate full hotkey→key→action flows without any Win32 calls, except `NativeMethods.GetPrimaryScreenBounds()` which is called in `OnHotKeyActivated` — this works in tests because it's real Win32 (not mocked).
 - `LogLevel` read from config.
 - `ILogger<T>` injected into Win32 services, state machine, and loader classes.
 

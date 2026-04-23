@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using Klikety.Config;
 using Klikety.Grid;
@@ -35,10 +36,52 @@ public sealed class GridRenderer
         _transformFromDevice = transformFromDevice;
     }
 
-    /// <summary>
-    /// Renders the full grid (all cells with borders and labels).
-    /// </summary>
-    public void RenderGrid(IReadOnlyList<GridCell> cells)
+  /// <summary>
+  /// Adds two TextBlocks for a cell label: First centered in the left half,
+  /// Second centered in the right half.
+  /// </summary>
+  private void AddLabel(Rect dipRect, int row, int col, Brush foreground, double opacity = 1.0)
+  {
+    var cellLabel = _labelGenerator.LabelFor(row, col);
+    double halfWidth = dipRect.Width / 2;
+    var fontFamily = new FontFamily(_theme.LabelFontFamily);
+    var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
+
+    var first = new TextBlock
+    {
+      Text = cellLabel.First,
+      Foreground = foreground,
+      FontFamily = fontFamily,
+      FontSize = _theme.LabelFontSize,
+      FontWeight = fontWeight,
+      TextAlignment = TextAlignment.Center,
+      Opacity = opacity,
+    };
+    first.Measure(new Size(halfWidth, dipRect.Height));
+    Canvas.SetLeft(first, dipRect.X + (halfWidth - first.DesiredSize.Width) / 2);
+    Canvas.SetTop(first, dipRect.Y + (dipRect.Height - first.DesiredSize.Height) / 2);
+    _canvas.Children.Add(first);
+
+    var second = new TextBlock
+    {
+      Text = cellLabel.Second,
+      Foreground = foreground,
+      FontFamily = fontFamily,
+      FontSize = _theme.LabelFontSize,
+      FontWeight = fontWeight,
+      TextAlignment = TextAlignment.Center,
+      Opacity = opacity,
+    };
+    second.Measure(new Size(halfWidth, dipRect.Height));
+    Canvas.SetLeft(second, dipRect.X + halfWidth + (halfWidth - second.DesiredSize.Width) / 2);
+    Canvas.SetTop(second, dipRect.Y + (dipRect.Height - second.DesiredSize.Height) / 2);
+    _canvas.Children.Add(second);
+  }
+
+  /// <summary>
+  /// Renders the full grid (all cells with borders and labels).
+  /// </summary>
+  public void RenderGrid(IReadOnlyList<GridCell> cells)
     {
         _canvas.Children.Clear();
 
@@ -63,21 +106,8 @@ public sealed class GridRenderer
             Canvas.SetTop(bg, dipRect.Y);
             _canvas.Children.Add(bg);
 
-            // Label
-            var label = new TextBlock
-            {
-                Text = _labelGenerator.LabelFor(cell.Row, cell.Col),
-                Foreground = labelBrush,
-                FontFamily = new FontFamily(_theme.LabelFontFamily),
-                FontSize = _theme.LabelFontSize,
-                FontWeight = ParseFontWeight(_theme.LabelFontWeight),
-                TextAlignment = TextAlignment.Center,
-            };
-            label.Measure(new Size(dipRect.Width, dipRect.Height));
-            Canvas.SetLeft(label, dipRect.X + (dipRect.Width - label.DesiredSize.Width) / 2);
-            Canvas.SetTop(label, dipRect.Y + (dipRect.Height - label.DesiredSize.Height) / 2);
-            _canvas.Children.Add(label);
-        }
+      AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
+    }
     }
 
     /// <summary>
@@ -111,21 +141,8 @@ public sealed class GridRenderer
             Canvas.SetTop(bg, dipRect.Y);
             _canvas.Children.Add(bg);
 
-            var label = new TextBlock
-            {
-                Text = _labelGenerator.LabelFor(cell.Row, cell.Col),
-                Foreground = labelBrush,
-                FontFamily = new FontFamily(_theme.LabelFontFamily),
-                FontSize = _theme.LabelFontSize,
-                FontWeight = ParseFontWeight(_theme.LabelFontWeight),
-                TextAlignment = TextAlignment.Center,
-                Opacity = isHighlighted ? 1.0 : 0.3,
-            };
-            label.Measure(new Size(dipRect.Width, dipRect.Height));
-            Canvas.SetLeft(label, dipRect.X + (dipRect.Width - label.DesiredSize.Width) / 2);
-            Canvas.SetTop(label, dipRect.Y + (dipRect.Height - label.DesiredSize.Height) / 2);
-            _canvas.Children.Add(label);
-        }
+      AddLabel(dipRect, cell.Row, cell.Col, labelBrush, isHighlighted ? 1.0 : 0.3);
+    }
     }
 
     /// <summary>
@@ -158,20 +175,8 @@ public sealed class GridRenderer
             Canvas.SetTop(bg, dipRect.Y);
             _canvas.Children.Add(bg);
 
-            var label = new TextBlock
-            {
-                Text = _labelGenerator.LabelFor(cell.Row, cell.Col),
-                Foreground = labelBrush,
-                FontFamily = new FontFamily(_theme.LabelFontFamily),
-                FontSize = _theme.LabelFontSize,
-                FontWeight = ParseFontWeight(_theme.LabelFontWeight),
-                TextAlignment = TextAlignment.Center,
-            };
-            label.Measure(new Size(dipRect.Width, dipRect.Height));
-            Canvas.SetLeft(label, dipRect.X + (dipRect.Width - label.DesiredSize.Width) / 2);
-            Canvas.SetTop(label, dipRect.Y + (dipRect.Height - label.DesiredSize.Height) / 2);
-            _canvas.Children.Add(label);
-        }
+      AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
+    }
     }
 
     /// <summary>
@@ -201,20 +206,8 @@ public sealed class GridRenderer
             Canvas.SetTop(bg, dipRect.Y);
             _canvas.Children.Add(bg);
 
-            var label = new TextBlock
-            {
-                Text = _labelGenerator.LabelFor(cell.Row, cell.Col),
-                Foreground = labelBrush,
-                FontFamily = new FontFamily(_theme.LabelFontFamily),
-                FontSize = _theme.LabelFontSize,
-                FontWeight = ParseFontWeight(_theme.LabelFontWeight),
-                TextAlignment = TextAlignment.Center,
-            };
-            label.Measure(new Size(dipRect.Width, dipRect.Height));
-            Canvas.SetLeft(label, dipRect.X + (dipRect.Width - label.DesiredSize.Width) / 2);
-            Canvas.SetTop(label, dipRect.Y + (dipRect.Height - label.DesiredSize.Height) / 2);
-            _canvas.Children.Add(label);
-        }
+      AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
+    }
     }
 
     private Rect ToDip(System.Drawing.Rectangle physicalRect)
@@ -249,4 +242,29 @@ public sealed class GridRenderer
             _ => FontWeights.Normal,
         };
     }
+
+  /// <summary>
+  /// Brief red flash over the overlay to indicate an invalid key press.
+  /// Non-blocking — uses a WPF animation that removes itself on completion.
+  /// </summary>
+  public void FlashInvalidKey()
+  {
+    var flash = new Rectangle
+    {
+      Width = _canvas.ActualWidth,
+      Height = _canvas.ActualHeight,
+      Fill = new SolidColorBrush(Color.FromArgb(80, 255, 0, 0)),
+      IsHitTestVisible = false,
+    };
+    Canvas.SetLeft(flash, 0);
+    Canvas.SetTop(flash, 0);
+    _canvas.Children.Add(flash);
+
+    var animation = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(200))
+    {
+      EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+    };
+    animation.Completed += (_, _) => _canvas.Children.Remove(flash);
+    flash.BeginAnimation(UIElement.OpacityProperty, animation);
+  }
 }

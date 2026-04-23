@@ -10,6 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Klikety.Tests" />
+    <InternalsVisibleTo Include="Klikety.SmokeTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <EmbeddedResource Include="Resources\config.schema.json" />
     <EmbeddedResource Include="Resources\config.json" />
     <EmbeddedResource Include="Resources\theme.schema.json" />

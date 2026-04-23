@@ -33,6 +33,7 @@
 - `config.json` `"theme"` field: bare name (e.g. `"dark"`) resolves to `themes/<name>.theme.json`; relative path resolved from config folder
 - `theme.schema.json` shipped and referenced via `$schema` in each theme file; extracted on first run
 - `ThemeModel` POCO: label font family, size, color, weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct style flag
+- Minimum label font size: configurable threshold (e.g. `minLabelFontSize`, default ~10 DIP). When a subgrid cell is too small to fit a label at or above this size, labels are rendered **outside the subgrid** — positioned around the grid edges with connector lines/highlights linking each label to its cell. This keeps L2/L3 labels readable on high-resolution displays or deeply nested grids instead of shrinking text to illegibility
 - Win32 service interfaces (`IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`, `IOverlayWindow`) are the seam for testing; real implementations are thin P/Invoke wrappers; fakes are injected in tests
 - Integration tests are hermetic and CI-safe — no real display, no OS hooks, no timing dependencies; smoke test project (excluded from CI) covers manual verification of real Win32 calls
 - "Start with Windows" toggle via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; no admin rights required; tray context menu item "Start with Windows" shown with a checkmark reflecting current registry state; toggling writes or removes the value; value points to the published exe path (resolved via `Environment.ProcessPath`); state stored in registry only (not in config)
@@ -109,6 +110,9 @@
 - [x] 5.1 `NavigatorStateMachine`: states `Idle → L1_AwaitFirst → L1_AwaitSecond → L1_AwaitAction → L2_AwaitFirst → L2_AwaitSecond → L2_AwaitAction → L3_AwaitFirst → L3_AwaitSecond → L3_AwaitAction`; input events are `VKey` values; on completing a two-key pair cursor moves to cell center and machine enters `_AwaitAction`; in `_AwaitAction` an action `VKey` fires `ActionRequested(point, action)` and a navigation `VKey` starts the next level; Escape at L2/L3 goes back one level and moves cursor to parent cell center; Escape at L1 raises `Cancelled` with saved origin position for cursor restore; captures cursor position at `Activate()` call for restore-on-cancel; raises `ColumnHighlighted(col)`, `CellEntered(cell, level)`, `ActionRequested(point, action)`, `Cancelled(originPoint)`; when `NavigationMode` is `Arrow` or `Both`: arrow VKeys in any non-Idle state move a `selectedIndex` within the current grid level and raise `CellHighlighted(cell)`, `VK_RETURN` in any state fires `ActionRequested` at current cell with `LeftClick` (REQ-3–REQ-12, REQ-24) [after: 3.1, 3.2, 3.3]
 - [x] 5.3 `ArrowNavigator` helper (used by state machine when `NavigationMode` includes `Arrow`): tracks `selectedIndex` within a flat cell list for the current level; `MoveLeft/Right/Up/Down(currentIndex, cols)` → next index with wrap; stateless pure functions, fully unit-testable (REQ-24) [after: 3.1]
 - [x] 5.2 `ActionMapper`: config `ActionBindings` (`VKey` → `MouseAction`) + pressed `VKey` → `MouseAction` enum; Space `VKey` always maps to `LeftClick` if unbound (REQ-10) [after: 2.2]
+- [x] 5.4 Mistype handling — `InvalidKeyPressed` event: state machine fires `InvalidKeyPressed` when a VKey matches no valid input at the current state (`HandleFirstKey`, `HandleSecondKey`, `HandleActionOrNav`, `HandleActionFinal`); wired in `NavigatorCoordinator` → `GridRenderer.FlashInvalidKey()` (200ms red overlay flash, alpha 80→0, auto-removes) [after: 5.1, 6.2, 7.5]
+- [x] 5.5 Backspace undo: `VKey.Back` at any `AwaitSecond` state transitions back to `AwaitFirst` at the same level (L1/L2/L3); no-op at other states [after: 5.1]
+- [x] 5.6 First-key re-entry at `AwaitSecond`: typing a valid first-key while in `AwaitSecond` restarts column selection (stays in `AwaitSecond`, fires `ColumnHighlighted` with new column) instead of being ignored or raising `InvalidKeyPressed` [after: 5.1]
 
 ## Phase 6: Overlay UI
 
@@ -132,13 +136,13 @@
 
 ## Phase 8: Tests
 
-- [ ] 8.1 Unit tests: `GridCalculator`, `SubgridCalculator`, `LabelGenerator` — various screen sizes, 96/120/144/192 DPI, key set sizes; assert physical-pixel bounds and level-3 threshold trigger (REQ-16) [after: 3.1, 3.2, 3.3]
-- [ ] 8.2 Unit tests: `ConfigLoader` — valid JSONC, missing file (defaults applied), partial config, malformed JSON, invalid key sets, key-binding conflicts (each violation type) (REQ-16) [after: 2.2]
-- [ ] 8.3 Unit tests: `NavigatorStateMachine` — all state transitions with `VKey` inputs, Escape at each level (L3→L2→L1→closed with origin restore), action dispatch for each `MouseAction`, invalid/unbound `VKey` ignored; arrow navigation: `VK_LEFT/RIGHT/UP/DOWN` advance `selectedIndex` correctly at grid edges (wrap), `VK_RETURN` dispatches `ActionRequested` at current cell; `NavigationMode.TwoKey` suppresses arrow handling (REQ-16, REQ-24) [after: 5.1, 5.3]
-- [ ] 8.3a Unit tests: `ArrowNavigator` — boundary wrapping for all directions, single-row/single-column edge cases, 1×1 grid (REQ-24) [after: 5.3]
-- [ ] 8.3b Unit tests: `LabelGenerator` — QWERTY, DVORAK, and Colemak key sets produce correct display labels; `ToUnicode` failure (dead key) falls back to VKey name (REQ-25) [after: 3.2]
-- [ ] 8.4 Define test fakes: `FakeKeyboardHookService.SimulateKey(VKey)`, `FakeMouseActionService` (records `(physicalX, physicalY, MouseAction)` calls), `FakeOverlayWindow` (tracks show/hide + rendered grid + focus-loss simulation) (REQ-17) [after: 4.1]
-- [ ] 8.5 Integration tests — full wiring via `NavigatorCoordinator` with fakes injected; scenarios: (REQ-17) [after: 7.4, 8.4]
+- [x] 8.1 Unit tests: `GridCalculator`, `SubgridCalculator`, `LabelGenerator` — various screen sizes, 96/120/144/192 DPI, key set sizes; assert physical-pixel bounds and level-3 threshold trigger (REQ-16) [after: 3.1, 3.2, 3.3]
+- [x] 8.2 Unit tests: `ConfigLoader` — valid JSONC, missing file (defaults applied), partial config, malformed JSON, invalid key sets, key-binding conflicts (each violation type) (REQ-16) [after: 2.2]
+- [x] 8.3 Unit tests: `NavigatorStateMachine` — all state transitions with `VKey` inputs, Escape at each level (L3→L2→L1→closed with origin restore), action dispatch for each `MouseAction`, invalid/unbound `VKey` ignored; arrow navigation: `VK_LEFT/RIGHT/UP/DOWN` advance `selectedIndex` correctly at grid edges (wrap), `VK_RETURN` dispatches `ActionRequested` at current cell; `NavigationMode.TwoKey` suppresses arrow handling (REQ-16, REQ-24) [after: 5.1, 5.3]
+- [x] 8.3a Unit tests: `ArrowNavigator` — boundary wrapping for all directions, single-row/single-column edge cases, 1×1 grid (REQ-24) [after: 5.3]
+- [x] 8.3b Unit tests: `LabelGenerator` — QWERTY, DVORAK, and Colemak key sets produce correct display labels; `ToUnicode` failure (dead key) falls back to VKey name (REQ-25) [after: 3.2]
+- [x] 8.4 Define test fakes: `FakeKeyboardHookService.SimulateKey(VKey)`, `FakeMouseActionService` (records `(physicalX, physicalY, MouseAction)` calls), `FakeOverlayWindow` (tracks show/hide + rendered grid + focus-loss simulation) (REQ-17) [after: 4.1]
+- [x] 8.5 Integration tests — full wiring via `NavigatorCoordinator` with fakes injected; scenarios: (REQ-17) [after: 7.4, 8.4]
   - hotkey → overlay shown, L1 grid rendered
   - first `VKey` → `ColumnHighlighted`, non-matching cells dimmed
   - two L1 `VKey`s → cursor at L1 cell center (physical pixels), enters `L1_AwaitAction`, L2 subgrid rendered
@@ -156,5 +160,26 @@
   - arrow VKeys move highlight in `NavigationMode.Both`; `VK_RETURN` dispatches action at highlighted cell
   - `NavigationMode.TwoKey` → arrow VKeys ignored, `VK_RETURN` ignored
   - arrow VKeys in `firstKeys` / `secondKeys` / `ActionBindings` → validation violation reported at startup
-- [ ] 8.6 Smoke test project `src/Klikety.SmokeTests/` (excluded from CI via `[Trait("Category", "Smoke")]`): exercises real `HotKeyService`, `KeyboardHookService`, `MouseActionService` on a live display for manual verification [after: 4.2, 4.3, 4.4]
-- [ ] 8.7 Write `README.md` at repo root (REQ-26): project description + feature list; screenshot/GIF placeholder; prerequisites (.NET 9 SDK, Windows 10+); build instructions (`dotnet build`, `dotnet publish -r win-x64 --self-contained`); installation (copy to `%LOCALAPPDATA%`, startup shortcut); configuration reference table (every `ConfigModel` field: type, default, valid values, example); theme customization (built-in themes, creating a custom `.theme.json`); keyboard layout setup section (DVORAK and Colemak `firstKeys`/`secondKeys` examples); troubleshooting (hotkey conflict, hook install failure, config validation errors, log file location) [after: 2.5, 7.1]
+- [x] 8.6 Smoke test project `src/Klikety.SmokeTests/` (excluded from CI via `[Trait("Category", "Smoke")]`): exercises real `HotKeyService`, `KeyboardHookService`, `MouseActionService` on a live display for manual verification [after: 4.2, 4.3, 4.4]
+- [x] 8.7 Write `README.md` at repo root (REQ-26): project description + feature list; screenshot/GIF placeholder; prerequisites (.NET 9 SDK, Windows 10+); build instructions (`dotnet build`, `dotnet publish -r win-x64 --self-contained`); installation (copy to `%LOCALAPPDATA%`, startup shortcut); configuration reference table (every `ConfigModel` field: type, default, valid values, example); theme customization (built-in themes, creating a custom `.theme.json`); keyboard layout setup section (DVORAK and Colemak `firstKeys`/`secondKeys` examples); troubleshooting (hotkey conflict, hook install failure, config validation errors, log file location) [after: 2.5, 7.1]
+
+## Phase 9: File Logging Opt-in
+
+- [ ] 9.1 Add `FileLoggingEnabled` (bool, default `false`) to `ConfigModel` — file logging is opt-in, no log folder created unless enabled [after: 2.2]
+- [ ] 9.2 Add `RetainedLogFileCount` (int, default `7`) to `ConfigModel` — max rolling log files kept [after: 9.1]
+- [ ] 9.3 Update `LoggingSetup.CreateLoggerFactory` to skip `AddFile()` when `FileLoggingEnabled` is `false`; pass `retainedFileCountLimit` when enabled [after: 9.1, 9.2]
+- [ ] 9.4 Update embedded `config.json` template with `fileLoggingEnabled` and `retainedLogFileCount` fields [after: 9.1, 9.2]
+- [ ] 9.5 Update `config.schema.json` with new fields [after: 9.4]
+- [ ] 9.6 Update `README.md` configuration reference table [after: 9.1, 9.2]
+
+## Phase 10: EditorConfig
+
+- [ ] 10.1 Add `.editorconfig` at repo root — C# conventions (namespace style, var preferences, nullable, indentation), Markdown/JSON/YAML formatting rules, aligned with existing codebase style
+
+## Phase 11: External Label Rendering for Small Subgrids
+
+- [ ] 11.1 Add `MinLabelFontSize` (double, default 10.0 DIP) to `ConfigModel`; update `config.json` template, `config.schema.json`, `README.md` [after: 2.2]
+- [ ] 11.2 In `GridRenderer.RenderSubgrid`, measure available cell DIP height against `MinLabelFontSize`; if label won't fit, switch to external label layout [after: 6.2, 11.1]
+- [ ] 11.3 External label layout: render labels outside the subgrid perimeter (top/bottom for row keys, left/right for column keys); draw thin connector lines from each label to its cell column/row; highlight the cell border or fill on the corresponding axis to visually link label → cell [after: 11.2]
+- [ ] 11.4 Theme support: add `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness` to `ThemeModel`; update `theme.schema.json` and built-in themes [after: 11.3]
+- [ ] 11.5 Tests: verify that `GridRenderer` picks external layout when cell height < `MinLabelFontSize`; verify internal layout otherwise [after: 11.2, 11.3]

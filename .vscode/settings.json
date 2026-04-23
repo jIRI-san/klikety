@@ -9,5 +9,8 @@
     "dotnet build": true,
     ".github/agents/scripts/get-diff-uncommitted.ps1": true,
     ".github/agents/scripts/get-diff-smart-default.ps1": true
-  }
+  },
+  "cSpell.words": [
+    "Klikety"
+  ]
 }

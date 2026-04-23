@@ -36,8 +36,8 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     private static partial nint MonitorFromPoint(POINT pt, uint dwFlags);
 
-    [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
+  [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+  [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
 
     [LibraryImport("user32.dll")]

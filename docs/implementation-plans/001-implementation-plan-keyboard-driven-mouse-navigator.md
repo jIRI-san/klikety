@@ -35,6 +35,7 @@
 - `ThemeModel` POCO: label font family, size, color, weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct style flag
 - Win32 service interfaces (`IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`, `IOverlayWindow`) are the seam for testing; real implementations are thin P/Invoke wrappers; fakes are injected in tests
 - Integration tests are hermetic and CI-safe — no real display, no OS hooks, no timing dependencies; smoke test project (excluded from CI) covers manual verification of real Win32 calls
+- "Start with Windows" toggle via `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; no admin rights required; tray context menu item "Start with Windows" shown with a checkmark reflecting current registry state; toggling writes or removes the value; value points to the published exe path (resolved via `Environment.ProcessPath`); state stored in registry only (not in config)
 
 ## Requirements
 
@@ -69,6 +70,8 @@
 | REQ-23 | Structured file logging via `Microsoft.Extensions.Logging` → rolling file in `%APPDATA%\Klikety\logs\`; log level in config | 2.10 |
 | REQ-24 | Arrow key navigation alternative: arrow VKeys move cell cursor within current grid level; Enter fires left-click; active when `navigationMode` is `"arrow"` or `"both"`; arrow + Enter VKeys are always reserved and excluded from conflict validation pool | 2.1, 5.1, 5.3 |
 | REQ-25 | `LabelGenerator` derives display characters via Win32 `ToUnicode`/`MapVirtualKey` against active HKL; labels correct for any active layout; DVORAK/Colemak supported via `firstKeys`/`secondKeys`; default config comments include DVORAK and Colemak examples | 2.5, 3.2 |
+| REQ-26 | `README.md` at repo root: project description, screenshot/GIF placeholder, prerequisites, build instructions, installation, configuration reference (all config fields with types/defaults/examples), theme customization, keyboard layout setup (DVORAK/Colemak), troubleshooting common issues | 8.7 |
+| REQ-27 | "Start with Windows" tray menu toggle; reads/writes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`; checkmark reflects current state; no admin rights required | 7.8 |
 
 ## Phase 1: Project Foundation
 
@@ -125,6 +128,7 @@
 - [ ] 7.5 Wire `NavigatorStateMachine` state-change events → `OverlayWindow` visual updates (REQ-4, REQ-5, REQ-7) [after: 5.1, 6.3, 6.4]
 - [ ] 7.6 "About" menu item → show small WPF window (`AboutWindow`): app name, version (from assembly), brief description, GitHub link; "Open Configuration Folder" → `Process.Start("explorer.exe", configFolderPath)` (REQ-15) [after: 7.1]
 - [ ] 7.7 Implement `DeactivateOverlay()`: hide `OverlayWindow`, call `KeyboardHookService.Disable()`, reset `NavigatorStateMachine` to `Idle`; method is idempotent (safe to call multiple times); called from action, cancel, focus-loss, exception handler, and Quit (REQ-19) [after: 4.3, 6.1, 5.1]
+- [ ] 7.8 `StartupRegistryService`: `IsEnabled()` reads `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Klikety`; `Enable()` writes value = `Environment.ProcessPath`; `Disable()` removes value; tray context menu item "Start with Windows" wired to toggle + checkmark refresh; checkmark set on tray menu creation from `IsEnabled()` (REQ-27) [after: 7.1]
 
 ## Phase 8: Tests
 
@@ -153,3 +157,4 @@
   - `NavigationMode.TwoKey` → arrow VKeys ignored, `VK_RETURN` ignored
   - arrow VKeys in `firstKeys` / `secondKeys` / `ActionBindings` → validation violation reported at startup
 - [ ] 8.6 Smoke test project `src/Klikety.SmokeTests/` (excluded from CI via `[Trait("Category", "Smoke")]`): exercises real `HotKeyService`, `KeyboardHookService`, `MouseActionService` on a live display for manual verification [after: 4.2, 4.3, 4.4]
+- [ ] 8.7 Write `README.md` at repo root (REQ-26): project description + feature list; screenshot/GIF placeholder; prerequisites (.NET 9 SDK, Windows 10+); build instructions (`dotnet build`, `dotnet publish -r win-x64 --self-contained`); installation (copy to `%LOCALAPPDATA%`, startup shortcut); configuration reference table (every `ConfigModel` field: type, default, valid values, example); theme customization (built-in themes, creating a custom `.theme.json`); keyboard layout setup section (DVORAK and Colemak `firstKeys`/`secondKeys` examples); troubleshooting (hotkey conflict, hook install failure, config validation errors, log file location) [after: 2.5, 7.1]

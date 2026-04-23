@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Klikety",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Klikety/bin/Debug/net10.0-windows/Klikety.dll",
+      "cwd": "${workspaceFolder}/src/Klikety",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}

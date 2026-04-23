@@ -22,8 +22,10 @@ public partial class OverlayWindow : Window, IOverlayWindow
         // Size to primary screen bounds in DIPs
         var screenBounds = NativeMethods.GetPrimaryScreenBounds();
 
-        // Convert physical pixels to DIPs using the PresentationSource transform
-        var source = PresentationSource.FromVisual(this)
+    // Must show first so the HWND exists and PresentationSource is available
+    Show();
+
+    var source = PresentationSource.FromVisual(this)
                      ?? throw new InvalidOperationException("No PresentationSource available.");
         var transform = source.CompositionTarget!.TransformFromDevice;
         var topLeft = transform.Transform(new System.Windows.Point(screenBounds.X, screenBounds.Y));
@@ -36,8 +38,7 @@ public partial class OverlayWindow : Window, IOverlayWindow
         Width = bottomRight.X - topLeft.X;
         Height = bottomRight.Y - topLeft.Y;
 
-        Show();
-        Activate();
+    Activate();
         Keyboard.Focus(this);
     }
 

@@ -7,6 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>Resources\klikety.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +21,10 @@
     <EmbeddedResource Include="Resources\theme.schema.json" />
     <EmbeddedResource Include="Resources\dark.theme.json" />
     <EmbeddedResource Include="Resources\light.theme.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\klikety.ico" />
   </ItemGroup>
 
   <ItemGroup>

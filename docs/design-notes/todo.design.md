@@ -1,0 +1,56 @@
+---
+description: Project TODO backlog for deferred work, postponed decisions, and follow-up tasks. Consult when designing or implementing features to identify related items that can be included in the current work stream.
+globs:
+  - src/Qz/**
+  - src/Qz.Tests/**
+  - docs/design-notes/**
+---
+
+# TODO Backlog Design Note
+
+This design note is the canonical project backlog for:
+
+- Work intentionally deferred for later
+- Decisions postponed to a later design cycle
+- Follow-up tasks discovered during implementation
+
+Use this file as context whenever proposing designs or implementing features.
+
+## Operating Rules
+
+1. **Consult first during feature work**
+   - When implementing or refactoring a feature, check this TODO list for related items.
+   - If related items exist, ask whether to include them in the current work stream.
+
+2. **Consult first during design proposals**
+   - When proposing a new design, review TODO items to avoid conflicting with deferred decisions.
+   - Account for planned follow-up work in proposal trade-offs and sequencing.
+
+3. **Append from command syntax**
+   - When user says `TODO: <todo item>`, add a new backlog entry in this file.
+   - Preserve existing items and IDs; append at the end of the relevant section.
+
+4. **Track decisions explicitly**
+   - If a decision is intentionally postponed, capture both:
+     - the decision topic
+     - the trigger/condition that should cause revisit
+
+## Item Format
+
+Use the following structure for each item:
+
+```markdown
+- [ ] TODO-###: Short title
+  - Type: Work | Decision
+  - Area: <subsystem or feature>
+  - Source: <where this came from>
+  - Created: YYYY-MM-DD
+  - Detail: <what needs to happen or what decision is pending>
+  - Revisit Trigger: <event, milestone, or condition>
+```
+
+## Active TODOs
+
+
+## Archived TODOs
+

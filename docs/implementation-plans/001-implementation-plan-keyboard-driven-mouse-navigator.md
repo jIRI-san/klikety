@@ -112,11 +112,11 @@
 
 ## Phase 6: Overlay UI
 
-- [ ] 6.1 `OverlayWindow`: WPF window `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to `Screen.PrimaryScreen.Bounds` converted to DIPs via `PresentationSource`; keyboard focus captured on show; `Deactivated` event wired to `DeactivateOverlay()` for focus-loss handling (REQ-2, REQ-20) [after: none]
-- [ ] 6.2 `GridRenderer` (WPF `DrawingVisual` / `Canvas`): draw cell borders + label text centered in cell; explicit `Children.Clear()` + visual child detach on each transition to prevent memory accumulation (REQ-3) [after: 6.1, 3.2]
-- [ ] 6.3 On `ColumnHighlighted` event: reduce opacity of non-matching cells, highlight matching column (REQ-4) [after: 6.2, 5.1]
-- [ ] 6.5 On `CellHighlighted` event (arrow navigation): render distinct highlight border/background on the currently selected cell without dimming others; clear previous highlight before drawing new one (REQ-24) [after: 6.2, 5.1]
-- [ ] 6.4 On `CellEntered` event: clear level-N grid via `GridRenderer` clear, draw level-(N+1) subgrid within cell bounds (REQ-5, REQ-7) [after: 6.2, 3.3, 5.1]
+- [x] 6.1 `OverlayWindow`: WPF window `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to `Screen.PrimaryScreen.Bounds` converted to DIPs via `PresentationSource`; keyboard focus captured on show; `Deactivated` event wired to `DeactivateOverlay()` for focus-loss handling (REQ-2, REQ-20) [after: none]
+- [x] 6.2 `GridRenderer` (WPF `DrawingVisual` / `Canvas`): draw cell borders + label text centered in cell; explicit `Children.Clear()` + visual child detach on each transition to prevent memory accumulation (REQ-3) [after: 6.1, 3.2]
+- [x] 6.3 On `ColumnHighlighted` event: reduce opacity of non-matching cells, highlight matching column (REQ-4) [after: 6.2, 5.1]
+- [x] 6.5 On `CellHighlighted` event (arrow navigation): render distinct highlight border/background on the currently selected cell without dimming others; clear previous highlight before drawing new one (REQ-24) [after: 6.2, 5.1]
+- [x] 6.4 On `CellEntered` event: clear level-N grid via `GridRenderer` clear, draw level-(N+1) subgrid within cell bounds (REQ-5, REQ-7) [after: 6.2, 3.3, 5.1]
 
 ## Phase 7: App Wiring & Tray
 

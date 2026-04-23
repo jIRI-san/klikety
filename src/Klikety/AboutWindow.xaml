@@ -1,0 +1,19 @@
+<Window x:Class="Klikety.AboutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About Klikety"
+        Width="340" Height="200"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow">
+    <StackPanel Margin="20" VerticalAlignment="Center">
+        <TextBlock Text="Klikety" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" />
+        <TextBlock x:Name="VersionText" FontSize="12" Foreground="Gray" HorizontalAlignment="Center" Margin="0,4,0,8" />
+        <TextBlock Text="Keyboard-driven mouse navigator" HorizontalAlignment="Center" Margin="0,0,0,12" />
+        <TextBlock HorizontalAlignment="Center">
+            <Hyperlink x:Name="GithubLink" RequestNavigate="OnHyperlinkNavigate">
+                GitHub Repository
+            </Hyperlink>
+        </TextBlock>
+    </StackPanel>
+</Window>

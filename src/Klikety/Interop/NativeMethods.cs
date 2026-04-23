@@ -55,6 +55,10 @@ internal static partial class NativeMethods
         uint wFlags,
         nint dwhkl);
 
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetCursorPos(out POINT lpPoint);
+
     /// <summary>
     /// Returns physical-pixel bounds of the primary monitor.
     /// </summary>
@@ -97,5 +101,14 @@ internal static partial class NativeMethods
             ToUnicodeEx(vkey, scanCode, keyState, buffer, buffer.Length, 0, hkl);
 
         return null;
+    }
+
+    /// <summary>
+    /// Returns the current cursor position in physical pixels.
+    /// </summary>
+    public static Point GetCursorPosition()
+    {
+        GetCursorPos(out var pt);
+        return new Point(pt.X, pt.Y);
     }
 }

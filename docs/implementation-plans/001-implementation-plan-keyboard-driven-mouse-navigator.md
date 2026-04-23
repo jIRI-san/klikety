@@ -120,15 +120,15 @@
 
 ## Phase 7: App Wiring & Tray
 
-- [ ] 7.1 `App.xaml.cs` startup: `ShutdownMode=OnExplicitShutdown`; create `H.NotifyIcon.Wpf` `TaskbarIcon` with context menu ("About", "Open Configuration Folder", "Quit"); load config + logging; run `StartupValidator`; show tray notification(s) for all validation violations (REQ-15, REQ-14, REQ-22) [after: 2.2, 2.3, 2.10]
-- [ ] 7.2 Wire `HotKeyService.Activated` → capture cursor origin → show `OverlayWindow` → call `KeyboardHookService.Enable()`; if `Enable()` returns failure → immediately call `DeactivateOverlay()` + show tray notification (REQ-1, REQ-2, REQ-21) [after: 4.1, 6.1, 4.2, 5.1]
-- [ ] 7.3 Wire `KeyboardHookService.KeyPressed(VKey)` → `NavigatorStateMachine.OnKey(VKey)` (REQ-3–REQ-12) [after: 4.2, 5.1]
-- [ ] 7.4 Wire `NavigatorStateMachine.ActionRequested` → `MouseActionService` (move + click) → `DeactivateOverlay()` (REQ-8, REQ-11) [after: 5.1, 4.3, 6.1]
-- [ ] 7.4b Wire `NavigatorStateMachine.Cancelled(originPoint)` → `MouseActionService.MoveTo(originPoint)` → `DeactivateOverlay()` (REQ-12) [after: 5.1, 4.4, 6.1]
-- [ ] 7.5 Wire `NavigatorStateMachine` state-change events → `OverlayWindow` visual updates (REQ-4, REQ-5, REQ-7) [after: 5.1, 6.3, 6.4]
-- [ ] 7.6 "About" menu item → show small WPF window (`AboutWindow`): app name, version (from assembly), brief description, GitHub link; "Open Configuration Folder" → `Process.Start("explorer.exe", configFolderPath)` (REQ-15) [after: 7.1]
-- [ ] 7.7 Implement `DeactivateOverlay()`: hide `OverlayWindow`, call `KeyboardHookService.Disable()`, reset `NavigatorStateMachine` to `Idle`; method is idempotent (safe to call multiple times); called from action, cancel, focus-loss, exception handler, and Quit (REQ-19) [after: 4.3, 6.1, 5.1]
-- [ ] 7.8 `StartupRegistryService`: `IsEnabled()` reads `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Klikety`; `Enable()` writes value = `Environment.ProcessPath`; `Disable()` removes value; tray context menu item "Start with Windows" wired to toggle + checkmark refresh; checkmark set on tray menu creation from `IsEnabled()` (REQ-27) [after: 7.1]
+- [x] 7.1 `App.xaml.cs` startup: `ShutdownMode=OnExplicitShutdown`; create `H.NotifyIcon.Wpf` `TaskbarIcon` with context menu ("About", "Open Configuration Folder", "Quit"); load config + logging; run `StartupValidator`; show tray notification(s) for all validation violations (REQ-15, REQ-14, REQ-22) [after: 2.2, 2.3, 2.10]
+- [x] 7.2 Wire `HotKeyService.Activated` → capture cursor origin → show `OverlayWindow` → call `KeyboardHookService.Enable()`; if `Enable()` returns failure → immediately call `DeactivateOverlay()` + show tray notification (REQ-1, REQ-2, REQ-21) [after: 4.1, 6.1, 4.2, 5.1]
+- [x] 7.3 Wire `KeyboardHookService.KeyPressed(VKey)` → `NavigatorStateMachine.OnKey(VKey)` (REQ-3–REQ-12) [after: 4.2, 5.1]
+- [x] 7.4 Wire `NavigatorStateMachine.ActionRequested` → `MouseActionService` (move + click) → `DeactivateOverlay()` (REQ-8, REQ-11) [after: 5.1, 4.3, 6.1]
+- [x] 7.4b Wire `NavigatorStateMachine.Cancelled(originPoint)` → `MouseActionService.MoveTo(originPoint)` → `DeactivateOverlay()` (REQ-12) [after: 5.1, 4.4, 6.1]
+- [x] 7.5 Wire `NavigatorStateMachine` state-change events → `OverlayWindow` visual updates (REQ-4, REQ-5, REQ-7) [after: 5.1, 6.3, 6.4]
+- [x] 7.6 "About" menu item → show small WPF window (`AboutWindow`): app name, version (from assembly), brief description, GitHub link; "Open Configuration Folder" → `Process.Start("explorer.exe", configFolderPath)` (REQ-15) [after: 7.1]
+- [x] 7.7 Implement `DeactivateOverlay()`: hide `OverlayWindow`, call `KeyboardHookService.Disable()`, reset `NavigatorStateMachine` to `Idle`; method is idempotent (safe to call multiple times); called from action, cancel, focus-loss, exception handler, and Quit (REQ-19) [after: 4.3, 6.1, 5.1]
+- [x] 7.8 `StartupRegistryService`: `IsEnabled()` reads `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Klikety`; `Enable()` writes value = `Environment.ProcessPath`; `Disable()` removes value; tray context menu item "Start with Windows" wired to toggle + checkmark refresh; checkmark set on tray menu creation from `IsEnabled()` (REQ-27) [after: 7.1]
 
 ## Phase 8: Tests
 

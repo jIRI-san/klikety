@@ -165,12 +165,12 @@
 
 ## Phase 9: File Logging Opt-in
 
-- [ ] 9.1 Add `FileLoggingEnabled` (bool, default `false`) to `ConfigModel` — file logging is opt-in, no log folder created unless enabled [after: 2.2]
-- [ ] 9.2 Add `RetainedLogFileCount` (int, default `7`) to `ConfigModel` — max rolling log files kept [after: 9.1]
-- [ ] 9.3 Update `LoggingSetup.CreateLoggerFactory` to skip `AddFile()` when `FileLoggingEnabled` is `false`; pass `retainedFileCountLimit` when enabled [after: 9.1, 9.2]
-- [ ] 9.4 Update embedded `config.json` template with `fileLoggingEnabled` and `retainedLogFileCount` fields [after: 9.1, 9.2]
-- [ ] 9.5 Update `config.schema.json` with new fields [after: 9.4]
-- [ ] 9.6 Update `README.md` configuration reference table [after: 9.1, 9.2]
+- [x] 9.1 Add `FileLoggingEnabled` (bool, default `false`) to `ConfigModel` — file logging is opt-in, no log folder created unless enabled [after: 2.2]
+- [x] 9.2 Add `RetainedLogFileCount` (int, default `7`) to `ConfigModel` — max rolling log files kept [after: 9.1]
+- [x] 9.3 Update `LoggingSetup.CreateLoggerFactory` to skip `AddFile()` when `FileLoggingEnabled` is `false`; pass `retainedFileCountLimit` when enabled [after: 9.1, 9.2]
+- [x] 9.4 Update embedded `config.json` template with `fileLoggingEnabled` and `retainedLogFileCount` fields [after: 9.1, 9.2]
+- [x] 9.5 Update `config.schema.json` with new fields [after: 9.4]
+- [x] 9.6 Update `README.md` configuration reference table [after: 9.1, 9.2]
 
 ## Phase 10: EditorConfig
 

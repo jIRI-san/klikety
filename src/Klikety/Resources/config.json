@@ -48,6 +48,12 @@
   // Values: Trace, Debug, Information, Warning, Error, Critical, None.
   "logLevel": "Warning",
 
+  // Enable file logging. When false (default), no log folder is created.
+  "fileLoggingEnabled": false,
+
+  // Maximum number of rolling log files to keep. Oldest deleted when exceeded.
+  "retainedLogFileCount": 7,
+
   // Navigation input mode.
   // "twoKey"  — two-key grid scheme only; arrow keys ignored.
   // "arrow"   — arrow key navigation only; grid keys ignored.

@@ -99,6 +99,18 @@
       "description": "Theme name (resolves to themes/<name>.theme.json) or relative path from the config folder. Must have .theme.json extension if a path.",
       "default": "dark",
       "examples": ["dark", "light", "themes/custom.theme.json"]
+    },
+    "fileLoggingEnabled": {
+      "type": "boolean",
+      "description": "Enable file logging to %APPDATA%\\Klikety\\logs\\. When false, no log folder is created.",
+      "default": false
+    },
+    "retainedLogFileCount": {
+      "type": "integer",
+      "description": "Maximum number of rolling log files to keep. Oldest files are deleted when this count is exceeded. Only applies when fileLoggingEnabled is true.",
+      "default": 7,
+      "minimum": 1,
+      "examples": [7, 14, 30]
     }
   },
   "additionalProperties": false

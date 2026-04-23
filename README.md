@@ -64,6 +64,8 @@ First run extracts default config and theme files automatically.
 | `logLevel` | string | `"Warning"` | Log level: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None` |
 | `navigationMode` | string | `"Both"` | `TwoKey` (labels only), `Arrow` (arrows only), `Both` |
 | `theme` | string | `"dark"` | Theme name or relative path to `.theme.json` |
+| `fileLoggingEnabled` | bool | `false` | Enable file logging to `%APPDATA%\Klikety\logs\`. No log folder created when disabled. |
+| `retainedLogFileCount` | int | `7` | Max rolling log files kept. Oldest deleted when exceeded. Only applies when `fileLoggingEnabled` is `true`. |
 
 ### Example: Custom Action Bindings
 

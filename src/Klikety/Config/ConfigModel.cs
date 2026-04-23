@@ -87,4 +87,16 @@ public sealed class ConfigModel
     /// relative path from the config folder.
     /// </summary>
     public string Theme { get; init; } = "dark";
+
+    /// <summary>
+    /// Enables file logging to %APPDATA%\Klikety\logs\. Disabled by default
+    /// to avoid polluting the user's filesystem.
+    /// </summary>
+    public bool FileLoggingEnabled { get; init; } = false;
+
+    /// <summary>
+    /// Maximum number of rolling log files retained. Oldest files are deleted
+    /// when this count is exceeded. Only applies when FileLoggingEnabled is true.
+    /// </summary>
+    public int RetainedLogFileCount { get; init; } = 7;
 }

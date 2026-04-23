@@ -30,7 +30,7 @@ public partial class App : Application
         var config = configResult.Config;
 
         // Logging
-        _loggerFactory = LoggingSetup.CreateLoggerFactory(config.LogLevel);
+        _loggerFactory = LoggingSetup.CreateLoggerFactory(config.LogLevel, config.FileLoggingEnabled, config.RetainedLogFileCount);
         var logger = _loggerFactory.CreateLogger<App>();
 
         // Probe hotkey for conflicts

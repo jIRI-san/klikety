@@ -12,19 +12,21 @@ public static class LoggingSetup
     private static readonly string LogFolder =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Klikety", "logs");
 
-    public static ILoggerFactory CreateLoggerFactory(string logLevelName)
+    public static ILoggerFactory CreateLoggerFactory(string logLevelName, bool fileLoggingEnabled, int retainedFileCount)
     {
-        Directory.CreateDirectory(LogFolder);
-
         if (!Enum.TryParse<LogLevel>(logLevelName, true, out var logLevel))
             logLevel = LogLevel.Warning;
-
-        var logPath = Path.Combine(LogFolder, "klikety-{Date}.log");
 
         return LoggerFactory.Create(builder =>
         {
             builder.SetMinimumLevel(logLevel);
-            builder.AddFile(logPath, logLevel);
+
+            if (fileLoggingEnabled)
+            {
+                Directory.CreateDirectory(LogFolder);
+                var logPath = Path.Combine(LogFolder, "klikety-{Date}.log");
+                builder.AddFile(logPath, logLevel, retainedFileCountLimit: retainedFileCount);
+            }
         });
     }
 }

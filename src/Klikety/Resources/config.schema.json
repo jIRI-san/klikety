@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Klikety Configuration",
+  "description": "Configuration file for Klikety keyboard-driven mouse navigator. Supports JSON with Comments (JSONC).",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path to this schema file. Enables editor IntelliSense."
+    },
+    "hotKey": {
+      "type": "object",
+      "description": "Global hotkey that activates the navigation overlay.",
+      "properties": {
+        "modifiers": {
+          "type": "string",
+          "description": "Modifier key combination. Comma-separated flags: Alt, Control, Shift, Win.",
+          "default": "Alt",
+          "examples": ["Alt", "Control, Shift", "Alt, Shift"]
+        },
+        "key": {
+          "type": "string",
+          "description": "The trigger VKey name (physical key code, layout-independent).",
+          "default": "Space",
+          "enum": [
+            "Back", "Tab", "Return", "Shift", "Control", "Menu", "Pause", "Capital", "Escape", "Space",
+            "Left", "Up", "Right", "Down",
+            "LShift", "RShift", "LControl", "RControl", "LMenu", "RMenu", "LWin", "RWin",
+            "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9",
+            "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+            "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+            "OemSemicolon", "OemPlus", "OemComma", "OemMinus", "OemPeriod",
+            "OemQuestion", "OemTilde", "OemOpenBrackets", "OemPipe", "OemCloseBrackets", "OemQuotes"
+          ],
+          "examples": ["Space", "OemTilde"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "actionBindings": {
+      "type": "object",
+      "description": "Maps VKey names to mouse actions. Space → LeftClick is always the implicit default even if omitted.",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["LeftClick", "RightClick", "MiddleClick", "DoubleClick"]
+      },
+      "examples": [
+        { "Space": "LeftClick", "OemSemicolon": "RightClick", "OemQuotes": "DoubleClick" }
+      ]
+    },
+    "keySets": {
+      "type": "object",
+      "description": "VKey lists for the two-key grid navigation scheme.",
+      "properties": {
+        "firstKeys": {
+          "type": "array",
+          "description": "First-key VKey list (selects grid column). Default: QWERTY home row (9 keys).",
+          "items": { "type": "string" },
+          "default": ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+          "examples": [
+            ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+            ["A", "O", "E", "U", "I", "D", "H", "T", "N"]
+          ]
+        },
+        "secondKeys": {
+          "type": "array",
+          "description": "Second-key VKey list (selects grid row). Default: QWERTY top row non-pinky (8 keys).",
+          "items": { "type": "string" },
+          "default": ["W", "E", "R", "T", "Y", "U", "I", "O"],
+          "examples": [
+            ["W", "E", "R", "T", "Y", "U", "I", "O"],
+            ["OemComma", "OemPeriod", "P", "Y", "F", "G", "C", "R"]
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "level3CellSizeThreshold": {
+      "type": "integer",
+      "description": "Physical pixel² area threshold for level-3 auto-activation. When a level-2 cell exceeds this area, a third navigation level becomes available. Default sized for ~4K displays.",
+      "default": 40000,
+      "minimum": 1,
+      "examples": [40000, 20000]
+    },
+    "logLevel": {
+      "type": "string",
+      "description": "Minimum log level written to %APPDATA%\\Klikety\\logs\\. Uses Microsoft.Extensions.Logging level names.",
+      "default": "Warning",
+      "enum": ["Trace", "Debug", "Information", "Warning", "Error", "Critical", "None"]
+    },
+    "navigationMode": {
+      "type": "string",
+      "description": "Which navigation input schemes are active. 'twoKey' = grid-only; 'arrow' = arrow-key-only; 'both' = both schemes simultaneously.",
+      "default": "both",
+      "enum": ["twoKey", "arrow", "both"]
+    },
+    "theme": {
+      "type": "string",
+      "description": "Theme name (resolves to themes/<name>.theme.json) or relative path from the config folder. Must have .theme.json extension if a path.",
+      "default": "dark",
+      "examples": ["dark", "light", "themes/custom.theme.json"]
+    }
+  },
+  "additionalProperties": false
+}

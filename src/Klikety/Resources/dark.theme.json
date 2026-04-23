@@ -1,0 +1,31 @@
+{
+  // Klikety Dark Theme
+  // JSON with Comments (JSONC)
+  "$schema": "theme.schema.json",
+
+  // Label text
+  "labelFontFamily": "Segoe UI",    // Font family for cell labels
+  "labelFontSize": 14.0,            // Font size in points
+  "labelColor": "#FFFFFF",          // White text on dark background
+  "labelFontWeight": "Normal",      // Normal weight
+
+  // Cell borders
+  "cellBorderColor": "#555555",     // Medium gray borders
+  "cellBorderThickness": 1.0,       // 1px borders
+
+  // Normal cell background
+  "cellBackgroundColor": "#000000", // Black background
+  "cellBackgroundOpacity": 0.4,     // Semi-transparent
+
+  // Dimmed cells (non-matching after first key)
+  "dimmedOverlayColor": "#000000",  // Black overlay
+  "dimmedOverlayOpacity": 0.6,      // Fairly opaque dimming
+
+  // Highlighted column (matching column after first key)
+  "highlightedColumnBackground": "#FFCC00",    // Gold highlight
+  "highlightedColumnBorderColor": "#FFCC00",   // Matching gold border
+
+  // Subgrid (level 2/3) distinct styling
+  "subgridBorderColor": "#00AAFF",  // Blue borders for subgrid
+  "subgridLabelColor": "#00CCFF"    // Cyan labels for subgrid
+}

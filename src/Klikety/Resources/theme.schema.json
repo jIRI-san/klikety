@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Klikety Theme",
+  "description": "Theme file for the Klikety overlay grid appearance. Supports JSON with Comments (JSONC).",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path to this schema file."
+    },
+    "labelFontFamily": {
+      "type": "string",
+      "description": "Font family for grid cell labels.",
+      "default": "Segoe UI",
+      "examples": ["Segoe UI", "Consolas", "Cascadia Code"]
+    },
+    "labelFontSize": {
+      "type": "number",
+      "description": "Font size for grid cell labels in points.",
+      "default": 14.0,
+      "minimum": 6,
+      "examples": [12, 14, 16]
+    },
+    "labelColor": {
+      "type": "string",
+      "description": "Label text color as hex (#RRGGBB or #AARRGGBB).",
+      "default": "#FFFFFF",
+      "examples": ["#FFFFFF", "#E0E0E0"]
+    },
+    "labelFontWeight": {
+      "type": "string",
+      "description": "Font weight for labels.",
+      "default": "Normal",
+      "enum": ["Thin", "ExtraLight", "Light", "Normal", "Medium", "SemiBold", "Bold", "ExtraBold", "Black"]
+    },
+    "cellBorderColor": {
+      "type": "string",
+      "description": "Border color of grid cells as hex.",
+      "default": "#555555",
+      "examples": ["#555555", "#333333"]
+    },
+    "cellBorderThickness": {
+      "type": "number",
+      "description": "Border thickness of grid cells in pixels.",
+      "default": 1.0,
+      "minimum": 0,
+      "examples": [1, 2]
+    },
+    "cellBackgroundColor": {
+      "type": "string",
+      "description": "Background color of normal grid cells as hex.",
+      "default": "#000000",
+      "examples": ["#000000", "#1A1A2E"]
+    },
+    "cellBackgroundOpacity": {
+      "type": "number",
+      "description": "Opacity of normal cell background (0.0 = transparent, 1.0 = opaque).",
+      "default": 0.4,
+      "minimum": 0,
+      "maximum": 1,
+      "examples": [0.3, 0.4, 0.5]
+    },
+    "dimmedOverlayColor": {
+      "type": "string",
+      "description": "Overlay color applied to non-matching cells after first key press.",
+      "default": "#000000",
+      "examples": ["#000000", "#1A1A1A"]
+    },
+    "dimmedOverlayOpacity": {
+      "type": "number",
+      "description": "Opacity of dimmed cell overlay (0.0 = transparent, 1.0 = opaque).",
+      "default": 0.6,
+      "minimum": 0,
+      "maximum": 1,
+      "examples": [0.5, 0.6, 0.7]
+    },
+    "highlightedColumnBackground": {
+      "type": "string",
+      "description": "Background color of the highlighted column after first key press.",
+      "default": "#FFCC00",
+      "examples": ["#FFCC00", "#FFD700"]
+    },
+    "highlightedColumnBorderColor": {
+      "type": "string",
+      "description": "Border color of the highlighted column.",
+      "default": "#FFCC00",
+      "examples": ["#FFCC00", "#FFA500"]
+    },
+    "subgridBorderColor": {
+      "type": "string",
+      "description": "Distinct border color for subgrid (level 2/3) cells.",
+      "default": "#00AAFF",
+      "examples": ["#00AAFF", "#0088CC"]
+    },
+    "subgridLabelColor": {
+      "type": "string",
+      "description": "Distinct label color for subgrid (level 2/3) cells.",
+      "default": "#00CCFF",
+      "examples": ["#00CCFF", "#00AAEE"]
+    }
+  },
+  "additionalProperties": false
+}

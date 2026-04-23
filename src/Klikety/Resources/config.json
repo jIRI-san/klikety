@@ -1,0 +1,60 @@
+{
+  // Klikety Configuration
+  // JSON with Comments (JSONC) — comments are stripped when loaded.
+  // Schema provides IntelliSense in editors that support it.
+  "$schema": "config.schema.json",
+
+  // Global hotkey that activates the navigation overlay.
+  // Modifiers: Alt, Control, Shift, Win (comma-separated for combos).
+  // Key: a VKey name (physical key, layout-independent). Default: Alt+Space.
+  "hotKey": {
+    "modifiers": "Alt",
+    "key": "Space"
+  },
+
+  // Maps VKey names to mouse actions.
+  // Space → LeftClick is always the implicit default even if omitted.
+  // Available actions: LeftClick, RightClick, MiddleClick, DoubleClick.
+  "actionBindings": {
+    // "OemSemicolon": "RightClick",
+    // "OemQuotes": "DoubleClick",
+    // "OemOpenBrackets": "MiddleClick"
+  },
+
+  // VKey lists for the two-key grid navigation scheme.
+  // First key selects a column, second key selects a row → 9×8 = 72 cells per level.
+  "keySets": {
+    // First-key: QWERTY home row (9 keys). Selects grid column.
+    "firstKeys": ["A", "S", "D", "F", "G", "H", "J", "K", "L"],
+
+    // Second-key: QWERTY top row non-pinky (8 keys). Selects grid row.
+    "secondKeys": ["W", "E", "R", "T", "Y", "U", "I", "O"]
+
+    // DVORAK example:
+    // "firstKeys": ["A", "O", "E", "U", "I", "D", "H", "T", "N"],
+    // "secondKeys": ["OemComma", "OemPeriod", "P", "Y", "F", "G", "C", "R"]
+
+    // Colemak example:
+    // "firstKeys": ["A", "R", "S", "T", "D", "H", "N", "E", "I"],
+    // "secondKeys": ["W", "F", "P", "G", "J", "L", "U", "Y"]
+  },
+
+  // Physical pixel² area threshold for level-3 auto-activation.
+  // When a level-2 cell exceeds this area, a third navigation level becomes available.
+  // Default is sized for ~4K displays. Lower for higher DPI, raise for lower DPI.
+  "level3CellSizeThreshold": 40000,
+
+  // Minimum log level written to %APPDATA%\Klikety\logs\.
+  // Values: Trace, Debug, Information, Warning, Error, Critical, None.
+  "logLevel": "Warning",
+
+  // Navigation input mode.
+  // "twoKey"  — two-key grid scheme only; arrow keys ignored.
+  // "arrow"   — arrow key navigation only; grid keys ignored.
+  // "both"    — both schemes active simultaneously (default).
+  "navigationMode": "both",
+
+  // Theme: bare name (resolves to themes/<name>.theme.json) or relative path.
+  // Built-in themes: "dark", "light".
+  "theme": "dark"
+}

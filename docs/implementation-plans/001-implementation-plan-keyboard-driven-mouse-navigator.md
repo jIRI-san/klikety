@@ -99,10 +99,10 @@
 
 ## Phase 4: Win32 Services
 
-- [ ] 4.1 Define service interfaces: `IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`, `IOverlayWindow`; all production and test code depends only on these (REQ-1, REQ-4, REQ-8) [after: none]
-- [ ] 4.2 `HotKeyService` : `IHotKeyService` — `RegisterHotKey` / `UnregisterHotKey` via dispatcher message loop; raises `Activated`; reports conflict on failed registration (REQ-1, REQ-14) [after: 4.1, 2.3]
-- [ ] 4.3 `KeyboardHookService` : `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)` + `UnhookWindowsHookEx`; enabled only while overlay is visible; hook callback does minimal work (read `VKey` + `KeyboardState` from `KBDLLHOOKSTRUCT`, call `CallNextHookEx`, post to `Dispatcher.InvokeAsync`); raises `KeyPressed(VKey)` on UI thread (REQ-4, REQ-12) [after: 4.1]
-- [ ] 4.4 `MouseActionService` : `IMouseActionService` — `MoveTo(physicalPoint)` normalizes to 0–65535 using `NativeMethods.GetPrimaryScreenBounds()`; `SendInput` for `MOUSEMOVE` + `MOUSEEVENTF_LEFTDOWN/UP`, `RIGHTDOWN/UP`, `MIDDLEDOWN/UP`, double-click (two click pairs) (REQ-8, REQ-9) [after: 4.1]
+- [x] 4.1 Define service interfaces: `IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`, `IOverlayWindow`; all production and test code depends only on these (REQ-1, REQ-4, REQ-8) [after: none]
+- [x] 4.2 `HotKeyService` : `IHotKeyService` — `RegisterHotKey` / `UnregisterHotKey` via dispatcher message loop; raises `Activated`; reports conflict on failed registration (REQ-1, REQ-14) [after: 4.1, 2.3]
+- [x] 4.3 `KeyboardHookService` : `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)` + `UnhookWindowsHookEx`; enabled only while overlay is visible; hook callback does minimal work (read `VKey` + `KeyboardState` from `KBDLLHOOKSTRUCT`, call `CallNextHookEx`, post to `Dispatcher.InvokeAsync`); raises `KeyPressed(VKey)` on UI thread (REQ-4, REQ-12) [after: 4.1]
+- [x] 4.4 `MouseActionService` : `IMouseActionService` — `MoveTo(physicalPoint)` normalizes to 0–65535 using `NativeMethods.GetPrimaryScreenBounds()`; `SendInput` for `MOUSEMOVE` + `MOUSEEVENTF_LEFTDOWN/UP`, `RIGHTDOWN/UP`, `MIDDLEDOWN/UP`, double-click (two click pairs) (REQ-8, REQ-9) [after: 4.1]
 
 ## Phase 5: Navigation State Machine
 

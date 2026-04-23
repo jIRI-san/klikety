@@ -93,9 +93,9 @@
 
 ## Phase 3: Grid Logic (pure, unit-testable)
 
-- [ ] 3.1 `GridCalculator`: screen bounds from `NativeMethods.GetPrimaryScreenBounds()` (physical pixels) + key set sizes → `IReadOnlyList<GridCell>` (physical-pixel bounds, row/col indices); test vectors for 96/120/144/192 DPI (REQ-3) [after: none]
-- [ ] 3.2 `LabelGenerator`: first-key `VKey` list × second-key `VKey` list → bijective display-char labels; display chars derived via Win32 `ToUnicode`/`MapVirtualKey` against current HKL so labels reflect the active keyboard layout; `LabelFor(row, col)` and `CellFor(label)`; falls back to VKey name string if `ToUnicode` returns no character (dead key, unmapped) (REQ-3, REQ-25) [after: none]
-- [ ] 3.3 `SubgridCalculator`: parent `GridCell` (physical pixels) + key sets → level-2 cells; level-3 threshold comparison in physical pixels²; test vectors for DPI variants (REQ-5, REQ-6, REQ-7) [after: 3.1]
+- [x] 3.1 `GridCalculator`: screen bounds from `NativeMethods.GetPrimaryScreenBounds()` (physical pixels) + key set sizes → `IReadOnlyList<GridCell>` (physical-pixel bounds, row/col indices); test vectors for 96/120/144/192 DPI (REQ-3) [after: none]
+- [x] 3.2 `LabelGenerator`: first-key `VKey` list × second-key `VKey` list → bijective display-char labels; display chars derived via Win32 `ToUnicode`/`MapVirtualKey` against current HKL so labels reflect the active keyboard layout; `LabelFor(row, col)` and `CellFor(label)`; falls back to VKey name string if `ToUnicode` returns no character (dead key, unmapped) (REQ-3, REQ-25) [after: none]
+- [x] 3.3 `SubgridCalculator`: parent `GridCell` (physical pixels) + key sets → level-2 cells; level-3 threshold comparison in physical pixels²; test vectors for DPI variants (REQ-5, REQ-6, REQ-7) [after: 3.1]
 
 ## Phase 4: Win32 Services
 

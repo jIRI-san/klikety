@@ -170,19 +170,33 @@ public sealed class NavigatorStateMachine {
             case NavigatorState.L2_AwaitFirst:
             case NavigatorState.L2_AwaitSecond:
             case NavigatorState.L2_AwaitAction:
-                // Back to L1
-                State = NavigatorState.L1_AwaitAction;
-                _currentLevelCells = _l1Cells;
-                _arrowIndex = 0;
-                LevelExited?.Invoke(_l1SelectedCell, _l1Cells, 1);
+                // Back to L1 — reset to AwaitFirst with both halves visible
+                ResetToL1AwaitFirst();
+                break;
+
+            case NavigatorState.L1_AwaitAction:
+            case NavigatorState.L1_AwaitSecond:
+                // Reset both key presses — back to AwaitFirst
+                ResetToL1AwaitFirst();
                 break;
 
             default:
-                // L1 — cancel entirely
+                // L1_AwaitFirst — cancel entirely
                 State = NavigatorState.Idle;
                 Cancelled?.Invoke(_originPoint);
                 break;
         }
+    }
+
+    private void ResetToL1AwaitFirst() {
+        _activeHalf = ScreenHalf.Left;
+        _activeFirstKeys = _leftKeys.FirstKeys;
+        _activeSecondKeys = _leftKeys.SecondKeys;
+        _l1Cells = _leftL1Cells;
+        _currentLevelCells = _leftL1Cells;
+        _arrowIndex = 0;
+        State = NavigatorState.L1_AwaitFirst;
+        ColumnUnhighlighted?.Invoke(1);
     }
 
     private void HandleArrow(VKey vkey) {
@@ -235,6 +249,9 @@ public sealed class NavigatorStateMachine {
                 HandleSecondKey(vkey, NavigatorState.L2_AwaitSecond, NavigatorState.L2_AwaitAction, _l2Cells, 2, ref _l2SelectedCell);
                 break;
             case NavigatorState.L2_AwaitAction:
+                if (_l3Cells.Count == 0 && TryReselectCell(vkey, _l2Cells, 2, ref _l2SelectedCell)) {
+                    break;
+                }
                 HandleNavFirstKey(vkey, _l2SelectedCell, 3);
                 break;
             case NavigatorState.L3_AwaitFirst:
@@ -244,6 +261,9 @@ public sealed class NavigatorStateMachine {
                 HandleSecondKey(vkey, NavigatorState.L3_AwaitSecond, NavigatorState.L3_AwaitAction, _l3Cells, 3, ref _l3SelectedCell);
                 break;
             case NavigatorState.L3_AwaitAction:
+                if (TryReselectCell(vkey, _l3Cells, 3, ref _l3SelectedCell)) {
+                    break;
+                }
                 HandleActionFinal(vkey);
                 break;
         }
@@ -342,6 +362,7 @@ public sealed class NavigatorStateMachine {
         }
 
         selectedCell = cells[index];
+        _arrowIndex = index;
         State = nextState;
 
         // Compute subgrid for next level
@@ -361,6 +382,27 @@ public sealed class NavigatorStateMachine {
         }
 
         CellEntered?.Invoke(selectedCell, subgridCells, level);
+    }
+
+    /// <summary>
+    /// At the deepest level's AwaitAction, a valid second key re-selects
+    /// a different cell in the same column (using _selectedCol from the first key).
+    /// </summary>
+    private bool TryReselectCell(VKey vkey, IReadOnlyList<GridCell> cells, int level, ref GridCell selectedCell) {
+        int row = Array.IndexOf(_activeSecondKeys, vkey);
+        if (row < 0) {
+            return false;
+        }
+
+        int index = row * _activeFirstKeys.Length + _selectedCol;
+        if (index >= cells.Count) {
+            return false;
+        }
+
+        selectedCell = cells[index];
+        _arrowIndex = index;
+        CellEntered?.Invoke(selectedCell, [], level);
+        return true;
     }
 
     private void HandleNavFirstKey(VKey vkey, GridCell parentCell, int nextLevel) {

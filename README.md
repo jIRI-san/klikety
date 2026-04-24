@@ -63,7 +63,7 @@ First run extracts default config and theme files automatically.
 | `keySets.right.firstKeys` | VKey[] | `["J","K","L","OemSemicolon"]` | Right half column selection keys |
 | `keySets.right.secondKeys` | VKey[] | `["Y","U","I","O"]` | Right half row selection keys |
 | `actionBindings` | object | `{}` | Map VKey names to actions: `LeftClick`, `RightClick`, `DoubleClick`, `MiddleClick`, `DragStart`, `DragEnd` |
-| `level3CellSizeThreshold` | int | `40000` | Cell area (px²) above which level-3 subgrid activates |
+| `level3CellSizeThreshold` | int | `0` | Cell area (px²) above which level-3 subgrid activates. 0 = always active. |
 | `logLevel` | string | `"Warning"` | Log level: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None` |
 | `navigationMode` | string | `"Both"` | `TwoKey` (labels only), `Arrow` (arrows only), `Both` |
 | `theme` | string | `"dark"` | Theme name or relative path to `.theme.json` |

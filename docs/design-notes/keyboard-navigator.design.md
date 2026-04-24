@@ -254,7 +254,7 @@ When subgrid cells are too small to fit labels (cell DIP height < `MinLabelFontS
 ## Config
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.
-- Written on first run from embedded `config.json` template if absent.
+- Written on first run from embedded `config.json` template if absent. **Not overwritten on subsequent runs** — changing defaults in the embedded template does not affect existing installs. When a config or theme default changes during development, the user's `%APPDATA%\Klikety\config.json` and `%APPDATA%\Klikety\themes\*.theme.json` must be updated manually (or the files deleted to trigger re-extraction).
 - Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `keySets.left`/`keySets.right` (each with `firstKeys`/`secondKeys` VKey arrays), `level3CellSizeThreshold`, `logLevel`, `navigationMode`, `theme`.
 - Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; left/right first-key overlap (must be disjoint); per-half first/second key overlap; all violations collected and surfaced via tray notification list.
 

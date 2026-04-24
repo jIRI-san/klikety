@@ -57,8 +57,8 @@
 
   // Physical pixel² area threshold for level-3 auto-activation.
   // When a level-2 cell exceeds this area, a third navigation level becomes available.
-  // Default is sized for ~4K displays. Lower for higher DPI, raise for lower DPI.
-  "level3CellSizeThreshold": 40000,
+  // Default 0 = always active. Set higher to disable L3 on small cells.
+  "level3CellSizeThreshold": 0,
 
   // Minimum log level written to %APPDATA%\Klikety\logs\.
   // Values: Trace, Debug, Information, Warning, Error, Critical, None.

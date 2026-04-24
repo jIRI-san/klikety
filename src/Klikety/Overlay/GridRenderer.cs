@@ -538,14 +538,17 @@ public sealed class GridRenderer : IGridRenderer {
         var extLabelBrush = BrushFromHex(_theme.ExternalLabelColor);
         var connectorBrush = BrushFromHex(_theme.ConnectorLineColor);
         var fontFamily = new FontFamily(_theme.LabelFontFamily);
-        var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
-        double fontSize = Math.Max(_minLabelFontSize, _theme.LabelFontSize * 0.8);
+    var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
 
-        int cols = _activeLabelGenerator.Cols;
-        int rows = _activeLabelGenerator.Rows;
+    int cols = _activeLabelGenerator.Cols;
+    int rows = _activeLabelGenerator.Rows;
 
-        double gridLeft = region.X;
-        double gridTop = region.Y;
+    // Size labels proportional to cell height (same as internal labels would be)
+    var firstDip = DipRectForCell(0, 0, region, cols, rows);
+    double fontSize = ComputeAutoFontSize(firstDip.Width / 2, firstDip.Height, 0.9);
+
+    double gridLeft = region.X;
+    double gridTop = region.Y;
 
         // External column labels (first keys) above the grid
         double labelMargin = fontSize * 1.5;

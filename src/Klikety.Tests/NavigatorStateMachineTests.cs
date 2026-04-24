@@ -11,11 +11,11 @@ public class NavigatorStateMachineTests {
     private static readonly VKey[] FirstKeys = [VKey.A, VKey.S, VKey.D];
     private static readonly VKey[] SecondKeys = [VKey.W, VKey.E];
 
-    private static NavigatorStateMachine CreateMachine(NavigationMode mode = NavigationMode.Both) {
+    private static NavigatorStateMachine CreateMachine(NavigationMode mode = NavigationMode.Both, int level3Threshold = 0) {
         var mapper = new ActionMapper(new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase));
         var left = new HalfKeySetsConfig { FirstKeys = FirstKeys, SecondKeys = SecondKeys };
         var right = new HalfKeySetsConfig { FirstKeys = [VKey.J, VKey.K, VKey.L], SecondKeys = [VKey.U, VKey.I] };
-        return new NavigatorStateMachine(left, right, mapper, mode, 40000);
+        return new NavigatorStateMachine(left, right, mapper, mode, level3Threshold);
     }
 
     private static IReadOnlyList<GridCell> CreateLeftGrid()
@@ -89,16 +89,16 @@ public class NavigatorStateMachineTests {
     }
 
     [Fact]
-    public void EscapeAtL1AwaitSecond_RaisesCancelled() {
+    public void EscapeAtL1AwaitSecond_ResetsToAwaitFirst() {
         var sm = CreateMachine();
         sm.Activate(CreateLeftGrid(), CreateRightGrid(), new Point(0, 0));
-        bool cancelled = false;
-        sm.Cancelled += _ => cancelled = true;
+        int? unhighlightedLevel = null;
+        sm.ColumnUnhighlighted += level => unhighlightedLevel = level;
 
         sm.OnKey(VKey.A);
         sm.OnKey(VKey.Escape);
-        Assert.Equal(NavigatorState.Idle, sm.State);
-        Assert.True(cancelled);
+        Assert.Equal(NavigatorState.L1_AwaitFirst, sm.State);
+        Assert.Equal(1, unhighlightedLevel);
     }
 
     [Fact]
@@ -331,23 +331,19 @@ public class NavigatorStateMachineTests {
     }
 
     [Fact]
-    public void LevelExited_FromL2_FiresWithCorrectCells() {
+    public void EscapeFromL2_ResetsToL1AwaitFirst() {
         var sm = CreateMachine();
         sm.Activate(CreateLeftGrid(), CreateRightGrid(), new Point(0, 0));
         sm.OnKey(VKey.A); // L1 first
         sm.OnKey(VKey.W); // L1 second → L1_AwaitAction
         sm.OnKey(VKey.A); // Navigate into L2
 
-        GridCell? parentCell = null;
-        IReadOnlyList<GridCell>? exitedCells = null;
-        int? exitedLevel = null;
-        sm.LevelExited += (cell, cells, level) => { parentCell = cell; exitedCells = cells; exitedLevel = level; };
+        int? unhighlightedLevel = null;
+        sm.ColumnUnhighlighted += level => unhighlightedLevel = level;
 
-        sm.OnKey(VKey.Escape); // Escape from L2 → back to L1
-        Assert.Equal(NavigatorState.L1_AwaitAction, sm.State);
-        Assert.Equal(1, exitedLevel);
-        Assert.NotNull(parentCell);
-        Assert.NotNull(exitedCells);
+        sm.OnKey(VKey.Escape); // Escape from L2 → back to L1_AwaitFirst
+        Assert.Equal(NavigatorState.L1_AwaitFirst, sm.State);
+        Assert.Equal(1, unhighlightedLevel);
     }
 
     [Fact]
@@ -390,7 +386,7 @@ public class NavigatorStateMachineTests {
 
     [Fact]
     public void SecondKey_AtL2_ThresholdNotMet_EmptySubgrid() {
-        var sm = CreateMachine();
+        var sm = CreateMachine(level3Threshold: 40000);
         // Small grid — L3 threshold (40000) won't be met
         sm.Activate(CreateLeftGrid(), CreateRightGrid(), new Point(0, 0));
         sm.OnKey(VKey.A); // L1 first

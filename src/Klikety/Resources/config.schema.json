@@ -123,10 +123,13 @@
     },
     "level3CellSizeThreshold": {
       "type": "integer",
-      "description": "Physical pixel² area threshold for level-3 auto-activation. When a level-2 cell exceeds this area, a third navigation level becomes available. Default sized for ~4K displays.",
-      "default": 40000,
-      "minimum": 1,
-      "examples": [40000, 20000]
+      "description": "Physical pixel² area threshold for level-3 auto-activation. When a level-2 cell exceeds this area, a third navigation level becomes available. Default 0 = always active.",
+      "default": 0,
+      "minimum": 0,
+      "examples": [
+        0,
+        40000
+      ]
     },
     "logLevel": {
       "type": "string",

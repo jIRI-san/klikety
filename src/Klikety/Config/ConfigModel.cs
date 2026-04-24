@@ -76,9 +76,9 @@ public sealed class ConfigModel {
     /// <summary>
     /// Level-3 auto-activation threshold in physical pixels² (cell area).
     /// When a level-2 cell's area exceeds this value, level-3 becomes available.
-    /// Default sized for ~4K displays.
+    /// Default 0 = always active. Set higher to disable L3 on small cells.
     /// </summary>
-    public int Level3CellSizeThreshold { get; init; } = 40_000;
+    public int Level3CellSizeThreshold { get; init; } = 0;
 
     /// <summary>
     /// Minimum log level. Accepts Microsoft.Extensions.Logging level names:

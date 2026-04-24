@@ -10,6 +10,8 @@ public sealed class ThemeModel {
     public double LabelFontSize { get; init; } = 14.0;
     public string LabelColor { get; init; } = "#FFFFFF";
     public string LabelFontWeight { get; init; } = "Normal";
+    public string LabelOutlineColor { get; init; } = "#000000";
+    public double LabelOutlineThickness { get; init; } = 1.5;
 
     // Cell borders
     public string CellBorderColor { get; init; } = "#555555";

@@ -8,6 +8,8 @@
   "labelFontSize": 14.0,            // Font size in points
   "labelColor": "#FFFFFF",          // White text on dark background
   "labelFontWeight": "Normal",      // Normal weight
+  "labelOutlineColor": "#000000", // Black outline for contrast
+  "labelOutlineThickness": 1.5, // Outline stroke width
 
   // Cell borders
   "cellBorderColor": "#555555",     // Medium gray borders

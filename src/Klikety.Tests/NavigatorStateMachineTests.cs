@@ -128,14 +128,15 @@ public class NavigatorStateMachineTests {
     }
 
     [Fact]
-    public void Enter_InBothMode_FiresAction() {
+    public void Enter_InBothMode_EntersCell() {
         var sm = CreateMachine(NavigationMode.Both);
         sm.Activate(CreateGrid(), new Point(0, 0));
-        MouseAction? action = null;
-        sm.ActionRequested += (_, a) => action = a;
+        GridCell? enteredCell = null;
+        sm.CellEntered += (cell, subgridCells, level) => enteredCell = cell;
 
         sm.OnKey(VKey.Return);
-        Assert.Equal(MouseAction.LeftClick, action);
+        Assert.NotNull(enteredCell);
+        Assert.Equal(NavigatorState.L2_AwaitFirst, sm.State);
     }
 
     [Fact]
@@ -210,26 +211,6 @@ public class NavigatorStateMachineTests {
     }
 
     [Fact]
-    public void Backspace_AtAwaitSecond_GoesBackToAwaitFirst() {
-        var sm = CreateMachine();
-        sm.Activate(CreateGrid(), new Point(0, 0));
-        sm.OnKey(VKey.A);
-        Assert.Equal(NavigatorState.L1_AwaitSecond, sm.State);
-
-        sm.OnKey(VKey.Back);
-        Assert.Equal(NavigatorState.L1_AwaitFirst, sm.State);
-    }
-
-    [Fact]
-    public void Backspace_AtAwaitFirst_NoEffect() {
-        var sm = CreateMachine();
-        sm.Activate(CreateGrid(), new Point(0, 0));
-
-        sm.OnKey(VKey.Back);
-        Assert.Equal(NavigatorState.L1_AwaitFirst, sm.State);
-    }
-
-    [Fact]
     public void FirstKey_AtAwaitSecond_RestartsColumnSelection() {
         var sm = CreateMachine();
         sm.Activate(CreateGrid(), new Point(0, 0));
@@ -241,37 +222,6 @@ public class NavigatorStateMachineTests {
         sm.OnKey(VKey.S);
         Assert.Equal(NavigatorState.L1_AwaitSecond, sm.State);
         Assert.Equal(1, newCol);
-    }
-
-    [Fact]
-    public void Backspace_FiresColumnUnhighlighted() {
-        var sm = CreateMachine();
-        sm.Activate(CreateGrid(), new Point(0, 0));
-        sm.OnKey(VKey.A);
-        Assert.Equal(NavigatorState.L1_AwaitSecond, sm.State);
-
-        int? unhighlightedLevel = null;
-        sm.ColumnUnhighlighted += level => unhighlightedLevel = level;
-
-        sm.OnKey(VKey.Back);
-        Assert.Equal(1, unhighlightedLevel);
-        Assert.Equal(NavigatorState.L1_AwaitFirst, sm.State);
-    }
-
-    [Fact]
-    public void Backspace_AtL2AwaitSecond_FiresColumnUnhighlighted() {
-        var sm = CreateMachine();
-        sm.Activate(CreateGrid(), new Point(0, 0));
-        sm.OnKey(VKey.A);
-        sm.OnKey(VKey.W);
-        sm.OnKey(VKey.A);
-
-        int? unhighlightedLevel = null;
-        sm.ColumnUnhighlighted += level => unhighlightedLevel = level;
-
-        sm.OnKey(VKey.Back);
-        Assert.Equal(2, unhighlightedLevel);
-        Assert.Equal(NavigatorState.L2_AwaitFirst, sm.State);
     }
 
     [Fact]
@@ -298,7 +248,7 @@ public class NavigatorStateMachineTests {
     }
 
     [Fact]
-    public void LevelExited_FromL3_CarriesL2Cells() {
+    public void EscapeFromL3_GoesToL2AwaitFirst() {
         var sm = CreateMachine(NavigationMode.Both);
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
         sm.Activate(grid, new Point(0, 0));
@@ -308,14 +258,12 @@ public class NavigatorStateMachineTests {
         sm.OnKey(VKey.W);
         sm.OnKey(VKey.A);
 
-        GridCell? parentCell = null;
-        int? exitedLevel = null;
-        sm.LevelExited += (cell, cells, level) => { parentCell = cell; exitedLevel = level; };
+        int? unhighlightedLevel = null;
+        sm.ColumnUnhighlighted += level => unhighlightedLevel = level;
 
         sm.OnKey(VKey.Escape);
-        Assert.Equal(NavigatorState.L2_AwaitAction, sm.State);
-        Assert.Equal(2, exitedLevel);
-        Assert.NotNull(parentCell);
+        Assert.Equal(NavigatorState.L2_AwaitFirst, sm.State);
+        Assert.Equal(2, unhighlightedLevel);
     }
 
     [Fact]
@@ -365,14 +313,14 @@ public class NavigatorStateMachineTests {
     }
 
     [Fact]
-    public void EscapeFromL2AwaitAction_GoesToL2AwaitFirst() {
+    public void EscapeFromL2AwaitAction_GoesToL1AwaitFirst() {
         var sm = CreateMachine(NavigationMode.Both);
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
         sm.Activate(grid, new Point(0, 0));
-        sm.OnKey(VKey.A); // L1 first → L1_AwaitSecond
-        sm.OnKey(VKey.W); // L1 second → L1_AwaitAction
-        sm.OnKey(VKey.A); // L2 first → L2_AwaitSecond
-        sm.OnKey(VKey.W); // L2 second → L2_AwaitAction (L3 computed)
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
 
         Assert.Equal(NavigatorState.L2_AwaitAction, sm.State);
 
@@ -380,7 +328,7 @@ public class NavigatorStateMachineTests {
         sm.ColumnUnhighlighted += level => unhighlightedLevel = level;
 
         sm.OnKey(VKey.Escape);
-        Assert.Equal(NavigatorState.L2_AwaitFirst, sm.State);
-        Assert.Equal(2, unhighlightedLevel);
+        Assert.Equal(NavigatorState.L1_AwaitFirst, sm.State);
+        Assert.Equal(1, unhighlightedLevel);
     }
 }

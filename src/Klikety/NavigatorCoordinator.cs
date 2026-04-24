@@ -111,7 +111,7 @@ public sealed class NavigatorCoordinator {
         if (_subgridCells == null) {
             _gridRenderer?.HighlightCell(_l1Cells, cell);
         } else {
-            _gridRenderer?.HighlightCell(_subgridCells, cell);
+            _gridRenderer?.HighlightCellOverGrid(_l1Cells, _subgridCells, cell);
         }
     }
 

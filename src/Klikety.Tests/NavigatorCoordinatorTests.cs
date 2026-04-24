@@ -93,15 +93,15 @@ public class NavigatorCoordinatorTests {
     }
 
     [Fact]
-    public void ArrowNavigation_ThenEnter() {
-        var (_, hotKey, hook, mouse, overlay, _) = CreateCoordinator(NavigationMode.Both);
+    public void ArrowNavigation_ThenEnter_EntersCell() {
+        var (_, hotKey, hook, mouse, overlay, renderer) = CreateCoordinator(NavigationMode.Both);
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.Right);
         hook.SimulateKey(VKey.Return);
 
-        Assert.False(overlay.IsVisible);
-        Assert.Contains(mouse.Calls, c => c.Action == MouseAction.LeftClick);
+        Assert.True(overlay.IsVisible);
+        Assert.Contains(renderer.Calls, c => c.Method == "RenderSubgridOverGrid");
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class NavigatorCoordinatorTests {
     }
 
     [Fact]
-    public void EscapeFromL2AwaitAction_CallsRenderSubgridOverGrid() {
+    public void EscapeFromL2AwaitAction_CallsRenderGrid() {
         var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
@@ -176,19 +176,6 @@ public class NavigatorCoordinatorTests {
 
         renderer.Calls.Clear();
         hook.SimulateKey(VKey.Escape);
-
-        Assert.Contains(renderer.Calls, c => c.Method == "RenderSubgridOverGrid");
-    }
-
-    [Fact]
-    public void Backspace_CallsRenderGrid() {
-        var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
-
-        hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.A);
-
-        renderer.Calls.Clear();
-        hook.SimulateKey(VKey.Back);
 
         Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
     }

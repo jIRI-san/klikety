@@ -101,11 +101,6 @@ public sealed class NavigatorStateMachine {
             return;
         }
 
-        if (vkey == VKey.Back) {
-            HandleBackspace();
-            return;
-        }
-
         if (IsArrowKey(vkey) && _navigationMode != NavigationMode.TwoKey) {
             HandleArrow(vkey);
             return;
@@ -137,13 +132,6 @@ public sealed class NavigatorStateMachine {
             case NavigatorState.L3_AwaitFirst:
             case NavigatorState.L3_AwaitSecond:
             case NavigatorState.L3_AwaitAction:
-                State = NavigatorState.L2_AwaitAction;
-                _currentLevelCells = _l2Cells;
-                _arrowIndex = 0;
-                LevelExited?.Invoke(_l2SelectedCell, _l2Cells, 2);
-                break;
-
-            case NavigatorState.L2_AwaitAction:
                 _l3Cells = [];
                 _currentLevelCells = _l2Cells;
                 _arrowIndex = 0;
@@ -153,6 +141,7 @@ public sealed class NavigatorStateMachine {
 
             case NavigatorState.L2_AwaitFirst:
             case NavigatorState.L2_AwaitSecond:
+            case NavigatorState.L2_AwaitAction:
                 ResetToL1AwaitFirst();
                 break;
 
@@ -202,9 +191,52 @@ public sealed class NavigatorStateMachine {
         }
 
         var cell = _currentLevelCells[_arrowIndex];
-        var center = GridCalculator.CenterOf(cell);
-        State = NavigatorState.Idle;
-        ActionRequested?.Invoke(center, MouseAction.LeftClick);
+
+        // Determine current level from state
+        int level;
+        switch (State) {
+            case NavigatorState.L1_AwaitFirst:
+            case NavigatorState.L1_AwaitSecond:
+            case NavigatorState.L1_AwaitAction:
+                level = 1;
+                _l1SelectedCell = cell;
+                break;
+            case NavigatorState.L2_AwaitFirst:
+            case NavigatorState.L2_AwaitSecond:
+            case NavigatorState.L2_AwaitAction:
+                level = 2;
+                _l2SelectedCell = cell;
+                break;
+            case NavigatorState.L3_AwaitFirst:
+            case NavigatorState.L3_AwaitSecond:
+            case NavigatorState.L3_AwaitAction:
+                // L3 is the deepest level — Enter does nothing during arrow nav
+                return;
+            default:
+                return;
+        }
+
+        // Compute subgrid and enter cell (same as two-key cell entry)
+        IReadOnlyList<GridCell> subgridCells = [];
+        if (level == 1) {
+            subgridCells = SubgridCalculator.Calculate(cell, _firstKeys.Length, _secondKeys.Length);
+            _l2Cells = subgridCells;
+            _currentLevelCells = subgridCells;
+            _arrowIndex = 0;
+            State = NavigatorState.L2_AwaitFirst;
+        } else if (level == 2) {
+            if (SubgridCalculator.ShouldActivateLevel3(cell, _level3Threshold)) {
+                subgridCells = SubgridCalculator.Calculate(cell, _firstKeys.Length, _secondKeys.Length);
+                _l3Cells = subgridCells;
+                _currentLevelCells = subgridCells;
+                _arrowIndex = 0;
+                State = NavigatorState.L3_AwaitFirst;
+            } else {
+                State = NavigatorState.L2_AwaitAction;
+            }
+        }
+
+        CellEntered?.Invoke(cell, subgridCells, level);
     }
 
     private void HandleTwoKey(VKey vkey) {
@@ -279,6 +311,15 @@ public sealed class NavigatorStateMachine {
 
         selectedCell = cells[index];
         _arrowIndex = index;
+
+        // At L3 (deepest), two-key selection immediately clicks
+        if (level == 3) {
+            var center = GridCalculator.CenterOf(selectedCell);
+            State = NavigatorState.Idle;
+            ActionRequested?.Invoke(center, MouseAction.LeftClick);
+            return;
+        }
+
         State = nextState;
 
         // Compute subgrid for next level
@@ -362,24 +403,4 @@ public sealed class NavigatorStateMachine {
 
     private static bool IsArrowKey(VKey vkey) =>
         vkey is VKey.Left or VKey.Right or VKey.Up or VKey.Down;
-
-    private void HandleBackspace() {
-        switch (State) {
-            case NavigatorState.L1_AwaitSecond:
-                ResetToL1AwaitFirst();
-                break;
-            case NavigatorState.L2_AwaitSecond:
-                _arrowIndex = 0;
-                State = NavigatorState.L2_AwaitFirst;
-                ColumnUnhighlighted?.Invoke(2);
-                break;
-            case NavigatorState.L3_AwaitSecond:
-                _arrowIndex = 0;
-                State = NavigatorState.L3_AwaitFirst;
-                ColumnUnhighlighted?.Invoke(3);
-                break;
-            default:
-                break;
-        }
-    }
 }

@@ -255,12 +255,19 @@ public sealed class GridRenderer : IGridRenderer {
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-            bool isHighlighted = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
-            AddCellRect(dipRect,
-                isHighlighted ? highlightBg : bgBrush,
-                isHighlighted ? highlightBorder : borderBrush,
-                isHighlighted ? _theme.CellBorderThickness * 2 : _theme.CellBorderThickness);
-            AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
+      bool isCell = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
+      bool inCrossHair = cell.Row == highlightedCell.Row || cell.Col == highlightedCell.Col;
+
+      Brush bg = isCell ? highlightBg
+          : inCrossHair ? BrushFromHex(_theme.HighlightedColumnBackground, 0.25)
+          : bgBrush;
+      Brush border = inCrossHair ? highlightBorder : borderBrush;
+      double thickness = isCell ? _theme.CellBorderThickness * 2
+          : inCrossHair ? _theme.CellBorderThickness * 1.5
+          : _theme.CellBorderThickness;
+
+      AddCellRect(dipRect, bg, border, thickness);
+      AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
         }
     }
 
@@ -418,12 +425,21 @@ public sealed class GridRenderer : IGridRenderer {
 
         foreach (var cell in subgridCells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-            bool isHighlighted = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
-            AddCellRect(dipRect,
-                isHighlighted ? highlightBg : bgBrush,
-                isHighlighted ? highlightBorder : borderBrush,
-                isHighlighted ? borderThickness * 2 : borderThickness);
-            if (!useExternalLabels) {
+      bool isCell = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
+      bool inRow = cell.Row == highlightedCell.Row;
+      bool inCol = cell.Col == highlightedCell.Col;
+      bool inCrossHair = inRow || inCol;
+
+      Brush bg = isCell ? highlightBg
+          : inCrossHair ? BrushFromHex(_theme.HighlightedColumnBackground, 0.25)
+          : bgBrush;
+      Brush border = inCrossHair ? highlightBorder : borderBrush;
+      double thickness = isCell ? borderThickness * 2
+          : inCrossHair ? borderThickness * 1.5
+          : borderThickness;
+
+      AddCellRect(dipRect, bg, border, thickness);
+      if (!useExternalLabels) {
                 AddLabel(dipRect, cell.Row, cell.Col, labelBrush, heightFraction: 0.9);
             }
         }

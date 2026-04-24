@@ -51,10 +51,10 @@
 
   // Minimum log level written to %APPDATA%\Klikety\logs\.
   // Values: Trace, Debug, Information, Warning, Error, Critical, None.
-  "logLevel": "Warning",
+  "logLevel": "Debug",
 
-  // Enable file logging. When false (default), no log folder is created.
-  "fileLoggingEnabled": false,
+  // Enable file logging. When false, no log folder is created.
+  "fileLoggingEnabled": true,
 
   // Maximum number of rolling log files to keep. Oldest deleted when exceeded.
   "retainedLogFileCount": 7,

@@ -91,7 +91,13 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnKeyPressed(object? sender, Input.VKey vkey) {
+        var stateBefore = _stateMachine.State;
+        _logger.LogDebug("Key: {Key}  State: {State}", vkey, stateBefore);
         _stateMachine.OnKey(vkey);
+        var stateAfter = _stateMachine.State;
+        if (stateAfter != stateBefore) {
+            _logger.LogDebug("State: {Before} → {After}", stateBefore, stateAfter);
+        }
     }
 
     private void OnFocusLost(object? sender, EventArgs e) {
@@ -100,6 +106,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnColumnHighlighted(int col, IReadOnlyList<GridCell> cells, int level) {
+        _logger.LogDebug("ColumnHighlighted: col={Col} level={Level} cells={Count}", col, level, cells.Count);
         if (level == 1) {
             _gridRenderer?.HighlightColumn(_l1Cells, col);
         } else {
@@ -108,6 +115,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnCellHighlighted(GridCell cell) {
+        _logger.LogDebug("CellHighlighted: row={Row} col={Col} hasSubgrid={HasSubgrid}", cell.Row, cell.Col, _subgridCells != null);
         if (_subgridCells == null) {
             _gridRenderer?.HighlightCell(_l1Cells, cell);
         } else {
@@ -116,6 +124,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnCellEntered(GridCell cell, IReadOnlyList<GridCell> subgridCells, int level) {
+        _logger.LogDebug("CellEntered: row={Row} col={Col} level={Level} subgrid={Count}", cell.Row, cell.Col, level, subgridCells.Count);
         var center = GridCalculator.CenterOf(cell);
         _mouseService.MoveTo(center);
 
@@ -148,6 +157,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnLevelExited(GridCell parentCell, IReadOnlyList<GridCell> cells, int level) {
+        _logger.LogDebug("LevelExited: level={Level} parentRow={Row} parentCol={Col}", level, parentCell.Row, parentCell.Col);
         var center = GridCalculator.CenterOf(parentCell);
         _mouseService.MoveTo(center);
 
@@ -157,6 +167,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnColumnUnhighlighted(int level) {
+        _logger.LogDebug("ColumnUnhighlighted: level={Level}", level);
         if (level == 1) {
             _subgridCells = null;
             _l2SubgridCells = null;

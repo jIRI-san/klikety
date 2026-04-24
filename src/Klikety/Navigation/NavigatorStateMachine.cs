@@ -111,6 +111,12 @@ public sealed class NavigatorStateMachine {
             return;
         }
 
+        // In Both mode, action keys (Space, etc.) fire immediately on the
+        // arrow-selected cell — even from AwaitFirst/AwaitSecond states.
+        if (_navigationMode == NavigationMode.Both && TryHandleActionKey(vkey)) {
+            return;
+        }
+
         if (_navigationMode != NavigationMode.Arrow) {
             HandleTwoKey(vkey);
         }
@@ -312,14 +318,6 @@ public sealed class NavigatorStateMachine {
         selectedCell = cells[index];
         _arrowIndex = index;
 
-        // At L3 (deepest), two-key selection immediately clicks
-        if (level == 3) {
-            var center = GridCalculator.CenterOf(selectedCell);
-            State = NavigatorState.Idle;
-            ActionRequested?.Invoke(center, MouseAction.LeftClick);
-            return;
-        }
-
         State = nextState;
 
         // Compute subgrid for next level
@@ -399,6 +397,26 @@ public sealed class NavigatorStateMachine {
             State = NavigatorState.Idle;
             ActionRequested?.Invoke(center, action.Value);
         }
+    }
+
+    /// <summary>
+    /// Checks if the key is an action key and fires the action on the current
+    /// arrow-selected cell. Returns true if handled.
+    /// </summary>
+    private bool TryHandleActionKey(VKey vkey) {
+        var action = _actionMapper.Map(vkey);
+        if (!action.HasValue) {
+            return false;
+        }
+
+        if (_arrowIndex < 0 || _arrowIndex >= _currentLevelCells.Count) {
+            return false;
+        }
+
+        var center = GridCalculator.CenterOf(_currentLevelCells[_arrowIndex]);
+        State = NavigatorState.Idle;
+        ActionRequested?.Invoke(center, action.Value);
+        return true;
     }
 
     private static bool IsArrowKey(VKey vkey) =>

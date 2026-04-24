@@ -13,7 +13,7 @@ namespace Klikety;
 /// <summary>
 /// Wires all services together: hotkey → overlay → hook → state machine → mouse action.
 /// Single DeactivateOverlay() method covers all exit paths.
-/// Manages split-screen left/right cell lists.
+/// Tracks cell lists per level for rendering context.
 /// </summary>
 public sealed class NavigatorCoordinator {
     private readonly IHotKeyService _hotKeyService;
@@ -25,11 +25,10 @@ public sealed class NavigatorCoordinator {
     private readonly ConfigModel _config;
     private readonly ILogger _logger;
 
-    // Split-screen cell lists
-    private IReadOnlyList<GridCell> _leftCells = [];
-    private IReadOnlyList<GridCell> _rightCells = [];
-    private IReadOnlyList<GridCell> _currentCells = [];
-    private ScreenHalf _activeHalf;
+    // Cell lists per level
+    private IReadOnlyList<GridCell> _l1Cells = [];
+    private IReadOnlyList<GridCell>? _subgridCells;
+    private IReadOnlyList<GridCell>? _l2SubgridCells;
     private bool _deactivating;
 
     public NavigatorCoordinator(
@@ -50,7 +49,6 @@ public sealed class NavigatorCoordinator {
         _config = config;
         _logger = logger;
 
-        // Wire events
         _hotKeyService.Activated += OnHotKeyActivated;
         _hookService.KeyPressed += OnKeyPressed;
         _overlayWindow.FocusLost += OnFocusLost;
@@ -69,21 +67,14 @@ public sealed class NavigatorCoordinator {
         _logger.LogDebug("Hotkey activated");
 
         var screenBounds = NativeMethods.GetPrimaryScreenBounds();
-        int halfWidth = screenBounds.Width / 2;
 
-        var leftBounds = new Rectangle(screenBounds.X, screenBounds.Y, halfWidth, screenBounds.Height);
-        var rightBounds = new Rectangle(screenBounds.X + halfWidth, screenBounds.Y,
-            screenBounds.Width - halfWidth, screenBounds.Height);
+        _l1Cells = GridCalculator.Calculate(
+            screenBounds,
+            _config.FirstKeys.Length,
+            _config.SecondKeys.Length);
 
-        _leftCells = GridCalculator.Calculate(
-            leftBounds,
-            _config.KeySets.Left.FirstKeys.Length,
-            _config.KeySets.Left.SecondKeys.Length);
-
-        _rightCells = GridCalculator.Calculate(
-            rightBounds,
-            _config.KeySets.Right.FirstKeys.Length,
-            _config.KeySets.Right.SecondKeys.Length);
+        _subgridCells = null;
+        _l2SubgridCells = null;
 
         var origin = NativeMethods.GetCursorPosition();
 
@@ -95,11 +86,8 @@ public sealed class NavigatorCoordinator {
             return;
         }
 
-        // Pass separate left/right cell lists to state machine
-        _currentCells = _leftCells; // default before half is selected
-        _activeHalf = ScreenHalf.Left;
-        _stateMachine.Activate(_leftCells, _rightCells, origin);
-        _gridRenderer?.RenderBothHalves(_leftCells, _rightCells);
+        _stateMachine.Activate(_l1Cells, origin);
+        _gridRenderer?.RenderGrid(_l1Cells);
     }
 
     private void OnKeyPressed(object? sender, Input.VKey vkey) {
@@ -111,25 +99,19 @@ public sealed class NavigatorCoordinator {
         DeactivateOverlay();
     }
 
-    private void OnColumnHighlighted(ScreenHalf half, int col, IReadOnlyList<GridCell> cells, int level) {
-        _activeHalf = half;
-        _gridRenderer?.SetActiveHalf(half);
-
+    private void OnColumnHighlighted(int col, IReadOnlyList<GridCell> cells, int level) {
         if (level == 1) {
-            _currentCells = cells;
-            _gridRenderer?.HighlightColumnSplitScreen(_leftCells, _rightCells, half, col);
+            _gridRenderer?.HighlightColumn(_l1Cells, col);
         } else {
-            // Keep _currentCells as parent level for background grid
-            _gridRenderer?.HighlightColumnOverGrid(_currentCells, cells, col);
+            _gridRenderer?.HighlightColumnOverGrid(_l1Cells, cells, col);
         }
     }
 
     private void OnCellHighlighted(GridCell cell) {
-        if (_stateMachine.State is NavigatorState.L1_AwaitFirst or NavigatorState.L1_AwaitSecond
-                                or NavigatorState.L1_AwaitAction) {
-            _gridRenderer?.HighlightCellSplitScreen(_leftCells, _rightCells, _activeHalf, cell);
+        if (_subgridCells == null) {
+            _gridRenderer?.HighlightCell(_l1Cells, cell);
         } else {
-            _gridRenderer?.HighlightCell(_currentCells, cell);
+            _gridRenderer?.HighlightCell(_subgridCells, cell);
         }
     }
 
@@ -138,10 +120,14 @@ public sealed class NavigatorCoordinator {
         _mouseService.MoveTo(center);
 
         if (subgridCells.Count > 0) {
-            _gridRenderer?.SetActiveHalf(_activeHalf);
-            _gridRenderer?.RenderSubgridOverGrid(_currentCells, subgridCells);
+            if (level == 1) {
+                _subgridCells = subgridCells;
+                _l2SubgridCells = subgridCells;
+            } else if (level == 2) {
+                _subgridCells = subgridCells;
+            }
+            _gridRenderer?.RenderSubgridOverGrid(_l1Cells, subgridCells);
         }
-        // else: L3 threshold not met — stay on current view, action-only state
     }
 
     private void OnActionRequested(Point point, MouseAction action) {
@@ -165,27 +151,21 @@ public sealed class NavigatorCoordinator {
         var center = GridCalculator.CenterOf(parentCell);
         _mouseService.MoveTo(center);
 
-        if (level == 1) {
-            // Back to L1 — render both halves
-            _currentCells = _activeHalf == ScreenHalf.Left ? _leftCells : _rightCells;
-            _gridRenderer?.RenderBothHalves(_leftCells, _rightCells);
-        } else {
-            // Back to L2 — render L2 subgrid over L1 background
-            _gridRenderer?.SetActiveHalf(_activeHalf);
-            _gridRenderer?.RenderSubgridOverGrid(_currentCells, cells);
-        }
+        // L3→L2: restore L2 subgrid view
+        _subgridCells = _l2SubgridCells;
+        _gridRenderer?.RenderSubgridOverGrid(_l1Cells, cells);
     }
 
     private void OnColumnUnhighlighted(int level) {
         if (level == 1) {
-            _activeHalf = ScreenHalf.Left;
-        }
-
-        _gridRenderer?.SetActiveHalf(_activeHalf);
-        if (level == 1) {
-            _gridRenderer?.RenderBothHalves(_leftCells, _rightCells);
+            _subgridCells = null;
+            _l2SubgridCells = null;
+            _gridRenderer?.RenderGrid(_l1Cells);
         } else {
-            _gridRenderer?.RenderSubgrid(_currentCells);
+            _subgridCells = _l2SubgridCells;
+            if (_subgridCells != null) {
+                _gridRenderer?.RenderSubgridOverGrid(_l1Cells, _subgridCells);
+            }
         }
     }
 

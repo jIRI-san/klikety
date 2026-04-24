@@ -21,7 +21,7 @@ public class NavigatorCoordinatorTests {
         var overlay = new FakeOverlayWindow();
         var actionMapper = new ActionMapper(config.ActionBindings);
         var sm = new NavigatorStateMachine(
-            config.KeySets.Left, config.KeySets.Right,
+            config.FirstKeys, config.SecondKeys,
             actionMapper, config.NavigationMode, config.Level3CellSizeThreshold);
         var renderer = new FakeGridRenderer();
 
@@ -62,11 +62,8 @@ public class NavigatorCoordinatorTests {
         hotKey.SimulateActivation();
         Assert.True(overlay.IsVisible);
 
-        // L1: first key A (col 0), second key W (row 0)
         hook.SimulateKey(VKey.A);
         hook.SimulateKey(VKey.W);
-
-        // Action key Space → LeftClick
         hook.SimulateKey(VKey.Space);
 
         Assert.False(overlay.IsVisible);
@@ -81,8 +78,7 @@ public class NavigatorCoordinatorTests {
         hook.SimulateKey(VKey.Escape);
 
         Assert.False(overlay.IsVisible);
-        // Should have a MoveTo call for cursor restore
-        Assert.Contains(mouse.Calls, c => c.Action is null); // MoveTo has null action
+        Assert.Contains(mouse.Calls, c => c.Action is null);
     }
 
     [Fact]
@@ -90,9 +86,9 @@ public class NavigatorCoordinatorTests {
         var (_, hotKey, hook, mouse, overlay, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.Z); // not in firstKeys
+        hook.SimulateKey(VKey.Z);
 
-        Assert.True(overlay.IsVisible); // still showing
+        Assert.True(overlay.IsVisible);
         Assert.Empty(mouse.Calls);
     }
 
@@ -116,31 +112,18 @@ public class NavigatorCoordinatorTests {
         hook.SimulateKey(VKey.Right);
         hook.SimulateKey(VKey.Return);
 
-        Assert.True(overlay.IsVisible); // should still be showing — arrows did nothing
+        Assert.True(overlay.IsVisible);
         Assert.Empty(mouse.Calls);
     }
 
     [Fact]
-    public void LeftFirstKey_CallsSetActiveHalf_And_HighlightColumnSplitScreen() {
+    public void FirstKey_CallsHighlightColumn() {
         var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.A);
 
-        Assert.Contains(renderer.Calls, c => c.Method == "SetActiveHalf" && c.Half == ScreenHalf.Left);
-        Assert.Contains(renderer.Calls, c => c.Method == "HighlightColumnSplitScreen" && c.Half == ScreenHalf.Left);
-    }
-
-    [Fact]
-    public void RightFirstKey_DispatchesToRightHalf() {
-        var (_, hotKey, hook, mouse, _, _) = CreateCoordinator();
-
-        hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.J); // right first key
-        hook.SimulateKey(VKey.U); // right second key
-        hook.SimulateKey(VKey.Space); // action
-
-        Assert.Contains(mouse.Calls, c => c.Action == MouseAction.LeftClick);
+        Assert.Contains(renderer.Calls, c => c.Method == "HighlightColumn");
     }
 
     [Fact]
@@ -148,8 +131,8 @@ public class NavigatorCoordinatorTests {
         var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.A); // L1 first
-        hook.SimulateKey(VKey.W); // L1 second → CellEntered with subgrid
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
 
         Assert.Contains(renderer.Calls, c => c.Method == "RenderSubgridOverGrid");
     }
@@ -159,54 +142,55 @@ public class NavigatorCoordinatorTests {
         var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.A); // L1 first
-        hook.SimulateKey(VKey.W); // L1 second → AwaitAction
-        hook.SimulateKey(VKey.A); // Navigate into L2 → ColumnHighlighted at level 2
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.A);
 
         Assert.Contains(renderer.Calls, c => c.Method == "HighlightColumnOverGrid");
     }
 
     [Fact]
-    public void EscapeFromL2_CallsRenderBothHalves() {
+    public void EscapeFromL2_CallsRenderGrid() {
         var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.A); // L1 first
-        hook.SimulateKey(VKey.W); // L1 second → AwaitAction
-        hook.SimulateKey(VKey.A); // Navigate into L2
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.A);
 
         renderer.Calls.Clear();
-        hook.SimulateKey(VKey.Escape); // Escape from L2 → back to L1
+        hook.SimulateKey(VKey.Escape);
 
-        Assert.Contains(renderer.Calls, c => c.Method == "RenderBothHalves");
+        Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
     }
 
     [Fact]
-    public void Backspace_CallsSetActiveHalf_And_RenderBothHalves() {
+    public void EscapeFromL2AwaitAction_CallsRenderSubgridOverGrid() {
         var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.A); // L1 first → AwaitSecond
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
 
         renderer.Calls.Clear();
-        hook.SimulateKey(VKey.Back); // Backspace → back to AwaitFirst
+        hook.SimulateKey(VKey.Escape);
 
-        Assert.Contains(renderer.Calls, c => c.Method == "SetActiveHalf" && c.Half == ScreenHalf.Left);
-        Assert.Contains(renderer.Calls, c => c.Method == "RenderBothHalves");
+        Assert.Contains(renderer.Calls, c => c.Method == "RenderSubgridOverGrid");
     }
 
     [Fact]
-    public void Backspace_FromRightHalf_ResetsToLeft() {
+    public void Backspace_CallsRenderGrid() {
         var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.J); // right half → AwaitSecond
+        hook.SimulateKey(VKey.A);
 
         renderer.Calls.Clear();
-        hook.SimulateKey(VKey.Back); // Backspace → back to AwaitFirst
+        hook.SimulateKey(VKey.Back);
 
-        Assert.Contains(renderer.Calls, c => c.Method == "SetActiveHalf" && c.Half == ScreenHalf.Left);
-        Assert.Contains(renderer.Calls, c => c.Method == "RenderBothHalves");
+        Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
     }
 
     [Fact]
@@ -214,7 +198,7 @@ public class NavigatorCoordinatorTests {
         var (_, hotKey, hook, _, overlay, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
-        hook.SimulateKey(VKey.Escape); // cancel → deactivate
+        hook.SimulateKey(VKey.Escape);
 
         Assert.Contains(renderer.Calls, c => c.Method == "ClearCanvas");
         Assert.False(overlay.IsVisible);

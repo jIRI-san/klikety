@@ -57,16 +57,15 @@ public partial class App : Application {
         // Create overlay window
         var overlayWindow = new OverlayWindow();
 
-        // Create label generators for each half
-        var leftLabelGenerator = new LabelGenerator(config.KeySets.Left.FirstKeys, config.KeySets.Left.SecondKeys);
-        var rightLabelGenerator = new LabelGenerator(config.KeySets.Right.FirstKeys, config.KeySets.Right.SecondKeys);
-        var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, leftLabelGenerator, rightLabelGenerator, config.MinLabelFontSize);
+        // Create label generator
+        var labelGenerator = new LabelGenerator(config.FirstKeys, config.SecondKeys);
+        var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
 
         // Create state machine
         var actionMapper = new ActionMapper(config.ActionBindings);
         var stateMachine = new NavigatorStateMachine(
-            config.KeySets.Left,
-            config.KeySets.Right,
+            config.FirstKeys,
+            config.SecondKeys,
             actionMapper,
             config.NavigationMode,
             config.Level3CellSizeThreshold);

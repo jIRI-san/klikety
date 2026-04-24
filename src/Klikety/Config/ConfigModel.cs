@@ -23,42 +23,6 @@ public sealed class HotKeyConfig {
 }
 
 /// <summary>
-/// First-key and second-key sets for one half of the screen.
-/// </summary>
-public sealed class HalfKeySetsConfig {
-    /// <summary>
-    /// First-key VKey list (selects grid column within this half).
-    /// </summary>
-    public VKey[] FirstKeys { get; init; } = [];
-
-    /// <summary>
-    /// Second-key VKey list (selects grid row within this half).
-    /// </summary>
-    public VKey[] SecondKeys { get; init; } = [];
-}
-
-/// <summary>
-/// Split-screen key sets: left-hand keys control the left half, right-hand keys the right half.
-/// </summary>
-public sealed class KeySetsConfig {
-    /// <summary>
-    /// Left half of the screen — left-hand keys. Default: ASDF / WERT (4×4).
-    /// </summary>
-    public HalfKeySetsConfig Left { get; init; } = new() {
-        FirstKeys = [VKey.A, VKey.S, VKey.D, VKey.F],
-        SecondKeys = [VKey.W, VKey.E, VKey.R, VKey.T],
-    };
-
-    /// <summary>
-    /// Right half of the screen — right-hand keys. Default: JKL; / YUIO (4×4).
-    /// </summary>
-    public HalfKeySetsConfig Right { get; init; } = new() {
-        FirstKeys = [VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
-        SecondKeys = [VKey.Y, VKey.U, VKey.I, VKey.O],
-    };
-}
-
-/// <summary>
 /// Root configuration model. Deserialized from %APPDATA%\Klikety\config.json (JSONC).
 /// All properties have defaults so missing fields are handled gracefully.
 /// </summary>
@@ -71,14 +35,22 @@ public sealed class ConfigModel {
     /// </summary>
     public Dictionary<string, MouseAction> ActionBindings { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 
-    public KeySetsConfig KeySets { get; init; } = new();
+    /// <summary>
+    /// First-key VKey list (selects grid column). Combined left+right hand keys for unified grid.
+    /// </summary>
+    public VKey[] FirstKeys { get; init; } = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
+
+    /// <summary>
+    /// Second-key VKey list (selects grid row). Combined left+right hand keys for unified grid.
+    /// </summary>
+    public VKey[] SecondKeys { get; init; } = [VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O];
 
     /// <summary>
     /// Level-3 auto-activation threshold in physical pixels² (cell area).
     /// When a level-2 cell's area exceeds this value, level-3 becomes available.
     /// Default 0 = always active. Set higher to disable L3 on small cells.
     /// </summary>
-    public int Level3CellSizeThreshold { get; init; } = 0;
+    public int Level3CellSizeThreshold { get; init; }
 
     /// <summary>
     /// Minimum log level. Accepts Microsoft.Extensions.Logging level names:

@@ -21,39 +21,28 @@
     "V": "RightClick"
   },
 
-  // VKey lists for split-screen two-key grid navigation.
-  // Screen is split in half. Left half uses left-hand keys, right half uses right-hand keys.
-  // First key selects a column, second key selects a row → 4×4 = 16 cells per half per level.
-  "keySets": {
-    "left": {
-      "firstKeys": [
-        "A",
-        "S",
-        "D",
-        "F"
-      ],
-      "secondKeys": [
-        "W",
-        "E",
-        "R",
-        "T"
-      ]
-    },
-    "right": {
-      "firstKeys": [
-        "J",
-        "K",
-        "L",
-        "OemSemicolon"
-      ],
-      "secondKeys": [
-        "Y",
-        "U",
-        "I",
-        "O"
-      ]
-    }
-  },
+  // VKey lists for two-key grid navigation.
+  // First key selects a column, second key selects a row → 8×8 = 64 cells per level.
+  "firstKeys": [
+    "A",
+    "S",
+    "D",
+    "F",
+    "J",
+    "K",
+    "L",
+    "OemSemicolon"
+  ],
+  "secondKeys": [
+    "W",
+    "E",
+    "R",
+    "T",
+    "Y",
+    "U",
+    "I",
+    "O"
+  ],
 
   // Physical pixel² area threshold for level-3 auto-activation.
   // When a level-2 cell exceeds this area, a third navigation level becomes available.

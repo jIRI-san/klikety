@@ -26,48 +26,45 @@ Idle → L1_AwaitFirst → L1_AwaitSecond → L1_AwaitAction
                                                                          → L3_AwaitFirst → L3_AwaitSecond → L3_AwaitAction
 ```
 
-### Split-Screen Half Selection
+### Unified Grid
 
-At L1, the screen is divided into left and right halves, each with its own key set (`HalfKeySetsConfig`). The state machine holds `_leftKeys` and `_rightKeys` and determines the active half on the first key press:
+The full screen is covered by a single grid. `NavigatorStateMachine` takes flat `VKey[] firstKeys` and `VKey[] secondKeys` arrays (default 8 keys each: left+right hand combined). The same key sets are used at all levels (L1/L2/L3). No half-selection, no `ScreenHalf` enum.
 
-- `Activate(leftL1Cells, rightL1Cells, cursorOrigin)` — takes separate cell lists for each half. Defaults to left half for arrow nav before a first key is pressed.
-
-- `HandleL1FirstKey(VKey)` checks both halves' `FirstKeys` arrays to identify which half the key belongs to.
-- Sets `_activeHalf`, `_activeFirstKeys`, `_activeSecondKeys` accordingly.
-- All subsequent key handling (L1 second key, L2/L3 navigation) uses `_activeFirstKeys`/`_activeSecondKeys`.
-- At L1 `AwaitSecond`, pressing a first key from the *other* half switches the active half (re-entry).
-- `ColumnHighlighted` event signature: `Action<ScreenHalf, int, IReadOnlyList<GridCell>, int>` — carries which half, column index, cell list, and level.
-- Backspace at `AwaitSecond` fires `ColumnUnhighlighted(level)` and resets to `AwaitFirst`. At L1, also resets to left-half defaults.
-- Escape at L2/L3 fires `ColumnUnhighlighted(1)` — resets fully to `L1_AwaitFirst` with both halves visible. `L3_Await*` fires `LevelExited` to go back to `L2_AwaitAction`.
+- `Activate(l1Cells, cursorOrigin)` — takes a single full-screen cell list.
+- `HandleFirstKey(VKey, nextState, cells, level)` — used identically at L1/L2/L3. Indexes into `_firstKeys`.
+- `HandleSecondKey(VKey, ...)` — indexes into `_secondKeys`. Re-entry: pressing a first key at `AwaitSecond` restarts column selection in the same cell list.
+- `ColumnHighlighted` event signature: `Action<int, IReadOnlyList<GridCell>, int>` — column index, cell list, level.
+- Arrow navigation uses `_firstKeys.Length` as column count at all levels.
 
 ### Transitions
 
 | From | Input | To | Side-effect |
 |---|---|---|---|
 | `Idle` | `HotKeyService.Activated` | `L1_AwaitFirst` | Save cursor origin; show overlay; enable hook |
-| `L1_AwaitFirst` | first-key VKey (left or right) | `L1_AwaitSecond` | Detect half; raise `ColumnHighlighted(half, col, cells, 1)` |
+| `L1_AwaitFirst` | first-key VKey | `L1_AwaitSecond` | Raise `ColumnHighlighted(col, cells, 1)` |
 | `L1_AwaitSecond` | second-key VKey | `L1_AwaitAction` | Compute L2 subgrid; move cursor; raise `CellEntered(cell, subgridCells, 1)` |
 | `L1_AwaitAction` | action VKey | `Idle` | Raise `ActionRequested(point, action)`; `DeactivateOverlay()` |
-| `L1_AwaitAction` | nav VKey | `L2_AwaitSecond` | Select column in pre-computed L2 subgrid; raise `ColumnHighlighted(half, col, subCells, 2)` |
-| `L2_AwaitFirst` | first-key VKey | `L2_AwaitSecond` | Raise `ColumnHighlighted(half, col, cells, 2)` within subgrid |
+| `L1_AwaitAction` | nav VKey | `L2_AwaitSecond` | Select column in pre-computed L2 subgrid; raise `ColumnHighlighted(col, subCells, 2)` |
+| `L2_AwaitFirst` | first-key VKey | `L2_AwaitSecond` | Raise `ColumnHighlighted(col, cells, 2)` within subgrid |
 | `L2_AwaitSecond` | second-key VKey | `L2_AwaitAction` | Compute L3 subgrid (if threshold met); move cursor; raise `CellEntered(cell, subgridCells, 2)` |
 | `L2_AwaitAction` | action VKey | `Idle` | Raise `ActionRequested(point, action)`; `DeactivateOverlay()` |
-| `L2_AwaitAction` | nav VKey | `L3_AwaitSecond` | Select column in pre-computed L3 subgrid (only if available); raise `ColumnHighlighted(half, col, subCells, 3)` |
-| `L2_Await*` | Escape | `L1_AwaitFirst` | Reset to both-halves view; raise `ColumnUnhighlighted(1)` |
+| `L2_AwaitAction` | nav VKey | `L3_AwaitSecond` | Select column in pre-computed L3 subgrid (only if available); raise `ColumnHighlighted(col, subCells, 3)` |
+| `L2_AwaitAction` | Escape | `L2_AwaitFirst` | Clear L3 cells; restore L2 grid; raise `ColumnUnhighlighted(2)` |
+| `L2_AwaitFirst` / `L2_AwaitSecond` | Escape | `L1_AwaitFirst` | Reset to full grid; raise `ColumnUnhighlighted(1)` |
 | `L3_Await*` | Escape | `L2_AwaitAction` | Raise `LevelExited(l2SelectedCell, l2Cells, 2)` |
-| `L1_AwaitAction` / `L1_AwaitSecond` | Escape | `L1_AwaitFirst` | Reset both keys; raise `ColumnUnhighlighted(1)` |
+| `L1_AwaitAction` / `L1_AwaitSecond` | Escape | `L1_AwaitFirst` | Reset; raise `ColumnUnhighlighted(1)` |
 | `L1_AwaitFirst` | Escape | `Idle` | Raise `Cancelled(originPoint)`; `DeactivateOverlay()` |
 | `L*_AwaitAction` (deepest) | valid second key | same state | Re-select cell in same column; raise `CellEntered(cell, [], level)` |
 
 ### Events raised by state machine
 
-- `ColumnHighlighted(ScreenHalf half, int col, IReadOnlyList<GridCell> cells, int level)` — first key received; identifies which screen half, column, cell list, and level
+- `ColumnHighlighted(int col, IReadOnlyList<GridCell> cells, int level)` — first key received; column, cell list, level
 - `CellHighlighted(GridCell cell)` — arrow navigation; highlight cell without dimming others
 - `CellEntered(GridCell cell, IReadOnlyList<GridCell> subgridCells, int level)` — two-key pair complete; coordinator moves cursor to cell center and renders subgrid over parent grid. Empty `subgridCells` = no next-level subgrid (L3 threshold not met).
 - `ActionRequested(Point physicalPoint, MouseAction action)` — fire mouse action. **Coordinator hides overlay before sending action** so `SendInput` click reaches the underlying window, not the overlay.
 - `Cancelled(Point originPoint)` — restore cursor to saved origin
-- `LevelExited(GridCell parentCell, IReadOnlyList<GridCell> cells, int level)` — Escape from L2/L3; coordinator re-renders parent level's grid
-- `ColumnUnhighlighted(int level)` — Backspace at AwaitSecond; coordinator re-renders both halves (L1) or subgrid
+- `LevelExited(GridCell parentCell, IReadOnlyList<GridCell> cells, int level)` — Escape from L3; coordinator re-renders parent level's grid
+- `ColumnUnhighlighted(int level)` — Backspace at AwaitSecond; coordinator re-renders full grid (L1) or subgrid
 - `InvalidKeyPressed()` — unrecognized key at any await state
 
 ### NavigationMode
@@ -89,24 +86,23 @@ At the deepest level's `AwaitAction` (L3 always; L2 only when L3 threshold not m
 ### Escape behavior
 
 Escape resets both key presses at every level:
-- `L1_AwaitAction` / `L1_AwaitSecond` → `L1_AwaitFirst` — both halves visible, raises `ColumnUnhighlighted(1)`
-- `L2_Await*` → `L1_AwaitFirst` — full reset, raises `ColumnUnhighlighted(1)` (not `LevelExited`)
+- `L1_AwaitAction` / `L1_AwaitSecond` → `L1_AwaitFirst` — full grid visible, raises `ColumnUnhighlighted(1)`
+- `L2_AwaitAction` → `L2_AwaitFirst` — clears `_l3Cells`, restores `_currentLevelCells` to `_l2Cells`, raises `ColumnUnhighlighted(2)`. Coordinator restores `_subgridCells = _l2SubgridCells` and renders `RenderSubgridOverGrid`.
+- `L2_AwaitFirst` / `L2_AwaitSecond` → `L1_AwaitFirst` — full reset, raises `ColumnUnhighlighted(1)`
 - `L3_Await*` → `L2_AwaitAction` — raises `LevelExited(l2SelectedCell, l2Cells, 2)`
 - `L1_AwaitFirst` → `Idle` — raises `Cancelled(originPoint)`
 
-`ResetToL1AwaitFirst()` helper resets active half to left, active keys, `_l1Cells`, `_currentLevelCells`, `_arrowIndex`.
+`ResetToL1AwaitFirst()` helper resets `_currentLevelCells` to `_l1Cells`, `_arrowIndex` to 0, fires `ColumnUnhighlighted(1)`.
 
 ### Subgrid Computation
 
 Subgrid computation happens on cell entry in `HandleSecondKey`. When the second key completes a cell selection, the SM immediately computes the next-level subgrid via `SubgridCalculator.Calculate(parentCell, cols, rows)`, stores it in `_l2Cells`/`_l3Cells`, and passes it via the `CellEntered` event. For L2→L3, `ShouldActivateLevel3` is checked first — if threshold not met, empty subgrid cells are passed.
 
-`HandleNavFirstKey` (formerly `HandleActionOrNav`) no longer computes subgrids. It selects a column within the pre-computed subgrid cells and fires `ColumnHighlighted`. If cells are empty (L3 unavailable), the key is silently ignored.
+`HandleNavFirstKey` selects a column within the pre-computed subgrid cells and fires `ColumnHighlighted`. If cells are empty (L3 unavailable), the key is silently ignored.
 
-### Arrow Navigation Half-Scoping
+### Arrow Navigation
 
-At L1, arrow navigation operates on the active half's cell list (`_currentLevelCells`). Before any first key is pressed, defaults to left half. After a first key press, scoped to the selected half. Backspace resets to left half.
-
-**Limitation**: Arrow-only mode (`NavigationMode.Arrow`) is limited to the left half since half selection requires a first key press.
+Arrow navigation operates on `_currentLevelCells` at whatever level is active, using `_firstKeys.Length` as the column count. Navigation wraps at grid edges via `ArrowNavigator` stateless helpers.
 
 ## Win32 Interop
 
@@ -119,13 +115,10 @@ interface IHotKeyService   { event EventHandler Activated; bool Register(HotKeyC
 interface IKeyboardHookService { event EventHandler<VKey> KeyPressed; bool Enable(); void Disable(); }
 interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action); }
 interface IGridRenderer {
-    void SetTransform(Matrix m); void SetActiveHalf(ScreenHalf half);
-    void RenderBothHalves(IReadOnlyList<GridCell> l, IReadOnlyList<GridCell> r);
+    void SetTransform(Matrix m);
     void RenderGrid(IReadOnlyList<GridCell> cells);
     void HighlightColumn(IReadOnlyList<GridCell> cells, int col);
     void HighlightCell(IReadOnlyList<GridCell> cells, GridCell cell);
-    void HighlightColumnSplitScreen(IReadOnlyList<GridCell> l, IReadOnlyList<GridCell> r, ScreenHalf half, int col);
-    void HighlightCellSplitScreen(IReadOnlyList<GridCell> l, IReadOnlyList<GridCell> r, ScreenHalf half, GridCell cell);
     void RenderSubgrid(IReadOnlyList<GridCell> cells);
     void RenderSubgridOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells);
     void HighlightColumnOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, int col);
@@ -133,7 +126,7 @@ interface IGridRenderer {
 }
 ```
 
-`IGridRenderer` is extracted from `GridRenderer` for testability. `NavigatorCoordinator` takes `IGridRenderer?` — null-safe (all calls use `?.`). `FakeGridRenderer` records all calls for assertion in tests.
+`IGridRenderer` is extracted from `GridRenderer` for testability. `NavigatorCoordinator` takes `IGridRenderer?` — null-safe (all calls use `?.`). `FakeGridRenderer` records all calls for assertion in tests. `GridRenderer` constructor: `(Canvas, ThemeModel, LabelGenerator, double minLabelFontSize)`.
 
 ### `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)`
 
@@ -175,31 +168,29 @@ interface IGridRenderer {
 
 ## Key Scheme
 
-### Split-screen two-key grid
+### Unified 8×8 grid
 
-The screen is split in half. Left-hand keys control the left half, right-hand keys the right half.
+The full screen is covered by a single grid using combined left+right hand keys:
 
-- Left half: first keys `A S D F`, second keys `W E R T` → 4×4 = 16 cells
-- Right half: first keys `J K L ;`, second keys `Y U I O` → 4×4 = 16 cells
-- Total: 32 cells per level
-- L2/L3 subgrids use the active half's key set (4×4 = 16 cells per sublevel)
+- First keys: `A S D F J K L ;` (8 keys → 8 columns)
+- Second keys: `W E R T Y U I O` (8 keys → 8 rows)
+- Total: 8×8 = 64 cells per level
+- L2/L3 subgrids use the same key sets (64 cells per sublevel)
 
 Config structure:
 ```jsonc
-"keySets": {
-    "left": { "firstKeys": ["A","S","D","F"], "secondKeys": ["W","E","R","T"] },
-    "right": { "firstKeys": ["J","K","L","OemSemicolon"], "secondKeys": ["Y","U","I","O"] }
-}
+"firstKeys": ["A","S","D","F","J","K","L","OemSemicolon"],
+"secondKeys": ["W","E","R","T","Y","U","I","O"]
 ```
 
-`KeySetsConfig` has `Left` and `Right` properties of type `HalfKeySetsConfig`, each with `FirstKeys` and `SecondKeys` arrays.
+`ConfigModel.FirstKeys` and `ConfigModel.SecondKeys` are flat `VKey[]` arrays.
 
 ### `LabelGenerator`
 
-- Input: `VKey[]` firstKeys × `VKey[]` secondKeys (per half)
+- Input: `VKey[]` firstKeys × `VKey[]` secondKeys
 - Output: bijective map — each (row, col) pair → display string derived from `ToUnicode(vkey, HKL)`
 - API: `LabelFor(int row, int col) → CellLabel`, `Cols`/`Rows` properties
-- `GridRenderer` holds two instances (`_leftLabelGenerator`, `_rightLabelGenerator`), switches `_activeLabelGenerator` based on the active half.
+- `GridRenderer` holds a single `_labelGenerator` instance used for all rendering.
 
 ### Arrow navigation (`ArrowNavigator` helper)
 
@@ -240,14 +231,13 @@ Labels auto-scale to fill a fraction of cell height:
 - Font size clamped to `[minLabelFontSize .. theme.LabelFontSize * 3]`.
 - Method: `ComputeAutoFontSize(cellHalfWidth, cellHeight, heightFraction)`.
 
-### Split-Screen Rendering
+### Unified Grid Rendering
 
-- `RenderBothHalves(leftCells, rightCells)` renders both halves in a single pass, switching `_activeLabelGenerator` for each half.
-- `SetActiveHalf(ScreenHalf)` switches the active label generator for subsequent `HighlightColumn`/`HighlightCell`/`RenderSubgrid` calls.
-- `HighlightColumnSplitScreen(leftCells, rightCells, activeHalf, col)` — renders inactive half dimmed, active half with column highlight. Used at L1.
-- `HighlightCellSplitScreen(leftCells, rightCells, activeHalf, highlightedCell)` — renders inactive half dimmed, active half with cell highlight and non-highlighted active cells dimmed. Used at L1.
+- `RenderGrid(cells)` renders the full-screen grid with labels. Used at L1 activation and on backspace/escape back to L1.
+- `HighlightColumn(cells, col)` dims non-matching cells, highlights selected column. Used at L1.
+- `HighlightCell(cells, cell)` highlights a single cell for arrow navigation.
 - `ClearCanvas()` — removes all children from the WPF Canvas. Called in `DeactivateOverlay()` before `Hide()`.
-- `NavigatorCoordinator` dispatches to split-screen or regular renderer methods based on level: L1 uses `HighlightColumnSplitScreen`/`HighlightCellSplitScreen`, L2/L3 uses `HighlightColumnOverGrid`.
+- `NavigatorCoordinator` tracks `_l1Cells`, `_subgridCells` (nullable), `_l2SubgridCells` for rendering context. L1 uses `HighlightColumn`/`RenderGrid`; L2+ uses `HighlightColumnOverGrid`. `OnCellEntered` stores subgrid cells; `OnLevelExited` (L3→L2) restores `_subgridCells = _l2SubgridCells`; `OnColumnUnhighlighted` at L1 clears subgrid state and calls `RenderGrid`.
 - `RenderSubgridOverGrid(backgroundCells, subgridCells)` — renders parent grid as faint borders (no labels, 0.15 opacity) then subgrid on top with labels. Called by coordinator on `CellEntered`.
 - `HighlightColumnOverGrid(backgroundCells, subgridCells, col)` — renders parent grid as faint background + subgrid with column highlighted. Called by coordinator on `ColumnHighlighted` at L2/L3.
 - Private helpers: `RenderBackgroundGrid(cells)` draws faint borders, `RenderSubgridContent(cells)` draws subgrid without clearing canvas.
@@ -263,20 +253,37 @@ Method: `ShouldUseExternalLabels(cellDipHeight, cellDipWidth, minLabelFontSize)`
 
 **Progressive reveal**: When awaiting first key, only column first-key labels are shown (top + bottom). After first key is pressed (`HighlightColumnOverGrid`), row second-key labels appear (left + right). This matches the natural key-entry order.
 
-**Four-sided rendering**: Labels are rendered on all four sides (top, bottom, left, right) so subgrids near screen edges always have visible labels. Helpers: `RenderExternalColumnLabels` (top/bottom), `RenderExternalRowLabels` (left/right, centered in margin area).
+**Fan-out algorithm**: With 8 labels per side, labels at the grid edge may overlap. `ComputeFanOut(labelCount, maxLabelSize, gridExtent, standardMargin)` computes:
+- `distance`: how far from the grid edge to place the label line. When labels fit at standard spacing, equals `standardMargin` (fontSize × 1.5). When labels would overlap, increases by half the extra width needed.
+- `extent`: total width/height to spread labels across. Equals `gridExtent` when labels fit, otherwise `labelCount × (maxLabelSize + minGap)`.
+
+Labels are evenly spaced across `extent`, centered on the grid center. Angled dashed connector lines link each label to its column/row center at the grid edge. When no fan-out is needed, connectors are straight (vertical for columns, horizontal for rows).
+
+**Screen-edge-aware direction**: Labels only render on sides with enough space:
+- Column labels: skip above if `gridTop < fanOutDist`; skip below if `screenHeight - gridBottom < fanOutDist`.
+- Row labels: skip left if `gridLeft < fanOutDist`; skip right if `screenWidth - gridRight < fanOutDist`.
+- If neither side has space, render both (clipped).
 
 When external labels are active, no internal cell labels are rendered — cells show only background/highlight rectangles.
 
-- Font size: `ComputeAutoFontSize(cellHalfWidth, cellHeight, 0.9)` — same proportional sizing as internal labels.
+**Fan-out extent clamping**: `labelExtentStart` is clamped to `[0, screenDimension - labelExtent]` so labels never render off-screen when the subgrid is near a screen edge.
+
+**Font size**: `ComputeExternalFontSize` uses `max(cellBased, minLabelFontSize)` — at L3 where cell-based auto-size would be tiny, the floor of `minLabelFontSize` (default 10 DIP) ensures readable labels.
+
+**L3 legibility**: When `useExternalLabels` is true (cells too small for inline labels):
+- Grid border opacity reduced to 30% and thickness halved (min 0.5px) — keeps grid structure visible without obscuring content.
+- Column highlight fill at 30% opacity (vs 50% at L2) for better see-through.
+- Alternating row bands (12% opacity, every other row) provide cross-hair visual aid during column highlight.
+
 - Theme properties: `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness`.
-- Config: `MinLabelFontSize` (default 10.0 DIP) controls the threshold.
+- Config: `MinLabelFontSize` (default 10.0 DIP) controls both the external-label threshold and the font floor.
 
 ## Config
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.
 - Written on first run from embedded `config.json` template if absent. **Not overwritten on subsequent runs** — changing defaults in the embedded template does not affect existing installs. When a config or theme default changes during development, the user's `%APPDATA%\Klikety\config.json` and `%APPDATA%\Klikety\themes\*.theme.json` must be updated manually (or the files deleted to trigger re-extraction).
-- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `keySets.left`/`keySets.right` (each with `firstKeys`/`secondKeys` VKey arrays), `level3CellSizeThreshold`, `logLevel`, `navigationMode`, `theme`.
-- Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; left/right first-key overlap (must be disjoint); per-half first/second key overlap; all violations collected and surfaced via tray notification list.
+- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `firstKeys`/`secondKeys` (flat VKey arrays), `level3CellSizeThreshold`, `logLevel`, `navigationMode`, `theme`.
+- Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; cross-set disjointness (`firstKeys ∩ secondKeys = ∅`); per-set duplicate check; all violations collected and surfaced via tray notification list.
 
 ## Logging
 
@@ -284,8 +291,8 @@ When external labels are active, no internal cell labels are rendered — cells 
 
 ## Test Infrastructure
 
-- **Unit tests** (`Klikety.Tests`): xUnit, 96 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold logic.
-- **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss), `FakeGridRenderer` (records `RenderCall` list — method name, cells, half, col — for assertion).
+- **Unit tests** (`Klikety.Tests`): xUnit, 97 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold/fan-out logic.
+- **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss), `FakeGridRenderer` (records `RenderCall` list — method name, cells, col — for assertion).
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.
 - `NavigatorCoordinator` integration tests inject fakes and simulate full hotkey→key→action flows without any Win32 calls, except `NativeMethods.GetPrimaryScreenBounds()` which is called in `OnHotKeyActivated` — this works in tests because it's real Win32 (not mocked).

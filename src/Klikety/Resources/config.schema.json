@@ -48,78 +48,41 @@
         { "Space": "LeftClick", "OemSemicolon": "RightClick", "OemQuotes": "DoubleClick" }
       ]
     },
-    "keySets": {
-      "type": "object",
-      "description": "Split-screen two-key grid navigation. Screen is divided in half; left-hand keys control the left half, right-hand keys control the right half.",
-      "properties": {
-        "left": {
-          "type": "object",
-          "description": "Key bindings for the left screen half.",
-          "properties": {
-            "firstKeys": {
-              "type": "array",
-              "description": "First-key VKey list for left half (selects grid column).",
-              "items": {
-                "type": "string"
-              },
-              "default": [
-                "A",
-                "S",
-                "D",
-                "F"
-              ]
-            },
-            "secondKeys": {
-              "type": "array",
-              "description": "Second-key VKey list for left half (selects grid row).",
-              "items": {
-                "type": "string"
-              },
-              "default": [
-                "W",
-                "E",
-                "R",
-                "T"
-              ]
-            }
-          },
-          "additionalProperties": false
-        },
-        "right": {
-          "type": "object",
-          "description": "Key bindings for the right screen half.",
-          "properties": {
-            "firstKeys": {
-              "type": "array",
-              "description": "First-key VKey list for right half (selects grid column).",
-              "items": {
-                "type": "string"
-              },
-              "default": [
-                "J",
-                "K",
-                "L",
-                "OemSemicolon"
-              ]
-            },
-            "secondKeys": {
-              "type": "array",
-              "description": "Second-key VKey list for right half (selects grid row).",
-              "items": {
-                "type": "string"
-              },
-              "default": [
-                "Y",
-                "U",
-                "I",
-                "O"
-              ]
-            }
-          },
-          "additionalProperties": false
-        }
+    "firstKeys": {
+      "type": "array",
+      "description": "First-key VKey list (selects grid column). Combined left+right hand keys for unified grid.",
+      "items": {
+        "type": "string"
       },
-      "additionalProperties": false
+      "maxItems": 16,
+      "default": [
+        "A",
+        "S",
+        "D",
+        "F",
+        "J",
+        "K",
+        "L",
+        "OemSemicolon"
+      ]
+    },
+    "secondKeys": {
+      "type": "array",
+      "description": "Second-key VKey list (selects grid row). Combined left+right hand keys for unified grid.",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 16,
+      "default": [
+        "W",
+        "E",
+        "R",
+        "T",
+        "Y",
+        "U",
+        "I",
+        "O"
+      ]
     },
     "level3CellSizeThreshold": {
       "type": "integer",

@@ -1,7 +1,6 @@
 using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
-using Klikety.Navigation;
 
 namespace Klikety.Services;
 
@@ -46,15 +45,9 @@ public interface IOverlayWindow {
 /// </summary>
 public interface IGridRenderer {
     void SetTransform(System.Windows.Media.Matrix transformFromDevice);
-    void SetActiveHalf(ScreenHalf half);
-    void RenderBothHalves(IReadOnlyList<GridCell> leftCells, IReadOnlyList<GridCell> rightCells);
     void RenderGrid(IReadOnlyList<GridCell> cells);
     void HighlightColumn(IReadOnlyList<GridCell> cells, int col);
     void HighlightCell(IReadOnlyList<GridCell> cells, GridCell highlightedCell);
-    void HighlightColumnSplitScreen(IReadOnlyList<GridCell> leftCells, IReadOnlyList<GridCell> rightCells,
-        ScreenHalf activeHalf, int col);
-    void HighlightCellSplitScreen(IReadOnlyList<GridCell> leftCells, IReadOnlyList<GridCell> rightCells,
-        ScreenHalf activeHalf, GridCell highlightedCell);
     void RenderSubgrid(IReadOnlyList<GridCell> cells);
     void RenderSubgridOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells);
     void HighlightColumnOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, int col);

@@ -64,14 +64,44 @@ public static class ConfigLoader {
     private static List<string> Validate(ConfigModel config) {
         var violations = new List<string>();
 
-        ValidateHalf(config.KeySets.Left, "left", violations);
-        ValidateHalf(config.KeySets.Right, "right", violations);
+        var firstSet = new HashSet<VKey>(config.FirstKeys);
+        var secondSet = new HashSet<VKey>(config.SecondKeys);
 
-        // Check for overlap between left and right first keys
-        var leftFirstSet = new HashSet<VKey>(config.KeySets.Left.FirstKeys);
-        var rightFirstSet = new HashSet<VKey>(config.KeySets.Right.FirstKeys);
-        foreach (var overlap in leftFirstSet.Intersect(rightFirstSet)) {
-            violations.Add($"Key '{overlap}' appears in both left.firstKeys and right.firstKeys.");
+        // Check firstKeys for reserved keys
+        foreach (var key in config.FirstKeys) {
+            if (ReservedKeys.Contains(key)) {
+                violations.Add($"Reserved key '{key}' may not be used in firstKeys.");
+            }
+        }
+
+        // Check secondKeys for reserved keys
+        foreach (var key in config.SecondKeys) {
+            if (ReservedKeys.Contains(key)) {
+                violations.Add($"Reserved key '{key}' may not be used in secondKeys.");
+            }
+        }
+
+        // Check firstKeys ∩ secondKeys = ∅
+        foreach (var overlap in firstSet.Intersect(secondSet)) {
+            violations.Add($"Key '{overlap}' appears in both firstKeys and secondKeys.");
+        }
+
+        // Validate non-empty
+        if (config.FirstKeys.Length == 0) {
+            violations.Add("firstKeys must not be empty.");
+        }
+
+        if (config.SecondKeys.Length == 0) {
+            violations.Add("secondKeys must not be empty.");
+        }
+
+        // Validate no duplicates
+        if (config.FirstKeys.Length != firstSet.Count) {
+            violations.Add("firstKeys contains duplicate keys.");
+        }
+
+        if (config.SecondKeys.Length != secondSet.Count) {
+            violations.Add("secondKeys contains duplicate keys.");
         }
 
         // Check actionBindings for reserved keys
@@ -81,11 +111,9 @@ public static class ConfigLoader {
             }
         }
 
-        // Check for overlap between all navigation keys and action keys
-        var allNavKeys = new HashSet<VKey>(config.KeySets.Left.FirstKeys);
-        allNavKeys.UnionWith(config.KeySets.Left.SecondKeys);
-        allNavKeys.UnionWith(config.KeySets.Right.FirstKeys);
-        allNavKeys.UnionWith(config.KeySets.Right.SecondKeys);
+        // Check for overlap between navigation keys and action keys
+        var allNavKeys = new HashSet<VKey>(config.FirstKeys);
+        allNavKeys.UnionWith(config.SecondKeys);
         foreach (var binding in config.ActionBindings) {
             if (Enum.TryParse<VKey>(binding.Key, true, out var vkey) && allNavKeys.Contains(vkey)) {
                 violations.Add($"Action key '{binding.Key}' conflicts with a navigation key.");
@@ -98,46 +126,5 @@ public static class ConfigLoader {
         }
 
         return violations;
-    }
-
-    private static void ValidateHalf(HalfKeySetsConfig half, string name, List<string> violations) {
-        // Check firstKeys for reserved keys
-        foreach (var key in half.FirstKeys) {
-            if (ReservedKeys.Contains(key)) {
-                violations.Add($"Reserved key '{key}' may not be used in {name}.firstKeys.");
-            }
-        }
-
-        // Check secondKeys for reserved keys
-        foreach (var key in half.SecondKeys) {
-            if (ReservedKeys.Contains(key)) {
-                violations.Add($"Reserved key '{key}' may not be used in {name}.secondKeys.");
-            }
-        }
-
-        // Check for overlap between firstKeys and secondKeys within half
-        var firstSet = new HashSet<VKey>(half.FirstKeys);
-        var secondSet = new HashSet<VKey>(half.SecondKeys);
-        foreach (var overlap in firstSet.Intersect(secondSet)) {
-            violations.Add($"Key '{overlap}' appears in both {name}.firstKeys and {name}.secondKeys.");
-        }
-
-        // Validate non-empty
-        if (half.FirstKeys.Length == 0) {
-            violations.Add($"{name}.firstKeys must not be empty.");
-        }
-
-        if (half.SecondKeys.Length == 0) {
-            violations.Add($"{name}.secondKeys must not be empty.");
-        }
-
-        // Validate no duplicates
-        if (half.FirstKeys.Length != firstSet.Count) {
-            violations.Add($"{name}.firstKeys contains duplicate keys.");
-        }
-
-        if (half.SecondKeys.Length != secondSet.Count) {
-            violations.Add($"{name}.secondKeys contains duplicate keys.");
-        }
     }
 }

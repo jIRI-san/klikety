@@ -3,7 +3,6 @@ using System.Drawing;
 using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
-using Klikety.Navigation;
 using Klikety.Services;
 
 namespace Klikety.Tests.Fakes;
@@ -88,20 +87,11 @@ public sealed class FakeHotKeyService : IHotKeyService {
 
 public sealed class FakeGridRenderer : IGridRenderer {
     public record RenderCall(string Method, IReadOnlyList<GridCell>? Cells = null,
-        ScreenHalf? Half = null, int? Col = null);
+        int? Col = null);
 
     public List<RenderCall> Calls { get; } = [];
-    public ScreenHalf? ActiveHalf { get; private set; }
 
     public void SetTransform(System.Windows.Media.Matrix m) { }
-
-    public void SetActiveHalf(ScreenHalf half) {
-        ActiveHalf = half;
-        Calls.Add(new("SetActiveHalf", Half: half));
-    }
-
-    public void RenderBothHalves(IReadOnlyList<GridCell> l, IReadOnlyList<GridCell> r)
-        => Calls.Add(new("RenderBothHalves"));
 
     public void RenderGrid(IReadOnlyList<GridCell> cells)
         => Calls.Add(new("RenderGrid", cells));
@@ -111,14 +101,6 @@ public sealed class FakeGridRenderer : IGridRenderer {
 
     public void HighlightCell(IReadOnlyList<GridCell> cells, GridCell cell)
         => Calls.Add(new("HighlightCell", cells));
-
-    public void HighlightColumnSplitScreen(IReadOnlyList<GridCell> l, IReadOnlyList<GridCell> r,
-        ScreenHalf half, int col)
-        => Calls.Add(new("HighlightColumnSplitScreen", Half: half, Col: col));
-
-    public void HighlightCellSplitScreen(IReadOnlyList<GridCell> l, IReadOnlyList<GridCell> r,
-        ScreenHalf half, GridCell cell)
-        => Calls.Add(new("HighlightCellSplitScreen", Half: half));
 
     public void RenderSubgrid(IReadOnlyList<GridCell> cells)
         => Calls.Add(new("RenderSubgrid", cells));

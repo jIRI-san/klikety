@@ -10,10 +10,8 @@ public class ConfigLoaderTests {
         var result = ConfigLoader.Load(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));
         Assert.Empty(result.Violations);
         Assert.Equal(NavigationMode.Both, result.Config.NavigationMode);
-        Assert.Equal(4, result.Config.KeySets.Left.FirstKeys.Length);
-        Assert.Equal(4, result.Config.KeySets.Left.SecondKeys.Length);
-        Assert.Equal(4, result.Config.KeySets.Right.FirstKeys.Length);
-        Assert.Equal(4, result.Config.KeySets.Right.SecondKeys.Length);
+        Assert.Equal(8, result.Config.FirstKeys.Length);
+        Assert.Equal(8, result.Config.SecondKeys.Length);
     }
 
     [Fact]
@@ -49,10 +47,8 @@ public class ConfigLoaderTests {
     public void Load_ReservedKeyInFirstKeys_ReportsViolation() {
         var json = """
         {
-            "keySets": {
-                "left": { "firstKeys": ["A", "S", "Escape", "F"], "secondKeys": ["W", "E", "R", "T"] },
-                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
-            }
+            "firstKeys": ["A", "S", "Escape", "F"],
+            "secondKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
@@ -66,10 +62,8 @@ public class ConfigLoaderTests {
     public void Load_ReservedKeyInSecondKeys_ReportsViolation() {
         var json = """
         {
-            "keySets": {
-                "left": { "firstKeys": ["A", "S", "D", "F"], "secondKeys": ["W", "Return", "R", "T"] },
-                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
-            }
+            "firstKeys": ["A", "S", "D", "F"],
+            "secondKeys": ["W", "Return", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
@@ -83,10 +77,8 @@ public class ConfigLoaderTests {
     public void Load_OverlappingFirstAndSecondKeys_ReportsViolation() {
         var json = """
         {
-            "keySets": {
-                "left": { "firstKeys": ["A", "S", "D", "W"], "secondKeys": ["W", "E", "R", "T"] },
-                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
-            }
+            "firstKeys": ["A", "S", "D", "W"],
+            "secondKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
@@ -100,10 +92,8 @@ public class ConfigLoaderTests {
     public void Load_ActionKeyConflictsWithNavKey_ReportsViolation() {
         var json = """
         {
-            "keySets": {
-                "left": { "firstKeys": ["A", "S", "D", "F"], "secondKeys": ["W", "E", "R", "T"] },
-                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
-            },
+            "firstKeys": ["A", "S", "D", "F"],
+            "secondKeys": ["W", "E", "R", "T"],
             "actionBindings": {
                 "A": "RightClick"
             }
@@ -120,10 +110,8 @@ public class ConfigLoaderTests {
     public void Load_DuplicateFirstKeys_ReportsViolation() {
         var json = """
         {
-            "keySets": {
-                "left": { "firstKeys": ["A", "S", "A", "F"], "secondKeys": ["W", "E", "R", "T"] },
-                "right": { "firstKeys": ["J", "K", "L", "OemSemicolon"], "secondKeys": ["Y", "U", "I", "O"] }
-            }
+            "firstKeys": ["A", "S", "A", "F"],
+            "secondKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);

@@ -24,6 +24,7 @@ Review comprehensively across all important aspects:
 - Concurrency: shared mutable state without synchronization, thread-unsafe collections, lock inversion, `Task.Result`/`.Wait()` deadlocks
 - Input validation absent at system trust boundaries
 - Null or missing value dereferences not guarded; missing error handling; unhandled cases in switch statements or state transitions
+- Corner cases: boundary conditions, empty/null collections, zero-element or single-element inputs, off-nominal user flows, unusual state combinations — not handled or not tested
 - Async/await misuse: fire-and-forget where result is needed, missing `CancellationToken` propagation
 - Deviations from project-specific patterns in the loaded design notes (state machine API, feature management lifecycle, message-driven conventions, DI registration)
 - New behaviors that should be gated behind a feature flag but are not; structural inconsistencies in naming or file organization

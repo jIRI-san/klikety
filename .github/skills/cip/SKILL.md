@@ -8,6 +8,8 @@ disable-model-invocation: true
 
 # Create Implementation Plan
 
+> **Goal:** produce a plan concrete and precise enough that each step can be executed with minimal ambiguity. Eliminate uncertainty during the interview — don't defer it to implementation. If an answer is vague, dig deeper. If a design choice is open, resolve it now. The plan should read as a clear checklist, not a wishlist.
+
 ## Step 1: Load Context
 
 1. Read `docs/design-notes/.design-notes.md` to get the index of all available design notes.
@@ -24,7 +26,7 @@ Scan `docs/implementation-plans/` for existing `*.md` files (exclude `archive/`)
 
 ## Step 3: Interview User
 
-Do not proceed to drafting until you have solid answers to all of the following. Ask follow-ups on vague or incomplete answers — push for specifics.
+Do not proceed to drafting until you have solid answers to all of the following. Ask follow-ups on vague or incomplete answers — push for specifics. Treat every "TBD", "maybe", or "we'll figure it out later" as a blocker: resolve it now or record it as an explicit risk with a mitigation.
 
 **Goals & scope**
 - What behaviour or capability is being added or changed?
@@ -58,12 +60,41 @@ Do not proceed to drafting until you have solid answers to all of the following.
 - Auth/authz implications?
 - Any data sensitivity concerns?
 
+**Corner cases**
+- What edge/corner cases could break expected behaviour?
+- Boundary conditions, race conditions, empty/null inputs, unusual user flows?
+- How should each corner case be handled — error, fallback, or explicit design choice?
+
 **Performance**
 - Expected throughput, latency targets, or load concerns?
 
 **Migration / rollout**
 - Feature-flagged? Backward-compatible?
 - Any one-time migration steps?
+
+**Acceptance criteria**
+- For each functional requirement and corner case: what is the concrete, verifiable condition that proves it works?
+- Express each criterion as a testable statement (e.g. "When X, then Y", "Given A, expect B").
+- Cover both happy-path and failure/edge-case outcomes.
+
+**Roles**
+- For each step, who executes it? Assign one of:
+  - `@ai-agent` — the AI agent implements this step autonomously (code changes, tests, config).
+  - `@human` — a human performs this step (portal configuration, manual verification, external system setup, license activation, etc.).
+- Default is `@ai-agent` if not specified. Ask explicitly for any step that might require human action.
+
+**Estimation**
+- For each step, assign a T-shirt size: `S` (< 30 min), `M` (30 min – 2 h), `L` (2 h+).
+- Sizes are rough guidance, not commitments. Push back if the user skips sizing entirely.
+
+**Risks**
+- What could block or derail this plan? Think beyond corner cases: external dependencies, API rate limits, licensing, unclear requirements, tooling gaps.
+- For each risk: likelihood (Low/Medium/High), impact (Low/Medium/High), and mitigation or contingency.
+
+**Rollback**
+- For `@ai-agent` steps: git revert is assumed. No special guidance needed unless the step has side effects beyond code (e.g. database migrations, published packages).
+- For `@human` steps: what is the undo procedure? (e.g. "Delete the resource group", "Revert the portal setting to X").
+- For steps with no clean rollback: note this explicitly as a risk.
 
 Once all areas are covered, present a structured summary back to the user and ask: **"Does this capture everything? Anything to add or correct?"** — wait for confirmation before drafting.
 
@@ -73,10 +104,15 @@ Build the plan document using the template at [./assets/plan-template.md](./asse
 
 Guidelines:
 - **Decisions** — record key choices made during the interview (e.g. "Use feature flag X to gate rollout").
-- **Requirements table** — one row per requirement, ID format `REQ-N`.
+- **Requirements table** — one row per requirement, ID format `REQ-N`. Corner cases identified during the interview become requirements too (e.g. `REQ-7 Handle empty grid when monitor is disconnected`). Each requirement must have at least one acceptance criterion in the `Acceptance Criteria` column. The `Phases/Steps` column must list every step that addresses this requirement.
 - **Phases** — group related steps logically (e.g. "Phase 1: Data layer", "Phase 2: API", "Phase 3: Tests").
-- **Steps** — title + requirement reference only; no implementation prose. Keep it scannable for human review.
+- **Steps** — each step line references all related IDs in parentheses: `(REQ-1, REQ-3, RISK-2)`. No implementation prose. Keep it scannable for human review.
+- **Roles** — each step is tagged `@ai-agent` or `@human`. Default is `@ai-agent`; only annotate `@human` explicitly. For `@human` steps, add a `Details` sub-section under the step with actionable guidance (portal navigation, CLI commands, manual verification instructions, etc.).
+- **Estimation** — each step gets a T-shirt size: `S`, `M`, or `L`.
 - **Dependencies** — for each step, note which earlier steps it depends on using `[after: X.Y]` suffix. Steps with no dependency annotation (or `[after: none]`) can start immediately and run in parallel with other independent steps.
+- **Risks** — populate the Risks table from the interview. One row per risk, ID format `RISK-N`. The `Steps` column must list every step affected by or mitigating this risk. Steps that relate to a risk must also reference the `RISK-N` ID in their parentheses.
+- **Cross-reference integrity** — every `REQ-N` must appear in at least one step; every `RISK-N` must appear in at least one step; every step must reference at least one `REQ-N`. If any ID is orphaned (not linked to a step), either add a step or remove the ID.
+- **Rollback** — for `@human` steps and steps with non-code side effects, record rollback instructions in the step's `Details` section.
 - Status markers: `[ ]` TODO · `[x]` DONE · `[~]` IN-PROGRESS
 
 ## Step 5: Save Plan

@@ -1,7 +1,7 @@
 ---
-description: "Code review agent — reviews uncommitted changes, unpushed commits, or last N commits using three specialist models (Opus, Codex, Gemini). Usage: 'cr' (smart default), 'cr uncommitted', 'cr branch', 'cr <N>' (last N commits), 'cr <N> batch' (force batch mode)."
+description: "Code review agent — reviews uncommitted changes, unpushed commits, last N commits, or specific files/folders using three specialist models (Opus, Codex, Gemini). Usage: 'cr' (smart default), 'cr uncommitted', 'cr branch', 'cr <N>' (last N commits), 'cr <N> batch' (force batch mode), 'cr src/Foo/' or 'cr src/Bar.cs' (review local files/folders)."
 name: "cr"
-argument-hint: "Optional: 'uncommitted' | 'branch' | N (number of commits) | 'N batch'. Default: branch-aware (feature branch → diff vs main; on main → uncommitted + unpushed)."
+argument-hint: "Optional: 'uncommitted' | 'branch' | N (number of commits) | 'N batch' | file/folder path(s). Default: branch-aware (feature branch → diff vs main; on main → uncommitted + unpushed)."
 tools: [read, search, execute, agent, todo]
 agents: ["cr-opus", "cr-codex", "cr-gemini"]
 handoffs:
@@ -22,12 +22,21 @@ You are the code review orchestrator. You discover code changes, load project co
 | `branch` | All commits on current branch not in main/master |
 | `N` (a number) | Last N commits |
 | `N batch` | Last N commits, force batch mode |
+| `<path> [path2 ...]` | Specific files or folders on disk (not a git diff — reviews full file contents) |
+
+**Path detection:** if the argument is not a recognized keyword (`uncommitted`, `branch`, `batch`) and not purely numeric, treat it as one or more file/folder paths.
 
 **Smart default (no argument):** use `get-diff-smart-default.ps1` — it detects the current branch, resolves the default remote branch, and combines uncommitted + branch/unpushed scopes automatically.
 
 ## Step 2: Collect Changed Files and Diffs
 
 Use the scripts in `.github/agents/scripts/` based on scope:
+
+**Local files/folders:**
+- Files: `.github/agents/scripts/get-diff-paths.ps1 --files "<path1>","<path2>"`
+- Content: `.github/agents/scripts/get-diff-paths.ps1 --diff "<path1>","<path2>"`
+
+Note: this scope produces full file contents (not git diffs). The reviewers should review the code as-is rather than looking for "changes".
 
 **Uncommitted changes:**
 - Files: `.github/agents/scripts/get-diff-uncommitted.ps1 --files`
@@ -54,7 +63,7 @@ Use the scripts in `.github/agents/scripts/` based on scope:
 Count distinct changed files:
 
 - ≤ 15 files (and no `batch` argument): single-pass — process all changes together in one batch.
-- > 15 files OR `batch` argument given: batch mode — group files by matched subsystem (files matching no design note go into a "general" batch). Create one diff per batch using `.github/agents/scripts/get-diff-files.ps1 -Scope <uncommitted|branch|commits> [-N <n>] -Files <file1>,<file2>,...`.
+- > 15 files OR `batch` argument given: batch mode — group files by matched subsystem (files matching no design note go into a "general" batch). Create one diff per batch using `.github/agents/scripts/get-diff-files.ps1 -Scope <uncommitted|branch|commits> [-N <n>] -Files <file1>,<file2>,...`. For `paths` scope, use `.github/agents/scripts/get-diff-paths.ps1 --diff "<file1>","<file2>"` with the batch's file list instead.
 
 ## Step 5: Wrap Content (Injection Guard)
 

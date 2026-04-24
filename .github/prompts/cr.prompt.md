@@ -1,5 +1,5 @@
 ---
-description: "Code review — reviews uncommitted changes, unpushed commits, or last N commits. Usage: /cr [uncommitted|branch|N|N batch]"
+description: "Code review — reviews uncommitted changes, unpushed commits, last N commits, or specific files/folders. Usage: /cr [uncommitted|branch|N|N batch|path ...]"
 name: cr
 agent: cr
 ---

@@ -18,6 +18,19 @@ Scan `docs/implementation-plans/` for `*.md` files (exclude `archive/`).
 - **One plan found** → load it; confirm: "Working on: NNN — Plan Title. Correct?"
 - **Multiple plans found** → list them with a status summary (count of `[ ]`/`[~]`/`[x]` steps per plan); ask which to use.
 
+### Progress Summary
+
+After selecting the plan, always print a progress snapshot:
+
+```
+Progress: X of Y steps done (Z in-progress)
+Current phase: Phase N — Name
+Last completed: Step A.B — title
+Next pending:   Step C.D — title
+```
+
+This gives the user orientation, especially when resuming across sessions.
+
 ## Step 2: Load Context
 
 1. Read and parse the selected plan file.
@@ -60,17 +73,39 @@ Check the plan file for a `<!-- worktree: <branch-name> -->` comment in the curr
 ## Step 4: Identify Next Step
 
 1. Find the next `[ ]` or `[~]` step in the plan (top-down, first incomplete phase, first incomplete step).
-2. Update its status to `[~]` in the plan file.
-3. Present the step to the user: **"Next: Step X.Y — [title]. Scope: [brief description of what will change]. Proceed?"**
-4. Wait for confirmation before implementing.
+2. **Dependency check** — if the step has `[after: X.Y]` annotations, verify each referenced step is `[x]`. If any dependency is not done, skip this step and move to the next eligible `[ ]` step. If no eligible step exists, tell the user which dependencies are blocking and stop.
+3. **Resume check** — if the step is `[~]` (in-progress from a prior session):
+   - Run `git diff --name-only HEAD` and `git status --short` to see what was already changed.
+   - If there are uncommitted changes related to this step, present them: **"Step X.Y was in-progress. Found uncommitted changes in: [file list]. Continue from where it left off, or start fresh (discard changes)?"**
+   - If no uncommitted changes exist, reset the step to `[ ]` and treat it as a fresh start.
+4. Update its status to `[~]` in the plan file.
+5. Determine the step's **role** — look for `@human` tag on the step line. If absent, the role is `@ai-agent`.
+6. Present the step to the user: **"Next: Step X.Y — [title] [role: @ai-agent|@human]. Scope: [brief description of what will change]. Proceed?"**
+7. Wait for confirmation before continuing.
 
 ## Step 5: Implement
+
+### `@ai-agent` steps
 
 Implement the single confirmed step — not the full phase.
 
 - Follow patterns from the loaded design notes.
 - Make only the changes necessary for this step.
 - Do not refactor unrelated code.
+
+### `@human` steps
+
+The agent cannot execute this step directly. Instead:
+
+1. Read the step's `<details>` section from the plan for pre-authored guidance.
+2. Present the human with a clear, actionable guide including all of the following that apply:
+   - **Portal navigation** — exact click-paths (e.g. "Azure Portal → Resource Group → Settings → Configuration").
+   - **CLI / shell commands** — copy-pasteable snippets with placeholders clearly marked.
+   - **Code snippets** — if manual code edits are needed, show the exact before/after.
+   - **Verification** — how to confirm the step succeeded (expected output, UI state, API response).
+3. Ask: **"Let me know when this step is done, or if you need help with any part."**
+4. Wait for the user to confirm completion before proceeding.
+5. After confirmation, skip directly to Step 7 (Validate Acceptance Criteria). Steps 6 (Build and Test), 8 (Code Review), 9 (Update Design Notes) are skipped for `@human` steps unless the step produced code changes. If there are staged or unstaged code changes after a `@human` step, run the full flow (Steps 6–10).
 
 ## Step 6: Build and Test
 
@@ -83,7 +118,16 @@ If a relevant test filter can be identified from the changed subsystem (e.g. `Ca
 
 If build or tests fail: diagnose, fix, and re-run. Iterate until both pass.
 
-## Step 7: Code Review
+## Step 7: Validate Acceptance Criteria
+
+1. Look up the requirement IDs referenced by the current step (e.g. `REQ-1`, `REQ-3`).
+2. For each referenced requirement, read its **Acceptance Criteria** column from the plan's Requirements table.
+3. Verify each criterion is satisfied by the implementation:
+   - If a criterion maps to an automated test, confirm the test exists and passes.
+   - If a criterion is behavioural and not covered by an automated test, describe how the implementation satisfies it and ask the user to confirm.
+4. If any criterion is not met, fix the implementation and re-run build/tests before proceeding.
+
+## Step 8: Code Review
 
 Invoke `@cr` scoped to the current branch changes (`cr branch`).
 
@@ -92,14 +136,14 @@ Invoke `@cr` scoped to the current branch changes (`cr branch`).
 - Apply the selected fixes.
 - Re-run build and tests until both pass.
 
-## Step 8: Update Design Notes
+## Step 9: Update Design Notes
 
 Run `/udn` to update any design notes affected by this step's changes.
 
 - `/udn` analyzes the current chat session and edits the relevant files under `docs/design-notes/`
 - Include the updated design notes in the commit in the next step
 
-## Step 9: Commit
+## Step 10: Commit
 
 Ask: **"Ready to commit? (yes / no)"**
 
@@ -112,20 +156,53 @@ On approval:
 3. Mark the step `[x]` in the plan file.
 4. Commit the updated plan file and any updated design notes: `git commit -m "chore: mark plan-NNN step X.Y done"`
 
-## Step 10: Continue or Pause
+## Step 11: Phase Crosscheck & Continue or Pause
 
-After committing, check if all steps in the plan are `[x]` (see Step 11).
+After committing, check if all steps **in the current phase** are `[x]`. If the phase is complete, run a **phase-level crosscheck** before moving on:
+
+1. List every `REQ-N` referenced by steps in this phase.
+2. For each requirement, read its **Acceptance Criteria** from the Requirements table.
+3. Review the actual changes made across all steps in this phase (use `git diff <phase-start-commit>..HEAD --stat` and inspect key files).
+4. For each acceptance criterion, verify it is satisfied — either by a passing test or by observable implementation. Produce a checklist:
+   ```
+   Phase N Crosscheck:
+   ✓ REQ-1 — criterion text — covered by TestX / implemented in File.cs
+   ✗ REQ-3 — criterion text — NOT satisfied: [reason]
+   ```
+5. If any criterion is not met, flag it: **"Phase N complete but REQ-X acceptance criterion not satisfied: [detail]. Fix now or defer?"**
+   - **Fix** → implement the fix, re-run build/test/CR, commit, then re-run this crosscheck.
+   - **Defer** → record it as a known gap in the Decisions section of the plan.
+
+If all steps in the plan are `[x]`, proceed to Step 12.
 
 If not all done, ask: **"Continue to the next step or stop here?"**
 
 - **Continue** → loop back to Step 4.
 - **Stop** → summarize progress (steps done, steps remaining) and exit.
 
-## Step 11: Plan Completion
+## Step 12: Plan Completion
 
 After each commit, check whether every step across every phase is `[x]`.
 
-If complete:
+If complete, run a **plan-level crosscheck**:
+
+1. List **every** `REQ-N` in the Requirements table.
+2. For each requirement, verify its acceptance criteria are satisfied by the final codebase — check tests, implementation, and any `@human` step confirmations recorded during execution.
+3. List **every** `RISK-N` in the Risks table. For each, confirm the mitigation was applied or the risk did not materialize.
+4. Produce a summary:
+   ```
+   Plan NNN Final Crosscheck:
+   Requirements: X/Y satisfied
+   ✓ REQ-1 — criterion — satisfied
+   ✗ REQ-4 — criterion — gap: [detail]
+   Risks: A/B mitigated
+   ✓ RISK-1 — mitigated by step 2.1
+   ✗ RISK-2 — not addressed: [detail]
+   ```
+5. If all requirements and risks are green, proceed to archival.
+6. If any gaps exist, ask: **"Plan has unresolved gaps. Fix now, or archive with known gaps noted in Decisions?"**
+
+On archival:
 1. Edit the plan file title to append `[DONE]`: `# NNN: Plan Title [DONE]`
 2. Move the file to `docs/implementation-plans/archive/` using PowerShell (Move-Item handles the delete of the original):
    `Move-Item docs/implementation-plans/<file>.md docs/implementation-plans/archive/<file>.md`

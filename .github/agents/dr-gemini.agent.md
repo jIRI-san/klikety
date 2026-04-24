@@ -25,6 +25,7 @@ Review comprehensively across all important aspects:
 - Concurrency or race condition risks in the proposed design
 - Steps or transitions technically incorrect or missing; integration points underspecified
 - Error and failure handling paths not addressed; edge cases in proposed logic not covered
+- Corner cases not called out as explicit requirements: boundary conditions, empty/null inputs, zero-element or single-element scenarios, race conditions, unusual user flows — each should be identified in the plan with expected behavior
 - Architectural constraints, non-goals, or component boundaries absent or vague
 - Design decisions without rationale or without consideration of alternatives
 - Inconsistency with established project patterns documented in the loaded design notes

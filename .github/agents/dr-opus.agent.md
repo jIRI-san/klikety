@@ -28,6 +28,7 @@ Review comprehensively across all important aspects:
 - Failure modes and recovery paths not specified; missing observability (logging, metrics, alerting)
 - Steps technically incorrect or missing; integration points underspecified; error handling paths absent
 - Edge cases in proposed logic not covered; assumptions incorrect given platform or codebase constraints
+- Corner cases not called out as explicit requirements: boundary conditions, empty/null inputs, zero-element or single-element scenarios, race conditions, unusual user flows — each should be identified in the plan with expected behavior
 
 ## Context Loading
 

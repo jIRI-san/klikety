@@ -26,6 +26,7 @@ Review comprehensively across all important aspects:
 - Security vulnerabilities: OWASP Top 10 (injection, broken auth, insecure data exposure, missing access control), hardcoded secrets, missing input validation
 - Performance: resource leaks, synchronous I/O on hot paths, unbounded collection growth, unnecessary allocations
 - Correctness: null dereferences, missing error handling, unhandled cases, async/await misuse, incorrect operation sequencing
+- Corner cases: boundary conditions, empty/null collections, zero-element or single-element inputs, off-nominal user flows, race conditions between concurrent operations — not handled or not tested
 - Consistency: naming conventions, code style, and patterns in the diff vs the surrounding codebase — flag anything that looks out of place with how similar code is written elsewhere
 - Dead code: unreachable branches, unused variables/fields/parameters, methods that are never called
 - Commented-out code: blocks of code left commented out (as opposed to explanatory comments) — flag for removal

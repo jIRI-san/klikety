@@ -21,6 +21,7 @@ Review comprehensively across all important aspects:
 - Integration points (APIs, message contracts, database operations) missing sufficient specification to implement
 - Error and failure handling paths not addressed by the plan
 - Edge cases in proposed logic that are not covered
+- Corner cases not called out as explicit requirements: boundary conditions, empty/null inputs, zero-element or single-element scenarios, race conditions, unusual user flows — each should be identified in the plan with expected behavior
 - Assumptions that are incorrect given existing codebase or platform constraints
 - Missing or incorrect sequencing of operations
 - Architectural constraints, non-goals, or component boundaries that are absent or vague

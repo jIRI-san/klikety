@@ -22,6 +22,7 @@ Review comprehensively across all important aspects:
 - Unhandled cases in switch statements, state transitions, or conditional chains
 - Incorrect operation sequencing (using a value before initialization, disposing before use is complete)
 - Off-by-one errors, integer overflow risks, incorrect boundary conditions
+- Corner cases: empty/null collections, zero-element or single-element inputs, off-nominal user flows, race conditions, unusual state combinations — not handled or not tested
 - Async/await misuse: fire-and-forget where result is needed, missing `CancellationToken` propagation, `.Result`/`.Wait()` patterns that can deadlock
 - Logic that diverges from what the surrounding code or comments indicate was intended
 - Security vulnerabilities: OWASP Top 10 (injection, broken auth, insecure data exposure, security misconfiguration, missing access control), hardcoded secrets

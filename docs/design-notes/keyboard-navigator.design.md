@@ -38,7 +38,7 @@ At L1, the screen is divided into left and right halves, each with its own key s
 - At L1 `AwaitSecond`, pressing a first key from the *other* half switches the active half (re-entry).
 - `ColumnHighlighted` event signature: `Action<ScreenHalf, int, IReadOnlyList<GridCell>, int>` — carries which half, column index, cell list, and level.
 - Backspace at `AwaitSecond` fires `ColumnUnhighlighted(level)` and resets to `AwaitFirst`. At L1, also resets to left-half defaults.
-- Escape at L2/L3 fires `LevelExited(parentCell, cells, level)` — coordinator uses this to re-render the parent level's grid.
+- Escape at L2/L3 fires `ColumnUnhighlighted(1)` — resets fully to `L1_AwaitFirst` with both halves visible. `L3_Await*` fires `LevelExited` to go back to `L2_AwaitAction`.
 
 ### Transitions
 
@@ -53,15 +53,18 @@ At L1, the screen is divided into left and right halves, each with its own key s
 | `L2_AwaitSecond` | second-key VKey | `L2_AwaitAction` | Compute L3 subgrid (if threshold met); move cursor; raise `CellEntered(cell, subgridCells, 2)` |
 | `L2_AwaitAction` | action VKey | `Idle` | Raise `ActionRequested(point, action)`; `DeactivateOverlay()` |
 | `L2_AwaitAction` | nav VKey | `L3_AwaitSecond` | Select column in pre-computed L3 subgrid (only if available); raise `ColumnHighlighted(half, col, subCells, 3)` |
-| `L*_AwaitFirst/Second/Action` | Escape (L2/L3) | parent `AwaitAction` | Raise `LevelExited(parentCell, cells, level)` |
-| `L1_Await*` | Escape | `Idle` | Raise `Cancelled(originPoint)`; `DeactivateOverlay()` |
+| `L2_Await*` | Escape | `L1_AwaitFirst` | Reset to both-halves view; raise `ColumnUnhighlighted(1)` |
+| `L3_Await*` | Escape | `L2_AwaitAction` | Raise `LevelExited(l2SelectedCell, l2Cells, 2)` |
+| `L1_AwaitAction` / `L1_AwaitSecond` | Escape | `L1_AwaitFirst` | Reset both keys; raise `ColumnUnhighlighted(1)` |
+| `L1_AwaitFirst` | Escape | `Idle` | Raise `Cancelled(originPoint)`; `DeactivateOverlay()` |
+| `L*_AwaitAction` (deepest) | valid second key | same state | Re-select cell in same column; raise `CellEntered(cell, [], level)` |
 
 ### Events raised by state machine
 
 - `ColumnHighlighted(ScreenHalf half, int col, IReadOnlyList<GridCell> cells, int level)` — first key received; identifies which screen half, column, cell list, and level
 - `CellHighlighted(GridCell cell)` — arrow navigation; highlight cell without dimming others
 - `CellEntered(GridCell cell, IReadOnlyList<GridCell> subgridCells, int level)` — two-key pair complete; coordinator moves cursor to cell center and renders subgrid over parent grid. Empty `subgridCells` = no next-level subgrid (L3 threshold not met).
-- `ActionRequested(Point physicalPoint, MouseAction action)` — fire mouse action
+- `ActionRequested(Point physicalPoint, MouseAction action)` — fire mouse action. **Coordinator hides overlay before sending action** so `SendInput` click reaches the underlying window, not the overlay.
 - `Cancelled(Point originPoint)` — restore cursor to saved origin
 - `LevelExited(GridCell parentCell, IReadOnlyList<GridCell> cells, int level)` — Escape from L2/L3; coordinator re-renders parent level's grid
 - `ColumnUnhighlighted(int level)` — Backspace at AwaitSecond; coordinator re-renders both halves (L1) or subgrid
@@ -77,11 +80,21 @@ Arrow VKeys (`VK_LEFT`, `VK_RIGHT`, `VK_UP`, `VK_DOWN`) and `VK_RETURN` are **al
 
 ### Level-3 trigger
 
-After completing L2 two-key pair, if the L2 cell's physical-pixel area exceeds `Level3CellSizeThreshold` (default sized for ~4K), L3 is automatically available. Nav VKey at `L2_AwaitAction` transitions to `L3_AwaitFirst`.
+After completing L2 two-key pair, if the L2 cell's physical-pixel area exceeds `Level3CellSizeThreshold`, L3 is automatically available. Nav VKey at `L2_AwaitAction` transitions to `L3_AwaitFirst`. Default threshold is `0` (L3 always active). Set to a positive value to disable L3 on small cells.
 
-### Escape at L2/L3
+### Deepest-level cell reselection
 
-Escape goes back one level: `L2_Await* → L1_AwaitAction`, `L3_Await* → L2_AwaitAction`. Raises `LevelExited(parentCell, cells, level)` — coordinator uses the cell list and level to re-render the appropriate grid. Escape at any L1 state raises `Cancelled(originPoint)`.
+At the deepest level's `AwaitAction` (L3 always; L2 only when L3 threshold not met), pressing a valid second key re-selects a different cell in the same column without restarting the level. `TryReselectCell` fires `CellEntered` with empty subgrid cells.
+
+### Escape behavior
+
+Escape resets both key presses at every level:
+- `L1_AwaitAction` / `L1_AwaitSecond` → `L1_AwaitFirst` — both halves visible, raises `ColumnUnhighlighted(1)`
+- `L2_Await*` → `L1_AwaitFirst` — full reset, raises `ColumnUnhighlighted(1)` (not `LevelExited`)
+- `L3_Await*` → `L2_AwaitAction` — raises `LevelExited(l2SelectedCell, l2Cells, 2)`
+- `L1_AwaitFirst` → `Idle` — raises `Cancelled(originPoint)`
+
+`ResetToL1AwaitFirst()` helper resets active half to left, active keys, `_l1Cells`, `_currentLevelCells`, `_arrowIndex`.
 
 ### Subgrid Computation
 
@@ -242,14 +255,21 @@ Labels auto-scale to fill a fraction of cell height:
 
 ### External Label Rendering
 
-When subgrid cells are too small to fit labels (cell DIP height < `MinLabelFontSize * 1.8`), `GridRenderer.RenderSubgrid` switches to external label layout:
+When subgrid cells are too small to fit labels, the renderer switches to external label layout. Decision considers both dimensions:
+- Height: `cellDipHeight < minLabelFontSize * 1.8`
+- Half-width: `cellDipWidth / 2 < minLabelFontSize * 1.6` (wide chars like "W")
 
-- Column first-keys rendered above the grid, centered over their columns.
-- Row second-keys rendered to the left of the grid, centered on their rows.
-- Dashed connector lines link each external label to its grid column/row.
+Method: `ShouldUseExternalLabels(cellDipHeight, cellDipWidth, minLabelFontSize)` — `internal static`, testable.
+
+**Progressive reveal**: When awaiting first key, only column first-key labels are shown (top + bottom). After first key is pressed (`HighlightColumnOverGrid`), row second-key labels appear (left + right). This matches the natural key-entry order.
+
+**Four-sided rendering**: Labels are rendered on all four sides (top, bottom, left, right) so subgrids near screen edges always have visible labels. Helpers: `RenderExternalColumnLabels` (top/bottom), `RenderExternalRowLabels` (left/right, centered in margin area).
+
+When external labels are active, no internal cell labels are rendered — cells show only background/highlight rectangles.
+
+- Font size: `ComputeAutoFontSize(cellHalfWidth, cellHeight, 0.9)` — same proportional sizing as internal labels.
 - Theme properties: `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness`.
 - Config: `MinLabelFontSize` (default 10.0 DIP) controls the threshold.
-- Decision method: `GridRenderer.ShouldUseExternalLabels(cellDipHeight, minLabelFontSize)` — `internal static`, testable.
 
 ## Config
 
@@ -264,7 +284,7 @@ When subgrid cells are too small to fit labels (cell DIP height < `MinLabelFontS
 
 ## Test Infrastructure
 
-- **Unit tests** (`Klikety.Tests`): xUnit, 93 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold logic.
+- **Unit tests** (`Klikety.Tests`): xUnit, 96 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold logic.
 - **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss), `FakeGridRenderer` (records `RenderCall` list — method name, cells, half, col — for assertion).
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.

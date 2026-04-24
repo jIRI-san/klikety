@@ -49,9 +49,9 @@ The full screen is covered by a single grid. `NavigatorStateMachine` takes flat 
 | `L2_AwaitSecond` | second-key VKey | `L2_AwaitAction` | Compute L3 subgrid (if threshold met); move cursor; raise `CellEntered(cell, subgridCells, 2)` |
 | `L2_AwaitAction` | action VKey | `Idle` | Raise `ActionRequested(point, action)`; `DeactivateOverlay()` |
 | `L2_AwaitAction` | nav VKey | `L3_AwaitSecond` | Select column in pre-computed L3 subgrid (only if available); raise `ColumnHighlighted(col, subCells, 3)` |
-| `L2_AwaitAction` | Escape | `L2_AwaitFirst` | Clear L3 cells; restore L2 grid; raise `ColumnUnhighlighted(2)` |
+| `L2_AwaitAction` | Escape | `L1_AwaitFirst` | Full reset; raise `ColumnUnhighlighted(1)` |
 | `L2_AwaitFirst` / `L2_AwaitSecond` | Escape | `L1_AwaitFirst` | Reset to full grid; raise `ColumnUnhighlighted(1)` |
-| `L3_Await*` | Escape | `L2_AwaitAction` | Raise `LevelExited(l2SelectedCell, l2Cells, 2)` |
+| `L3_Await*` | Escape | `L2_AwaitFirst` | Clear L3 cells; restore L2 grid; raise `ColumnUnhighlighted(2)` |
 | `L1_AwaitAction` / `L1_AwaitSecond` | Escape | `L1_AwaitFirst` | Reset; raise `ColumnUnhighlighted(1)` |
 | `L1_AwaitFirst` | Escape | `Idle` | Raise `Cancelled(originPoint)`; `DeactivateOverlay()` |
 | `L*_AwaitAction` (deepest) | valid second key | same state | Re-select cell in same column; raise `CellEntered(cell, [], level)` |
@@ -59,12 +59,12 @@ The full screen is covered by a single grid. `NavigatorStateMachine` takes flat 
 ### Events raised by state machine
 
 - `ColumnHighlighted(int col, IReadOnlyList<GridCell> cells, int level)` — first key received; column, cell list, level
-- `CellHighlighted(GridCell cell)` — arrow navigation; highlight cell without dimming others
+- `CellHighlighted(GridCell cell)` — arrow navigation; crosshair highlight (row + column + intersection cell)
 - `CellEntered(GridCell cell, IReadOnlyList<GridCell> subgridCells, int level)` — two-key pair complete; coordinator moves cursor to cell center and renders subgrid over parent grid. Empty `subgridCells` = no next-level subgrid (L3 threshold not met).
 - `ActionRequested(Point physicalPoint, MouseAction action)` — fire mouse action. **Coordinator hides overlay before sending action** so `SendInput` click reaches the underlying window, not the overlay.
 - `Cancelled(Point originPoint)` — restore cursor to saved origin
 - `LevelExited(GridCell parentCell, IReadOnlyList<GridCell> cells, int level)` — Escape from L3; coordinator re-renders parent level's grid
-- `ColumnUnhighlighted(int level)` — Backspace at AwaitSecond; coordinator re-renders full grid (L1) or subgrid
+- `ColumnUnhighlighted(int level)` — Escape; coordinator re-renders full grid (L1) or subgrid
 - `InvalidKeyPressed()` — unrecognized key at any await state
 
 ### NavigationMode
@@ -87,9 +87,8 @@ At the deepest level's `AwaitAction` (L3 always; L2 only when L3 threshold not m
 
 Escape resets both key presses at every level:
 - `L1_AwaitAction` / `L1_AwaitSecond` → `L1_AwaitFirst` — full grid visible, raises `ColumnUnhighlighted(1)`
-- `L2_AwaitAction` → `L2_AwaitFirst` — clears `_l3Cells`, restores `_currentLevelCells` to `_l2Cells`, raises `ColumnUnhighlighted(2)`. Coordinator restores `_subgridCells = _l2SubgridCells` and renders `RenderSubgridOverGrid`.
-- `L2_AwaitFirst` / `L2_AwaitSecond` → `L1_AwaitFirst` — full reset, raises `ColumnUnhighlighted(1)`
-- `L3_Await*` → `L2_AwaitAction` — raises `LevelExited(l2SelectedCell, l2Cells, 2)`
+- `L2_Await*` (all sub-states) → `L1_AwaitFirst` — full reset, raises `ColumnUnhighlighted(1)`
+- `L3_Await*` (all sub-states) → `L2_AwaitFirst` — clears `_l3Cells`, restores `_currentLevelCells` to `_l2Cells`, raises `ColumnUnhighlighted(2)`. Coordinator restores `_subgridCells = _l2SubgridCells` and renders `RenderSubgridOverGrid`.
 - `L1_AwaitFirst` → `Idle` — raises `Cancelled(originPoint)`
 
 `ResetToL1AwaitFirst()` helper resets `_currentLevelCells` to `_l1Cells`, `_arrowIndex` to 0, fires `ColumnUnhighlighted(1)`.
@@ -103,6 +102,12 @@ Subgrid computation happens on cell entry in `HandleSecondKey`. When the second 
 ### Arrow Navigation
 
 Arrow navigation operates on `_currentLevelCells` at whatever level is active, using `_firstKeys.Length` as the column count. Navigation wraps at grid edges via `ArrowNavigator` stateless helpers.
+
+**Enter key** (Both/Arrow modes): At L1/L2, Enter zooms into the arrow-selected cell — computes subgrid and transitions to the next level's `AwaitFirst` state (L1→`L2_AwaitFirst`, L2→`L3_AwaitFirst`). At L3, Enter is a no-op.
+
+**Action keys from any state** (Both mode only): `TryHandleActionKey` intercepts action-mapped VKeys (Space, X, C, V) before two-key dispatch. Fires `ActionRequested` on the current arrow-selected cell regardless of `AwaitFirst`/`AwaitSecond`/`AwaitAction` sub-state. This allows arrow-navigate → Space to click without needing Enter first.
+
+**Crosshair highlight**: `HighlightCell` and `HighlightCellOverGrid` render the selected cell's entire row and column with highlight styling (25% opacity), with the intersection cell at full highlight (50% opacity + thicker border).
 
 ## Win32 Interop
 
@@ -122,6 +127,7 @@ interface IGridRenderer {
     void RenderSubgrid(IReadOnlyList<GridCell> cells);
     void RenderSubgridOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells);
     void HighlightColumnOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, int col);
+    void HighlightCellOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, GridCell cell);
     void FlashInvalidKey(); void ClearCanvas();
 }
 ```
@@ -207,7 +213,7 @@ Config structure:
 
 ## Theme System
 
-- `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color; connector line color + thickness.
+- `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color; connector line color + thickness; label outline color + thickness.
 - `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; fall back to built-in dark on any error + tray notification.
 - Built-in `dark.theme.json` and `light.theme.json` shipped as embedded resources; extracted to `%APPDATA%\Klikety\themes\` on first run.
 
@@ -235,13 +241,26 @@ Labels auto-scale to fill a fraction of cell height:
 
 - `RenderGrid(cells)` renders the full-screen grid with labels. Used at L1 activation and on backspace/escape back to L1.
 - `HighlightColumn(cells, col)` dims non-matching cells, highlights selected column. Used at L1.
-- `HighlightCell(cells, cell)` highlights a single cell for arrow navigation.
+- `HighlightCell(cells, cell)` crosshair-highlights a cell for L1 arrow navigation (row + column + intersection).
+- `HighlightCellOverGrid(backgroundCells, subgridCells, cell)` crosshair-highlights a cell within a subgrid rendered over faint background grid. Used for L2/L3 arrow navigation. Supports external labels when cells are too small.
 - `ClearCanvas()` — removes all children from the WPF Canvas. Called in `DeactivateOverlay()` before `Hide()`.
 - `NavigatorCoordinator` tracks `_l1Cells`, `_subgridCells` (nullable), `_l2SubgridCells` for rendering context. L1 uses `HighlightColumn`/`RenderGrid`; L2+ uses `HighlightColumnOverGrid`. `OnCellEntered` stores subgrid cells; `OnLevelExited` (L3→L2) restores `_subgridCells = _l2SubgridCells`; `OnColumnUnhighlighted` at L1 clears subgrid state and calls `RenderGrid`.
 - `RenderSubgridOverGrid(backgroundCells, subgridCells)` — renders parent grid as faint borders (no labels, 0.15 opacity) then subgrid on top with labels. Called by coordinator on `CellEntered`.
 - `HighlightColumnOverGrid(backgroundCells, subgridCells, col)` — renders parent grid as faint background + subgrid with column highlighted. Called by coordinator on `ColumnHighlighted` at L2/L3.
 - Private helpers: `RenderBackgroundGrid(cells)` draws faint borders, `RenderSubgridContent(cells)` draws subgrid without clearing canvas.
 - All render methods share `AddCellRect(dipRect, fill, stroke, strokeThickness)` private helper — creates `Rectangle` shape and adds to Canvas.
+
+### Outlined Text Rendering
+
+All labels (inline and external) use two-layer `Path` rendering for crisp outlines that ensure readability over any background:
+
+1. `FormattedText.BuildGeometry()` converts text to a `Geometry`.
+2. Layer 1 (stroke-only): `Path` with `Fill=Transparent`, `Stroke=outlineBrush`, `StrokeThickness=thickness*2`, `StrokeLineJoin=Round`. Doubled thickness because only the outer half is visible.
+3. Layer 2 (fill-only): `Path` with `Fill=foreground`, no stroke. Renders on top, covering the inner stroke bleed.
+
+Method: `AddOutlinedText(text, typeface, fontSize, fill, outlineBrush, outlineThickness, opacity, areaX, areaY, areaWidth, areaHeight)`. Helper `MeasureText` returns `Size` for layout calculations without creating visual elements.
+
+- Theme properties: `LabelOutlineColor` (default `#000000` dark / `#FFFFFF` light), `LabelOutlineThickness` (default `1.5`).
 
 ### External Label Rendering
 
@@ -288,10 +307,15 @@ When external labels are active, no internal cell labels are rendered — cells 
 ## Logging
 
 - `Microsoft.Extensions.Logging` with rolling file sink → `%APPDATA%\Klikety\logs\`.
+- Config: `logLevel` (default `Debug`), `fileLoggingEnabled` (default `true`), `retainedLogFileCount` (default `7`).
+- Debug-level logging in `NavigatorCoordinator`:
+  - Every mapped keystroke: key name + state before processing.
+  - State transitions: `{before} → {after}` when state changes.
+  - All SM events: `ColumnHighlighted`, `CellHighlighted`, `CellEntered`, `LevelExited`, `ColumnUnhighlighted`, `ActionRequested`, `Cancelled`, `InvalidKeyPressed` — with relevant parameters (col, row, level, cell counts).
 
 ## Test Infrastructure
 
-- **Unit tests** (`Klikety.Tests`): xUnit, 97 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold/fan-out logic.
+- **Unit tests** (`Klikety.Tests`): xUnit, 92 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold/fan-out logic.
 - **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss), `FakeGridRenderer` (records `RenderCall` list — method name, cells, col — for assertion).
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.

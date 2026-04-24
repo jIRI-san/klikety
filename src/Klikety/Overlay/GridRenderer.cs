@@ -5,6 +5,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using Klikety.Config;
 using Klikety.Grid;
+using Klikety.Services;
 
 namespace Klikety.Overlay;
 
@@ -12,8 +13,7 @@ namespace Klikety.Overlay;
 /// Renders grid cells, labels, highlights, and dimming on the overlay Canvas.
 /// Clears children on each transition to prevent memory accumulation.
 /// </summary>
-public sealed class GridRenderer
-{
+public sealed class GridRenderer : IGridRenderer {
     private readonly Canvas _canvas;
     private readonly ThemeModel _theme;
   private readonly LabelGenerator _leftLabelGenerator;
@@ -163,6 +163,25 @@ public sealed class GridRenderer
   }
 
   /// <summary>
+  /// Clears all canvas children. Called during deactivation to prevent stale frame flash.
+  /// </summary>
+  public void ClearCanvas() => _canvas.Children.Clear();
+
+  private void AddCellRect(Rect dipRect, Brush fill, Brush stroke, double strokeThickness = -1) {
+    if (strokeThickness < 0) strokeThickness = _theme.CellBorderThickness;
+    var bg = new Rectangle {
+      Width = dipRect.Width,
+      Height = dipRect.Height,
+      Fill = fill,
+      Stroke = stroke,
+      StrokeThickness = strokeThickness,
+    };
+    Canvas.SetLeft(bg, dipRect.X);
+    Canvas.SetTop(bg, dipRect.Y);
+    _canvas.Children.Add(bg);
+  }
+
+  /// <summary>
   /// Renders both halves of the split-screen grid with labels.
   /// </summary>
   public void RenderBothHalves(IReadOnlyList<GridCell> leftCells, IReadOnlyList<GridCell> rightCells)
@@ -201,19 +220,7 @@ public sealed class GridRenderer
     foreach (var cell in cells)
     {
       var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-
-      var bg = new Rectangle
-      {
-        Width = dipRect.Width,
-        Height = dipRect.Height,
-        Fill = bgBrush,
-        Stroke = borderBrush,
-        StrokeThickness = _theme.CellBorderThickness,
-      };
-      Canvas.SetLeft(bg, dipRect.X);
-      Canvas.SetTop(bg, dipRect.Y);
-      _canvas.Children.Add(bg);
-
+      AddCellRect(dipRect, bgBrush, borderBrush);
       AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
     }
   }
@@ -238,19 +245,7 @@ public sealed class GridRenderer
         foreach (var cell in cells)
         {
       var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-
-      var bg = new Rectangle
-            {
-                Width = dipRect.Width,
-                Height = dipRect.Height,
-                Fill = bgBrush,
-                Stroke = borderBrush,
-                StrokeThickness = _theme.CellBorderThickness,
-            };
-            Canvas.SetLeft(bg, dipRect.X);
-            Canvas.SetTop(bg, dipRect.Y);
-            _canvas.Children.Add(bg);
-
+      AddCellRect(dipRect, bgBrush, borderBrush);
       AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
     }
     }
@@ -278,19 +273,9 @@ public sealed class GridRenderer
         {
       var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
       bool isHighlighted = cell.Col == col;
-
-            var bg = new Rectangle
-            {
-                Width = dipRect.Width,
-                Height = dipRect.Height,
-                Fill = isHighlighted ? highlightBg : dimBrush,
-                Stroke = isHighlighted ? highlightBorder : borderBrush,
-                StrokeThickness = _theme.CellBorderThickness,
-            };
-            Canvas.SetLeft(bg, dipRect.X);
-            Canvas.SetTop(bg, dipRect.Y);
-            _canvas.Children.Add(bg);
-
+      AddCellRect(dipRect,
+          isHighlighted ? highlightBg : dimBrush,
+          isHighlighted ? highlightBorder : borderBrush);
       AddLabel(dipRect, cell.Row, cell.Col, labelBrush, isHighlighted ? 1.0 : 0.3);
     }
     }
@@ -317,22 +302,110 @@ public sealed class GridRenderer
         {
       var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
       bool isHighlighted = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
-
-            var bg = new Rectangle
-            {
-                Width = dipRect.Width,
-                Height = dipRect.Height,
-                Fill = isHighlighted ? highlightBg : bgBrush,
-                Stroke = isHighlighted ? highlightBorder : borderBrush,
-                StrokeThickness = isHighlighted ? _theme.CellBorderThickness * 2 : _theme.CellBorderThickness,
-            };
-            Canvas.SetLeft(bg, dipRect.X);
-            Canvas.SetTop(bg, dipRect.Y);
-            _canvas.Children.Add(bg);
-
+      AddCellRect(dipRect,
+          isHighlighted ? highlightBg : bgBrush,
+          isHighlighted ? highlightBorder : borderBrush,
+          isHighlighted ? _theme.CellBorderThickness * 2 : _theme.CellBorderThickness);
       AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
     }
+  }
+
+  /// <summary>
+  /// Highlights a column in split-screen mode: active half shows column highlight + dimmed,
+  /// inactive half fully dimmed with low-opacity labels.
+  /// </summary>
+  public void HighlightColumnSplitScreen(
+      IReadOnlyList<GridCell> leftCells,
+      IReadOnlyList<GridCell> rightCells,
+      Navigation.ScreenHalf activeHalf,
+      int col) {
+    _canvas.Children.Clear();
+    EnsureTransform();
+
+    var borderBrush = BrushFromHex(_theme.CellBorderColor);
+    var dimBrush = BrushFromHex(_theme.DimmedOverlayColor, _theme.DimmedOverlayOpacity);
+    var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, 0.5);
+    var highlightBorder = BrushFromHex(_theme.HighlightedColumnBorderColor);
+    var labelBrush = BrushFromHex(_theme.LabelColor);
+
+    // Render inactive half (dimmed)
+    var inactiveCells = activeHalf == Navigation.ScreenHalf.Left ? rightCells : leftCells;
+    var inactiveGen = activeHalf == Navigation.ScreenHalf.Left ? _rightLabelGenerator : _leftLabelGenerator;
+    if (inactiveCells.Count > 0) {
+      _activeLabelGenerator = inactiveGen;
+      var region = ComputeRegionFromCells(inactiveCells);
+      foreach (var cell in inactiveCells) {
+        var dipRect = DipRectForCell(cell.Row, cell.Col, region, inactiveGen.Cols, inactiveGen.Rows);
+        AddCellRect(dipRect, dimBrush, borderBrush);
+        AddLabel(dipRect, cell.Row, cell.Col, labelBrush, 0.3);
+      }
     }
+
+    // Render active half (column highlight + dimmed non-highlighted)
+    var activeCells = activeHalf == Navigation.ScreenHalf.Left ? leftCells : rightCells;
+    var activeGen = activeHalf == Navigation.ScreenHalf.Left ? _leftLabelGenerator : _rightLabelGenerator;
+    if (activeCells.Count > 0) {
+      _activeLabelGenerator = activeGen;
+      var region = ComputeRegionFromCells(activeCells);
+      foreach (var cell in activeCells) {
+        var dipRect = DipRectForCell(cell.Row, cell.Col, region, activeGen.Cols, activeGen.Rows);
+        bool isHighlighted = cell.Col == col;
+        AddCellRect(dipRect,
+            isHighlighted ? highlightBg : dimBrush,
+            isHighlighted ? highlightBorder : borderBrush);
+        AddLabel(dipRect, cell.Row, cell.Col, labelBrush, isHighlighted ? 1.0 : 0.3);
+      }
+    }
+  }
+
+  /// <summary>
+  /// Highlights a single cell in split-screen mode: active half shows cell highlight
+  /// with dimmed non-highlighted cells, inactive half fully dimmed.
+  /// </summary>
+  public void HighlightCellSplitScreen(
+      IReadOnlyList<GridCell> leftCells,
+      IReadOnlyList<GridCell> rightCells,
+      Navigation.ScreenHalf activeHalf,
+      GridCell highlightedCell) {
+    _canvas.Children.Clear();
+    EnsureTransform();
+
+    var borderBrush = BrushFromHex(_theme.CellBorderColor);
+    var dimBrush = BrushFromHex(_theme.DimmedOverlayColor, _theme.DimmedOverlayOpacity);
+    var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, 0.5);
+    var highlightBorder = BrushFromHex(_theme.HighlightedColumnBorderColor);
+    var labelBrush = BrushFromHex(_theme.LabelColor);
+
+    // Inactive half (dimmed)
+    var inactiveCells = activeHalf == Navigation.ScreenHalf.Left ? rightCells : leftCells;
+    var inactiveGen = activeHalf == Navigation.ScreenHalf.Left ? _rightLabelGenerator : _leftLabelGenerator;
+    if (inactiveCells.Count > 0) {
+      _activeLabelGenerator = inactiveGen;
+      var region = ComputeRegionFromCells(inactiveCells);
+      foreach (var cell in inactiveCells) {
+        var dipRect = DipRectForCell(cell.Row, cell.Col, region, inactiveGen.Cols, inactiveGen.Rows);
+        AddCellRect(dipRect, dimBrush, borderBrush);
+        AddLabel(dipRect, cell.Row, cell.Col, labelBrush, 0.3);
+      }
+    }
+
+    // Active half (cell highlight, non-highlighted use dimBrush)
+    var activeCells = activeHalf == Navigation.ScreenHalf.Left ? leftCells : rightCells;
+    var activeGen = activeHalf == Navigation.ScreenHalf.Left ? _leftLabelGenerator : _rightLabelGenerator;
+    if (activeCells.Count > 0) {
+      _activeLabelGenerator = activeGen;
+      var region = ComputeRegionFromCells(activeCells);
+      foreach (var cell in activeCells) {
+        var dipRect = DipRectForCell(cell.Row, cell.Col, region, activeGen.Cols, activeGen.Rows);
+        bool isHighlighted = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
+        AddCellRect(dipRect,
+            isHighlighted ? highlightBg : dimBrush,
+            isHighlighted ? highlightBorder : borderBrush,
+            isHighlighted ? _theme.CellBorderThickness * 2 : _theme.CellBorderThickness);
+        AddLabel(dipRect, cell.Row, cell.Col, labelBrush, isHighlighted ? 1.0 : 0.3);
+      }
+    }
+  }
 
     /// <summary>
     /// Renders a subgrid within a parent cell's bounds using distinct subgrid styling.
@@ -359,19 +432,8 @@ public sealed class GridRenderer
         foreach (var cell in cells)
         {
       var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-
-      var bg = new Rectangle
-            {
-                Width = dipRect.Width,
-                Height = dipRect.Height,
-                Fill = bgBrush,
-                Stroke = borderBrush,
-                StrokeThickness = _theme.CellBorderThickness,
-            };
-            Canvas.SetLeft(bg, dipRect.X);
-            Canvas.SetTop(bg, dipRect.Y);
-            _canvas.Children.Add(bg);
-        }
+      AddCellRect(dipRect, bgBrush, borderBrush);
+    }
 
         if (useExternalLabels)
         {

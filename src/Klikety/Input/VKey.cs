@@ -5,35 +5,34 @@ namespace Klikety.Input;
 /// Used throughout the app as the stable, layout-independent key identifier.
 /// Display labels are derived separately via ToUnicode/MapVirtualKey.
 /// </summary>
-public enum VKey
-{
+public enum VKey {
     // Special / control
-    Back      = 0x08,
-    Tab       = 0x09,
-    Return    = 0x0D,
-    Shift     = 0x10,
-    Control   = 0x11,
-    Menu      = 0x12, // Alt
-    Pause     = 0x13,
-    Capital   = 0x14, // Caps Lock
-    Escape    = 0x1B,
-    Space     = 0x20,
+    Back = 0x08,
+    Tab = 0x09,
+    Return = 0x0D,
+    Shift = 0x10,
+    Control = 0x11,
+    Menu = 0x12, // Alt
+    Pause = 0x13,
+    Capital = 0x14, // Caps Lock
+    Escape = 0x1B,
+    Space = 0x20,
 
     // Arrow keys (always reserved — may not appear in firstKeys/secondKeys/ActionBindings)
-    Left      = 0x25,
-    Up        = 0x26,
-    Right     = 0x27,
-    Down      = 0x28,
+    Left = 0x25,
+    Up = 0x26,
+    Right = 0x27,
+    Down = 0x28,
 
     // Modifier variants
-    LShift    = 0xA0,
-    RShift    = 0xA1,
-    LControl  = 0xA2,
-    RControl  = 0xA3,
-    LMenu     = 0xA4, // Left Alt
-    RMenu     = 0xA5, // Right Alt
-    LWin      = 0x5B,
-    RWin      = 0x5C,
+    LShift = 0xA0,
+    RShift = 0xA1,
+    LControl = 0xA2,
+    RControl = 0xA3,
+    LMenu = 0xA4, // Left Alt
+    RMenu = 0xA5, // Right Alt
+    LWin = 0x5B,
+    RWin = 0x5C,
 
     // Digits (top row)
     D0 = 0x30,
@@ -76,15 +75,15 @@ public enum VKey
     Z = 0x5A,
 
     // OEM keys (common punctuation — physical positions vary by layout)
-    OemSemicolon  = 0xBA, // ;: on US QWERTY
-    OemPlus       = 0xBB, // =+
-    OemComma      = 0xBC, // ,<
-    OemMinus      = 0xBD, // -_
-    OemPeriod     = 0xBE, // .>
-    OemQuestion   = 0xBF, // /?
-    OemTilde      = 0xC0, // `~
-    OemOpenBrackets  = 0xDB, // [{
-    OemPipe          = 0xDC, // \|
+    OemSemicolon = 0xBA, // ;: on US QWERTY
+    OemPlus = 0xBB, // =+
+    OemComma = 0xBC, // ,<
+    OemMinus = 0xBD, // -_
+    OemPeriod = 0xBE, // .>
+    OemQuestion = 0xBF, // /?
+    OemTilde = 0xC0, // `~
+    OemOpenBrackets = 0xDB, // [{
+    OemPipe = 0xDC, // \|
     OemCloseBrackets = 0xDD, // ]}
-    OemQuotes        = 0xDE, // '"
+    OemQuotes = 0xDE, // '"
 }

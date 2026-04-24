@@ -6,27 +6,23 @@ namespace Klikety.Interop;
 /// <summary>
 /// Thin Win32 P/Invoke wrappers for screen geometry and keyboard translation.
 /// </summary>
-internal static partial class NativeMethods
-{
+internal static partial class NativeMethods {
     private const uint MONITOR_DEFAULTTOPRIMARY = 1;
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct POINT
-    {
+    public struct POINT {
         public int X;
         public int Y;
         public POINT(int x, int y) { X = x; Y = y; }
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct RECT
-    {
+    public struct RECT {
         public int Left, Top, Right, Bottom;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    public struct MONITORINFO
-    {
+    public struct MONITORINFO {
         public int cbSize;
         public RECT rcMonitor;
         public RECT rcWork;
@@ -36,8 +32,8 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     private static partial nint MonitorFromPoint(POINT pt, uint dwFlags);
 
-  [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
-  [return: MarshalAs(UnmanagedType.Bool)]
+    [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
 
     [LibraryImport("user32.dll")]
@@ -62,8 +58,7 @@ internal static partial class NativeMethods
     /// <summary>
     /// Returns physical-pixel bounds of the primary monitor.
     /// </summary>
-    public static Rectangle GetPrimaryScreenBounds()
-    {
+    public static Rectangle GetPrimaryScreenBounds() {
         var hMon = MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
         var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
         GetMonitorInfo(hMon, ref info);
@@ -74,8 +69,7 @@ internal static partial class NativeMethods
     /// <summary>
     /// Gets the active keyboard layout handle for the current thread.
     /// </summary>
-    public static nint GetActiveKeyboardLayout()
-    {
+    public static nint GetActiveKeyboardLayout() {
         return GetKeyboardLayout(0);
     }
 
@@ -83,8 +77,7 @@ internal static partial class NativeMethods
     /// Translates a virtual-key code to a display character using the given HKL.
     /// Returns null if no character mapping exists (dead key, unmapped).
     /// </summary>
-    public static char? VKeyToChar(uint vkey, nint hkl)
-    {
+    public static char? VKeyToChar(uint vkey, nint hkl) {
         const uint MAPVK_VK_TO_VSC = 0;
         uint scanCode = MapVirtualKeyExW(vkey, MAPVK_VK_TO_VSC, hkl);
 
@@ -93,12 +86,14 @@ internal static partial class NativeMethods
         int result = ToUnicodeEx(vkey, scanCode, keyState, buffer, buffer.Length, 0, hkl);
 
         // result > 0 = number of chars written; result == 0 = no translation; result < 0 = dead key
-        if (result > 0)
+        if (result > 0) {
             return buffer[0];
+        }
 
         // Dead key: call ToUnicodeEx again to clear the internal state
-        if (result < 0)
+        if (result < 0) {
             ToUnicodeEx(vkey, scanCode, keyState, buffer, buffer.Length, 0, hkl);
+        }
 
         return null;
     }
@@ -106,8 +101,7 @@ internal static partial class NativeMethods
     /// <summary>
     /// Returns the current cursor position in physical pixels.
     /// </summary>
-    public static Point GetCursorPosition()
-    {
+    public static Point GetCursorPosition() {
         GetCursorPos(out var pt);
         return new Point(pt.X, pt.Y);
     }

@@ -6,20 +6,18 @@ namespace Klikety.Config;
 /// Win32 modifier flags for RegisterHotKey. Values match MOD_* constants.
 /// </summary>
 [Flags]
-public enum HotKeyModifiers
-{
-    None    = 0x0000,
-    Alt     = 0x0001,
+public enum HotKeyModifiers {
+    None = 0x0000,
+    Alt = 0x0001,
     Control = 0x0002,
-    Shift   = 0x0004,
-    Win     = 0x0008,
+    Shift = 0x0004,
+    Win = 0x0008,
 }
 
 /// <summary>
 /// Global hotkey configuration: modifier combination + trigger key.
 /// </summary>
-public sealed class HotKeyConfig
-{
+public sealed class HotKeyConfig {
     public HotKeyModifiers Modifiers { get; init; } = HotKeyModifiers.Alt;
     public VKey Key { get; init; } = VKey.Space;
 }
@@ -27,49 +25,44 @@ public sealed class HotKeyConfig
 /// <summary>
 /// First-key and second-key sets for one half of the screen.
 /// </summary>
-public sealed class HalfKeySetsConfig
-{
-  /// <summary>
-  /// First-key VKey list (selects grid column within this half).
-  /// </summary>
-  public VKey[] FirstKeys { get; init; } = [];
+public sealed class HalfKeySetsConfig {
+    /// <summary>
+    /// First-key VKey list (selects grid column within this half).
+    /// </summary>
+    public VKey[] FirstKeys { get; init; } = [];
 
-  /// <summary>
-  /// Second-key VKey list (selects grid row within this half).
-  /// </summary>
-  public VKey[] SecondKeys { get; init; } = [];
+    /// <summary>
+    /// Second-key VKey list (selects grid row within this half).
+    /// </summary>
+    public VKey[] SecondKeys { get; init; } = [];
 }
 
 /// <summary>
 /// Split-screen key sets: left-hand keys control the left half, right-hand keys the right half.
 /// </summary>
-public sealed class KeySetsConfig
-{
-  /// <summary>
-  /// Left half of the screen — left-hand keys. Default: ASDF / WERT (4×4).
-  /// </summary>
-  public HalfKeySetsConfig Left { get; init; } = new()
-  {
-    FirstKeys = [VKey.A, VKey.S, VKey.D, VKey.F],
-    SecondKeys = [VKey.W, VKey.E, VKey.R, VKey.T],
-  };
+public sealed class KeySetsConfig {
+    /// <summary>
+    /// Left half of the screen — left-hand keys. Default: ASDF / WERT (4×4).
+    /// </summary>
+    public HalfKeySetsConfig Left { get; init; } = new() {
+        FirstKeys = [VKey.A, VKey.S, VKey.D, VKey.F],
+        SecondKeys = [VKey.W, VKey.E, VKey.R, VKey.T],
+    };
 
-  /// <summary>
-  /// Right half of the screen — right-hand keys. Default: JKL; / YUIO (4×4).
-  /// </summary>
-  public HalfKeySetsConfig Right { get; init; } = new()
-  {
-    FirstKeys = [VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
-    SecondKeys = [VKey.Y, VKey.U, VKey.I, VKey.O],
-  };
+    /// <summary>
+    /// Right half of the screen — right-hand keys. Default: JKL; / YUIO (4×4).
+    /// </summary>
+    public HalfKeySetsConfig Right { get; init; } = new() {
+        FirstKeys = [VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
+        SecondKeys = [VKey.Y, VKey.U, VKey.I, VKey.O],
+    };
 }
 
 /// <summary>
 /// Root configuration model. Deserialized from %APPDATA%\Klikety\config.json (JSONC).
 /// All properties have defaults so missing fields are handled gracefully.
 /// </summary>
-public sealed class ConfigModel
-{
+public sealed class ConfigModel {
     public HotKeyConfig HotKey { get; init; } = new();
 
     /// <summary>
@@ -108,7 +101,7 @@ public sealed class ConfigModel
     /// Enables file logging to %APPDATA%\Klikety\logs\. Disabled by default
     /// to avoid polluting the user's filesystem.
     /// </summary>
-    public bool FileLoggingEnabled { get; init; } = false;
+    public bool FileLoggingEnabled { get; init; }
 
     /// <summary>
     /// Maximum number of rolling log files retained. Oldest files are deleted

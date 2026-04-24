@@ -7,8 +7,7 @@ namespace Klikety.Config;
 /// Extracts embedded resource files to %APPDATA%\Klikety\ on first run.
 /// Writes config.json, config.schema.json, theme.schema.json, and built-in themes.
 /// </summary>
-public static class FirstRunExtractor
-{
+public static class FirstRunExtractor {
     private static readonly string ConfigFolder =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Klikety");
 
@@ -27,21 +26,21 @@ public static class FirstRunExtractor
     /// Writes all embedded resource files that don't already exist on disk.
     /// Creates directories as needed.
     /// </summary>
-    public static void EnsureDefaults()
-    {
+    public static void EnsureDefaults() {
         Directory.CreateDirectory(ConfigFolder);
         Directory.CreateDirectory(ThemesFolder);
 
         var assembly = Assembly.GetExecutingAssembly();
-        foreach (var (resourceName, relativePath) in Files)
-        {
+        foreach (var (resourceName, relativePath) in Files) {
             var targetPath = Path.Combine(ConfigFolder, relativePath);
-            if (File.Exists(targetPath))
+            if (File.Exists(targetPath)) {
                 continue;
+            }
 
             using var stream = assembly.GetManifestResourceStream(resourceName);
-            if (stream is null)
+            if (stream is null) {
                 continue;
+            }
 
             using var file = File.Create(targetPath);
             stream.CopyTo(file);

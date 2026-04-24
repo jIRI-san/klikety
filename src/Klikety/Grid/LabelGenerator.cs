@@ -7,9 +7,8 @@ namespace Klikety.Grid;
 /// A two-part display label for a grid cell, keeping the first-key and
 /// second-key characters separate for independent rendering control.
 /// </summary>
-public readonly record struct CellLabel(string First, string Second)
-{
-  public override string ToString() => $"{First}{Second}";
+public readonly record struct CellLabel(string First, string Second) {
+    public override string ToString() => $"{First}{Second}";
 }
 
 /// <summary>
@@ -17,10 +16,9 @@ public readonly record struct CellLabel(string First, string Second)
 /// to characters using the active keyboard layout (HKL).
 /// Provides bidirectional lookup: (row, col) → label and label → (row, col).
 /// </summary>
-public sealed class LabelGenerator
-{
-  private readonly CellLabel[,] _labels;
-  private readonly Dictionary<string, (int Row, int Col)> _labelToCell;
+public sealed class LabelGenerator {
+    private readonly CellLabel[,] _labels;
+    private readonly Dictionary<string, (int Row, int Col)> _labelToCell;
     private readonly int _rows;
     private readonly int _cols;
 
@@ -30,44 +28,41 @@ public sealed class LabelGenerator
     /// <param name="firstKeys">Column keys (first-key set).</param>
     /// <param name="secondKeys">Row keys (second-key set).</param>
     /// <param name="hkl">Keyboard layout handle. Pass IntPtr.Zero to use the current thread's HKL.</param>
-    public LabelGenerator(VKey[] firstKeys, VKey[] secondKeys, nint hkl = 0)
-    {
-        if (hkl == 0)
+    public LabelGenerator(VKey[] firstKeys, VKey[] secondKeys, nint hkl = 0) {
+        if (hkl == 0) {
             hkl = NativeMethods.GetActiveKeyboardLayout();
+        }
 
         _cols = firstKeys.Length;
         _rows = secondKeys.Length;
-    _labels = new CellLabel[_rows, _cols];
-    _labelToCell = new Dictionary<string, (int, int)>(StringComparer.OrdinalIgnoreCase);
+        _labels = new CellLabel[_rows, _cols];
+        _labelToCell = new Dictionary<string, (int, int)>(StringComparer.OrdinalIgnoreCase);
 
-        for (int row = 0; row < _rows; row++)
-        {
-            for (int col = 0; col < _cols; col++)
-            {
+        for (int row = 0; row < _rows; row++) {
+            for (int col = 0; col < _cols; col++) {
                 var ch1 = NativeMethods.VKeyToChar((uint)firstKeys[col], hkl);
                 var ch2 = NativeMethods.VKeyToChar((uint)secondKeys[row], hkl);
 
-        // Fall back to VKey name if ToUnicode fails (dead key, unmapped)
-        string first = ch1.HasValue ? char.ToUpper(ch1.Value).ToString() : firstKeys[col].ToString();
-        string second = ch2.HasValue ? char.ToUpper(ch2.Value).ToString() : secondKeys[row].ToString();
+                // Fall back to VKey name if ToUnicode fails (dead key, unmapped)
+                string first = ch1.HasValue ? char.ToUpper(ch1.Value).ToString() : firstKeys[col].ToString();
+                string second = ch2.HasValue ? char.ToUpper(ch2.Value).ToString() : secondKeys[row].ToString();
 
-        var label = new CellLabel(first, second);
-        _labels[row, col] = label;
-        _labelToCell[label.ToString()] = (row, col);
-      }
+                var label = new CellLabel(first, second);
+                _labels[row, col] = label;
+                _labelToCell[label.ToString()] = (row, col);
+            }
         }
     }
 
-  /// <summary>
-  /// Gets the display label for the cell at (row, col).
-  /// </summary>
-  public CellLabel LabelFor(int row, int col) => _labels[row, col];
+    /// <summary>
+    /// Gets the display label for the cell at (row, col).
+    /// </summary>
+    public CellLabel LabelFor(int row, int col) => _labels[row, col];
 
-  /// <summary>
-  /// Looks up the (row, col) for a display label. Returns null if not found.
-  /// </summary>
-  public (int Row, int Col)? CellFor(string label)
-    {
+    /// <summary>
+    /// Looks up the (row, col) for a display label. Returns null if not found.
+    /// </summary>
+    public (int Row, int Col)? CellFor(string label) {
         return _labelToCell.TryGetValue(label, out var cell) ? cell : null;
     }
 

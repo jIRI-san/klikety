@@ -4,8 +4,7 @@ namespace Klikety.Config;
 /// Theme configuration for the overlay grid appearance.
 /// Deserialized from .theme.json files.
 /// </summary>
-public sealed class ThemeModel
-{
+public sealed class ThemeModel {
     // Label text
     public string LabelFontFamily { get; init; } = "Segoe UI";
     public double LabelFontSize { get; init; } = 14.0;

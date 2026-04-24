@@ -7,17 +7,15 @@ namespace Klikety.Navigation;
 /// Maps pressed VKey to MouseAction using config ActionBindings.
 /// Space always maps to LeftClick if unbound.
 /// </summary>
-public sealed class ActionMapper
-{
+public sealed class ActionMapper {
     private readonly Dictionary<VKey, MouseAction> _bindings;
 
-    public ActionMapper(Dictionary<string, MouseAction> configBindings)
-    {
+    public ActionMapper(Dictionary<string, MouseAction> configBindings) {
         _bindings = new Dictionary<VKey, MouseAction>();
-        foreach (var (keyName, action) in configBindings)
-        {
-            if (Enum.TryParse<VKey>(keyName, true, out var vkey))
+        foreach (var (keyName, action) in configBindings) {
+            if (Enum.TryParse<VKey>(keyName, true, out var vkey)) {
                 _bindings[vkey] = action;
+            }
         }
 
         // Space → LeftClick is always the default if not explicitly bound
@@ -27,8 +25,7 @@ public sealed class ActionMapper
     /// <summary>
     /// Returns the MouseAction for the pressed VKey, or null if not an action key.
     /// </summary>
-    public MouseAction? Map(VKey vkey)
-    {
+    public MouseAction? Map(VKey vkey) {
         return _bindings.TryGetValue(vkey, out var action) ? action : null;
     }
 

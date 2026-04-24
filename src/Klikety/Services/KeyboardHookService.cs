@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Threading;
+
 using Klikety.Input;
 
 namespace Klikety.Services;
@@ -10,8 +11,7 @@ namespace Klikety.Services;
 /// Hook callback does minimal work — reads VKey, calls CallNextHookEx,
 /// then dispatches to UI thread via Dispatcher.InvokeAsync.
 /// </summary>
-public sealed class KeyboardHookService : IKeyboardHookService
-{
+public sealed class KeyboardHookService : IKeyboardHookService {
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYDOWN = 0x0100;
     private const int WM_SYSKEYDOWN = 0x0104;
@@ -32,8 +32,7 @@ public sealed class KeyboardHookService : IKeyboardHookService
     private static extern nint GetModuleHandle(string? lpModuleName);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct KBDLLHOOKSTRUCT
-    {
+    private struct KBDLLHOOKSTRUCT {
         public uint vkCode;
         public uint scanCode;
         public uint flags;
@@ -47,14 +46,14 @@ public sealed class KeyboardHookService : IKeyboardHookService
 
     public event EventHandler<VKey>? KeyPressed;
 
-    public KeyboardHookService()
-    {
+    public KeyboardHookService() {
         _dispatcher = Dispatcher.CurrentDispatcher;
     }
 
-    public bool Enable()
-    {
-        if (_hookId != 0) return true; // already hooked
+    public bool Enable() {
+        if (_hookId != 0) {
+            return true; // already hooked
+        }
 
         _hookProc = HookCallback;
         using var process = Process.GetCurrentProcess();
@@ -64,20 +63,16 @@ public sealed class KeyboardHookService : IKeyboardHookService
         return _hookId != 0;
     }
 
-    public void Disable()
-    {
-        if (_hookId != 0)
-        {
+    public void Disable() {
+        if (_hookId != 0) {
             UnhookWindowsHookEx(_hookId);
             _hookId = 0;
         }
         _hookProc = null;
     }
 
-    private nint HookCallback(int nCode, nint wParam, nint lParam)
-    {
-        if (nCode >= 0 && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN))
-        {
+    private nint HookCallback(int nCode, nint wParam, nint lParam) {
+        if (nCode >= 0 && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
             var hookStruct = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
             var vkey = (VKey)hookStruct.vkCode;
 

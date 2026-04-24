@@ -2,7 +2,7 @@
 
 Keyboard-driven mouse navigator for Windows. Press a hotkey, type two keys to select a screen region, then dispatch a mouse action — without touching the mouse.
 
-Also without touching the code. This paragraph is the only one I have written manually, the rest is AI generated as a test of how well things works end-to-end and to test and validate some skills which will come handy later. (It kinda works until it does not, I would need to up my plan-writing game significantly to be able to develop things without any passive-aggressive steering...)
+Also without touching the code. This paragraph is the only one I have written manually, the rest is AI generated as a test of how well things works end-to-end with more systemic approach to plans and to test and validate some skills which will come handy later. (It kinda works until it does not, so I need to up my plan-writing game significantly to be able to develop things without any passive-aggressive steering...)
 
 ![Screenshot placeholder](docs/screenshot.png)
 

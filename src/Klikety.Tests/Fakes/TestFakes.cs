@@ -135,6 +135,12 @@ public sealed class FakeGridRenderer : IGridRenderer {
     public void RenderSubgrid(IReadOnlyList<GridCell> cells)
         => Calls.Add(new("RenderSubgrid", cells));
 
+    public void RenderSubgridOverGrid(IReadOnlyList<GridCell> bg, IReadOnlyList<GridCell> sub)
+        => Calls.Add(new("RenderSubgridOverGrid", sub));
+
+    public void HighlightColumnOverGrid(IReadOnlyList<GridCell> bg, IReadOnlyList<GridCell> sub, int col)
+        => Calls.Add(new("HighlightColumnOverGrid", sub, Col: col));
+
     public void FlashInvalidKey()
         => Calls.Add(new("FlashInvalidKey"));
 

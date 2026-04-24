@@ -48,7 +48,7 @@ public class NavigatorStateMachineTests {
         var sm = CreateMachine();
         sm.Activate(CreateLeftGrid(), CreateRightGrid(), new Point(0, 0));
         GridCell? enteredCell = null;
-        sm.CellEntered += (cell, level) => enteredCell = cell;
+        sm.CellEntered += (cell, subgridCells, level) => enteredCell = cell;
 
         sm.OnKey(VKey.A);
         sm.OnKey(VKey.W); // secondKeys[0] → row 0, col 0
@@ -269,7 +269,7 @@ public class NavigatorStateMachineTests {
         var sm = CreateMachine();
         sm.Activate(CreateLeftGrid(), CreateRightGrid(), new Point(0, 0));
         GridCell? enteredCell = null;
-        sm.CellEntered += (cell, _) => enteredCell = cell;
+        sm.CellEntered += (cell, subgridCells, _) => enteredCell = cell;
 
         sm.OnKey(VKey.J); // right first key
         sm.OnKey(VKey.U); // right second key
@@ -371,5 +371,37 @@ public class NavigatorStateMachineTests {
         Assert.Equal(NavigatorState.L2_AwaitAction, sm.State);
         Assert.Equal(2, exitedLevel);
         Assert.NotNull(parentCell);
+    }
+
+    [Fact]
+    public void SecondKey_AtL1_ComputesSubgridCells() {
+        var sm = CreateMachine();
+        sm.Activate(CreateLeftGrid(), CreateRightGrid(), new Point(0, 0));
+        IReadOnlyList<GridCell>? subgrid = null;
+        sm.CellEntered += (cell, subgridCells, level) => subgrid = subgridCells;
+
+        sm.OnKey(VKey.A); // L1 first
+        sm.OnKey(VKey.W); // L1 second
+        Assert.NotNull(subgrid);
+        Assert.True(subgrid!.Count > 0);
+        // Subgrid cells should be within the L1 cell bounds
+        Assert.True(subgrid[0].Bounds.Width < 150); // smaller than half-screen
+    }
+
+    [Fact]
+    public void SecondKey_AtL2_ThresholdNotMet_EmptySubgrid() {
+        var sm = CreateMachine();
+        // Small grid — L3 threshold (40000) won't be met
+        sm.Activate(CreateLeftGrid(), CreateRightGrid(), new Point(0, 0));
+        sm.OnKey(VKey.A); // L1 first
+        sm.OnKey(VKey.W); // L1 second → AwaitAction
+        sm.OnKey(VKey.A); // Navigate into L2
+
+        IReadOnlyList<GridCell>? subgrid = null;
+        sm.CellEntered += (cell, subgridCells, level) => subgrid = subgridCells;
+
+        sm.OnKey(VKey.W); // L2 second
+        Assert.NotNull(subgrid);
+        Assert.Empty(subgrid!); // L3 threshold not met
     }
 }

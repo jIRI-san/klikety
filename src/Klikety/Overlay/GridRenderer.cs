@@ -450,6 +450,96 @@ public sealed class GridRenderer : IGridRenderer {
         }
     }
 
+    /// <summary>
+    /// Renders a subgrid over a faint background grid (parent level grid lines without labels).
+    /// </summary>
+    public void RenderSubgridOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells) {
+        _canvas.Children.Clear();
+        if (subgridCells.Count == 0) return;
+        EnsureTransform();
+
+        RenderBackgroundGrid(backgroundCells);
+        RenderSubgridContent(subgridCells);
+    }
+
+    /// <summary>
+    /// Highlights a column within a subgrid, rendered over a faint background grid.
+    /// </summary>
+    public void HighlightColumnOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, int col) {
+        _canvas.Children.Clear();
+        if (subgridCells.Count == 0) return;
+        EnsureTransform();
+
+        RenderBackgroundGrid(backgroundCells);
+
+        var region = ComputeRegionFromCells(subgridCells);
+        int cols = _activeLabelGenerator.Cols;
+        int rows = _activeLabelGenerator.Rows;
+
+        var borderBrush = BrushFromHex(_theme.SubgridBorderColor);
+        var dimBrush = BrushFromHex(_theme.DimmedOverlayColor, _theme.DimmedOverlayOpacity);
+        var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, 0.5);
+        var highlightBorder = BrushFromHex(_theme.HighlightedColumnBorderColor);
+        var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
+
+        foreach (var cell in subgridCells) {
+            var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
+            bool isHighlighted = cell.Col == col;
+            AddCellRect(dipRect,
+                isHighlighted ? highlightBg : dimBrush,
+                isHighlighted ? highlightBorder : borderBrush);
+            AddLabel(dipRect, cell.Row, cell.Col, labelBrush, isHighlighted ? 1.0 : 0.3, 0.9);
+        }
+    }
+
+    /// <summary>
+    /// Renders background grid cells as faint borders only (no labels, no fill).
+    /// </summary>
+    private void RenderBackgroundGrid(IReadOnlyList<GridCell> cells) {
+        if (cells.Count == 0) return;
+
+        var region = ComputeRegionFromCells(cells);
+        // Use L1 grid dimensions — background cells are always from a known half
+        int cols = cells.Max(c => c.Col) + 1;
+        int rows = cells.Max(c => c.Row) + 1;
+
+        var borderBrush = BrushFromHex(_theme.CellBorderColor, 0.15);
+
+        foreach (var cell in cells) {
+            var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
+            AddCellRect(dipRect, Brushes.Transparent, borderBrush);
+        }
+    }
+
+    /// <summary>
+    /// Renders subgrid content (cells + labels) without clearing canvas.
+    /// </summary>
+    private void RenderSubgridContent(IReadOnlyList<GridCell> cells) {
+        var region = ComputeRegionFromCells(cells);
+        int cols = _activeLabelGenerator.Cols;
+        int rows = _activeLabelGenerator.Rows;
+
+        var firstDip = DipRectForCell(0, 0, region, cols, rows);
+        bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, _minLabelFontSize);
+
+        var borderBrush = BrushFromHex(_theme.SubgridBorderColor);
+        var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
+
+        foreach (var cell in cells) {
+            var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
+            AddCellRect(dipRect, bgBrush, borderBrush);
+        }
+
+        if (useExternalLabels) {
+            RenderExternalLabels(cells, region);
+        } else {
+            var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
+            foreach (var cell in cells) {
+                AddLabel(DipRectForCell(cell.Row, cell.Col, region, cols, rows), cell.Row, cell.Col, labelBrush, heightFraction: 0.9);
+            }
+        }
+    }
+
   /// <summary>
   /// Renders labels outside the subgrid: column keys along the top, row keys along
   /// the left side, with connector lines linking labels to their grid column/row.

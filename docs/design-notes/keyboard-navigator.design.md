@@ -46,13 +46,13 @@ At L1, the screen is divided into left and right halves, each with its own key s
 |---|---|---|---|
 | `Idle` | `HotKeyService.Activated` | `L1_AwaitFirst` | Save cursor origin; show overlay; enable hook |
 | `L1_AwaitFirst` | first-key VKey (left or right) | `L1_AwaitSecond` | Detect half; raise `ColumnHighlighted(half, col, cells, 1)` |
-| `L1_AwaitSecond` | second-key VKey | `L1_AwaitAction` | Move cursor to L1 cell center; raise `CellEntered(cell, 1)` |
+| `L1_AwaitSecond` | second-key VKey | `L1_AwaitAction` | Compute L2 subgrid; move cursor; raise `CellEntered(cell, subgridCells, 1)` |
 | `L1_AwaitAction` | action VKey | `Idle` | Raise `ActionRequested(point, action)`; `DeactivateOverlay()` |
-| `L1_AwaitAction` | nav VKey | `L2_AwaitSecond` | Compute L2 subgrid; raise `ColumnHighlighted(half, col, subCells, 2)` |
+| `L1_AwaitAction` | nav VKey | `L2_AwaitSecond` | Select column in pre-computed L2 subgrid; raise `ColumnHighlighted(half, col, subCells, 2)` |
 | `L2_AwaitFirst` | first-key VKey | `L2_AwaitSecond` | Raise `ColumnHighlighted(half, col, cells, 2)` within subgrid |
-| `L2_AwaitSecond` | second-key VKey | `L2_AwaitAction` | Move cursor to L2 cell center; raise `CellEntered(cell, 2)`; check L3 threshold |
+| `L2_AwaitSecond` | second-key VKey | `L2_AwaitAction` | Compute L3 subgrid (if threshold met); move cursor; raise `CellEntered(cell, subgridCells, 2)` |
 | `L2_AwaitAction` | action VKey | `Idle` | Raise `ActionRequested(point, action)`; `DeactivateOverlay()` |
-| `L2_AwaitAction` | nav VKey | `L3_AwaitSecond` | Compute L3 subgrid (only if threshold met); raise `ColumnHighlighted(half, col, subCells, 3)` |
+| `L2_AwaitAction` | nav VKey | `L3_AwaitSecond` | Select column in pre-computed L3 subgrid (only if available); raise `ColumnHighlighted(half, col, subCells, 3)` |
 | `L*_AwaitFirst/Second/Action` | Escape (L2/L3) | parent `AwaitAction` | Raise `LevelExited(parentCell, cells, level)` |
 | `L1_Await*` | Escape | `Idle` | Raise `Cancelled(originPoint)`; `DeactivateOverlay()` |
 
@@ -60,7 +60,7 @@ At L1, the screen is divided into left and right halves, each with its own key s
 
 - `ColumnHighlighted(ScreenHalf half, int col, IReadOnlyList<GridCell> cells, int level)` — first key received; identifies which screen half, column, cell list, and level
 - `CellHighlighted(GridCell cell)` — arrow navigation; highlight cell without dimming others
-- `CellEntered(GridCell cell, int level)` — two-key pair complete; coordinator moves cursor to cell center
+- `CellEntered(GridCell cell, IReadOnlyList<GridCell> subgridCells, int level)` — two-key pair complete; coordinator moves cursor to cell center and renders subgrid over parent grid. Empty `subgridCells` = no next-level subgrid (L3 threshold not met).
 - `ActionRequested(Point physicalPoint, MouseAction action)` — fire mouse action
 - `Cancelled(Point originPoint)` — restore cursor to saved origin
 - `LevelExited(GridCell parentCell, IReadOnlyList<GridCell> cells, int level)` — Escape from L2/L3; coordinator re-renders parent level's grid
@@ -85,7 +85,9 @@ Escape goes back one level: `L2_Await* → L1_AwaitAction`, `L3_Await* → L2_Aw
 
 ### Subgrid Computation
 
-Subgrid computation lives in the state machine (`HandleActionOrNav`). When a nav key is pressed at `AwaitAction`, the SM computes the subgrid via `SubgridCalculator.Calculate(parentCell, cols, rows)`, stores it in `_l2Cells`/`_l3Cells`, and raises `ColumnHighlighted` with the subgrid cells. The coordinator does **not** compute or render subgrids on `CellEntered` — it only moves the cursor.
+Subgrid computation happens on cell entry in `HandleSecondKey`. When the second key completes a cell selection, the SM immediately computes the next-level subgrid via `SubgridCalculator.Calculate(parentCell, cols, rows)`, stores it in `_l2Cells`/`_l3Cells`, and passes it via the `CellEntered` event. For L2→L3, `ShouldActivateLevel3` is checked first — if threshold not met, empty subgrid cells are passed.
+
+`HandleNavFirstKey` (formerly `HandleActionOrNav`) no longer computes subgrids. It selects a column within the pre-computed subgrid cells and fires `ColumnHighlighted`. If cells are empty (L3 unavailable), the key is silently ignored.
 
 ### Arrow Navigation Half-Scoping
 
@@ -112,6 +114,8 @@ interface IGridRenderer {
     void HighlightColumnSplitScreen(IReadOnlyList<GridCell> l, IReadOnlyList<GridCell> r, ScreenHalf half, int col);
     void HighlightCellSplitScreen(IReadOnlyList<GridCell> l, IReadOnlyList<GridCell> r, ScreenHalf half, GridCell cell);
     void RenderSubgrid(IReadOnlyList<GridCell> cells);
+    void RenderSubgridOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells);
+    void HighlightColumnOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, int col);
     void FlashInvalidKey(); void ClearCanvas();
 }
 ```
@@ -230,7 +234,10 @@ Labels auto-scale to fill a fraction of cell height:
 - `HighlightColumnSplitScreen(leftCells, rightCells, activeHalf, col)` — renders inactive half dimmed, active half with column highlight. Used at L1.
 - `HighlightCellSplitScreen(leftCells, rightCells, activeHalf, highlightedCell)` — renders inactive half dimmed, active half with cell highlight and non-highlighted active cells dimmed. Used at L1.
 - `ClearCanvas()` — removes all children from the WPF Canvas. Called in `DeactivateOverlay()` before `Hide()`.
-- `NavigatorCoordinator` dispatches to split-screen or regular renderer methods based on level: L1 uses `HighlightColumnSplitScreen`/`HighlightCellSplitScreen`, L2/L3 uses `HighlightColumn`/`HighlightCell`.
+- `NavigatorCoordinator` dispatches to split-screen or regular renderer methods based on level: L1 uses `HighlightColumnSplitScreen`/`HighlightCellSplitScreen`, L2/L3 uses `HighlightColumnOverGrid`.
+- `RenderSubgridOverGrid(backgroundCells, subgridCells)` — renders parent grid as faint borders (no labels, 0.15 opacity) then subgrid on top with labels. Called by coordinator on `CellEntered`.
+- `HighlightColumnOverGrid(backgroundCells, subgridCells, col)` — renders parent grid as faint background + subgrid with column highlighted. Called by coordinator on `ColumnHighlighted` at L2/L3.
+- Private helpers: `RenderBackgroundGrid(cells)` draws faint borders, `RenderSubgridContent(cells)` draws subgrid without clearing canvas.
 - All render methods share `AddCellRect(dipRect, fill, stroke, strokeThickness)` private helper — creates `Rectangle` shape and adds to Canvas.
 
 ### External Label Rendering
@@ -257,7 +264,7 @@ When subgrid cells are too small to fit labels (cell DIP height < `MinLabelFontS
 
 ## Test Infrastructure
 
-- **Unit tests** (`Klikety.Tests`): xUnit, 90 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold logic.
+- **Unit tests** (`Klikety.Tests`): xUnit, 93 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold logic.
 - **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss), `FakeGridRenderer` (records `RenderCall` list — method name, cells, half, col — for assertion).
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.

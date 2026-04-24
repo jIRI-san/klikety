@@ -113,13 +113,14 @@ public sealed class NavigatorCoordinator {
 
     private void OnColumnHighlighted(ScreenHalf half, int col, IReadOnlyList<GridCell> cells, int level) {
         _activeHalf = half;
-        _currentCells = cells;
         _gridRenderer?.SetActiveHalf(half);
 
         if (level == 1) {
+            _currentCells = cells;
             _gridRenderer?.HighlightColumnSplitScreen(_leftCells, _rightCells, half, col);
         } else {
-            _gridRenderer?.HighlightColumn(cells, col);
+            // Keep _currentCells as parent level for background grid
+            _gridRenderer?.HighlightColumnOverGrid(_currentCells, cells, col);
         }
     }
 
@@ -132,10 +133,15 @@ public sealed class NavigatorCoordinator {
         }
     }
 
-    private void OnCellEntered(GridCell cell, int level) {
+    private void OnCellEntered(GridCell cell, IReadOnlyList<GridCell> subgridCells, int level) {
         var center = GridCalculator.CenterOf(cell);
         _mouseService.MoveTo(center);
-        // Subgrid rendering driven by ColumnHighlighted at L2/L3 via HandleActionOrNav.
+
+        if (subgridCells.Count > 0) {
+            _gridRenderer?.SetActiveHalf(_activeHalf);
+            _gridRenderer?.RenderSubgridOverGrid(_currentCells, subgridCells);
+        }
+        // else: L3 threshold not met — stay on current view, action-only state
     }
 
     private void OnActionRequested(Point point, MouseAction action) {
@@ -158,13 +164,15 @@ public sealed class NavigatorCoordinator {
     private void OnLevelExited(GridCell parentCell, IReadOnlyList<GridCell> cells, int level) {
         var center = GridCalculator.CenterOf(parentCell);
         _mouseService.MoveTo(center);
-        _currentCells = cells;
 
         if (level == 1) {
+            // Back to L1 — render both halves
+            _currentCells = _activeHalf == ScreenHalf.Left ? _leftCells : _rightCells;
             _gridRenderer?.RenderBothHalves(_leftCells, _rightCells);
         } else {
+            // Back to L2 — render L2 subgrid over L1 background
             _gridRenderer?.SetActiveHalf(_activeHalf);
-            _gridRenderer?.RenderSubgrid(cells);
+            _gridRenderer?.RenderSubgridOverGrid(_currentCells, cells);
         }
     }
 

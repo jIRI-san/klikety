@@ -60,6 +60,8 @@ public interface IGridRenderer {
     void HighlightCellSplitScreen(IReadOnlyList<GridCell> leftCells, IReadOnlyList<GridCell> rightCells,
         ScreenHalf activeHalf, GridCell highlightedCell);
     void RenderSubgrid(IReadOnlyList<GridCell> cells);
+    void RenderSubgridOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells);
+    void HighlightColumnOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, int col);
     void FlashInvalidKey();
     void ClearCanvas();
 }

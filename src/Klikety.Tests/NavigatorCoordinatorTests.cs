@@ -144,14 +144,26 @@ public class NavigatorCoordinatorTests {
     }
 
     [Fact]
-    public void CellEntered_DoesNotRenderSubgrid() {
+    public void CellEntered_RendersSubgridOverGrid() {
         var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.A); // L1 first
-        hook.SimulateKey(VKey.W); // L1 second → CellEntered
+        hook.SimulateKey(VKey.W); // L1 second → CellEntered with subgrid
 
-        Assert.DoesNotContain(renderer.Calls, c => c.Method == "RenderSubgrid");
+        Assert.Contains(renderer.Calls, c => c.Method == "RenderSubgridOverGrid");
+    }
+
+    [Fact]
+    public void L2ColumnHighlighted_UsesHighlightColumnOverGrid() {
+        var (_, hotKey, hook, _, _, renderer) = CreateCoordinator();
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A); // L1 first
+        hook.SimulateKey(VKey.W); // L1 second → AwaitAction
+        hook.SimulateKey(VKey.A); // Navigate into L2 → ColumnHighlighted at level 2
+
+        Assert.Contains(renderer.Calls, c => c.Method == "HighlightColumnOverGrid");
     }
 
     [Fact]

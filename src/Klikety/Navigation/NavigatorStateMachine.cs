@@ -62,7 +62,7 @@ public sealed class NavigatorStateMachine {
     // Events — ColumnHighlighted carries half, col, cells, and level
     public event Action<ScreenHalf, int, IReadOnlyList<GridCell>, int>? ColumnHighlighted;
     public event Action<GridCell>? CellHighlighted;
-    public event Action<GridCell, int>? CellEntered;
+    public event Action<GridCell, IReadOnlyList<GridCell>, int>? CellEntered;
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action<Point>? Cancelled;
     public event Action<GridCell, IReadOnlyList<GridCell>, int>? LevelExited;
@@ -226,7 +226,7 @@ public sealed class NavigatorStateMachine {
                 HandleSecondKey(vkey, NavigatorState.L1_AwaitSecond, NavigatorState.L1_AwaitAction, _l1Cells, 1, ref _l1SelectedCell);
                 break;
             case NavigatorState.L1_AwaitAction:
-                HandleActionOrNav(vkey, _l1SelectedCell, 2);
+                HandleNavFirstKey(vkey, _l1SelectedCell, 2);
                 break;
             case NavigatorState.L2_AwaitFirst:
                 HandleFirstKey(vkey, NavigatorState.L2_AwaitSecond, _l2Cells);
@@ -235,7 +235,7 @@ public sealed class NavigatorStateMachine {
                 HandleSecondKey(vkey, NavigatorState.L2_AwaitSecond, NavigatorState.L2_AwaitAction, _l2Cells, 2, ref _l2SelectedCell);
                 break;
             case NavigatorState.L2_AwaitAction:
-                HandleActionOrNav(vkey, _l2SelectedCell, 3);
+                HandleNavFirstKey(vkey, _l2SelectedCell, 3);
                 break;
             case NavigatorState.L3_AwaitFirst:
                 HandleFirstKey(vkey, NavigatorState.L3_AwaitSecond, _l3Cells);
@@ -343,10 +343,27 @@ public sealed class NavigatorStateMachine {
 
         selectedCell = cells[index];
         State = nextState;
-        CellEntered?.Invoke(selectedCell, level);
+
+        // Compute subgrid for next level
+        IReadOnlyList<GridCell> subgridCells = [];
+        if (level == 1) {
+            subgridCells = SubgridCalculator.Calculate(selectedCell, _activeFirstKeys.Length, _activeSecondKeys.Length);
+            _l2Cells = subgridCells;
+            _currentLevelCells = subgridCells;
+            _arrowIndex = 0;
+        } else if (level == 2) {
+            if (SubgridCalculator.ShouldActivateLevel3(selectedCell, _level3Threshold)) {
+                subgridCells = SubgridCalculator.Calculate(selectedCell, _activeFirstKeys.Length, _activeSecondKeys.Length);
+                _l3Cells = subgridCells;
+                _currentLevelCells = subgridCells;
+                _arrowIndex = 0;
+            }
+        }
+
+        CellEntered?.Invoke(selectedCell, subgridCells, level);
     }
 
-    private void HandleActionOrNav(VKey vkey, GridCell parentCell, int nextLevel) {
+    private void HandleNavFirstKey(VKey vkey, GridCell parentCell, int nextLevel) {
         var action = _actionMapper.Map(vkey);
         if (action.HasValue) {
             var center = GridCalculator.CenterOf(parentCell);
@@ -355,30 +372,23 @@ public sealed class NavigatorStateMachine {
             return;
         }
 
+        var cells = nextLevel == 2 ? _l2Cells : _l3Cells;
+        if (cells.Count == 0) {
+            return; // L3 not available (threshold not met)
+        }
+
         int col = Array.IndexOf(_activeFirstKeys, vkey);
         if (col < 0) {
             InvalidKeyPressed?.Invoke();
             return;
         }
 
-        var subCells = SubgridCalculator.Calculate(parentCell, _activeFirstKeys.Length, _activeSecondKeys.Length);
-
-        if (nextLevel == 2) {
-            _l2Cells = subCells;
-        } else if (nextLevel == 3) {
-            if (!SubgridCalculator.ShouldActivateLevel3(parentCell, _level3Threshold)) {
-                return;
-            }
-
-            _l3Cells = subCells;
-        }
-
-        _currentLevelCells = subCells;
+        _currentLevelCells = cells;
         _arrowIndex = 0;
         _selectedCol = col;
 
         State = nextLevel == 2 ? NavigatorState.L2_AwaitSecond : NavigatorState.L3_AwaitSecond;
-        ColumnHighlighted?.Invoke(_activeHalf, col, subCells, nextLevel);
+        ColumnHighlighted?.Invoke(_activeHalf, col, cells, nextLevel);
     }
 
     private void HandleActionFinal(VKey vkey) {

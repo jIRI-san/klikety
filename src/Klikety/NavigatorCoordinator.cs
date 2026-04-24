@@ -146,8 +146,8 @@ public sealed class NavigatorCoordinator {
 
     private void OnActionRequested(Point point, MouseAction action) {
         _logger.LogDebug("Action requested: {Action} at ({X}, {Y})", action, point.X, point.Y);
-        _mouseService.SendAction(point, action);
         DeactivateOverlay();
+        _mouseService.SendAction(point, action);
     }
 
     private void OnCancelled(Point originPoint) {

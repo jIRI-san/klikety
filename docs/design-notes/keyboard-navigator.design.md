@@ -239,7 +239,7 @@ Labels auto-scale to fill a fraction of cell height:
 
 ### Unified Grid Rendering
 
-- `RenderGrid(cells)` renders the full-screen grid with labels. Used at L1 activation and on backspace/escape back to L1.
+- `RenderGrid(cells)` renders the full-screen grid with labels. Used at L1 activation and on escape back to L1.
 - `HighlightColumn(cells, col)` dims non-matching cells, highlights selected column. Used at L1.
 - `HighlightCell(cells, cell)` crosshair-highlights a cell for L1 arrow navigation (row + column + intersection).
 - `HighlightCellOverGrid(backgroundCells, subgridCells, cell)` crosshair-highlights a cell within a subgrid rendered over faint background grid. Used for L2/L3 arrow navigation. Supports external labels when cells are too small.
@@ -295,7 +295,7 @@ When external labels are active, no internal cell labels are rendered — cells 
 - Alternating row bands (12% opacity, every other row) provide cross-hair visual aid during column highlight.
 
 - Theme properties: `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness`.
-- Config: `MinLabelFontSize` (default 10.0 DIP) controls both the external-label threshold and the font floor.
+- Config: `MinLabelFontSize` (default 14.0 DIP) controls both the external-label threshold and the font floor.
 
 ## Config
 

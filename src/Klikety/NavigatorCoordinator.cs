@@ -136,6 +136,11 @@ public sealed class NavigatorCoordinator {
                 _subgridCells = subgridCells;
             }
             _gridRenderer?.RenderSubgridOverGrid(_l1Cells, subgridCells);
+        } else if (_subgridCells != null) {
+            // Deepest level (no further descent) — show crosshair on selected cell
+            _gridRenderer?.HighlightCellOverGrid(_l1Cells, _subgridCells, cell);
+        } else {
+            _gridRenderer?.HighlightCell(_l1Cells, cell);
         }
     }
 

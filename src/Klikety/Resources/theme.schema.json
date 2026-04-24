@@ -116,6 +116,19 @@
       "default": 1.0,
       "minimum": 0.5,
       "examples": [1, 1.5, 2]
+    },
+    "labelOutlineColor": {
+      "type": "string",
+      "description": "Stroke color for label text outlines as hex. Ensures readability over any background.",
+      "default": "#000000",
+      "examples": ["#000000", "#FFFFFF"]
+    },
+    "labelOutlineThickness": {
+      "type": "number",
+      "description": "Stroke thickness for label text outlines in pixels.",
+      "default": 1.5,
+      "minimum": 0,
+      "examples": [1, 1.5, 2]
     }
   },
   "additionalProperties": false

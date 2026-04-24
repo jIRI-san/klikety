@@ -85,5 +85,5 @@ public sealed class ConfigModel {
     /// Minimum label font size in DIP. When a subgrid cell is too small to fit
     /// labels at this size, labels render outside the grid with connector lines.
     /// </summary>
-    public double MinLabelFontSize { get; init; } = 10.0;
+    public double MinLabelFontSize { get; init; } = 14.0;
 }

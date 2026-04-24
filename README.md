@@ -2,19 +2,23 @@
 
 Keyboard-driven mouse navigator for Windows. Press a hotkey, type two keys to select a screen region, then dispatch a mouse action — without touching the mouse.
 
+Also without touching the code. This paragraph is the only one I have written manually, the rest is AI generated as a test of how well things works end-to-end and to test and validate some skills which will come handy later. (It kinda works until it does not, I would need to up my plan-writing game significantly to be able to develop things without any passive-aggressive steering...)
+
 ![Screenshot placeholder](docs/screenshot.png)
 
 ## Features
 
-- **Split-screen two-key grid**: Screen split in half. Left-hand keys (ASDF/WERT) control the left half, right-hand keys (JKL;/YUIO) the right. 4×4 = 16 cells per half.
+- **Unified 8×8 grid**: Full-screen grid with 8 columns (ASDFJKL;) and 8 rows (WERTYUIO). Press two keys to select any of 64 cells.
 - **Multi-level zoom**: Level 1 → Level 2 → Level 3 subgrids for pixel-precise targeting.
-- **Arrow key navigation**: Optional arrow-key cell movement with Enter to confirm (configurable via `navigationMode`).
+- **Arrow key navigation**: Optional arrow-key cell movement with crosshair highlight. Enter zooms into a cell; action keys (Space) click directly. Configurable via `navigationMode`.
 - **Auto-scaling labels**: Font sizes adapt to cell height (80% at L1, 90% at L2/L3). External labels with connector lines when cells get too small.
+- **Outlined text**: Two-layer stroke+fill rendering ensures label readability over any background.
 - **Configurable actions**: Space = left click (default). Bind any key to right-click, double-click, middle-click, or drag.
 - **Keyboard layout aware**: Labels auto-adapt to QWERTY, DVORAK, Colemak, or any layout via Win32 `ToUnicodeEx`.
 - **Theme support**: Built-in dark and light themes. Create custom `.theme.json` files.
 - **System tray**: Runs in the tray with About, Open Config, Start with Windows, and Quit.
 - **JSONC config**: Comments allowed in `config.json`. Schema-validated with `config.schema.json`.
+- **Debug logging**: All keystrokes and state transitions logged to `%APPDATA%\Klikety\logs\`.
 
 ## Prerequisites
 
@@ -58,18 +62,16 @@ First run extracts default config and theme files automatically.
 |---|---|---|---|
 | `hotKey.modifiers` | string (flags) | `"Alt"` | Modifier keys: `Alt`, `Control`, `Shift`, `Win` (combine with `,`) |
 | `hotKey.key` | string (VKey) | `"Space"` | Trigger key (any VKey name) |
-| `keySets.left.firstKeys` | VKey[] | `["A","S","D","F"]` | Left half column selection keys |
-| `keySets.left.secondKeys` | VKey[] | `["W","E","R","T"]` | Left half row selection keys |
-| `keySets.right.firstKeys` | VKey[] | `["J","K","L","OemSemicolon"]` | Right half column selection keys |
-| `keySets.right.secondKeys` | VKey[] | `["Y","U","I","O"]` | Right half row selection keys |
+| `firstKeys` | VKey[] | `["A","S","D","F","J","K","L","OemSemicolon"]` | Column selection keys (8 keys = 8 columns) |
+| `secondKeys` | VKey[] | `["W","E","R","T","Y","U","I","O"]` | Row selection keys (8 keys = 8 rows) |
 | `actionBindings` | object | `{}` | Map VKey names to actions: `LeftClick`, `RightClick`, `DoubleClick`, `MiddleClick`, `DragStart`, `DragEnd` |
 | `level3CellSizeThreshold` | int | `0` | Cell area (px²) above which level-3 subgrid activates. 0 = always active. |
-| `logLevel` | string | `"Warning"` | Log level: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None` |
 | `navigationMode` | string | `"Both"` | `TwoKey` (labels only), `Arrow` (arrows only), `Both` |
 | `theme` | string | `"dark"` | Theme name or relative path to `.theme.json` |
-| `fileLoggingEnabled` | bool | `false` | Enable file logging to `%APPDATA%\Klikety\logs\`. No log folder created when disabled. |
+| `logLevel` | string | `"Debug"` | Log level: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None` |
+| `fileLoggingEnabled` | bool | `true` | Enable file logging to `%APPDATA%\Klikety\logs\`. |
 | `retainedLogFileCount` | int | `7` | Max rolling log files kept. Oldest deleted when exceeded. Only applies when `fileLoggingEnabled` is `true`. |
-| `minLabelFontSize` | double | `10.0` | Min label font size (DIP). When subgrid cells are too small, labels render outside the grid with connector lines. |
+| `minLabelFontSize` | double | `14.0` | Min label font size (DIP). When subgrid cells are too small, labels render outside the grid with connector lines. |
 
 ### Example: Custom Action Bindings
 
@@ -92,35 +94,17 @@ For **DVORAK**:
 
 ```jsonc
 {
-    "keySets": {
-        "left": {
-            "firstKeys": ["A", "O", "E", "U"],
-            "secondKeys": ["OemComma", "OemPeriod", "P", "Y"]
-        },
-        "right": {
-            "firstKeys": ["H", "T", "N", "S"],
-            "secondKeys": ["F", "G", "C", "R"]
-        }
-    }
+    "firstKeys": ["A", "O", "E", "U", "H", "T", "N", "S"],
+    "secondKeys": ["OemComma", "OemPeriod", "P", "Y", "F", "G", "C", "R"]
 }
 ```
 
 For **Colemak**:
 
-For **Colemak**:
-
 ```jsonc
 {
-    "keySets": {
-        "left": {
-            "firstKeys": ["A", "R", "S", "T"],
-            "secondKeys": ["W", "F", "P", "G"]
-        },
-        "right": {
-            "firstKeys": ["N", "E", "I", "O"],
-            "secondKeys": ["J", "L", "U", "Y"]
-        }
-    }
+    "firstKeys": ["A", "R", "S", "T", "N", "E", "I", "O"],
+    "secondKeys": ["W", "F", "P", "G", "J", "L", "U", "Y"]
 }
 ```
 

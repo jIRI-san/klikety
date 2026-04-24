@@ -127,9 +127,9 @@
     "minLabelFontSize": {
       "type": "number",
       "description": "Minimum label font size in DIP. When subgrid cells are too small for labels at this size, labels render outside the grid with connector lines.",
-      "default": 10.0,
+      "default": 14.0,
       "minimum": 4,
-      "examples": [8, 10, 12]
+      "examples": [10, 14, 16]
     }
   },
   "additionalProperties": false

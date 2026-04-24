@@ -71,5 +71,5 @@
 
   // Minimum label font size in DIP. When subgrid cells are too small for labels
   // at this size, labels render outside the grid with connector lines.
-  "minLabelFontSize": 10.0
+  "minLabelFontSize": 14.0
 }

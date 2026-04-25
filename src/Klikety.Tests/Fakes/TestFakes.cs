@@ -102,9 +102,6 @@ public sealed class FakeGridRenderer : IGridRenderer {
     public void HighlightCell(IReadOnlyList<GridCell> cells, GridCell cell)
         => Calls.Add(new("HighlightCell", cells));
 
-    public void RenderSubgrid(IReadOnlyList<GridCell> cells)
-        => Calls.Add(new("RenderSubgrid", cells));
-
     public void RenderSubgridOverGrid(IReadOnlyList<GridCell> bg, IReadOnlyList<GridCell> sub)
         => Calls.Add(new("RenderSubgridOverGrid", sub));
 

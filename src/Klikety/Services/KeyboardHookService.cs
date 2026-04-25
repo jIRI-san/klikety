@@ -31,15 +31,6 @@ public sealed class KeyboardHookService : IKeyboardHookService {
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern nint GetModuleHandle(string? lpModuleName);
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct KBDLLHOOKSTRUCT {
-        public uint vkCode;
-        public uint scanCode;
-        public uint flags;
-        public uint time;
-        public nint dwExtraInfo;
-    }
-
     private nint _hookId;
     private LowLevelKeyboardProc? _hookProc; // prevent GC
     private readonly Dispatcher _dispatcher;
@@ -73,8 +64,8 @@ public sealed class KeyboardHookService : IKeyboardHookService {
 
     private nint HookCallback(int nCode, nint wParam, nint lParam) {
         if (nCode >= 0 && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
-            var hookStruct = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-            var vkey = (VKey)hookStruct.vkCode;
+            // Zero-allocation: read only vkCode (first field) instead of marshalling the full struct
+            var vkey = (VKey)(uint)Marshal.ReadInt32(lParam);
 
             // Post to UI thread — no blocking work in hook callback
             _dispatcher.InvokeAsync(() => KeyPressed?.Invoke(this, vkey));

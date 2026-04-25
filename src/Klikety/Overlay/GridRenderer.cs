@@ -13,6 +13,7 @@ namespace Klikety.Overlay;
 /// <summary>
 /// Renders grid cells, labels, highlights, and dimming on the overlay Canvas.
 /// Clears children on each transition to prevent memory accumulation.
+/// Brushes and typefaces are cached per theme load to avoid per-render allocation.
 /// </summary>
 public sealed class GridRenderer : IGridRenderer {
     private readonly Canvas _canvas;
@@ -24,11 +25,51 @@ public sealed class GridRenderer : IGridRenderer {
     private Matrix _transformFromDevice = Matrix.Identity;
     private bool _transformInitialized;
 
+    // Cached theme-derived resources (created once in constructor)
+    private readonly SolidColorBrush _cellBorderBrush;
+    private readonly SolidColorBrush _cellBgBrush;
+    private readonly SolidColorBrush _labelBrush;
+    private readonly SolidColorBrush _dimBrush;
+    private readonly SolidColorBrush _highlightBg;
+    private readonly SolidColorBrush _highlightBorder;
+    private readonly SolidColorBrush _crosshairBg;
+    private readonly SolidColorBrush _subgridBorderBrush;
+    private readonly SolidColorBrush _subgridLabelBrush;
+    private readonly SolidColorBrush _outlineBrush;
+    private readonly SolidColorBrush _extLabelBrush;
+    private readonly SolidColorBrush _connectorBrush;
+    private readonly SolidColorBrush _bgGridBorderBrush;
+    private readonly SolidColorBrush _rowBandBrush;
+    private readonly FontFamily _fontFamily;
+    private readonly FontWeight _fontWeight;
+    private readonly Typeface _typeface;
+
     public GridRenderer(Canvas canvas, ThemeModel theme, LabelGenerator labelGenerator, double minLabelFontSize = 10.0) {
         _canvas = canvas;
         _theme = theme;
         _labelGenerator = labelGenerator;
         _minLabelFontSize = minLabelFontSize;
+
+        // Cache all theme-derived brushes
+        _cellBorderBrush = BrushFromHex(theme.CellBorderColor);
+        _cellBgBrush = BrushFromHex(theme.CellBackgroundColor, theme.CellBackgroundOpacity);
+        _labelBrush = BrushFromHex(theme.LabelColor);
+        _dimBrush = BrushFromHex(theme.DimmedOverlayColor, theme.DimmedOverlayOpacity);
+        _highlightBg = BrushFromHex(theme.HighlightedColumnBackground, 0.5);
+        _highlightBorder = BrushFromHex(theme.HighlightedColumnBorderColor);
+        _crosshairBg = BrushFromHex(theme.HighlightedColumnBackground, 0.25);
+        _subgridBorderBrush = BrushFromHex(theme.SubgridBorderColor);
+        _subgridLabelBrush = BrushFromHex(theme.SubgridLabelColor);
+        _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
+        _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
+        _bgGridBorderBrush = BrushFromHex(theme.CellBorderColor, 0.15);
+        _rowBandBrush = BrushFromHex(theme.SubgridBorderColor, 0.12);
+
+        // Cache font resources
+        _fontFamily = new FontFamily(theme.LabelFontFamily);
+        _fontWeight = ParseFontWeight(theme.LabelFontWeight);
+        _typeface = new Typeface(_fontFamily, FontStyles.Normal, _fontWeight, FontStretches.Normal);
     }
 
     /// <summary>
@@ -90,84 +131,70 @@ public sealed class GridRenderer : IGridRenderer {
     /// Clamped to [_minLabelFontSize .. theme.LabelFontSize * 3].
     /// </summary>
     private double ComputeAutoFontSize(double cellHalfWidth, double cellHeight, double heightFraction = 0.8) {
-        // Target: fill heightFraction of cell height
-        // WPF text line height ≈ 1.2 × fontSize
         double fontFromHeight = cellHeight * heightFraction / 1.2;
-
-        // Also cap by half-width so character doesn't overflow horizontally
-        // Approximate character aspect ratio for Segoe UI: width ≈ 0.55 × fontSize
         double fontFromWidth = cellHalfWidth * 0.95 / 0.55;
-
         double fontSize = Math.Min(fontFromHeight, fontFromWidth);
         return Math.Clamp(fontSize, _minLabelFontSize, _theme.LabelFontSize * 3);
     }
 
-  /// <summary>
-  /// Adds two outlined text labels for a cell: First centered in the left half,
-  /// Second centered in the right half. Uses FormattedText geometry for crisp
-  /// stroke outlines that ensure readability over any background.
-  /// </summary>
-  private void AddLabel(Rect dipRect, int row, int col, Brush foreground, double opacity = 1.0, double heightFraction = 0.8) {
-    var cellLabel = _labelGenerator.LabelFor(row, col);
+    /// <summary>
+    /// Adds two outlined text labels for a cell: First centered in the left half,
+    /// Second centered in the right half.
+    /// </summary>
+    private void AddLabel(Rect dipRect, int row, int col, Brush foreground, double opacity = 1.0, double heightFraction = 0.8) {
+        var cellLabel = _labelGenerator.LabelFor(row, col);
         double halfWidth = dipRect.Width / 2;
-        var fontFamily = new FontFamily(_theme.LabelFontFamily);
-        var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
         double fontSize = ComputeAutoFontSize(halfWidth, dipRect.Height, heightFraction);
-    var outlineBrush = BrushFromHex(_theme.LabelOutlineColor);
-    double outlineThickness = _theme.LabelOutlineThickness;
 
-    var typeface = new Typeface(fontFamily, FontStyles.Normal, fontWeight, FontStretches.Normal);
+        AddOutlinedText(cellLabel.First, _typeface, fontSize, foreground, _outlineBrush, _theme.LabelOutlineThickness, opacity,
+            dipRect.X, dipRect.Y, halfWidth, dipRect.Height);
+        AddOutlinedText(cellLabel.Second, _typeface, fontSize, foreground, _outlineBrush, _theme.LabelOutlineThickness, opacity,
+            dipRect.X + halfWidth, dipRect.Y, halfWidth, dipRect.Height);
+    }
 
-    AddOutlinedText(cellLabel.First, typeface, fontSize, foreground, outlineBrush, outlineThickness, opacity,
-        dipRect.X, dipRect.Y, halfWidth, dipRect.Height);
-    AddOutlinedText(cellLabel.Second, typeface, fontSize, foreground, outlineBrush, outlineThickness, opacity,
-        dipRect.X + halfWidth, dipRect.Y, halfWidth, dipRect.Height);
-  }
+    /// <summary>
+    /// Renders a single outlined text element centered within the given bounds.
+    /// Two-layer rendering: stroke-only background + fill-only foreground.
+    /// </summary>
+    private void AddOutlinedText(string text, Typeface typeface, double fontSize,
+        Brush fill, Brush outlineBrush, double outlineThickness, double opacity,
+        double areaX, double areaY, double areaWidth, double areaHeight) {
+        var ft = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight, typeface, fontSize, fill, VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
+        var geometry = ft.BuildGeometry(new Point(0, 0));
+        var bounds = geometry.Bounds;
 
-  /// <summary>
-  /// Renders a single outlined text element centered within the given bounds.
-  /// Two-layer rendering: stroke-only background + fill-only foreground.
-  /// This prevents the stroke from eating into the letter fill.
-  /// </summary>
-  private void AddOutlinedText(string text, Typeface typeface, double fontSize,
-      Brush fill, Brush outlineBrush, double outlineThickness, double opacity,
-      double areaX, double areaY, double areaWidth, double areaHeight) {
-    var ft = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture,
-        FlowDirection.LeftToRight, typeface, fontSize, fill, VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
-    var geometry = ft.BuildGeometry(new Point(0, 0));
-    var bounds = geometry.Bounds;
+        double offsetX = areaX + (areaWidth - bounds.Width) / 2 - bounds.X;
+        double offsetY = areaY + (areaHeight - bounds.Height) / 2 - bounds.Y;
 
-    double offsetX = areaX + (areaWidth - bounds.Width) / 2 - bounds.X;
-    double offsetY = areaY + (areaHeight - bounds.Height) / 2 - bounds.Y;
+        // Layer 1: stroke-only outline (renders behind)
+        var outline = new Path {
+            Data = geometry,
+            Fill = Brushes.Transparent,
+            Stroke = outlineBrush,
+            StrokeThickness = outlineThickness * 2,
+            StrokeLineJoin = PenLineJoin.Round,
+            Opacity = opacity,
+        };
+        Canvas.SetLeft(outline, offsetX);
+        Canvas.SetTop(outline, offsetY);
+        _canvas.Children.Add(outline);
 
-    // Layer 1: stroke-only outline (renders behind)
-    var outline = new Path {
-      Data = geometry,
-      Fill = Brushes.Transparent,
-      Stroke = outlineBrush,
-      StrokeThickness = outlineThickness * 2, // doubled since only outer half is visible
-      StrokeLineJoin = PenLineJoin.Round,
-      Opacity = opacity,
-    };
-    Canvas.SetLeft(outline, offsetX);
-    Canvas.SetTop(outline, offsetY);
-    _canvas.Children.Add(outline);
+        // Layer 2: fill-only text (renders on top, covers inner stroke)
+        var fillPath = new Path {
+            Data = geometry,
+            Fill = fill,
+            Opacity = opacity,
+        };
+        Canvas.SetLeft(fillPath, offsetX);
+        Canvas.SetTop(fillPath, offsetY);
+        _canvas.Children.Add(fillPath);
+    }
 
-    // Layer 2: fill-only text (renders on top, covers inner stroke)
-    var fillPath = new Path {
-      Data = geometry,
-      Fill = fill,
-      Opacity = opacity,
-    };
-    Canvas.SetLeft(fillPath, offsetX);
-    Canvas.SetTop(fillPath, offsetY);
-    _canvas.Children.Add(fillPath);
-  }
-
-  /// <summary>
-  /// Clears all canvas children. Called during deactivation to prevent stale frame flash.
-  /// </summary>
-  public void ClearCanvas() => _canvas.Children.Clear();
+    /// <summary>
+    /// Clears all canvas children. Called during deactivation to prevent stale frame flash.
+    /// </summary>
+    public void ClearCanvas() => _canvas.Children.Clear();
 
     private void AddCellRect(Rect dipRect, Brush fill, Brush stroke, double strokeThickness = -1) {
         if (strokeThickness < 0) {
@@ -197,14 +224,10 @@ public sealed class GridRenderer : IGridRenderer {
         int cols = _labelGenerator.Cols;
         int rows = _labelGenerator.Rows;
 
-        var borderBrush = BrushFromHex(_theme.CellBorderColor);
-        var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
-        var labelBrush = BrushFromHex(_theme.LabelColor);
-
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-            AddCellRect(dipRect, bgBrush, borderBrush);
-            AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
+            AddCellRect(dipRect, _cellBgBrush, _cellBorderBrush);
+            AddLabel(dipRect, cell.Row, cell.Col, _labelBrush);
         }
     }
 
@@ -219,25 +242,18 @@ public sealed class GridRenderer : IGridRenderer {
         int cols = _labelGenerator.Cols;
         int rows = _labelGenerator.Rows;
 
-        var borderBrush = BrushFromHex(_theme.CellBorderColor);
-        var normalBg = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
-        var dimBrush = BrushFromHex(_theme.DimmedOverlayColor, _theme.DimmedOverlayOpacity);
-        var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, 0.5);
-        var highlightBorder = BrushFromHex(_theme.HighlightedColumnBorderColor);
-        var labelBrush = BrushFromHex(_theme.LabelColor);
-
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
             bool isHighlighted = cell.Col == col;
             AddCellRect(dipRect,
-                isHighlighted ? highlightBg : dimBrush,
-                isHighlighted ? highlightBorder : borderBrush);
-            AddLabel(dipRect, cell.Row, cell.Col, labelBrush, isHighlighted ? 1.0 : 0.3);
+                isHighlighted ? _highlightBg : _dimBrush,
+                isHighlighted ? _highlightBorder : _cellBorderBrush);
+            AddLabel(dipRect, cell.Row, cell.Col, _labelBrush, isHighlighted ? 1.0 : 0.3);
         }
     }
 
     /// <summary>
-    /// Highlights a single cell (arrow navigation) without dimming others.
+    /// Highlights a single cell (arrow navigation) with crosshair (row + column + intersection).
     /// </summary>
     public void HighlightCell(IReadOnlyList<GridCell> cells, GridCell highlightedCell) {
         _canvas.Children.Clear();
@@ -247,69 +263,21 @@ public sealed class GridRenderer : IGridRenderer {
         int cols = _labelGenerator.Cols;
         int rows = _labelGenerator.Rows;
 
-        var borderBrush = BrushFromHex(_theme.CellBorderColor);
-        var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
-        var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, 0.5);
-        var highlightBorder = BrushFromHex(_theme.HighlightedColumnBorderColor);
-        var labelBrush = BrushFromHex(_theme.LabelColor);
-
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-      bool isCell = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
-      bool inCrossHair = cell.Row == highlightedCell.Row || cell.Col == highlightedCell.Col;
+            bool isCell = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
+            bool inCrossHair = cell.Row == highlightedCell.Row || cell.Col == highlightedCell.Col;
 
-      Brush bg = isCell ? highlightBg
-          : inCrossHair ? BrushFromHex(_theme.HighlightedColumnBackground, 0.25)
-          : bgBrush;
-      Brush border = inCrossHair ? highlightBorder : borderBrush;
-      double thickness = isCell ? _theme.CellBorderThickness * 2
-          : inCrossHair ? _theme.CellBorderThickness * 1.5
-          : _theme.CellBorderThickness;
+            Brush bg = isCell ? _highlightBg
+                : inCrossHair ? _crosshairBg
+                : _cellBgBrush;
+            Brush border = inCrossHair ? _highlightBorder : _cellBorderBrush;
+            double thickness = isCell ? _theme.CellBorderThickness * 2
+                : inCrossHair ? _theme.CellBorderThickness * 1.5
+                : _theme.CellBorderThickness;
 
-      AddCellRect(dipRect, bg, border, thickness);
-      AddLabel(dipRect, cell.Row, cell.Col, labelBrush);
-        }
-    }
-
-    /// <summary>
-    /// Renders a subgrid within a parent cell's bounds using distinct subgrid styling.
-    /// If cells are too small for labels at MinLabelFontSize, renders labels externally.
-    /// </summary>
-    public void RenderSubgrid(IReadOnlyList<GridCell> cells) {
-        _canvas.Children.Clear();
-
-        if (cells.Count == 0) {
-            return;
-        }
-
-        EnsureTransform();
-
-        var region = ComputeRegionFromCells(cells);
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
-
-        var firstDip = DipRectForCell(0, 0, region, cols, rows);
-        bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
-
-        double borderOpacity = useExternalLabels ? 0.3 : 1.0;
-        double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = BrushFromHex(_theme.SubgridBorderColor, borderOpacity);
-        var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
-
-        // Draw cell backgrounds
-        foreach (var cell in cells) {
-            var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-            AddCellRect(dipRect, bgBrush, borderBrush, borderThickness);
-        }
-
-        if (useExternalLabels) {
-            RenderExternalLabels(cells, region);
-        } else {
-            // Subgrids use 90% height fill for tighter packing before going external
-            var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
-            foreach (var cell in cells) {
-                AddLabel(DipRectForCell(cell.Row, cell.Col, region, cols, rows), cell.Row, cell.Col, labelBrush, heightFraction: 0.9);
-            }
+            AddCellRect(dipRect, bg, border, thickness);
+            AddLabel(dipRect, cell.Row, cell.Col, _labelBrush);
         }
     }
 
@@ -348,22 +316,15 @@ public sealed class GridRenderer : IGridRenderer {
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
-        double borderOpacity = useExternalLabels ? 0.3 : 1.0;
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = BrushFromHex(_theme.SubgridBorderColor, borderOpacity);
-        var dimBrush = BrushFromHex(_theme.DimmedOverlayColor, _theme.DimmedOverlayOpacity);
-        var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, useExternalLabels ? 0.3 : 0.5);
-        var highlightBorder = BrushFromHex(_theme.HighlightedColumnBorderColor);
-        var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
+        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _subgridBorderBrush;
+        var highlightBg = useExternalLabels ? BrushFromHex(_theme.HighlightedColumnBackground, 0.3) : _highlightBg;
 
-        // When cells are too small for inline labels (L3), add alternating row bands
-        // for cross-hair legibility before drawing cells on top.
         if (useExternalLabels) {
-            var rowBandBrush = BrushFromHex(_theme.SubgridBorderColor, 0.12);
             double rowHeight = region.Height / rows;
             for (int r = 0; r < rows; r += 2) {
                 var rowRect = new Rect(region.X, region.Y + r * rowHeight, region.Width, rowHeight);
-                AddCellRect(rowRect, rowBandBrush, Brushes.Transparent, 0);
+                AddCellRect(rowRect, _rowBandBrush, Brushes.Transparent, 0);
             }
         }
 
@@ -371,23 +332,22 @@ public sealed class GridRenderer : IGridRenderer {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
             bool isHighlighted = cell.Col == col;
             AddCellRect(dipRect,
-                isHighlighted ? highlightBg : dimBrush,
-                isHighlighted ? highlightBorder : borderBrush,
+                isHighlighted ? highlightBg : _dimBrush,
+                isHighlighted ? _highlightBorder : borderBrush,
                 isHighlighted ? borderThickness * 2 : borderThickness);
             if (!useExternalLabels) {
-                AddLabel(dipRect, cell.Row, cell.Col, labelBrush, isHighlighted ? 1.0 : 0.3, 0.9);
+                AddLabel(dipRect, cell.Row, cell.Col, _subgridLabelBrush, isHighlighted ? 1.0 : 0.3, 0.9);
             }
         }
 
         if (useExternalLabels) {
-      RenderExternalColumnLabels(subgridCells, region);
-      RenderExternalRowLabels(subgridCells, region);
-    }
+            RenderExternalColumnLabels(subgridCells, region);
+            RenderExternalRowLabels(subgridCells, region);
+        }
     }
 
     /// <summary>
     /// Highlights a single cell (arrow navigation) within a subgrid, rendered over a faint background grid.
-    /// Supports external labels when cells are too small for inline text.
     /// </summary>
     public void HighlightCellOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, GridCell highlightedCell) {
         _canvas.Children.Clear();
@@ -406,41 +366,33 @@ public sealed class GridRenderer : IGridRenderer {
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
-        double borderOpacity = useExternalLabels ? 0.3 : 1.0;
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = BrushFromHex(_theme.SubgridBorderColor, borderOpacity);
-        var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
-        var highlightBg = BrushFromHex(_theme.HighlightedColumnBackground, 0.5);
-        var highlightBorder = BrushFromHex(_theme.HighlightedColumnBorderColor);
-        var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
+        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _subgridBorderBrush;
 
         if (useExternalLabels) {
-            var rowBandBrush = BrushFromHex(_theme.SubgridBorderColor, 0.12);
             double rowHeight = region.Height / rows;
             for (int r = 0; r < rows; r += 2) {
                 var rowRect = new Rect(region.X, region.Y + r * rowHeight, region.Width, rowHeight);
-                AddCellRect(rowRect, rowBandBrush, Brushes.Transparent, 0);
+                AddCellRect(rowRect, _rowBandBrush, Brushes.Transparent, 0);
             }
         }
 
         foreach (var cell in subgridCells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-      bool isCell = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
-      bool inRow = cell.Row == highlightedCell.Row;
-      bool inCol = cell.Col == highlightedCell.Col;
-      bool inCrossHair = inRow || inCol;
+            bool isCell = cell.Row == highlightedCell.Row && cell.Col == highlightedCell.Col;
+            bool inCrossHair = cell.Row == highlightedCell.Row || cell.Col == highlightedCell.Col;
 
-      Brush bg = isCell ? highlightBg
-          : inCrossHair ? BrushFromHex(_theme.HighlightedColumnBackground, 0.25)
-          : bgBrush;
-      Brush border = inCrossHair ? highlightBorder : borderBrush;
-      double thickness = isCell ? borderThickness * 2
-          : inCrossHair ? borderThickness * 1.5
-          : borderThickness;
+            Brush bg = isCell ? _highlightBg
+                : inCrossHair ? _crosshairBg
+                : _cellBgBrush;
+            Brush border = inCrossHair ? _highlightBorder : borderBrush;
+            double thickness = isCell ? borderThickness * 2
+                : inCrossHair ? borderThickness * 1.5
+                : borderThickness;
 
-      AddCellRect(dipRect, bg, border, thickness);
-      if (!useExternalLabels) {
-                AddLabel(dipRect, cell.Row, cell.Col, labelBrush, heightFraction: 0.9);
+            AddCellRect(dipRect, bg, border, thickness);
+            if (!useExternalLabels) {
+                AddLabel(dipRect, cell.Row, cell.Col, _subgridLabelBrush, heightFraction: 0.9);
             }
         }
 
@@ -459,15 +411,12 @@ public sealed class GridRenderer : IGridRenderer {
         }
 
         var region = ComputeRegionFromCells(cells);
-        // Use L1 grid dimensions — background cells are always from a known half
-        int cols = cells.Max(c => c.Col) + 1;
-        int rows = cells.Max(c => c.Row) + 1;
-
-        var borderBrush = BrushFromHex(_theme.CellBorderColor, 0.15);
+        int cols = _labelGenerator.Cols;
+        int rows = _labelGenerator.Rows;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-            AddCellRect(dipRect, Brushes.Transparent, borderBrush);
+            AddCellRect(dipRect, Brushes.Transparent, _bgGridBorderBrush);
         }
     }
 
@@ -482,29 +431,25 @@ public sealed class GridRenderer : IGridRenderer {
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
-        double borderOpacity = useExternalLabels ? 0.3 : 1.0;
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = BrushFromHex(_theme.SubgridBorderColor, borderOpacity);
-        var bgBrush = BrushFromHex(_theme.CellBackgroundColor, _theme.CellBackgroundOpacity);
+        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _subgridBorderBrush;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-            AddCellRect(dipRect, bgBrush, borderBrush, borderThickness);
+            AddCellRect(dipRect, _cellBgBrush, borderBrush, borderThickness);
         }
 
         if (useExternalLabels) {
             RenderExternalLabels(cells, region);
         } else {
-            var labelBrush = BrushFromHex(_theme.SubgridLabelColor);
             foreach (var cell in cells) {
-                AddLabel(DipRectForCell(cell.Row, cell.Col, region, cols, rows), cell.Row, cell.Col, labelBrush, heightFraction: 0.9);
+                AddLabel(DipRectForCell(cell.Row, cell.Col, region, cols, rows), cell.Row, cell.Col, _subgridLabelBrush, heightFraction: 0.9);
             }
         }
     }
 
     /// <summary>
     /// Renders first-key labels (top/bottom) and second-key labels (left/right) outside the subgrid.
-    /// Column labels shown when awaiting first key; row labels added after column selected.
     /// </summary>
     private void RenderExternalLabels(IReadOnlyList<GridCell> cells, Rect region, bool includeRowLabels = false) {
         RenderExternalColumnLabels(cells, region);
@@ -517,28 +462,19 @@ public sealed class GridRenderer : IGridRenderer {
     /// Renders column first-key labels above and below the grid.
     /// </summary>
     private void RenderExternalColumnLabels(IReadOnlyList<GridCell> cells, Rect region) {
-        var extLabelBrush = BrushFromHex(_theme.ExternalLabelColor);
-    var outlineBrush = BrushFromHex(_theme.LabelOutlineColor);
-    double outlineThickness = _theme.LabelOutlineThickness;
-    var connectorBrush = BrushFromHex(_theme.ConnectorLineColor);
-        var fontFamily = new FontFamily(_theme.LabelFontFamily);
-        var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
-    var typeface = new Typeface(fontFamily, FontStyles.Normal, fontWeight, FontStretches.Normal);
-
-    int cols = _labelGenerator.Cols;
+        int cols = _labelGenerator.Cols;
         int rows = _labelGenerator.Rows;
 
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
-        double fontSize = ComputeExternalFontSize(firstDip, region, cols, rows);
+        double fontSize = ComputeExternalFontSize(firstDip);
         double standardMargin = fontSize * 1.5;
 
-        // Measure max label width to detect overlap
         double maxLabelWidth = 0;
         for (int c = 0; c < cols; c++) {
             var label = _labelGenerator.LabelFor(0, c);
-      var size = MeasureText(label.First, typeface, fontSize);
-      maxLabelWidth = Math.Max(maxLabelWidth, size.Width);
-    }
+            var size = MeasureText(label.First, _typeface, fontSize);
+            maxLabelWidth = Math.Max(maxLabelWidth, size.Width);
+        }
 
         var (fanOutDist, labelExtent) = ComputeFanOut(cols, maxLabelWidth, region.Width, standardMargin);
         double labelExtentStart = region.X + region.Width / 2 - labelExtent / 2;
@@ -549,7 +485,6 @@ public sealed class GridRenderer : IGridRenderer {
         double gridTop = region.Y;
         double gridBottom = region.Y + region.Height;
 
-        // Screen-edge-aware direction
         double screenHeight = Math.Max(_canvas.ActualHeight, 1);
         bool showAbove = gridTop >= fanOutDist;
         bool showBelow = (screenHeight - gridBottom) >= fanOutDist;
@@ -563,51 +498,41 @@ public sealed class GridRenderer : IGridRenderer {
             var cellLabel = _labelGenerator.LabelFor(0, c);
             double anchorX = cellDip.X + cellDip.Width / 2;
             double labelCenterX = labelExtentStart + (c + 0.5) * labelSpacing;
-      var labelSize = MeasureText(cellLabel.First, typeface, fontSize);
+            var labelSize = MeasureText(cellLabel.First, _typeface, fontSize);
 
-      if (showAbove) {
-        double labelY = gridTop - fanOutDist;
-        AddOutlinedText(cellLabel.First, typeface, fontSize, extLabelBrush, outlineBrush, outlineThickness, 1.0,
-            labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
-        _canvas.Children.Add(CreateConnector(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2, connectorBrush));
-      }
+            if (showAbove) {
+                double labelY = gridTop - fanOutDist;
+                AddOutlinedText(cellLabel.First, _typeface, fontSize, _extLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
+                    labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
+                _canvas.Children.Add(CreateConnector(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2, _connectorBrush));
+            }
 
             if (showBelow) {
-        double labelY = gridBottom + fanOutDist - labelSize.Height;
-        AddOutlinedText(cellLabel.First, typeface, fontSize, extLabelBrush, outlineBrush, outlineThickness, 1.0,
-            labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
-        _canvas.Children.Add(CreateConnector(anchorX, gridBottom, labelCenterX, labelY - 2, connectorBrush));
+                double labelY = gridBottom + fanOutDist - labelSize.Height;
+                AddOutlinedText(cellLabel.First, _typeface, fontSize, _extLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
+                    labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
+                _canvas.Children.Add(CreateConnector(anchorX, gridBottom, labelCenterX, labelY - 2, _connectorBrush));
             }
         }
     }
 
     /// <summary>
     /// Renders row second-key labels to the left and right of the grid.
-    /// Fan-out applied when labels would overlap vertically.
     /// </summary>
     private void RenderExternalRowLabels(IReadOnlyList<GridCell> cells, Rect region) {
-        var extLabelBrush = BrushFromHex(_theme.ExternalLabelColor);
-    var outlineBrush = BrushFromHex(_theme.LabelOutlineColor);
-    double outlineThickness = _theme.LabelOutlineThickness;
-    var connectorBrush = BrushFromHex(_theme.ConnectorLineColor);
-        var fontFamily = new FontFamily(_theme.LabelFontFamily);
-        var fontWeight = ParseFontWeight(_theme.LabelFontWeight);
-    var typeface = new Typeface(fontFamily, FontStyles.Normal, fontWeight, FontStretches.Normal);
-
-    int cols = _labelGenerator.Cols;
+        int cols = _labelGenerator.Cols;
         int rows = _labelGenerator.Rows;
 
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
-        double fontSize = ComputeExternalFontSize(firstDip, region, cols, rows);
+        double fontSize = ComputeExternalFontSize(firstDip);
         double standardMargin = fontSize * 1.5;
 
-        // Measure max label height to detect overlap
         double maxLabelHeight = 0;
         for (int r = 0; r < rows; r++) {
             var label = _labelGenerator.LabelFor(r, 0);
-      var size = MeasureText(label.Second, typeface, fontSize);
-      maxLabelHeight = Math.Max(maxLabelHeight, size.Height);
-    }
+            var size = MeasureText(label.Second, _typeface, fontSize);
+            maxLabelHeight = Math.Max(maxLabelHeight, size.Height);
+        }
 
         var (fanOutDist, labelExtent) = ComputeFanOut(rows, maxLabelHeight, region.Height, standardMargin);
         double labelExtentStart = region.Y + region.Height / 2 - labelExtent / 2;
@@ -618,7 +543,6 @@ public sealed class GridRenderer : IGridRenderer {
         double gridLeft = region.X;
         double gridRight = region.X + region.Width;
 
-        // Screen-edge-aware direction
         double screenWidth = Math.Max(_canvas.ActualWidth, 1);
         bool showLeft = gridLeft >= fanOutDist;
         bool showRight = (screenWidth - gridRight) >= fanOutDist;
@@ -637,28 +561,26 @@ public sealed class GridRenderer : IGridRenderer {
             var cellLabel = _labelGenerator.LabelFor(r, 0);
             double anchorY = cellDip.Y + cellDip.Height / 2;
             double labelCenterY = labelExtentStart + (r + 0.5) * labelSpacing;
-      var labelSize = MeasureText(cellLabel.Second, typeface, fontSize);
+            var labelSize = MeasureText(cellLabel.Second, _typeface, fontSize);
 
-      if (showLeft) {
-        double labelX = gridLeft - fanOutDist;
-        AddOutlinedText(cellLabel.Second, typeface, fontSize, extLabelBrush, outlineBrush, outlineThickness, 1.0,
-            labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
-        _canvas.Children.Add(CreateConnector(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY, connectorBrush));
-      }
+            if (showLeft) {
+                double labelX = gridLeft - fanOutDist;
+                AddOutlinedText(cellLabel.Second, _typeface, fontSize, _extLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
+                    labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
+                _canvas.Children.Add(CreateConnector(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY, _connectorBrush));
+            }
 
             if (showRight) {
-        double labelX = gridRight + fanOutDist - labelSize.Width;
-        AddOutlinedText(cellLabel.Second, typeface, fontSize, extLabelBrush, outlineBrush, outlineThickness, 1.0,
-            labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
-        _canvas.Children.Add(CreateConnector(gridRight, anchorY, labelX - 2, labelCenterY, connectorBrush));
+                double labelX = gridRight + fanOutDist - labelSize.Width;
+                AddOutlinedText(cellLabel.Second, _typeface, fontSize, _extLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
+                    labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
+                _canvas.Children.Add(CreateConnector(gridRight, anchorY, labelX - 2, labelCenterY, _connectorBrush));
             }
         }
     }
 
     /// <summary>
     /// Computes fan-out parameters when external labels would overlap at the grid edge.
-    /// Returns (distance from edge, total extent to spread labels across).
-    /// When labels fit at standard spacing, returns (standardMargin, gridExtent).
     /// </summary>
     internal static (double distance, double extent) ComputeFanOut(
         int labelCount, double maxLabelSize, double gridExtent, double standardMargin, double minGap = 2.0) {
@@ -675,33 +597,23 @@ public sealed class GridRenderer : IGridRenderer {
 
     /// <summary>
     /// Computes font size for external labels. Uses cell-based auto-size
-    /// floored at _minLabelFontSize (default 10) so labels stay readable at L3.
+    /// floored at _minLabelFontSize so labels stay readable at L3.
     /// </summary>
-    private double ComputeExternalFontSize(Rect cellDip, Rect region, int cols, int rows) {
+    private double ComputeExternalFontSize(Rect cellDip) {
         double cellBased = ComputeAutoFontSize(cellDip.Width / 2, cellDip.Height, 0.9);
         return Math.Max(cellBased, _minLabelFontSize);
     }
 
-    private static TextBlock CreateExternalLabel(string text, Brush foreground, FontFamily fontFamily, double fontSize, FontWeight fontWeight) =>
-        new() {
-            Text = text,
-            Foreground = foreground,
-            FontFamily = fontFamily,
-            FontSize = fontSize,
-            FontWeight = fontWeight,
-            TextAlignment = TextAlignment.Center,
-        };
+    /// <summary>
+    /// Measures text size using FormattedText (no visual element needed).
+    /// </summary>
+    private Size MeasureText(string text, Typeface typeface, double fontSize) {
+        var ft = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight, typeface, fontSize, Brushes.Black, VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
+        return new Size(ft.Width, ft.Height);
+    }
 
-  /// <summary>
-  /// Measures text size using FormattedText (no visual element needed).
-  /// </summary>
-  private Size MeasureText(string text, Typeface typeface, double fontSize) {
-    var ft = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture,
-        FlowDirection.LeftToRight, typeface, fontSize, Brushes.Black, VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
-    return new Size(ft.Width, ft.Height);
-  }
-
-  private Line CreateConnector(double x1, double y1, double x2, double y2, Brush stroke) =>
+    private Line CreateConnector(double x1, double y1, double x2, double y2, Brush stroke) =>
         new() {
             X1 = x1, Y1 = y1,
             X2 = x2, Y2 = y2,
@@ -711,10 +623,16 @@ public sealed class GridRenderer : IGridRenderer {
         };
 
     private static SolidColorBrush BrushFromHex(string hex, double opacity = 1.0) {
-        var color = (Color)ColorConverter.ConvertFromString(hex);
-        var brush = new SolidColorBrush(color) { Opacity = opacity };
-        brush.Freeze();
-        return brush;
+        try {
+            var color = (Color)ColorConverter.ConvertFromString(hex);
+            var brush = new SolidColorBrush(color) { Opacity = opacity };
+            brush.Freeze();
+            return brush;
+        } catch {
+            var fallback = new SolidColorBrush(Colors.Transparent) { Opacity = opacity };
+            fallback.Freeze();
+            return fallback;
+        }
     }
 
     private static FontWeight ParseFontWeight(string weight) {
@@ -733,7 +651,6 @@ public sealed class GridRenderer : IGridRenderer {
 
     /// <summary>
     /// Brief red flash over the overlay to indicate an invalid key press.
-    /// Non-blocking — uses a WPF animation that removes itself on completion.
     /// </summary>
     public void FlashInvalidKey() {
         var flash = new Rectangle {
@@ -755,8 +672,7 @@ public sealed class GridRenderer : IGridRenderer {
 
     /// <summary>
     /// Determines whether external labels should be used based on cell dimensions
-    /// and minimum label font size. Checks both height (line height ~1.8×) and
-    /// half-width (wide chars like W need ~1.6× fontSize).
+    /// and minimum label font size.
     /// </summary>
     internal static bool ShouldUseExternalLabels(double cellDipHeight, double cellDipWidth, double minLabelFontSize)
         => cellDipHeight < (minLabelFontSize * 1.8) || (cellDipWidth / 2) < minLabelFontSize * 1.6;

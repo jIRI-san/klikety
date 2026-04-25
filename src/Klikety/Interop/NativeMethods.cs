@@ -92,7 +92,7 @@ internal static partial class NativeMethods {
 
         // Dead key: call ToUnicodeEx again to clear the internal state
         if (result < 0) {
-            ToUnicodeEx(vkey, scanCode, keyState, buffer, buffer.Length, 0, hkl);
+            _ = ToUnicodeEx(vkey, scanCode, keyState, buffer, buffer.Length, 0, hkl);
         }
 
         return null;

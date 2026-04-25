@@ -33,31 +33,34 @@ public static class ConfigLoader {
         VKey.Return,
     ];
 
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new() {
+        ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase) },
+    };
+
     public static ConfigLoadResult Load() => Load(ConfigPath);
 
     public static ConfigLoadResult Load(string path) {
-        var config = ReadConfig(path);
+        var (config, parseError) = ReadConfig(path);
         var violations = Validate(config);
+        if (parseError is not null) {
+            violations.Insert(0, parseError);
+        }
         return new ConfigLoadResult { Config = config, Violations = violations };
     }
 
-    private static ConfigModel ReadConfig(string path) {
+    private static (ConfigModel Config, string? ParseError) ReadConfig(string path) {
         if (!File.Exists(path)) {
-            return new ConfigModel();
+            return (new ConfigModel(), null);
         }
 
         try {
             var json = File.ReadAllText(path);
-            var options = new System.Text.Json.JsonSerializerOptions {
-                ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip,
-                AllowTrailingCommas = true,
-                PropertyNameCaseInsensitive = true,
-                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(System.Text.Json.JsonNamingPolicy.CamelCase) },
-            };
-            return System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, options) ?? new ConfigModel();
-        } catch (System.Text.Json.JsonException) {
-            // Malformed JSON → fall back to defaults; caller sees violation list
-            return new ConfigModel();
+            return (System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions) ?? new ConfigModel(), null);
+        } catch (System.Text.Json.JsonException ex) {
+            return (new ConfigModel(), $"Config file could not be parsed: {ex.Message}");
         }
     }
 
@@ -104,19 +107,33 @@ public static class ConfigLoader {
             violations.Add("secondKeys contains duplicate keys.");
         }
 
-        // Check actionBindings for reserved keys
+        // Check actionBindings for reserved keys and unrecognized VKey names
         foreach (var binding in config.ActionBindings) {
-            if (Enum.TryParse<VKey>(binding.Key, true, out var vkey) && ReservedKeys.Contains(vkey)) {
+            if (!Enum.TryParse<VKey>(binding.Key, true, out var vkey)) {
+                violations.Add($"Unrecognized VKey name '{binding.Key}' in actionBindings.");
+                continue;
+            }
+            if (ReservedKeys.Contains(vkey)) {
                 violations.Add($"Reserved key '{binding.Key}' may not be used in actionBindings.");
             }
         }
 
-        // Check for overlap between navigation keys and action keys
+        // Check for overlap between navigation keys and action keys (explicit + implicit Space)
         var allNavKeys = new HashSet<VKey>(config.FirstKeys);
         allNavKeys.UnionWith(config.SecondKeys);
+
+        // Collect all effective action keys (explicit bindings + implicit Space default)
+        var actionKeys = new HashSet<VKey>();
         foreach (var binding in config.ActionBindings) {
-            if (Enum.TryParse<VKey>(binding.Key, true, out var vkey) && allNavKeys.Contains(vkey)) {
-                violations.Add($"Action key '{binding.Key}' conflicts with a navigation key.");
+            if (Enum.TryParse<VKey>(binding.Key, true, out var vkey)) {
+                actionKeys.Add(vkey);
+            }
+        }
+        actionKeys.Add(VKey.Space); // implicit default
+
+        foreach (var actionKey in actionKeys) {
+            if (allNavKeys.Contains(actionKey)) {
+                violations.Add($"Action key '{actionKey}' conflicts with a navigation key.");
             }
         }
 

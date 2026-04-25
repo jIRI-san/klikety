@@ -48,7 +48,6 @@ public interface IGridRenderer {
     void RenderGrid(IReadOnlyList<GridCell> cells);
     void HighlightColumn(IReadOnlyList<GridCell> cells, int col);
     void HighlightCell(IReadOnlyList<GridCell> cells, GridCell highlightedCell);
-    void RenderSubgrid(IReadOnlyList<GridCell> cells);
     void RenderSubgridOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells);
     void HighlightColumnOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, int col);
     void HighlightCellOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, GridCell highlightedCell);

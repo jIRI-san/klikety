@@ -15,7 +15,7 @@ namespace Klikety;
 /// Single DeactivateOverlay() method covers all exit paths.
 /// Tracks cell lists per level for rendering context.
 /// </summary>
-public sealed class NavigatorCoordinator {
+public sealed partial class NavigatorCoordinator {
     private readonly IHotKeyService _hotKeyService;
     private readonly IKeyboardHookService _hookService;
     private readonly IMouseActionService _mouseService;
@@ -64,7 +64,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnHotKeyActivated(object? sender, EventArgs e) {
-        _logger.LogDebug("Hotkey activated");
+        LogHotkeyActivated();
 
         var screenBounds = NativeMethods.GetPrimaryScreenBounds();
 
@@ -81,7 +81,7 @@ public sealed class NavigatorCoordinator {
         _overlayWindow.Show();
 
         if (!_hookService.Enable()) {
-            _logger.LogError("Failed to install keyboard hook");
+            LogHookInstallFailed();
             DeactivateOverlay();
             return;
         }
@@ -92,21 +92,21 @@ public sealed class NavigatorCoordinator {
 
     private void OnKeyPressed(object? sender, Input.VKey vkey) {
         var stateBefore = _stateMachine.State;
-        _logger.LogDebug("Key: {Key}  State: {State}", vkey, stateBefore);
+        LogKeyPressed(vkey, stateBefore);
         _stateMachine.OnKey(vkey);
         var stateAfter = _stateMachine.State;
         if (stateAfter != stateBefore) {
-            _logger.LogDebug("State: {Before} → {After}", stateBefore, stateAfter);
+            LogStateTransition(stateBefore, stateAfter);
         }
     }
 
     private void OnFocusLost(object? sender, EventArgs e) {
-        _logger.LogDebug("Overlay focus lost");
+        LogFocusLost();
         DeactivateOverlay();
     }
 
     private void OnColumnHighlighted(int col, IReadOnlyList<GridCell> cells, int level) {
-        _logger.LogDebug("ColumnHighlighted: col={Col} level={Level} cells={Count}", col, level, cells.Count);
+        LogColumnHighlighted(col, level, cells.Count);
         if (level == 1) {
             _gridRenderer?.HighlightColumn(_l1Cells, col);
         } else {
@@ -115,7 +115,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnCellHighlighted(GridCell cell) {
-        _logger.LogDebug("CellHighlighted: row={Row} col={Col} hasSubgrid={HasSubgrid}", cell.Row, cell.Col, _subgridCells != null);
+        LogCellHighlighted(cell.Row, cell.Col, _subgridCells != null);
         if (_subgridCells == null) {
             _gridRenderer?.HighlightCell(_l1Cells, cell);
         } else {
@@ -124,7 +124,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnCellEntered(GridCell cell, IReadOnlyList<GridCell> subgridCells, int level) {
-        _logger.LogDebug("CellEntered: row={Row} col={Col} level={Level} subgrid={Count}", cell.Row, cell.Col, level, subgridCells.Count);
+        LogCellEntered(cell.Row, cell.Col, level, subgridCells.Count);
         var center = GridCalculator.CenterOf(cell);
         _mouseService.MoveTo(center);
 
@@ -145,24 +145,24 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnActionRequested(Point point, MouseAction action) {
-        _logger.LogDebug("Action requested: {Action} at ({X}, {Y})", action, point.X, point.Y);
+        LogActionRequested(action, point.X, point.Y);
         DeactivateOverlay();
         _mouseService.SendAction(point, action);
     }
 
     private void OnCancelled(Point originPoint) {
-        _logger.LogDebug("Navigation cancelled, restoring cursor");
+        LogCancelled();
         _mouseService.MoveTo(originPoint);
         DeactivateOverlay();
     }
 
     private void OnInvalidKeyPressed() {
-        _logger.LogDebug("Invalid key pressed");
+        LogInvalidKey();
         _gridRenderer?.FlashInvalidKey();
     }
 
     private void OnLevelExited(GridCell parentCell, IReadOnlyList<GridCell> cells, int level) {
-        _logger.LogDebug("LevelExited: level={Level} parentRow={Row} parentCol={Col}", level, parentCell.Row, parentCell.Col);
+        LogLevelExited(level, parentCell.Row, parentCell.Col);
         var center = GridCalculator.CenterOf(parentCell);
         _mouseService.MoveTo(center);
 
@@ -172,7 +172,7 @@ public sealed class NavigatorCoordinator {
     }
 
     private void OnColumnUnhighlighted(int level) {
-        _logger.LogDebug("ColumnUnhighlighted: level={Level}", level);
+        LogColumnUnhighlighted(level);
         if (level == 1) {
             _subgridCells = null;
             _l2SubgridCells = null;
@@ -204,4 +204,43 @@ public sealed class NavigatorCoordinator {
             _deactivating = false;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Hotkey activated")]
+    private partial void LogHotkeyActivated();
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to install keyboard hook")]
+    private partial void LogHookInstallFailed();
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Key: {Key}  State: {State}")]
+    private partial void LogKeyPressed(Input.VKey key, NavigatorState state);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "State: {Before} → {After}")]
+    private partial void LogStateTransition(NavigatorState before, NavigatorState after);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Overlay focus lost")]
+    private partial void LogFocusLost();
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "ColumnHighlighted: col={Col} level={Level} cells={Count}")]
+    private partial void LogColumnHighlighted(int col, int level, int count);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "CellHighlighted: row={Row} col={Col} hasSubgrid={HasSubgrid}")]
+    private partial void LogCellHighlighted(int row, int col, bool hasSubgrid);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "CellEntered: row={Row} col={Col} level={Level} subgrid={Count}")]
+    private partial void LogCellEntered(int row, int col, int level, int count);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Action requested: {Action} at ({X}, {Y})")]
+    private partial void LogActionRequested(MouseAction action, int x, int y);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Navigation cancelled, restoring cursor")]
+    private partial void LogCancelled();
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Invalid key pressed")]
+    private partial void LogInvalidKey();
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "LevelExited: level={Level} parentRow={Row} parentCol={Col}")]
+    private partial void LogLevelExited(int level, int row, int col);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "ColumnUnhighlighted: level={Level}")]
+    private partial void LogColumnUnhighlighted(int level);
 }

@@ -138,10 +138,12 @@ public sealed class NavigatorStateMachine {
             case NavigatorState.L3_AwaitFirst:
             case NavigatorState.L3_AwaitSecond:
             case NavigatorState.L3_AwaitAction:
+                var l3Parent = _l2SelectedCell;
                 _l3Cells = [];
                 _currentLevelCells = _l2Cells;
                 _arrowIndex = 0;
                 State = NavigatorState.L2_AwaitFirst;
+                LevelExited?.Invoke(l3Parent, _l2Cells, 3);
                 ColumnUnhighlighted?.Invoke(2);
                 break;
 
@@ -206,12 +208,14 @@ public sealed class NavigatorStateMachine {
             case NavigatorState.L1_AwaitAction:
                 level = 1;
                 _l1SelectedCell = cell;
+                _selectedCol = cell.Col;
                 break;
             case NavigatorState.L2_AwaitFirst:
             case NavigatorState.L2_AwaitSecond:
             case NavigatorState.L2_AwaitAction:
                 level = 2;
                 _l2SelectedCell = cell;
+                _selectedCol = cell.Col;
                 break;
             case NavigatorState.L3_AwaitFirst:
             case NavigatorState.L3_AwaitSecond:

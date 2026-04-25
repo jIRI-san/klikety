@@ -16,7 +16,7 @@ namespace Klikety;
 
 public partial class App : Application {
     private TaskbarIcon? _trayIcon;
-    private IHotKeyService? _hotKeyService;
+    private HotKeyService? _hotKeyService;
     private NavigatorCoordinator? _coordinator;
     private ILoggerFactory? _loggerFactory;
 
@@ -83,7 +83,7 @@ public partial class App : Application {
 
         // Register hotkey
         if (!_hotKeyService.Register(config.HotKey)) {
-            logger.LogError("Failed to register global hotkey {Modifiers}+{Key}", config.HotKey.Modifiers, config.HotKey.Key);
+            LogHotkeyRegistrationFailed(logger, config.HotKey.Modifiers, config.HotKey.Key);
             violations.Add($"Failed to register global hotkey {config.HotKey.Modifiers}+{config.HotKey.Key}.");
         }
 
@@ -155,9 +155,15 @@ public partial class App : Application {
         // Show violations as tray notification
         if (violations.Count > 0) {
             var message = string.Join("\n", violations);
-            logger.LogWarning("Startup violations: {Message}", message);
+            LogStartupViolations(logger, message);
             _trayIcon.ShowNotification("Klikety — Configuration Issues", message);
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Failed to register global hotkey {Modifiers}+{Key}")]
+    private static partial void LogHotkeyRegistrationFailed(ILogger logger, HotKeyModifiers modifiers, Input.VKey key);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Startup violations: {Message}")]
+    private static partial void LogStartupViolations(ILogger logger, string message);
 }
 

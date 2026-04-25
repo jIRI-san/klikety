@@ -54,7 +54,7 @@ public sealed class MouseActionService : IMouseActionService {
             },
         };
 
-        SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
     }
 
     public void SendAction(Point physicalPoint, MouseAction action) {
@@ -73,11 +73,11 @@ public sealed class MouseActionService : IMouseActionService {
             new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = upFlag } },
         };
 
-        SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
+        _ = SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
 
         // Double-click: send a second click pair
         if (action == MouseAction.DoubleClick) {
-            SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
+            _ = SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
         }
     }
 }

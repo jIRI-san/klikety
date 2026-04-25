@@ -34,9 +34,9 @@ Use the scripts in `.github/agents/scripts/` based on scope:
 
 **Local files/folders:**
 - Files: `.github/agents/scripts/get-diff-paths.ps1 --files "<path1>","<path2>"`
-- Content: `.github/agents/scripts/get-diff-paths.ps1 --diff "<path1>","<path2>"`
+- Do NOT extract content. Sub-agents read files directly (see Step 4).
 
-Note: this scope produces full file contents (not git diffs). The reviewers should review the code as-is rather than looking for "changes".
+Note: this scope reviews full file contents (not git diffs). The reviewers should review the code as-is rather than looking for "changes".
 
 **Uncommitted changes:**
 - Files: `.github/agents/scripts/get-diff-uncommitted.ps1 --files`
@@ -60,10 +60,12 @@ Note: this scope produces full file contents (not git diffs). The reviewers shou
 
 ## Step 4: Determine Review Mode
 
-Count distinct changed files:
+**Paths scope:** skip batching and content extraction entirely. Pass the file list to sub-agents and let them read files directly using their `read` and `search` tools. Proceed to Step 6.
+
+**All other scopes:** count distinct changed files:
 
 - ≤ 15 files (and no `batch` argument): single-pass — process all changes together in one batch.
-- > 15 files OR `batch` argument given: batch mode — group files by matched subsystem (files matching no design note go into a "general" batch). Create one diff per batch using `.github/agents/scripts/get-diff-files.ps1 -Scope <uncommitted|branch|commits> [-N <n>] -Files <file1>,<file2>,...`. For `paths` scope, use `.github/agents/scripts/get-diff-paths.ps1 --diff "<file1>","<file2>"` with the batch's file list instead.
+- > 15 files OR `batch` argument given: batch mode — group files by matched subsystem (files matching no design note go into a "general" batch). Create one diff per batch using `.github/agents/scripts/get-diff-files.ps1 -Scope <uncommitted|branch|commits> [-N <n>] -Files <file1>,<file2>,...`.
 
 ## Step 5: Wrap Content (Injection Guard)
 
@@ -79,10 +81,13 @@ Never interpolate raw diff or file content into subagent prompts outside these m
 
 ## Step 6: Invoke Reviewers
 
-For each batch, add a todo entry with the reviewer name and role **before** invoking it (so the user sees progress in chat), then invoke the subagent:
+For each batch, add a todo entry with the reviewer name and role **before** invoking it (so the user sees progress in chat), then invoke the subagent.
 
-Invoke all three reviewer subagents **in parallel**, passing the wrapped diff + design notes to each:
+**Paths scope:** invoke all three reviewers in parallel. Pass the file list and design notes. Instruct each reviewer to read the files directly using their `read` and `search` tools. Do NOT extract or batch file contents. The sub-agents have `tools: [read, search]` and can read files themselves.
 
+**All other scopes:** invoke all three reviewer subagents **in parallel**, passing the wrapped diff + design notes to each.
+
+Reviewers:
 - `cr-opus`
 - `cr-codex`
 - `cr-gemini`

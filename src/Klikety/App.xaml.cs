@@ -99,6 +99,7 @@ public partial class App : Application {
             ToolTipText = "Klikety",
             Icon = iconStream is not null ? new System.Drawing.Icon(iconStream) : null,
         };
+        _trayIcon.ForceCreate();
 
         var contextMenu = new System.Windows.Controls.ContextMenu();
 

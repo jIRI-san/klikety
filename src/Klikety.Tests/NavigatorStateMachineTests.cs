@@ -331,4 +331,181 @@ public class NavigatorStateMachineTests {
         Assert.Equal(NavigatorState.L1_AwaitFirst, sm.State);
         Assert.Equal(1, unhighlightedLevel);
     }
+
+    [Fact]
+    public void ActionAtL1_WithoutNavigation_FiresAtOrigin() {
+        var origin = new Point(500, 300);
+        var sm = CreateMachine(NavigationMode.Both);
+        sm.Activate(CreateGrid(), origin);
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+
+        sm.OnKey(VKey.Space);
+        Assert.Equal(origin, actionPoint);
+    }
+
+    [Fact]
+    public void ActionAtL2_WithoutL2Navigation_FiresAtL1CellCenter() {
+        var sm = CreateMachine(NavigationMode.Both);
+        sm.Activate(CreateGrid(), new Point(0, 0));
+        GridCell? l1Cell = null;
+        sm.CellEntered += (cell, _, level) => { if (level == 1) l1Cell = cell; };
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        Assert.Equal(NavigatorState.L1_AwaitAction, sm.State);
+
+        var expectedPoint = GridCalculator.CenterOf(l1Cell!.Value);
+        sm.OnKey(VKey.Space);
+        Assert.Equal(expectedPoint, actionPoint);
+    }
+
+    [Fact]
+    public void ActionAtL3_WithoutL3Navigation_FiresAtL2CellCenter() {
+        var sm = CreateMachine(NavigationMode.Both);
+        var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
+        sm.Activate(grid, new Point(0, 0));
+        GridCell? l2Cell = null;
+        sm.CellEntered += (cell, _, level) => { if (level == 2) l2Cell = cell; };
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        Assert.Equal(NavigatorState.L2_AwaitAction, sm.State);
+
+        var expectedPoint = GridCalculator.CenterOf(l2Cell!.Value);
+        sm.OnKey(VKey.Space);
+        Assert.Equal(expectedPoint, actionPoint);
+    }
+
+    [Fact]
+    public void ActionAfterArrow_FiresAtArrowedCellCenter() {
+        var sm = CreateMachine(NavigationMode.Both);
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(500, 300));
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+
+        sm.OnKey(VKey.Right);
+        var expectedPoint = GridCalculator.CenterOf(grid[1]);
+        sm.OnKey(VKey.Space);
+        Assert.Equal(expectedPoint, actionPoint);
+    }
+
+    [Fact]
+    public void ActionAfterReselect_FiresAtReselectedCellCenter() {
+        var sm = CreateMachine(NavigationMode.Both, level3Threshold: 40000);
+        sm.Activate(CreateGrid(), new Point(0, 0));
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+
+        // Now at L2_AwaitAction. Reselect a different cell in same column.
+        GridCell? reselectedCell = null;
+        sm.CellEntered += (cell, _, _) => reselectedCell = cell;
+        sm.OnKey(VKey.E);
+
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+        sm.OnKey(VKey.Space);
+
+        var expected = GridCalculator.CenterOf(reselectedCell!.Value);
+        Assert.Equal(expected, actionPoint);
+    }
+
+    [Fact]
+    public void TwoKeyAction_AtL1AwaitAction_FiresAtCellCenter() {
+        var sm = CreateMachine(NavigationMode.TwoKey);
+        sm.Activate(CreateGrid(), new Point(500, 300));
+        GridCell? l1Cell = null;
+        sm.CellEntered += (cell, _, level) => { if (level == 1) l1Cell = cell; };
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        sm.OnKey(VKey.Space);
+
+        var expected = GridCalculator.CenterOf(l1Cell!.Value);
+        Assert.Equal(expected, actionPoint);
+    }
+
+    [Fact]
+    public void TwoKeyAction_AtL3_FiresAtL3CellCenter() {
+        var sm = CreateMachine(NavigationMode.TwoKey);
+        var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
+        sm.Activate(grid, new Point(0, 0));
+        GridCell? l3Cell = null;
+        sm.CellEntered += (cell, _, level) => { if (level == 3) l3Cell = cell; };
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+
+        // L1
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        // L2
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        // L3
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        Assert.Equal(NavigatorState.L3_AwaitAction, sm.State);
+
+        sm.OnKey(VKey.Space);
+
+        var expected = GridCalculator.CenterOf(l3Cell!.Value);
+        Assert.Equal(expected, actionPoint);
+    }
+
+    [Fact]
+    public void EscapeFromL2_RestoresActionPointToOrigin() {
+        var origin = new Point(500, 300);
+        var sm = CreateMachine(NavigationMode.Both);
+        sm.Activate(CreateGrid(), origin);
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        // At L1_AwaitAction, cursor moved to L1 cell center
+        sm.OnKey(VKey.Escape);
+        // Back to L1_AwaitFirst, actionPoint should be origin
+
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+        sm.OnKey(VKey.Space);
+        Assert.Equal(origin, actionPoint);
+    }
+
+    [Fact]
+    public void EscapeFromL3_RestoresActionPointToL2CellCenter() {
+        var sm = CreateMachine(NavigationMode.Both);
+        var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
+        sm.Activate(grid, new Point(0, 0));
+        GridCell? l2Cell = null;
+        sm.CellEntered += (cell, _, level) => { if (level == 2) l2Cell = cell; };
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        // At L2_AwaitAction
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.W);
+        // At L3_AwaitAction
+        Assert.Equal(NavigatorState.L3_AwaitAction, sm.State);
+        sm.OnKey(VKey.Escape);
+        // Back to L2_AwaitFirst
+
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+        sm.OnKey(VKey.Space);
+
+        var expected = GridCalculator.CenterOf(l2Cell!.Value);
+        Assert.Equal(expected, actionPoint);
+    }
 }

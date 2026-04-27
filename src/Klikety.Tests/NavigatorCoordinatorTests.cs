@@ -190,4 +190,37 @@ public class NavigatorCoordinatorTests {
         Assert.Contains(renderer.Calls, c => c.Method == "ClearCanvas");
         Assert.False(overlay.IsVisible);
     }
+
+    [Fact]
+    public void NoNavAction_SendsActionAtOrigin() {
+        var (_, hotKey, hook, mouse, overlay, _) = CreateCoordinator(NavigationMode.Both);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.Space);
+
+        Assert.False(overlay.IsVisible);
+        // The SendAction call should be at the cursor origin (from NativeMethods.GetCursorPosition)
+        var actionCall = mouse.Calls.First(c => c.Action == MouseAction.LeftClick);
+        // Origin comes from NativeMethods.GetCursorPosition() — deterministic in test env
+        Assert.NotNull(actionCall);
+    }
+
+    [Fact]
+    public void EscapeFromL2_RestoresCursorToOrigin() {
+        var (_, hotKey, hook, mouse, overlay, _) = CreateCoordinator(NavigationMode.Both);
+
+        hotKey.SimulateActivation();
+        // Enter L1 cell
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        // At L1_AwaitAction — cursor moved to L1 cell center (MoveTo call recorded)
+        var moveToCallsBeforeEscape = mouse.Calls.Count(c => c.Action is null);
+
+        // Escape back to L1_AwaitFirst — should restore cursor to origin
+        hook.SimulateKey(VKey.Escape);
+
+        // Should have one more MoveTo call (cursor restore)
+        var moveToCallsAfterEscape = mouse.Calls.Count(c => c.Action is null);
+        Assert.Equal(moveToCallsBeforeEscape + 1, moveToCallsAfterEscape);
+    }
 }

@@ -14,6 +14,7 @@ globs:
 - `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, exception, Quit. It calls `IGridRenderer.ClearCanvas()`, hides the overlay, calls `IKeyboardHookService.Disable()`, and resets `NavigatorStateMachine` to `Idle`. Safe to call multiple times.
 - `OverlayWindow.Deactivated` event wires to `DeactivateOverlay()` to handle focus loss (Alt+Tab, OS notifications, background app stealing focus).
 - Cursor position at `Activate()` time is saved; restored via `IMouseActionService.MoveTo(originPoint)` when Escape is pressed at L1 or focus is lost.
+- Escape from L2/L3 to L1 also restores cursor to origin position (coordinator calls `MoveTo(_origin)` on `ColumnUnhighlighted(1)`).
 - If `IKeyboardHookService.Enable()` returns failure on activation, `DeactivateOverlay()` is called immediately and a tray notification is shown — overlay never becomes visible.
 
 ## State Machine
@@ -35,6 +36,23 @@ The full screen is covered by a single grid. `NavigatorStateMachine` takes flat 
 - `HandleSecondKey(VKey, ...)` — indexes into `_secondKeys`. Re-entry: pressing a first key at `AwaitSecond` restarts column selection in the same cell list.
 - `ColumnHighlighted` event signature: `Action<int, IReadOnlyList<GridCell>, int>` — column index, cell list, level.
 - Arrow navigation uses `_firstKeys.Length` as column count at all levels.
+
+### Action point tracking
+
+`_actionPoint` tracks the physical-pixel position where the next action should fire. Initialized to `_originPoint` (cursor position at overlay open) in `Activate()`. Updated on every cursor-moving operation:
+
+| Method | Update |
+|---|---|
+| `HandleSecondKey` | Center of selected cell |
+| `TryReselectCell` | Center of reselected cell |
+| `HandleArrow` | Center of arrow-navigated cell |
+| `HandleEnter` | Center of Enter-zoomed cell |
+| `ResetToL1AwaitFirst` | Restored to `_originPoint` |
+| L3→L2 escape | Center of `_l2SelectedCell` |
+
+All action dispatch methods (`TryHandleActionKey`, `HandleNavFirstKey`, `HandleActionFinal`) use `_actionPoint` directly. No cell-index lookup at dispatch time.
+
+**No-nav quick click**: If the user opens the overlay and immediately presses an action key without any navigation, the action fires at the cursor's original position. Same principle at L2/L3 — action fires at current cursor position (parent cell center) if no further navigation occurred.
 
 ### Transitions
 
@@ -86,9 +104,9 @@ At the deepest level's `AwaitAction` (L3 always; L2 only when L3 threshold not m
 ### Escape behavior
 
 Escape resets both key presses at every level:
-- `L1_AwaitAction` / `L1_AwaitSecond` → `L1_AwaitFirst` — full grid visible, raises `ColumnUnhighlighted(1)`
-- `L2_Await*` (all sub-states) → `L1_AwaitFirst` — full reset, raises `ColumnUnhighlighted(1)`
-- `L3_Await*` (all sub-states) → `L2_AwaitFirst` — clears `_l3Cells`, restores `_currentLevelCells` to `_l2Cells`, raises `ColumnUnhighlighted(2)`. Coordinator restores `_subgridCells = _l2SubgridCells` and renders `RenderSubgridOverGrid`.
+- `L1_AwaitAction` / `L1_AwaitSecond` → `L1_AwaitFirst` — full grid visible, raises `ColumnUnhighlighted(1)`, `_actionPoint` restored to `_originPoint`
+- `L2_Await*` (all sub-states) → `L1_AwaitFirst` — full reset, raises `ColumnUnhighlighted(1)`, `_actionPoint` restored to `_originPoint`
+- `L3_Await*` (all sub-states) → `L2_AwaitFirst` — clears `_l3Cells`, restores `_currentLevelCells` to `_l2Cells`, `_actionPoint` set to center of `_l2SelectedCell`, raises `ColumnUnhighlighted(2)`. Coordinator restores `_subgridCells = _l2SubgridCells` and renders `RenderSubgridOverGrid`.
 - `L1_AwaitFirst` → `Idle` — raises `Cancelled(originPoint)`
 
 `ResetToL1AwaitFirst()` helper resets `_currentLevelCells` to `_l1Cells`, `_arrowIndex` to 0, fires `ColumnUnhighlighted(1)`.
@@ -315,7 +333,7 @@ When external labels are active, no internal cell labels are rendered — cells 
 
 ## Test Infrastructure
 
-- **Unit tests** (`Klikety.Tests`): xUnit, 92 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold/fan-out logic.
+- **Unit tests** (`Klikety.Tests`): xUnit, 103 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold/fan-out logic.
 - **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss), `FakeGridRenderer` (records `RenderCall` list — method name, cells, col — for assertion).
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.

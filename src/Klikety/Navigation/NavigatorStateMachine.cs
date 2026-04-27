@@ -50,6 +50,9 @@ public sealed class NavigatorStateMachine {
     private int _arrowIndex;
     private IReadOnlyList<GridCell> _currentLevelCells = [];
 
+    // Action target — position where next action fires
+    private Point _actionPoint;
+
     // Events
     public event Action<int, IReadOnlyList<GridCell>, int>? ColumnHighlighted;
     public event Action<GridCell>? CellHighlighted;
@@ -83,6 +86,7 @@ public sealed class NavigatorStateMachine {
 
         _l1Cells = l1Cells;
         _originPoint = cursorOrigin;
+        _actionPoint = cursorOrigin;
         _arrowIndex = 0;
         _currentLevelCells = l1Cells;
         State = NavigatorState.L1_AwaitFirst;
@@ -142,6 +146,7 @@ public sealed class NavigatorStateMachine {
                 _l3Cells = [];
                 _currentLevelCells = _l2Cells;
                 _arrowIndex = 0;
+                _actionPoint = GridCalculator.CenterOf(_l2SelectedCell);
                 State = NavigatorState.L2_AwaitFirst;
                 LevelExited?.Invoke(l3Parent, _l2Cells, 3);
                 ColumnUnhighlighted?.Invoke(2);
@@ -168,6 +173,7 @@ public sealed class NavigatorStateMachine {
     private void ResetToL1AwaitFirst() {
         _currentLevelCells = _l1Cells;
         _arrowIndex = 0;
+        _actionPoint = _originPoint;
         State = NavigatorState.L1_AwaitFirst;
         ColumnUnhighlighted?.Invoke(1);
     }
@@ -189,6 +195,7 @@ public sealed class NavigatorStateMachine {
         };
 
         if (_arrowIndex >= 0 && _arrowIndex < _currentLevelCells.Count) {
+            _actionPoint = GridCalculator.CenterOf(_currentLevelCells[_arrowIndex]);
             CellHighlighted?.Invoke(_currentLevelCells[_arrowIndex]);
         }
     }
@@ -227,6 +234,7 @@ public sealed class NavigatorStateMachine {
         }
 
         // Compute subgrid and enter cell (same as two-key cell entry)
+        _actionPoint = GridCalculator.CenterOf(cell);
         IReadOnlyList<GridCell> subgridCells = [];
         if (level == 1) {
             subgridCells = SubgridCalculator.Calculate(cell, _firstKeys.Length, _secondKeys.Length);
@@ -321,6 +329,7 @@ public sealed class NavigatorStateMachine {
 
         selectedCell = cells[index];
         _arrowIndex = index;
+        _actionPoint = GridCalculator.CenterOf(selectedCell);
 
         State = nextState;
 
@@ -356,6 +365,7 @@ public sealed class NavigatorStateMachine {
 
         selectedCell = cells[index];
         _arrowIndex = index;
+        _actionPoint = GridCalculator.CenterOf(selectedCell);
         CellEntered?.Invoke(selectedCell, [], level);
         return true;
     }
@@ -363,9 +373,8 @@ public sealed class NavigatorStateMachine {
     private void HandleNavFirstKey(VKey vkey, GridCell parentCell, int nextLevel) {
         var action = _actionMapper.Map(vkey);
         if (action.HasValue) {
-            var center = GridCalculator.CenterOf(parentCell);
             State = NavigatorState.Idle;
-            ActionRequested?.Invoke(center, action.Value);
+            ActionRequested?.Invoke(_actionPoint, action.Value);
             return;
         }
 
@@ -395,12 +404,8 @@ public sealed class NavigatorStateMachine {
             return;
         }
 
-        var cells = _l3Cells.Count > 0 ? _l3Cells : _l2Cells;
-        if (_arrowIndex >= 0 && _arrowIndex < cells.Count) {
-            var center = GridCalculator.CenterOf(cells[_arrowIndex]);
-            State = NavigatorState.Idle;
-            ActionRequested?.Invoke(center, action.Value);
-        }
+        State = NavigatorState.Idle;
+        ActionRequested?.Invoke(_actionPoint, action.Value);
     }
 
     /// <summary>
@@ -413,13 +418,8 @@ public sealed class NavigatorStateMachine {
             return false;
         }
 
-        if (_arrowIndex < 0 || _arrowIndex >= _currentLevelCells.Count) {
-            return false;
-        }
-
-        var center = GridCalculator.CenterOf(_currentLevelCells[_arrowIndex]);
         State = NavigatorState.Idle;
-        ActionRequested?.Invoke(center, action.Value);
+        ActionRequested?.Invoke(_actionPoint, action.Value);
         return true;
     }
 

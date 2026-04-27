@@ -30,6 +30,7 @@ public sealed partial class NavigatorCoordinator {
     private IReadOnlyList<GridCell>? _subgridCells;
     private IReadOnlyList<GridCell>? _l2SubgridCells;
     private bool _deactivating;
+    private Point _origin;
 
     public NavigatorCoordinator(
         IHotKeyService hotKeyService,
@@ -76,7 +77,7 @@ public sealed partial class NavigatorCoordinator {
         _subgridCells = null;
         _l2SubgridCells = null;
 
-        var origin = NativeMethods.GetCursorPosition();
+        _origin = NativeMethods.GetCursorPosition();
 
         _overlayWindow.Show();
 
@@ -86,7 +87,7 @@ public sealed partial class NavigatorCoordinator {
             return;
         }
 
-        _stateMachine.Activate(_l1Cells, origin);
+        _stateMachine.Activate(_l1Cells, _origin);
         _gridRenderer?.RenderGrid(_l1Cells);
     }
 
@@ -174,6 +175,7 @@ public sealed partial class NavigatorCoordinator {
     private void OnColumnUnhighlighted(int level) {
         LogColumnUnhighlighted(level);
         if (level == 1) {
+            _mouseService.MoveTo(_origin);
             _subgridCells = null;
             _l2SubgridCells = null;
             _gridRenderer?.RenderGrid(_l1Cells);

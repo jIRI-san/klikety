@@ -131,6 +131,7 @@ public sealed class NavigatorStateMachine {
     /// </summary>
     public void Reset() {
         State = NavigatorState.Idle;
+        _actionPoint = default;
         _l1Cells = [];
         _l2Cells = [];
         _l3Cells = [];
@@ -266,7 +267,7 @@ public sealed class NavigatorStateMachine {
                 HandleSecondKey(vkey, NavigatorState.L1_AwaitSecond, NavigatorState.L1_AwaitAction, _l1Cells, 1, ref _l1SelectedCell);
                 break;
             case NavigatorState.L1_AwaitAction:
-                HandleNavFirstKey(vkey, _l1SelectedCell, 2);
+                HandleNavFirstKey(vkey, 2);
                 break;
             case NavigatorState.L2_AwaitFirst:
                 HandleFirstKey(vkey, NavigatorState.L2_AwaitSecond, _l2Cells, 2);
@@ -278,7 +279,7 @@ public sealed class NavigatorStateMachine {
                 if (_l3Cells.Count == 0 && TryReselectCell(vkey, _l2Cells, 2, ref _l2SelectedCell)) {
                     break;
                 }
-                HandleNavFirstKey(vkey, _l2SelectedCell, 3);
+                HandleNavFirstKey(vkey, 3);
                 break;
             case NavigatorState.L3_AwaitFirst:
                 HandleFirstKey(vkey, NavigatorState.L3_AwaitSecond, _l3Cells, 3);
@@ -370,7 +371,7 @@ public sealed class NavigatorStateMachine {
         return true;
     }
 
-    private void HandleNavFirstKey(VKey vkey, GridCell parentCell, int nextLevel) {
+    private void HandleNavFirstKey(VKey vkey, int nextLevel) {
         var action = _actionMapper.Map(vkey);
         if (action.HasValue) {
             State = NavigatorState.Idle;

@@ -196,13 +196,33 @@ public class NavigatorCoordinatorTests {
         var (_, hotKey, hook, mouse, overlay, _) = CreateCoordinator(NavigationMode.Both);
 
         hotKey.SimulateActivation();
+        // Origin captured by coordinator via NativeMethods.GetCursorPosition()
+        // No navigation — press action key immediately
         hook.SimulateKey(VKey.Space);
 
         Assert.False(overlay.IsVisible);
-        // The SendAction call should be at the cursor origin (from NativeMethods.GetCursorPosition)
         var actionCall = mouse.Calls.First(c => c.Action == MouseAction.LeftClick);
-        // Origin comes from NativeMethods.GetCursorPosition() — deterministic in test env
+        // No MoveTo should have been called (no navigation), so action point = origin
+        Assert.DoesNotContain(mouse.Calls, c => c.Action is null);
         Assert.NotNull(actionCall);
+    }
+
+    [Fact]
+    public void EscapeFromL1AwaitAction_RestoresCursorToOrigin() {
+        var (_, hotKey, hook, mouse, overlay, _) = CreateCoordinator(NavigationMode.Both);
+
+        hotKey.SimulateActivation();
+        // Enter L1 cell — moves cursor to L1 cell center
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        var moveAfterEntry = mouse.Calls.Last(c => c.Action is null).Point;
+
+        // Escape resets to L1_AwaitFirst — should restore cursor to origin
+        hook.SimulateKey(VKey.Escape);
+
+        var restoreCall = mouse.Calls.Last(c => c.Action is null);
+        // Restore point should differ from the L1 cell center (it's the origin)
+        Assert.NotEqual(moveAfterEntry, restoreCall.Point);
     }
 
     [Fact]
@@ -213,14 +233,14 @@ public class NavigatorCoordinatorTests {
         // Enter L1 cell
         hook.SimulateKey(VKey.A);
         hook.SimulateKey(VKey.W);
-        // At L1_AwaitAction — cursor moved to L1 cell center (MoveTo call recorded)
-        var moveToCallsBeforeEscape = mouse.Calls.Count(c => c.Action is null);
+        // Navigate into L2
+        hook.SimulateKey(VKey.A);
+        var moveToCountBeforeEscape = mouse.Calls.Count(c => c.Action is null);
 
-        // Escape back to L1_AwaitFirst — should restore cursor to origin
+        // Escape from L2 back to L1 — should restore cursor to origin
         hook.SimulateKey(VKey.Escape);
 
-        // Should have one more MoveTo call (cursor restore)
-        var moveToCallsAfterEscape = mouse.Calls.Count(c => c.Action is null);
-        Assert.Equal(moveToCallsBeforeEscape + 1, moveToCallsAfterEscape);
+        var moveToCountAfterEscape = mouse.Calls.Count(c => c.Action is null);
+        Assert.Equal(moveToCountBeforeEscape + 1, moveToCountAfterEscape);
     }
 }

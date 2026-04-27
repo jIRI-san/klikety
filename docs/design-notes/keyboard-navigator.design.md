@@ -43,6 +43,7 @@ The full screen is covered by a single grid. `NavigatorStateMachine` takes flat 
 
 | Method | Update |
 |---|---|
+| `Activate` | Set to `_originPoint` (cursor position at overlay open) |
 | `HandleSecondKey` | Center of selected cell |
 | `TryReselectCell` | Center of reselected cell |
 | `HandleArrow` | Center of arrow-navigated cell |
@@ -333,7 +334,7 @@ When external labels are active, no internal cell labels are rendered — cells 
 
 ## Test Infrastructure
 
-- **Unit tests** (`Klikety.Tests`): xUnit, 103 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold/fan-out logic.
+- **Unit tests** (`Klikety.Tests`): xUnit, 105 tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, and `GridRenderer` threshold/fan-out logic.
 - **Test fakes** in `Klikety.Tests/Fakes/`: `FakeHotKeyService`, `FakeKeyboardHookService` (with `SimulateKey`), `FakeMouseActionService` (records calls), `FakeOverlayWindow` (tracks show/hide/focus-loss), `FakeGridRenderer` (records `RenderCall` list — method name, cells, col — for assertion).
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.

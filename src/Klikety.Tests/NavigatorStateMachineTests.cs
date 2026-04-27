@@ -363,7 +363,7 @@ public class NavigatorStateMachineTests {
     }
 
     [Fact]
-    public void ActionAtL3_WithoutL3Navigation_FiresAtL2CellCenter() {
+    public void ActionAtL2AwaitAction_WithoutL3Descent_FiresAtL2CellCenter() {
         var sm = CreateMachine(NavigationMode.Both);
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
         sm.Activate(grid, new Point(0, 0));
@@ -506,6 +506,26 @@ public class NavigatorStateMachineTests {
         sm.OnKey(VKey.Space);
 
         var expected = GridCalculator.CenterOf(l2Cell!.Value);
+        Assert.Equal(expected, actionPoint);
+    }
+
+    [Fact]
+    public void ActionAfterEnterZoom_FiresAtZoomedCellCenter() {
+        var sm = CreateMachine(NavigationMode.Both);
+        sm.Activate(CreateGrid(), new Point(500, 300));
+        GridCell? enteredCell = null;
+        sm.CellEntered += (cell, _, level) => { if (level == 1) enteredCell = cell; };
+        Point? actionPoint = null;
+        sm.ActionRequested += (pt, _) => actionPoint = pt;
+
+        // Arrow to cell[1], then Enter to zoom into L2
+        sm.OnKey(VKey.Right);
+        sm.OnKey(VKey.Return);
+        Assert.Equal(NavigatorState.L2_AwaitFirst, sm.State);
+
+        // Immediate action at L2 without further navigation
+        var expected = GridCalculator.CenterOf(enteredCell!.Value);
+        sm.OnKey(VKey.Space);
         Assert.Equal(expected, actionPoint);
     }
 }

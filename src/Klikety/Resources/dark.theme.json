@@ -17,11 +17,11 @@
 
   // Normal cell background
   "cellBackgroundColor": "#000000", // Black background
-  "cellBackgroundOpacity": 0.4,     // Semi-transparent
+  "cellBackgroundOpacity": 0.2, // Semi-transparent
 
   // Dimmed cells (non-matching after first key)
   "dimmedOverlayColor": "#000000",  // Black overlay
-  "dimmedOverlayOpacity": 0.6,      // Fairly opaque dimming
+  "dimmedOverlayOpacity": 0.4, // Fairly opaque dimming
 
   // Highlighted column (matching column after first key)
   "highlightedColumnBackground": "#FFCC00",    // Gold highlight

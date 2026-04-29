@@ -113,7 +113,7 @@
   - Verify 10×10 grid works; add 8-key backward compat test
   - Zero regressions
 
-- [ ] 1.6 Update embedded config + schema `S`
+- [x] 1.6 Update embedded config + schema `S`
   - Schema: add `modes` object with sub-schemas including `horizontalKeys`/`verticalKeys` arrays; add `configVersion`
   - Config: new `modes` block with defaults including axis key arrays
   - Comment: "N and M are default chord keys — do not use in action bindings"

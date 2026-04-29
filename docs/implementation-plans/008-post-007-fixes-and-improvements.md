@@ -51,8 +51,8 @@
 ## Phase 2: DynamicKeyReducer for UniformGrid
 <!-- worktree: -->
 
-- [ ] 2.1 `NavigatorStateMachine`: call `DynamicKeyReducer.ComputeActiveKeys(fullKeys, parentCellExtent, minCellPx: 20, hasCenterCell: false)` when computing L2/L3 subgrids in `HandleSecondKey`. Store `DynamicKeyReduction` per level (horiz + vert). Pass reduced key count to `SubgridCalculator.Calculate(parentCell, reducedCols, reducedRows)`. Use reduced keys array for `HandleFirstKey`/`HandleSecondKey` index lookup at L2/L3. Arrow nav uses `reducedHorizKeys.Length` as column count at deeper levels. (REQ-2, RISK-4) `M`
-- [ ] 2.2 Unit tests: `NavigatorStateMachineTests` — verify L2 uses reduced key count (SubgridCalculator receives reduced cols/rows); verify L3 uses further-reduced count; verify `IsDisabled` skips L3 when parent cell too small; verify arrow nav at L2 uses reduced column count for wrapping. (REQ-2) [after: 2.1] `S`
+- [x] 2.1 `NavigatorStateMachine`: call `DynamicKeyReducer.ComputeActiveKeys(fullKeys, parentCellExtent, minCellPx: 20, hasCenterCell: false)` when computing L2/L3 subgrids in `HandleSecondKey`. Store `DynamicKeyReduction` per level (horiz + vert). Pass reduced key count to `SubgridCalculator.Calculate(parentCell, reducedCols, reducedRows)`. Use reduced keys array for `HandleFirstKey`/`HandleSecondKey` index lookup at L2/L3. Arrow nav uses `reducedHorizKeys.Length` as column count at deeper levels. (REQ-2, RISK-4) `M`
+- [x] 2.2 Unit tests: `NavigatorStateMachineTests` — verify L2 uses reduced key count (SubgridCalculator receives reduced cols/rows); verify L3 uses further-reduced count; verify `IsDisabled` skips L3 when parent cell too small; verify arrow nav at L2 uses reduced column count for wrapping. (REQ-2) [after: 2.1] `S`
 
 ## Phase 3: Crosshair Arrow Nav + Visual Re-render
 <!-- worktree: -->

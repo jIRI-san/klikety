@@ -23,6 +23,7 @@ public enum NavigatorState {
 /// Core navigation state machine. Processes VKey inputs and raises events
 /// for overlay visual updates, cursor movement, and action dispatch.
 /// Unified grid: single set of first/second keys for the full screen.
+/// At L2/L3, keys are dynamically reduced via DynamicKeyReducer to keep cells ≥ minCellPx.
 /// </summary>
 public sealed class NavigatorStateMachine {
     private readonly VKey[] _firstKeys;
@@ -30,6 +31,19 @@ public sealed class NavigatorStateMachine {
     private readonly ActionMapper _actionMapper;
     private readonly NavigationMode _navigationMode;
     private readonly int _level3Threshold;
+    private readonly int _minCellPx;
+
+    // Per-level active keys (after dynamic reduction)
+    private VKey[] _l2FirstKeys = [];
+    private VKey[] _l2SecondKeys = [];
+    private VKey[] _l3FirstKeys = [];
+    private VKey[] _l3SecondKeys = [];
+
+    // Per-level reduction start offsets (for label rendering)
+    private int _l2HorizStartIndex;
+    private int _l2VertStartIndex;
+    private int _l3HorizStartIndex;
+    private int _l3VertStartIndex;
 
     // State
     public NavigatorState State { get; private set; } = NavigatorState.Idle;
@@ -49,6 +63,7 @@ public sealed class NavigatorStateMachine {
     // Arrow navigation
     private int _arrowIndex;
     private IReadOnlyList<GridCell> _currentLevelCells = [];
+    private int _currentLevelCols;
 
     // Action target — position where next action fires
     private Point _actionPoint;
@@ -68,12 +83,14 @@ public sealed class NavigatorStateMachine {
         VKey[] secondKeys,
         ActionMapper actionMapper,
         NavigationMode navigationMode,
-        int level3Threshold) {
+        int level3Threshold,
+        int minCellPx = 20) {
         _firstKeys = firstKeys;
         _secondKeys = secondKeys;
         _actionMapper = actionMapper;
         _navigationMode = navigationMode;
         _level3Threshold = level3Threshold;
+        _minCellPx = minCellPx;
     }
 
     /// <summary>
@@ -89,6 +106,7 @@ public sealed class NavigatorStateMachine {
         _actionPoint = cursorOrigin;
         _arrowIndex = 0;
         _currentLevelCells = l1Cells;
+        _currentLevelCols = _firstKeys.Length;
         State = NavigatorState.L1_AwaitFirst;
     }
 
@@ -136,6 +154,11 @@ public sealed class NavigatorStateMachine {
         _l2Cells = [];
         _l3Cells = [];
         _currentLevelCells = [];
+        _currentLevelCols = 0;
+        _l2FirstKeys = [];
+        _l2SecondKeys = [];
+        _l3FirstKeys = [];
+        _l3SecondKeys = [];
     }
 
     private void HandleEscape() {
@@ -146,6 +169,7 @@ public sealed class NavigatorStateMachine {
                 var l3Parent = _l2SelectedCell;
                 _l3Cells = [];
                 _currentLevelCells = _l2Cells;
+                _currentLevelCols = _l2FirstKeys.Length;
                 _arrowIndex = 0;
                 _actionPoint = GridCalculator.CenterOf(_l2SelectedCell);
                 State = NavigatorState.L2_AwaitFirst;
@@ -173,6 +197,7 @@ public sealed class NavigatorStateMachine {
 
     private void ResetToL1AwaitFirst() {
         _currentLevelCells = _l1Cells;
+        _currentLevelCols = _firstKeys.Length;
         _arrowIndex = 0;
         _actionPoint = _originPoint;
         State = NavigatorState.L1_AwaitFirst;
@@ -180,11 +205,15 @@ public sealed class NavigatorStateMachine {
     }
 
     private void HandleArrow(VKey vkey) {
-        if (_currentLevelCells.Count == 0 || _firstKeys.Length == 0) {
+        if (_currentLevelCells.Count == 0) {
             return;
         }
 
-        int cols = _firstKeys.Length;
+        int cols = _currentLevelCols;
+        if (cols == 0) {
+            return;
+        }
+
         int total = _currentLevelCells.Count;
 
         _arrowIndex = vkey switch {
@@ -238,19 +267,34 @@ public sealed class NavigatorStateMachine {
         _actionPoint = GridCalculator.CenterOf(cell);
         IReadOnlyList<GridCell> subgridCells = [];
         if (level == 1) {
-            subgridCells = SubgridCalculator.Calculate(cell, _firstKeys.Length, _secondKeys.Length);
-            _l2Cells = subgridCells;
-            _currentLevelCells = subgridCells;
-            _arrowIndex = 0;
-            State = NavigatorState.L2_AwaitFirst;
+            ComputeL2Reduction(cell);
+            if (_l2FirstKeys.Length >= 2 && _l2SecondKeys.Length >= 2) {
+                subgridCells = SubgridCalculator.Calculate(cell, _l2FirstKeys.Length, _l2SecondKeys.Length);
+                _l2Cells = subgridCells;
+                _currentLevelCells = subgridCells;
+                _currentLevelCols = _l2FirstKeys.Length;
+                _arrowIndex = 0;
+                State = NavigatorState.L2_AwaitFirst;
+            } else {
+                _l2Cells = [];
+                State = NavigatorState.L1_AwaitAction;
+            }
         } else if (level == 2) {
             if (SubgridCalculator.ShouldActivateLevel3(cell, _level3Threshold)) {
-                subgridCells = SubgridCalculator.Calculate(cell, _firstKeys.Length, _secondKeys.Length);
-                _l3Cells = subgridCells;
-                _currentLevelCells = subgridCells;
-                _arrowIndex = 0;
-                State = NavigatorState.L3_AwaitFirst;
+                ComputeL3Reduction(cell);
+                if (_l3FirstKeys.Length >= 2 && _l3SecondKeys.Length >= 2) {
+                    subgridCells = SubgridCalculator.Calculate(cell, _l3FirstKeys.Length, _l3SecondKeys.Length);
+                    _l3Cells = subgridCells;
+                    _currentLevelCells = subgridCells;
+                    _currentLevelCols = _l3FirstKeys.Length;
+                    _arrowIndex = 0;
+                    State = NavigatorState.L3_AwaitFirst;
+                } else {
+                    _l3Cells = [];
+                    State = NavigatorState.L2_AwaitAction;
+                }
             } else {
+                _l3Cells = [];
                 State = NavigatorState.L2_AwaitAction;
             }
         }
@@ -297,7 +341,8 @@ public sealed class NavigatorStateMachine {
     }
 
     private void HandleFirstKey(VKey vkey, NavigatorState nextState, IReadOnlyList<GridCell> cells, int level) {
-        int col = Array.IndexOf(_firstKeys, vkey);
+        var activeKeys = GetActiveFirstKeysForLevel(level);
+        int col = Array.IndexOf(activeKeys, vkey);
         if (col < 0) {
             InvalidKeyPressed?.Invoke();
             return;
@@ -309,10 +354,13 @@ public sealed class NavigatorStateMachine {
     }
 
     private void HandleSecondKey(VKey vkey, NavigatorState currentState, NavigatorState nextState, IReadOnlyList<GridCell> cells, int level, ref GridCell selectedCell) {
-        int row = Array.IndexOf(_secondKeys, vkey);
+        var activeFirstKeys = GetActiveFirstKeysForLevel(level);
+        var activeSecondKeys = GetActiveSecondKeysForLevel(level);
+
+        int row = Array.IndexOf(activeSecondKeys, vkey);
         if (row < 0) {
             // Re-entry: if it's a valid first key, restart column selection
-            int col = Array.IndexOf(_firstKeys, vkey);
+            int col = Array.IndexOf(activeFirstKeys, vkey);
             if (col >= 0) {
                 _selectedCol = col;
                 ColumnHighlighted?.Invoke(col, cells, level);
@@ -323,7 +371,7 @@ public sealed class NavigatorStateMachine {
             return;
         }
 
-        int index = row * _firstKeys.Length + _selectedCol;
+        int index = row * activeFirstKeys.Length + _selectedCol;
         if (index >= cells.Count) {
             return;
         }
@@ -337,16 +385,30 @@ public sealed class NavigatorStateMachine {
         // Compute subgrid for next level
         IReadOnlyList<GridCell> subgridCells = [];
         if (level == 1) {
-            subgridCells = SubgridCalculator.Calculate(selectedCell, _firstKeys.Length, _secondKeys.Length);
-            _l2Cells = subgridCells;
-            _currentLevelCells = subgridCells;
-            _arrowIndex = 0;
+            ComputeL2Reduction(selectedCell);
+            if (_l2FirstKeys.Length >= 2 && _l2SecondKeys.Length >= 2) {
+                subgridCells = SubgridCalculator.Calculate(selectedCell, _l2FirstKeys.Length, _l2SecondKeys.Length);
+                _l2Cells = subgridCells;
+                _currentLevelCells = subgridCells;
+                _currentLevelCols = _l2FirstKeys.Length;
+                _arrowIndex = 0;
+            } else {
+                _l2Cells = [];
+            }
         } else if (level == 2) {
             if (SubgridCalculator.ShouldActivateLevel3(selectedCell, _level3Threshold)) {
-                subgridCells = SubgridCalculator.Calculate(selectedCell, _firstKeys.Length, _secondKeys.Length);
-                _l3Cells = subgridCells;
-                _currentLevelCells = subgridCells;
-                _arrowIndex = 0;
+                ComputeL3Reduction(selectedCell);
+                if (_l3FirstKeys.Length >= 2 && _l3SecondKeys.Length >= 2) {
+                    subgridCells = SubgridCalculator.Calculate(selectedCell, _l3FirstKeys.Length, _l3SecondKeys.Length);
+                    _l3Cells = subgridCells;
+                    _currentLevelCells = subgridCells;
+                    _currentLevelCols = _l3FirstKeys.Length;
+                    _arrowIndex = 0;
+                } else {
+                    _l3Cells = [];
+                }
+            } else {
+                _l3Cells = [];
             }
         }
 
@@ -354,12 +416,14 @@ public sealed class NavigatorStateMachine {
     }
 
     private bool TryReselectCell(VKey vkey, IReadOnlyList<GridCell> cells, int level, ref GridCell selectedCell) {
-        int row = Array.IndexOf(_secondKeys, vkey);
+        var activeSecondKeys = GetActiveSecondKeysForLevel(level);
+        int row = Array.IndexOf(activeSecondKeys, vkey);
         if (row < 0) {
             return false;
         }
 
-        int index = row * _firstKeys.Length + _selectedCol;
+        var activeFirstKeys = GetActiveFirstKeysForLevel(level);
+        int index = row * activeFirstKeys.Length + _selectedCol;
         if (index >= cells.Count) {
             return false;
         }
@@ -384,13 +448,15 @@ public sealed class NavigatorStateMachine {
             return;
         }
 
-        int col = Array.IndexOf(_firstKeys, vkey);
+        var activeFirstKeys = GetActiveFirstKeysForLevel(nextLevel);
+        int col = Array.IndexOf(activeFirstKeys, vkey);
         if (col < 0) {
             InvalidKeyPressed?.Invoke();
             return;
         }
 
         _currentLevelCells = cells;
+        _currentLevelCols = activeFirstKeys.Length;
         _arrowIndex = 0;
         _selectedCol = col;
 
@@ -426,4 +492,47 @@ public sealed class NavigatorStateMachine {
 
     private static bool IsArrowKey(VKey vkey) =>
         vkey is VKey.Left or VKey.Right or VKey.Up or VKey.Down;
+
+    /// <summary>Returns the active first keys for the current state's level.</summary>
+    private VKey[] GetActiveFirstKeys() => State switch {
+        NavigatorState.L2_AwaitFirst or NavigatorState.L2_AwaitSecond or NavigatorState.L2_AwaitAction => _l2FirstKeys,
+        NavigatorState.L3_AwaitFirst or NavigatorState.L3_AwaitSecond or NavigatorState.L3_AwaitAction => _l3FirstKeys,
+        _ => _firstKeys,
+    };
+
+    private VKey[] GetActiveFirstKeysForLevel(int level) => level switch {
+        2 => _l2FirstKeys,
+        3 => _l3FirstKeys,
+        _ => _firstKeys,
+    };
+
+    private VKey[] GetActiveSecondKeysForLevel(int level) => level switch {
+        2 => _l2SecondKeys,
+        3 => _l3SecondKeys,
+        _ => _secondKeys,
+    };
+
+    private void ComputeL2Reduction(GridCell parentCell) {
+        var horizReduction = DynamicKeyReducer.ComputeActiveKeys(
+            _firstKeys, parentCell.Bounds.Width, _minCellPx, hasCenterCell: false);
+        var vertReduction = DynamicKeyReducer.ComputeActiveKeys(
+            _secondKeys, parentCell.Bounds.Height, _minCellPx, hasCenterCell: false);
+
+        _l2FirstKeys = horizReduction.ActiveKeys;
+        _l2SecondKeys = vertReduction.ActiveKeys;
+        _l2HorizStartIndex = horizReduction.OriginalStartIndex;
+        _l2VertStartIndex = vertReduction.OriginalStartIndex;
+    }
+
+    private void ComputeL3Reduction(GridCell parentCell) {
+        var horizReduction = DynamicKeyReducer.ComputeActiveKeys(
+            _l2FirstKeys, parentCell.Bounds.Width, _minCellPx, hasCenterCell: false);
+        var vertReduction = DynamicKeyReducer.ComputeActiveKeys(
+            _l2SecondKeys, parentCell.Bounds.Height, _minCellPx, hasCenterCell: false);
+
+        _l3FirstKeys = horizReduction.ActiveKeys;
+        _l3SecondKeys = vertReduction.ActiveKeys;
+        _l3HorizStartIndex = horizReduction.OriginalStartIndex;
+        _l3VertStartIndex = vertReduction.OriginalStartIndex;
+    }
 }

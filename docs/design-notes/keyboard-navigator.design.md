@@ -280,7 +280,7 @@ Per-axis label generator for Crosshair/LogCrosshair modes. Maps VKey array indic
 
 ### `CrossArrowNavigator`
 
-Stateless helper for cross-arm traversal. Moves along center row (Left/Right) or center column (Up/Down) only. Axis switch only at center cell. Wrapping at arm ends.
+Stateless helper for crosshair/log-crosshair arrow navigation. Free 2D movement: Left/Right change column, Up/Down change row, independently from any position. Wrapping at grid edges. State gating (arrows only in `AwaitInput`) is handled by the calling state machine, not this helper.
 
 ### Multi-monitor Non-Goal
 

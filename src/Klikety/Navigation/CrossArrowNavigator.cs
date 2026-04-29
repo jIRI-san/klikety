@@ -3,45 +3,25 @@ using Klikety.Input;
 namespace Klikety.Navigation;
 
 /// <summary>
-/// Arrow navigator for crosshair grids. Traverses center row and center column only.
-/// Axis switch only at center cell. Wrapping at arm ends.
+/// Arrow navigator for crosshair grids. Free 2D movement:
+/// Left/Right change column (wrapping), Up/Down change row (wrapping), independently.
 /// </summary>
 public static class CrossArrowNavigator {
     /// <summary>
-    /// Moves along the cross arms. Returns new (row, col) position.
-    /// From center: all directions work. From non-center: only along the current arm.
+    /// Moves to a new (row, col) position. Left/Right change column,
+    /// Up/Down change row, each with wrapping. Movement is unrestricted —
+    /// works from any position, not just center row/col.
     /// </summary>
     public static (int Row, int Col) Move(
         VKey arrowKey, int currentRow, int currentCol,
-        int centerRow, int centerCol, int totalRows, int totalCols) {
+        int centerRow, int centerCol, // Retained for API compatibility; unused after free-2D rewrite
+        int totalRows, int totalCols) {
         return arrowKey switch {
-            VKey.Left => MoveHorizontal(currentRow, currentCol, centerRow, totalCols, -1),
-            VKey.Right => MoveHorizontal(currentRow, currentCol, centerRow, totalCols, +1),
-            VKey.Up => MoveVertical(currentRow, currentCol, centerCol, totalRows, -1),
-            VKey.Down => MoveVertical(currentRow, currentCol, centerCol, totalRows, +1),
+            VKey.Left => (currentRow, (currentCol - 1 + totalCols) % totalCols),
+            VKey.Right => (currentRow, (currentCol + 1) % totalCols),
+            VKey.Up => ((currentRow - 1 + totalRows) % totalRows, currentCol),
+            VKey.Down => ((currentRow + 1) % totalRows, currentCol),
             _ => (currentRow, currentCol),
         };
-    }
-
-    private static (int Row, int Col) MoveHorizontal(
-        int row, int col, int centerRow, int totalCols, int direction) {
-        // Can only move horizontally if on center row
-        if (row != centerRow) {
-            return (row, col);
-        }
-
-        int newCol = (col + direction + totalCols) % totalCols;
-        return (centerRow, newCol);
-    }
-
-    private static (int Row, int Col) MoveVertical(
-        int row, int col, int centerCol, int totalRows, int direction) {
-        // Can only move vertically if on center column
-        if (col != centerCol) {
-            return (row, col);
-        }
-
-        int newRow = (row + direction + totalRows) % totalRows;
-        return (newRow, centerCol);
     }
 }

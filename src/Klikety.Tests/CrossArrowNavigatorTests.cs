@@ -36,7 +36,7 @@ public class CrossArrowNavigatorTests {
         Assert.Equal((4, CenterCol), (r, c));
     }
 
-    // --- From center row (non-center col): only left/right ---
+    // --- From center row (non-center col): all directions work ---
 
     [Fact]
     public void OnCenterRow_OffCenter_RightWorks() {
@@ -45,19 +45,18 @@ public class CrossArrowNavigatorTests {
     }
 
     [Fact]
-    public void OnCenterRow_OffCenter_UpBlocked() {
+    public void OnCenterRow_OffCenter_UpMoves() {
         var (r, c) = CrossArrowNavigator.Move(VKey.Up, CenterRow, 7, CenterRow, CenterCol, TotalRows, TotalCols);
-        // Not on center col → blocked
-        Assert.Equal((CenterRow, 7), (r, c));
+        Assert.Equal((CenterRow - 1, 7), (r, c));
     }
 
     [Fact]
-    public void OnCenterRow_OffCenter_DownBlocked() {
+    public void OnCenterRow_OffCenter_DownMoves() {
         var (r, c) = CrossArrowNavigator.Move(VKey.Down, CenterRow, 7, CenterRow, CenterCol, TotalRows, TotalCols);
-        Assert.Equal((CenterRow, 7), (r, c));
+        Assert.Equal((CenterRow + 1, 7), (r, c));
     }
 
-    // --- From center col (non-center row): only up/down ---
+    // --- From center col (non-center row): all directions work ---
 
     [Fact]
     public void OnCenterCol_OffCenter_DownWorks() {
@@ -66,16 +65,15 @@ public class CrossArrowNavigatorTests {
     }
 
     [Fact]
-    public void OnCenterCol_OffCenter_LeftBlocked() {
+    public void OnCenterCol_OffCenter_LeftMoves() {
         var (r, c) = CrossArrowNavigator.Move(VKey.Left, 3, CenterCol, CenterRow, CenterCol, TotalRows, TotalCols);
-        // Not on center row → blocked
-        Assert.Equal((3, CenterCol), (r, c));
+        Assert.Equal((3, CenterCol - 1), (r, c));
     }
 
     [Fact]
-    public void OnCenterCol_OffCenter_RightBlocked() {
+    public void OnCenterCol_OffCenter_RightMoves() {
         var (r, c) = CrossArrowNavigator.Move(VKey.Right, 3, CenterCol, CenterRow, CenterCol, TotalRows, TotalCols);
-        Assert.Equal((3, CenterCol), (r, c));
+        Assert.Equal((3, CenterCol + 1), (r, c));
     }
 
     // --- Wrapping at edges ---
@@ -104,17 +102,15 @@ public class CrossArrowNavigatorTests {
         Assert.Equal((TotalRows - 1, CenterCol), (r, c));
     }
 
-    // --- Non-cross cell: all directions blocked ---
+    // --- Off-cross cell: all directions work (free 2D) ---
 
     [Fact]
-    public void OffCross_AllBlocked() {
-        // Position (2, 8) — neither center row nor center col
-        var pos = (Row: 2, Col: 8);
-
-        Assert.Equal(pos, CrossArrowNavigator.Move(VKey.Left, pos.Row, pos.Col, CenterRow, CenterCol, TotalRows, TotalCols));
-        Assert.Equal(pos, CrossArrowNavigator.Move(VKey.Right, pos.Row, pos.Col, CenterRow, CenterCol, TotalRows, TotalCols));
-        Assert.Equal(pos, CrossArrowNavigator.Move(VKey.Up, pos.Row, pos.Col, CenterRow, CenterCol, TotalRows, TotalCols));
-        Assert.Equal(pos, CrossArrowNavigator.Move(VKey.Down, pos.Row, pos.Col, CenterRow, CenterCol, TotalRows, TotalCols));
+    public void OffCross_AllDirectionsWork() {
+        // Position (2, 8) — neither center row nor center col — still moves freely
+        Assert.Equal((2, 7), CrossArrowNavigator.Move(VKey.Left, 2, 8, CenterRow, CenterCol, TotalRows, TotalCols));
+        Assert.Equal((2, 9), CrossArrowNavigator.Move(VKey.Right, 2, 8, CenterRow, CenterCol, TotalRows, TotalCols));
+        Assert.Equal((1, 8), CrossArrowNavigator.Move(VKey.Up, 2, 8, CenterRow, CenterCol, TotalRows, TotalCols));
+        Assert.Equal((3, 8), CrossArrowNavigator.Move(VKey.Down, 2, 8, CenterRow, CenterCol, TotalRows, TotalCols));
     }
 
     // --- Unknown key returns same position ---

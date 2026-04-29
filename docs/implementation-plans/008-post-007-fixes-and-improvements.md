@@ -57,7 +57,7 @@
 ## Phase 3: Crosshair Arrow Nav + Visual Re-render
 <!-- worktree: -->
 
-- [ ] 3.1 Rewrite `CrossArrowNavigator.Move()`: remove center-row/center-col restriction. Left/Right change column (wrapping), Up/Down change row (wrapping), independently. Return new `(row, col)` as intersection. Keep same method signature — behavior change only. Both `CrosshairStateMachine` and `LogCrosshairStateMachine` get new behavior immediately. (REQ-3, RISK-1, RISK-6) `S`
+- [~] 3.1 Rewrite `CrossArrowNavigator.Move()`: remove center-row/center-col restriction. Left/Right change column (wrapping), Up/Down change row (wrapping), independently. Return new `(row, col)` as intersection. Keep same method signature — behavior change only. Both `CrosshairStateMachine` and `LogCrosshairStateMachine` get new behavior immediately. (REQ-3, RISK-1, RISK-6) `S`
 - [ ] 3.2 Update `CrossArrowNavigatorTests`: test free 2D movement — from any cell, all 4 directions work. Test wrapping at edges. Remove old center-restriction tests. (REQ-3) [after: 3.1] `S`
 - [ ] 3.3 `CrosshairStateMachine` + `CrosshairRenderer`: on `HorizSelected`, render vertical labels at selected column (not center). On `VertSelected`, render horizontal labels at selected row. Arrow nav (only in `AwaitInput`) fires `CursorMoveRequested` to intersection cell center + re-renders cross at new position. Arrows disabled after any axis key pressed (state gate: `AwaitInput` only). (REQ-3, REQ-4, RISK-1) [after: 3.1] `M`
 - [ ] 3.4 Unit tests: `CrosshairSessionTests` — verify renderer receives correct column/row positions on axis selection. Verify arrow nav triggers re-render at shifted position. Verify arrow key ignored in `HorizSet`/`VertSet` states. (REQ-3, REQ-4) [after: 3.3] `S`

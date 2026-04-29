@@ -170,7 +170,7 @@
   - **Deferred deactivation**: unconditional safety layer always runs; session teardown deferred during `_switching`
   - Migrate all screen-bounds/cursor calls to new providers
 
-- [ ] 2.4 Dynamic key reduction [after: 1.4] `M`
+- [x] 2.4 Dynamic key reduction [after: 1.4] `M`
   - `DynamicKeyReducer.ComputeActiveKeys(VKey[] fullKeys, int parentExtentPx, int minCellPx, bool hasCenterCell) → DynamicKeyReduction`
   - `record DynamicKeyReduction(VKey[] ActiveKeys, int OriginalStartIndex)`
   - Algorithm: `maxCells = parentExtentPx / minCellPx`; `maxKeys = hasCenterCell ? maxCells - 1 : maxCells`; Crosshair: round to even; take centered subset

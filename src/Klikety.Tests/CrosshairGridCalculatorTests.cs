@@ -204,4 +204,16 @@ public class CrosshairGridCalculatorTests {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             CrosshairGridCalculator.Calculate(new Rectangle(0, 0, 100, 100), 5, 0));
     }
+
+    [Fact]
+    public void ZeroWidthBounds_Throws() {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            CrosshairGridCalculator.Calculate(new Rectangle(0, 0, 0, 100), 5, 5));
+    }
+
+    [Fact]
+    public void NegativeHeightBounds_Throws() {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            CrosshairGridCalculator.Calculate(new Rectangle(0, 0, 100, -10), 5, 5));
+    }
 }

@@ -158,7 +158,7 @@
   - Output: `IModeSession` — switch on mode name
   - UniformGrid now; Crosshair/LogCrosshair stubs until Phases 3/4
 
-- [ ] 2.3 Chord dispatch + debounce + guardrails [after: 2.2] `L`
+- [x] 2.3 Chord dispatch + debounce + guardrails [after: 2.2] `L`
   - **New abstractions** grouped in `IPlatformServices`: `IKeyStateProvider` (wraps `GetAsyncKeyState`), `ITimerFactory` (returns `ITimer` with `Start(TimeSpan)`, `Stop()`, `Elapsed`), `ICursorPositionProvider` (wraps `GetCursorPos`), `IScreenBoundsProvider` (wraps `GetPrimaryScreenBounds`), `IKeyboardLayoutProvider` (wraps `GetKeyboardLayout`)
   - **Multi-monitor guardrail**: cursor outside primary → suppress + tray notification
   - **Debounce**: populate `_debounceKeys` BEFORE hook enable; 500ms timeout reconciles via `IKeyStateProvider`; trigger-key fast removal

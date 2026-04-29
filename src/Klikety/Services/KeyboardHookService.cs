@@ -15,6 +15,8 @@ public sealed class KeyboardHookService : IKeyboardHookService {
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYDOWN = 0x0100;
     private const int WM_SYSKEYDOWN = 0x0104;
+    private const int WM_KEYUP = 0x0101;
+    private const int WM_SYSKEYUP = 0x0105;
 
     private delegate nint LowLevelKeyboardProc(int nCode, nint wParam, nint lParam);
 
@@ -35,7 +37,7 @@ public sealed class KeyboardHookService : IKeyboardHookService {
     private LowLevelKeyboardProc? _hookProc; // prevent GC
     private readonly Dispatcher _dispatcher;
 
-    public event EventHandler<VKey>? KeyPressed;
+    public event EventHandler<KeyHookEventArgs>? KeyEvent;
 
     public KeyboardHookService() {
         _dispatcher = Dispatcher.CurrentDispatcher;
@@ -63,12 +65,15 @@ public sealed class KeyboardHookService : IKeyboardHookService {
     }
 
     private nint HookCallback(int nCode, nint wParam, nint lParam) {
-        if (nCode >= 0 && (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN)) {
-            // Zero-allocation: read only vkCode (first field) instead of marshalling the full struct
-            var vkey = (VKey)(uint)Marshal.ReadInt32(lParam);
+        if (nCode >= 0) {
+            bool isDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
+            bool isUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
 
-            // Post to UI thread — no blocking work in hook callback
-            _dispatcher.InvokeAsync(() => KeyPressed?.Invoke(this, vkey));
+            if (isDown || isUp) {
+                var vkey = (VKey)(uint)Marshal.ReadInt32(lParam);
+                var args = new KeyHookEventArgs(vkey, isDown);
+                _dispatcher.InvokeAsync(() => KeyEvent?.Invoke(this, args));
+            }
         }
 
         return CallNextHookEx(_hookId, nCode, wParam, lParam);

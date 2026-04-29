@@ -51,7 +51,7 @@ public sealed partial class NavigatorCoordinator {
         _logger = logger;
 
         _hotKeyService.Activated += OnHotKeyActivated;
-        _hookService.KeyPressed += OnKeyPressed;
+        _hookService.KeyEvent += OnKeyEvent;
         _overlayWindow.FocusLost += OnFocusLost;
 
         _stateMachine.ColumnHighlighted += OnColumnHighlighted;
@@ -91,7 +91,12 @@ public sealed partial class NavigatorCoordinator {
         _gridRenderer?.RenderGrid(_l1Cells);
     }
 
-    private void OnKeyPressed(object? sender, Input.VKey vkey) {
+    private void OnKeyEvent(object? sender, Services.KeyHookEventArgs e) {
+        if (!e.IsDown) {
+            return; // key-up: no action yet (debounce removal will be added in step 2.3)
+        }
+
+        var vkey = e.Key;
         var stateBefore = _stateMachine.State;
         LogKeyPressed(vkey, stateBefore);
         _stateMachine.OnKey(vkey);

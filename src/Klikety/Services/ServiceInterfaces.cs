@@ -14,10 +14,15 @@ public interface IHotKeyService : IDisposable {
 }
 
 /// <summary>
+/// Event data for keyboard hook events, carrying both the key and direction.
+/// </summary>
+public record KeyHookEventArgs(VKey Key, bool IsDown);
+
+/// <summary>
 /// Abstracts low-level keyboard hook for overlay key capture.
 /// </summary>
 public interface IKeyboardHookService {
-    event EventHandler<VKey>? KeyPressed;
+    event EventHandler<KeyHookEventArgs>? KeyEvent;
     bool Enable();
     void Disable();
 }

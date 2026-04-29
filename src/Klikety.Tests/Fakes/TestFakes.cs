@@ -16,7 +16,7 @@ public sealed class FakeKeyLabelResolver : IKeyLabelResolver {
 }
 
 public sealed class FakeKeyboardHookService : IKeyboardHookService {
-    public event EventHandler<VKey>? KeyPressed;
+    public event EventHandler<KeyHookEventArgs>? KeyEvent;
     public bool IsEnabled { get; private set; }
     public bool ShouldFailOnEnable { get; set; }
 
@@ -33,9 +33,16 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
         IsEnabled = false;
     }
 
-    public void SimulateKey(VKey vkey) {
-        KeyPressed?.Invoke(this, vkey);
+    public void SimulateKeyDown(VKey vkey) {
+        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, true));
     }
+
+    public void SimulateKeyUp(VKey vkey) {
+        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, false));
+    }
+
+    /// <summary>Convenience: simulates key-down (backward compat for existing tests).</summary>
+    public void SimulateKey(VKey vkey) => SimulateKeyDown(vkey);
 }
 
 public sealed class FakeMouseActionService : IMouseActionService {

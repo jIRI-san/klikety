@@ -113,6 +113,32 @@ public class CrossArrowNavigatorTests {
         Assert.Equal((3, 8), CrossArrowNavigator.Move(VKey.Down, 2, 8, CenterRow, CenterCol, TotalRows, TotalCols));
     }
 
+    // --- Wrapping from off-cross positions ---
+
+    [Fact]
+    public void OffCross_Left_WrapsAtCol0() {
+        var (r, c) = CrossArrowNavigator.Move(VKey.Left, 2, 0, CenterRow, CenterCol, TotalRows, TotalCols);
+        Assert.Equal((2, TotalCols - 1), (r, c));
+    }
+
+    [Fact]
+    public void OffCross_Right_WrapsAtLastCol() {
+        var (r, c) = CrossArrowNavigator.Move(VKey.Right, 2, TotalCols - 1, CenterRow, CenterCol, TotalRows, TotalCols);
+        Assert.Equal((2, 0), (r, c));
+    }
+
+    [Fact]
+    public void OffCross_Up_WrapsAtRow0() {
+        var (r, c) = CrossArrowNavigator.Move(VKey.Up, 0, 8, CenterRow, CenterCol, TotalRows, TotalCols);
+        Assert.Equal((TotalRows - 1, 8), (r, c));
+    }
+
+    [Fact]
+    public void OffCross_Down_WrapsAtLastRow() {
+        var (r, c) = CrossArrowNavigator.Move(VKey.Down, TotalRows - 1, 8, CenterRow, CenterCol, TotalRows, TotalCols);
+        Assert.Equal((0, 8), (r, c));
+    }
+
     // --- Unknown key returns same position ---
 
     [Fact]

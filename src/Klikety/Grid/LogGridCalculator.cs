@@ -158,10 +158,14 @@ public static class LogGridCalculator {
     /// Returns 1.0 when available ≤ uniform sum (ratio would be ≤ 1).
     /// </summary>
     static double FindSideRatio(double available, int baseSize, int cellCount) {
-        if (cellCount == 0 || baseSize <= 0) return 1.0;
+        if (cellCount == 0 || baseSize <= 0) {
+            return 1.0;
+        }
 
         double uniformSum = (double)baseSize * cellCount;
-        if (available <= uniformSum) return 1.0;
+        if (available <= uniformSum) {
+            return 1.0;
+        }
 
         // Binary search for ratio > 1
         double lo = 1.0;
@@ -170,8 +174,11 @@ public static class LogGridCalculator {
         for (int i = 0; i < 100; i++) {
             double mid = (lo + hi) / 2.0;
             double sum = GeometricSum(baseSize, mid, cellCount);
-            if (sum < available) lo = mid;
-            else hi = mid;
+            if (sum < available) {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
         }
 
         return (lo + hi) / 2.0;
@@ -181,7 +188,10 @@ public static class LogGridCalculator {
     /// Computes baseSize · (r + r² + … + r^count) = baseSize · r · (r^count − 1) / (r − 1).
     /// </summary>
     static double GeometricSum(double baseSize, double ratio, int count) {
-        if (Math.Abs(ratio - 1.0) < 1e-10) return baseSize * count;
+        if (Math.Abs(ratio - 1.0) < 1e-10) {
+            return baseSize * count;
+        }
+
         return baseSize * ratio * (Math.Pow(ratio, count) - 1.0) / (ratio - 1.0);
     }
 }

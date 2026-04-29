@@ -76,7 +76,10 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
         for (int row = 0; row < grid.Rows; row++) {
             for (int col = 0; col < grid.Cols; col++) {
-                if (grid.IsDegenerate(row, col)) continue;
+                if (grid.IsDegenerate(row, col)) {
+                    continue;
+                }
+
                 var dipRect = DipRect(grid.CellAt(row, col));
                 bool onCross = grid.IsOnCross(row, col);
 
@@ -98,7 +101,10 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
         for (int row = 0; row < grid.Rows; row++) {
             for (int c = 0; c < grid.Cols; c++) {
-                if (grid.IsDegenerate(row, c)) continue;
+                if (grid.IsDegenerate(row, c)) {
+                    continue;
+                }
+
                 var dipRect = DipRect(grid.CellAt(row, c));
                 bool onCross = grid.IsOnCross(row, c);
                 bool isHighlightCol = c == col;
@@ -127,7 +133,10 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
         for (int r = 0; r < grid.Rows; r++) {
             for (int col = 0; col < grid.Cols; col++) {
-                if (grid.IsDegenerate(r, col)) continue;
+                if (grid.IsDegenerate(r, col)) {
+                    continue;
+                }
+
                 var dipRect = DipRect(grid.CellAt(r, col));
                 bool onCross = grid.IsOnCross(r, col);
                 bool isHighlightRow = r == row;
@@ -156,7 +165,10 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
         for (int r = 0; r < grid.Rows; r++) {
             for (int c = 0; c < grid.Cols; c++) {
-                if (grid.IsDegenerate(r, c)) continue;
+                if (grid.IsDegenerate(r, c)) {
+                    continue;
+                }
+
                 var dipRect = DipRect(grid.CellAt(r, c));
                 bool onCross = grid.IsOnCross(r, c);
                 bool isTarget = r == cell.Row && c == cell.Col;
@@ -222,7 +234,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     }
 
     void UseRect(Rect dipRect, Brush fill, Brush stroke, double strokeThickness = -1) {
-        if (strokeThickness < 0) strokeThickness = _theme.CellBorderThickness;
+        if (strokeThickness < 0) {
+            strokeThickness = _theme.CellBorderThickness;
+        }
 
         Rectangle rect;
         if (_nextRect < _rectPool.Count) {
@@ -247,7 +261,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     void UseCrossLabel(Rect dipRect, int row, int col, LogCrosshairGrid grid,
         Brush foreground, double opacity = 1.0) {
         string? label = GetCrossLabel(row, col, grid);
-        if (label is null) return;
+        if (label is null) {
+            return;
+        }
 
         double fontSize = ComputeAutoFontSize(dipRect.Width, dipRect.Height);
         var ft = new FormattedText(label, System.Globalization.CultureInfo.CurrentCulture,
@@ -294,7 +310,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     // --- Helpers ---
 
     void EnsureTransform() {
-        if (_transformInitialized) return;
+        if (_transformInitialized) {
+            return;
+        }
 
         var source = PresentationSource.FromVisual(_canvas);
         if (source?.CompositionTarget != null) {
@@ -314,7 +332,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         bool onCenterRow = row == grid.CenterRow;
         bool onCenterCol = col == grid.CenterCol;
 
-        if (onCenterRow && onCenterCol) return "\u2022";
+        if (onCenterRow && onCenterCol) {
+            return "\u2022";
+        }
 
         if (onCenterRow) {
             int keyIndex = col < grid.CenterCol ? col : col - 1;

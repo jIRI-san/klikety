@@ -192,7 +192,7 @@
   - Center cell at `(vertKeys/2, horizKeys/2)`
   - For L2/L3: parent cell bounds + reduced key counts from `DynamicKeyReducer`
 
-- [ ] 3.2 `CrosshairStateMachine` + `CrosshairSession` [after: 3.1, 2.4] `L`
+- [x] 3.2 `CrosshairStateMachine` + `CrosshairSession` [after: 3.1, 2.4] `L`
   - States: `Idle`, `AwaitInput`, `HorizSet`, `VertSet`, `L2_*`, `L3_*`
   - Axis keys from mode config `horizontalKeys`/`verticalKeys`
   - Key offset formula: `offset = i < keysPerSide ? i - keysPerSide : i - keysPerSide + 1` (where `keysPerSide = keys.Length / 2`)

@@ -237,3 +237,27 @@ public sealed class FakeCrosshairRenderer : ICrosshairRenderer {
     public void FlashInvalidKey()
         => Calls.Add(new("FlashInvalidKey"));
 }
+
+public sealed class FakeLogCrosshairRenderer : ILogCrosshairRenderer {
+    public record RenderCall(string Method, LogCrosshairGrid? Grid = null,
+        int? Col = null, int? Row = null, GridCell? Cell = null);
+
+    public List<RenderCall> Calls { get; } = [];
+
+    public void SetTransform(System.Windows.Media.Matrix m) { }
+
+    public void RenderCross(LogCrosshairGrid grid)
+        => Calls.Add(new("RenderCross", grid));
+
+    public void HighlightColumn(LogCrosshairGrid grid, int col)
+        => Calls.Add(new("HighlightColumn", grid, Col: col));
+
+    public void HighlightRow(LogCrosshairGrid grid, int row)
+        => Calls.Add(new("HighlightRow", grid, Row: row));
+
+    public void HighlightCell(LogCrosshairGrid grid, GridCell cell)
+        => Calls.Add(new("HighlightCell", grid, Cell: cell));
+
+    public void FlashInvalidKey()
+        => Calls.Add(new("FlashInvalidKey"));
+}

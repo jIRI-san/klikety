@@ -72,3 +72,17 @@ public interface ICrosshairRenderer {
     void RenderSubgridCross(CrosshairGrid parentGrid, CrosshairGrid subgrid, GridCell parentCell);
     void FlashInvalidKey();
 }
+
+/// <summary>
+/// Abstracts log-crosshair-mode rendering for testability.
+/// No subgrid support (flat, no L2/L3). Designed for frequent re-renders
+/// with element pooling.
+/// </summary>
+public interface ILogCrosshairRenderer {
+    void SetTransform(System.Windows.Media.Matrix transformFromDevice);
+    void RenderCross(LogCrosshairGrid grid);
+    void HighlightColumn(LogCrosshairGrid grid, int col);
+    void HighlightRow(LogCrosshairGrid grid, int row);
+    void HighlightCell(LogCrosshairGrid grid, GridCell cell);
+    void FlashInvalidKey();
+}

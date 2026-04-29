@@ -282,16 +282,31 @@ public class CrosshairStateMachineTests {
     }
 
     [Fact]
-    public void Escape_FromBothSet_ClearsToHorizSet() {
+    public void Escape_FromBothSet_ClearsLastSetAxis_HorizFirst() {
         var sm = CreateSM();
         sm.Activate(CreateGrid(), new Point(550, 550));
 
-        sm.OnKey(VKey.A);
-        sm.OnKey(VKey.Q);
+        sm.OnKey(VKey.A); // horiz first
+        sm.OnKey(VKey.Q); // vert second (last set)
         Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
 
         sm.OnKey(VKey.Escape);
+        // LIFO: vert was last set → clears vert → keeps horiz
         Assert.Equal(CrosshairStateMachine.State.HorizSet, sm.CurrentState);
+    }
+
+    [Fact]
+    public void Escape_FromBothSet_ClearsLastSetAxis_VertFirst() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+
+        sm.OnKey(VKey.Q); // vert first
+        sm.OnKey(VKey.A); // horiz second (last set)
+        Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
+
+        sm.OnKey(VKey.Escape);
+        // LIFO: horiz was last set → clears horiz → keeps vert
+        Assert.Equal(CrosshairStateMachine.State.VertSet, sm.CurrentState);
     }
 
     // --- Action key ---
@@ -307,7 +322,7 @@ public class CrosshairStateMachineTests {
 
         sm.OnKey(VKey.Space);
 
-        Assert.NotNull(actionPoint);
+        Assert.Equal(new Point(550, 550), actionPoint);
         Assert.Equal(MouseAction.LeftClick, actionType);
     }
 
@@ -404,5 +419,50 @@ public class CrosshairStateMachineTests {
         sm.Reset();
 
         Assert.Equal(CrosshairStateMachine.State.Idle, sm.CurrentState);
+    }
+
+    // --- Enter after arrow navigation (#3) ---
+
+    [Fact]
+    public void Enter_AfterArrowNav_UsesArrowPosition() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        GridCell? parentCell = null;
+        sm.SubgridEntered += (cell, _) => parentCell = cell;
+
+        // Move right from center (5,5) → (5,6)
+        sm.OnKey(VKey.Right);
+        sm.OnKey(VKey.Return);
+
+        Assert.NotNull(parentCell);
+        Assert.Equal(5, parentCell.Value.Row); // center row
+        Assert.Equal(6, parentCell.Value.Col); // one right of center
+    }
+
+    // --- EnterSubgrid disabled path (#4) ---
+
+    [Fact]
+    public void Enter_CellTooSmallForSubgrid_FiresActionInstead() {
+        var actionMapper = new ActionMapper(new Dictionary<string, MouseAction>());
+        // minCellPx = 2000 ensures any sub-cell would be too small
+        var sm = new CrosshairStateMachine(HorizKeys, VertKeys, actionMapper, true, minCellPx: 2000);
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        Point? actionPoint = null;
+        MouseAction? actionType = null;
+        sm.ActionRequested += (pt, act) => { actionPoint = pt; actionType = act; };
+
+        GridCell? subgridCell = null;
+        sm.SubgridEntered += (cell, _) => subgridCell = cell;
+
+        sm.OnKey(VKey.Return);
+
+        // Subgrid disabled → fires action instead
+        Assert.Null(subgridCell);
+        Assert.NotNull(actionPoint);
+        Assert.Equal(MouseAction.LeftClick, actionType);
     }
 }

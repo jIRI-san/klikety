@@ -17,6 +17,14 @@ public static class CrosshairGridCalculator {
     /// <param name="horizKeyCount">Number of horizontal axis keys.</param>
     /// <param name="vertKeyCount">Number of vertical axis keys.</param>
     public static CrosshairGrid Calculate(Rectangle bounds, int horizKeyCount, int vertKeyCount) {
+        if (bounds.Width <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(bounds), "Width must be positive.");
+        }
+
+        if (bounds.Height <= 0) {
+            throw new ArgumentOutOfRangeException(nameof(bounds), "Height must be positive.");
+        }
+
         if (horizKeyCount <= 0) {
             throw new ArgumentOutOfRangeException(nameof(horizKeyCount));
         }

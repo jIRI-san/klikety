@@ -24,6 +24,7 @@ public sealed class CrosshairStateMachine {
     private int _arrowRow;
     private int _arrowCol;
     private Point _actionPoint;
+    private bool _lastSetWasHoriz; // tracks which axis was set last (for Escape from BothSet)
 
     // Key lookup tables (VKey → index in axis array)
     private readonly Dictionary<VKey, int> _horizKeyMap = [];
@@ -46,6 +47,14 @@ public sealed class CrosshairStateMachine {
     public CrosshairStateMachine(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
         bool arrowKeysEnabled, int minCellPx = 5) {
+        if (horizKeys.Length > 52) {
+            throw new ArgumentOutOfRangeException(nameof(horizKeys), "Maximum 52 axis keys supported.");
+        }
+
+        if (vertKeys.Length > 52) {
+            throw new ArgumentOutOfRangeException(nameof(vertKeys), "Maximum 52 axis keys supported.");
+        }
+
         _horizKeys = horizKeys;
         _vertKeys = vertKeys;
         _actionMapper = actionMapper;
@@ -125,6 +134,7 @@ public sealed class CrosshairStateMachine {
 
     private void HandleHorizKey(int keyIndex) {
         _horizIndex = keyIndex;
+        _lastSetWasHoriz = true;
 
         // Column in grid: keys map to columns, skipping center column
         // Key index < centerCol → col = keyIndex
@@ -149,6 +159,7 @@ public sealed class CrosshairStateMachine {
 
     private void HandleVertKey(int keyIndex) {
         _vertIndex = keyIndex;
+        _lastSetWasHoriz = false;
 
         int row = KeyIndexToRow(keyIndex, _grid!.CenterRow);
 
@@ -175,8 +186,8 @@ public sealed class CrosshairStateMachine {
 
         switch (CurrentState) {
             case State.AwaitInput:
-                // No axis set → center cell → enter subgrid
-                EnterSubgrid(_grid.CenterCell);
+                // No axis set → use arrow-navigated position (defaults to center)
+                EnterSubgrid(_grid.CellAt(_arrowRow, _arrowCol));
                 break;
 
             case State.HorizSet: {
@@ -224,15 +235,22 @@ public sealed class CrosshairStateMachine {
             cell.Bounds, hReduction.ActiveKeys.Length, vReduction.ActiveKeys.Length);
 
         _actionPoint = CrosshairGridCalculator.CenterOf(cell);
+        // TODO: step 3.5 — push L2/L3 session onto level stack for recursive subgrid navigation
         SubgridEntered?.Invoke(cell, subgrid);
     }
 
     private void HandleEscape() {
         switch (CurrentState) {
             case State.BothSet:
-                // Clear second axis (keep first)
-                if (_vertIndex >= 0 && _horizIndex >= 0) {
-                    // Clear the most recently set — we default to clearing vert
+                // Clear the most recently set axis (LIFO undo)
+                if (_lastSetWasHoriz) {
+                    _horizIndex = -1;
+                    int row = KeyIndexToRow(_vertIndex, _grid!.CenterRow);
+                    var cell = _grid.CellAt(row, _grid.CenterCol);
+                    _actionPoint = CrosshairGridCalculator.CenterOf(cell);
+                    CurrentState = State.VertSet;
+                    VertSelected?.Invoke(row, _vertIndex);
+                } else {
                     _vertIndex = -1;
                     int col = KeyIndexToCol(_horizIndex, _grid!.CenterCol);
                     var cell = _grid.CellAt(_grid.CenterRow, col);

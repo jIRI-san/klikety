@@ -14,57 +14,34 @@ public static class CrossArrowNavigator {
     public static (int Row, int Col) Move(
         VKey arrowKey, int currentRow, int currentCol,
         int centerRow, int centerCol, int totalRows, int totalCols) {
-        bool atCenter = currentRow == centerRow && currentCol == centerCol;
-
         return arrowKey switch {
-            VKey.Left => MoveLeft(currentRow, currentCol, centerRow, centerCol, totalCols, atCenter),
-            VKey.Right => MoveRight(currentRow, currentCol, centerRow, centerCol, totalCols, atCenter),
-            VKey.Up => MoveUp(currentRow, currentCol, centerRow, centerCol, totalRows, atCenter),
-            VKey.Down => MoveDown(currentRow, currentCol, centerRow, centerCol, totalRows, atCenter),
+            VKey.Left => MoveHorizontal(currentRow, currentCol, centerRow, totalCols, -1),
+            VKey.Right => MoveHorizontal(currentRow, currentCol, centerRow, totalCols, +1),
+            VKey.Up => MoveVertical(currentRow, currentCol, centerCol, totalRows, -1),
+            VKey.Down => MoveVertical(currentRow, currentCol, centerCol, totalRows, +1),
             _ => (currentRow, currentCol),
         };
     }
 
-    private static (int Row, int Col) MoveLeft(
-        int row, int col, int centerRow, int centerCol, int totalCols, bool atCenter) {
-        // Can only move left if on center row
-        if (row != centerRow && !atCenter) {
+    private static (int Row, int Col) MoveHorizontal(
+        int row, int col, int centerRow, int totalCols, int direction) {
+        // Can only move horizontally if on center row
+        if (row != centerRow) {
             return (row, col);
         }
 
-        // Move on center row
-        int newCol = col == 0 ? totalCols - 1 : col - 1;
+        int newCol = (col + direction + totalCols) % totalCols;
         return (centerRow, newCol);
     }
 
-    private static (int Row, int Col) MoveRight(
-        int row, int col, int centerRow, int centerCol, int totalCols, bool atCenter) {
-        if (row != centerRow && !atCenter) {
+    private static (int Row, int Col) MoveVertical(
+        int row, int col, int centerCol, int totalRows, int direction) {
+        // Can only move vertically if on center column
+        if (col != centerCol) {
             return (row, col);
         }
 
-        int newCol = (col + 1) % totalCols;
-        return (centerRow, newCol);
-    }
-
-    private static (int Row, int Col) MoveUp(
-        int row, int col, int centerRow, int centerCol, int totalRows, bool atCenter) {
-        // Can only move up if on center column
-        if (col != centerCol && !atCenter) {
-            return (row, col);
-        }
-
-        int newRow = row == 0 ? totalRows - 1 : row - 1;
-        return (newRow, centerCol);
-    }
-
-    private static (int Row, int Col) MoveDown(
-        int row, int col, int centerRow, int centerCol, int totalRows, bool atCenter) {
-        if (col != centerCol && !atCenter) {
-            return (row, col);
-        }
-
-        int newRow = (row + 1) % totalRows;
+        int newRow = (row + direction + totalRows) % totalRows;
         return (newRow, centerCol);
     }
 }

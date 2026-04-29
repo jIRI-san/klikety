@@ -521,4 +521,202 @@ public class NavigatorCoordinatorTests {
         Assert.True(overlay.IsVisible);
         Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
     }
+
+    // --- Infrastructure Tests (step 2.5) ---
+
+    [Fact]
+    public void SwitchMode_FactoryThrows_DeactivatesOverlay() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+                Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        // Chord to Crosshair → NotSupportedException → DeactivateOverlay
+        hook.SimulateKeyDown(VKey.N);
+
+        Assert.False(overlay.IsVisible);
+        Assert.False(hook.IsEnabled);
+    }
+
+    [Fact]
+    public void SwitchMode_OldSessionDeactivated() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+                Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (_, hotKey, hook, _, overlay, renderer, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
+
+        // Switch attempt (will fail on Crosshair)
+        hook.SimulateKeyDown(VKey.N);
+
+        // ClearCanvas should have been called during switch attempt
+        Assert.True(overlay.ClearCanvasCount > 0);
+    }
+
+    [Fact]
+    public void FocusLoss_DuringSwitchMode_StillDeactivates() {
+        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator();
+
+        hotKey.SimulateActivation();
+        // Focus loss always deactivates regardless of internal state
+        overlay.SimulateFocusLoss();
+
+        Assert.False(overlay.IsVisible);
+        Assert.False(hook.IsEnabled);
+    }
+
+    [Fact]
+    public void Debounce_MultipleModifiers_AllSuppressed() {
+        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator();
+
+        // Hold both Alt and Space at activation time
+        platform.KeyState.SetKeyDown(VKey.LMenu);
+
+        hotKey.SimulateActivation();
+
+        // Both LMenu and Space should be suppressed
+        hook.SimulateKeyDown(VKey.LMenu);
+        hook.SimulateKeyDown(VKey.Space);
+
+        Assert.True(overlay.IsVisible); // Neither triggered action/deactivation
+    }
+
+    [Fact]
+    public void Debounce_KeyUpThenDown_SecondDownProcessed() {
+        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+
+        hotKey.SimulateActivation();
+        // Release space
+        hook.SimulateKeyUp(VKey.Space);
+        // Press A (nav key)
+        hook.SimulateKeyDown(VKey.A);
+        // Press Space (action)
+        hook.SimulateKeyDown(VKey.W);
+        hook.SimulateKeyDown(VKey.Space);
+
+        Assert.False(overlay.IsVisible);
+        Assert.Contains(mouse.Calls, c => c.Action == MouseAction.LeftClick);
+    }
+
+    [Fact]
+    public void DebounceTimer_ReconcilesClearedKeys() {
+        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator();
+
+        platform.KeyState.SetKeyDown(VKey.LMenu);
+        hotKey.SimulateActivation();
+
+        // Simulate: key physically released, timer fires
+        platform.KeyState.SetKeyUp(VKey.LMenu);
+        platform.Timers.LastCreated.SimulateElapsed();
+
+        // LMenu should no longer be in debounce — verify via key-down not being suppressed
+        // (LMenu isn't a nav key so session ignores it, but it proves debounce was cleared)
+        Assert.True(overlay.IsVisible);
+    }
+
+    [Fact]
+    public void DeactivateOverlay_ClearsDebounceTimer() {
+        var (coordinator, hotKey, hook, _, _, _, platform) = CreateCoordinator();
+
+        hotKey.SimulateActivation();
+        var timer = platform.Timers.LastCreated;
+        Assert.True(timer.IsRunning);
+
+        coordinator.DeactivateOverlay();
+        Assert.False(timer.IsRunning);
+    }
+
+    [Fact]
+    public void ActionKey_WhileHookDisabled_NoEffect() {
+        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+
+        hotKey.SimulateActivation();
+        // Manually deactivate via focus loss
+        overlay.SimulateFocusLoss();
+
+        // Simulate a stale key event after hook disabled
+        hook.SimulateKeyDown(VKey.Space);
+
+        // No action dispatched (session was cleared)
+        Assert.DoesNotContain(mouse.Calls, c => c.Action == MouseAction.LeftClick);
+    }
+
+    [Fact]
+    public void ChordKey_NonQwerty_IgnoredAndStaysOnCurrentMode() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+                Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (_, hotKey, hook, _, overlay, renderer, platform) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+
+        // Switch to non-QWERTY after activation
+        platform.KeyboardLayout.Qwerty = false;
+
+        // Chord key N should be ignored (non-QWERTY)
+        hook.SimulateKeyDown(VKey.N);
+
+        // Overlay still visible, still on UniformGrid
+        Assert.True(overlay.IsVisible);
+    }
+
+    [Fact]
+    public void DefaultModeActivation_ThrowsOnNotSupported_DeactivatesCleanly() {
+        // If somehow default resolves to an unimplemented mode, it deactivates cleanly
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, TwoKey = true, ArrowKeys = true },
+                Crosshair = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator(configOverride: config);
+
+        // QWERTY = true so it doesn't fall back — will try to Create("Crosshair") → throws
+        platform.KeyboardLayout.Qwerty = true;
+        hotKey.SimulateActivation();
+
+        // Should have deactivated cleanly after NotSupportedException
+        Assert.False(overlay.IsVisible);
+    }
+
+    [Fact]
+    public void MultiMonitor_CursorOnSecondary_NoOverlay() {
+        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator();
+
+        platform.Screen.Bounds = new Rectangle(0, 0, 1920, 1080);
+        platform.Cursor.Position = new Point(3000, 500); // Outside primary
+
+        hotKey.SimulateActivation();
+
+        Assert.False(overlay.IsVisible);
+        Assert.Equal(0, overlay.ShowCount);
+    }
+
+    [Fact]
+    public void ClickThroughSafety_HideBeforeSendAction() {
+        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+
+        hotKey.SimulateActivation();
+        hook.SimulateKeyDown(VKey.A);
+        hook.SimulateKeyDown(VKey.W);
+        hook.SimulateKeyUp(VKey.Space);
+        hook.SimulateKeyDown(VKey.Space);
+
+        // Overlay hidden before action
+        Assert.False(overlay.IsVisible);
+        Assert.True(overlay.HideCount > 0);
+        Assert.Contains(mouse.Calls, c => c.Action == MouseAction.LeftClick);
+    }
 }

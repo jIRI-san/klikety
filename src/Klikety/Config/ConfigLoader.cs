@@ -200,7 +200,10 @@ public static class ConfigLoader {
         // Every enabled mode must have twoKey || arrowKeys
         // Crosshair/LogCrosshair additionally require twoKey
         foreach (var (name, mc) in modeEntries) {
-            if (!mc.Enabled) continue;
+            if (!mc.Enabled) {
+                continue;
+            }
+
             if (name is "Crosshair" or "LogCrosshair" && !mc.TwoKey) {
                 violations.Add($"{name}: Crosshair/LogCrosshair modes require twoKey: true.");
             } else if (!mc.TwoKey && !mc.ArrowKeys) {
@@ -216,7 +219,9 @@ public static class ConfigLoader {
         // Chord keys: collect and check mutual uniqueness
         var chordKeys = new Dictionary<VKey, string>();
         foreach (var (name, mc) in modeEntries) {
-            if (!mc.Enabled) continue;
+            if (!mc.Enabled) {
+                continue;
+            }
 
             // Enabled non-default mode must have a chord key
             if (!mc.Default && mc.ChordKey is null) {
@@ -224,7 +229,9 @@ public static class ConfigLoader {
                 continue;
             }
 
-            if (mc.ChordKey is not { } chord) continue;
+            if (mc.ChordKey is not { } chord) {
+                continue;
+            }
 
             // Chord vs reserved
             if (ReservedKeys.Contains(chord)) {
@@ -251,7 +258,9 @@ public static class ConfigLoader {
 
         // Per-mode axis key validation for Crosshair/LogCrosshair
         foreach (var (name, mc) in modeEntries) {
-            if (name == "UniformGrid" || !mc.Enabled) continue;
+            if (name == "UniformGrid" || !mc.Enabled) {
+                continue;
+            }
 
             ValidateAxisKeys(name, "horizontalKeys", mc.HorizontalKeys, violations, actionKeys, hotkeyVKeys);
             ValidateAxisKeys(name, "verticalKeys", mc.VerticalKeys, violations, actionKeys, hotkeyVKeys);

@@ -204,7 +204,6 @@ public class NavigatorCoordinatorTests {
         var actionCall = mouse.Calls.First(c => c.Action == MouseAction.LeftClick);
         // No MoveTo should have been called (no navigation), so action point = origin
         Assert.DoesNotContain(mouse.Calls, c => c.Action is null);
-        Assert.NotNull(actionCall);
     }
 
     [Fact]

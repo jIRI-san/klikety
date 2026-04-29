@@ -349,7 +349,7 @@ public class NavigatorStateMachineTests {
         var sm = CreateMachine(NavigationMode.Both);
         sm.Activate(CreateGrid(), new Point(0, 0));
         GridCell? l1Cell = null;
-        sm.CellEntered += (cell, _, level) => { if (level == 1) l1Cell = cell; };
+        sm.CellEntered += (cell, _, level) => { if (level == 1) { l1Cell = cell; } };
         Point? actionPoint = null;
         sm.ActionRequested += (pt, _) => actionPoint = pt;
 
@@ -368,7 +368,7 @@ public class NavigatorStateMachineTests {
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
         sm.Activate(grid, new Point(0, 0));
         GridCell? l2Cell = null;
-        sm.CellEntered += (cell, _, level) => { if (level == 2) l2Cell = cell; };
+        sm.CellEntered += (cell, _, level) => { if (level == 2) { l2Cell = cell; } };
         Point? actionPoint = null;
         sm.ActionRequested += (pt, _) => actionPoint = pt;
 
@@ -424,7 +424,7 @@ public class NavigatorStateMachineTests {
         var sm = CreateMachine(NavigationMode.TwoKey);
         sm.Activate(CreateGrid(), new Point(500, 300));
         GridCell? l1Cell = null;
-        sm.CellEntered += (cell, _, level) => { if (level == 1) l1Cell = cell; };
+        sm.CellEntered += (cell, _, level) => { if (level == 1) { l1Cell = cell; } };
         Point? actionPoint = null;
         sm.ActionRequested += (pt, _) => actionPoint = pt;
 
@@ -442,7 +442,7 @@ public class NavigatorStateMachineTests {
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
         sm.Activate(grid, new Point(0, 0));
         GridCell? l3Cell = null;
-        sm.CellEntered += (cell, _, level) => { if (level == 3) l3Cell = cell; };
+        sm.CellEntered += (cell, _, level) => { if (level == 3) { l3Cell = cell; } };
         Point? actionPoint = null;
         sm.ActionRequested += (pt, _) => actionPoint = pt;
 
@@ -487,7 +487,7 @@ public class NavigatorStateMachineTests {
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 6000, 4000), 3, 2);
         sm.Activate(grid, new Point(0, 0));
         GridCell? l2Cell = null;
-        sm.CellEntered += (cell, _, level) => { if (level == 2) l2Cell = cell; };
+        sm.CellEntered += (cell, _, level) => { if (level == 2) { l2Cell = cell; } };
 
         sm.OnKey(VKey.A);
         sm.OnKey(VKey.W);
@@ -514,7 +514,7 @@ public class NavigatorStateMachineTests {
         var sm = CreateMachine(NavigationMode.Both);
         sm.Activate(CreateGrid(), new Point(500, 300));
         GridCell? enteredCell = null;
-        sm.CellEntered += (cell, _, level) => { if (level == 1) enteredCell = cell; };
+        sm.CellEntered += (cell, _, level) => { if (level == 1) { enteredCell = cell; } };
         Point? actionPoint = null;
         sm.ActionRequested += (pt, _) => actionPoint = pt;
 

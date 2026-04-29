@@ -8,20 +8,6 @@ using Klikety.Services;
 namespace Klikety.Navigation;
 
 /// <summary>
-/// Renderer interface for Crosshair mode. Separate from <see cref="IGridRenderer"/>
-/// because Crosshair has different visual semantics (cross + dimmed non-cross).
-/// </summary>
-public interface ICrosshairRenderer {
-    void SetTransform(System.Windows.Media.Matrix transformFromDevice);
-    void RenderCross(CrosshairGrid grid);
-    void HighlightColumn(CrosshairGrid grid, int col);
-    void HighlightRow(CrosshairGrid grid, int row);
-    void HighlightCell(CrosshairGrid grid, GridCell cell);
-    void RenderSubgridCross(CrosshairGrid parentGrid, CrosshairGrid subgrid, GridCell parentCell);
-    void FlashInvalidKey();
-}
-
-/// <summary>
 /// Crosshair mode session. Implements <see cref="IModeSession"/> using
 /// <see cref="CrosshairStateMachine"/> and <see cref="ICrosshairRenderer"/>.
 /// </summary>
@@ -33,7 +19,7 @@ public sealed class CrosshairSession : IModeSession {
     private readonly int _minCellPx;
     private readonly ICrosshairRenderer? _renderer;
 
-    private CrosshairStateMachine? _sm;
+    private readonly CrosshairStateMachine _sm;
     private CrosshairGrid? _grid;
     private Point _origin;
 
@@ -50,14 +36,8 @@ public sealed class CrosshairSession : IModeSession {
         _arrowKeysEnabled = modeConfig.ArrowKeys;
         _minCellPx = minCellPx;
         _renderer = renderer;
-    }
 
-    public void Activate(Rectangle screenBounds, Point origin) {
-        _origin = origin;
-
-        _grid = CrosshairGridCalculator.Calculate(
-            screenBounds, _horizKeys.Length, _vertKeys.Length);
-
+        // Construct SM once — reuse across activations
         _sm = new CrosshairStateMachine(
             _horizKeys, _vertKeys, _actionMapper, _arrowKeysEnabled, _minCellPx);
 
@@ -69,29 +49,24 @@ public sealed class CrosshairSession : IModeSession {
         _sm.InvalidKeyPressed += OnInvalidKeyPressed;
         _sm.ArrowMoved += OnArrowMoved;
         _sm.SubgridEntered += OnSubgridEntered;
+    }
+
+    public void Activate(Rectangle screenBounds, Point origin) {
+        _origin = origin;
+
+        _grid = CrosshairGridCalculator.Calculate(
+            screenBounds, _horizKeys.Length, _vertKeys.Length);
 
         _sm.Activate(_grid, origin);
         _renderer?.RenderCross(_grid);
     }
 
     public void OnKey(VKey key) {
-        _sm?.OnKey(key);
+        _sm.OnKey(key);
     }
 
     public void Deactivate() {
-        if (_sm is not null) {
-            _sm.HorizSelected -= OnHorizSelected;
-            _sm.VertSelected -= OnVertSelected;
-            _sm.CellSelected -= OnCellSelected;
-            _sm.ActionRequested -= OnActionRequested;
-            _sm.Cancelled -= OnCancelled;
-            _sm.InvalidKeyPressed -= OnInvalidKeyPressed;
-            _sm.ArrowMoved -= OnArrowMoved;
-            _sm.SubgridEntered -= OnSubgridEntered;
-            _sm.Reset();
-            _sm = null;
-        }
-
+        _sm.Reset();
         _grid = null;
     }
 

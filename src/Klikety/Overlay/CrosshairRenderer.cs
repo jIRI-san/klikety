@@ -6,7 +6,7 @@ using System.Windows.Shapes;
 
 using Klikety.Config;
 using Klikety.Grid;
-using Klikety.Navigation;
+using Klikety.Services;
 
 namespace Klikety.Overlay;
 

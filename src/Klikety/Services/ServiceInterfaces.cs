@@ -59,3 +59,16 @@ public interface IGridRenderer {
     void HighlightCellOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, GridCell highlightedCell);
     void FlashInvalidKey();
 }
+
+/// <summary>
+/// Abstracts crosshair-mode rendering for testability.
+/// </summary>
+public interface ICrosshairRenderer {
+    void SetTransform(System.Windows.Media.Matrix transformFromDevice);
+    void RenderCross(CrosshairGrid grid);
+    void HighlightColumn(CrosshairGrid grid, int col);
+    void HighlightRow(CrosshairGrid grid, int row);
+    void HighlightCell(CrosshairGrid grid, GridCell cell);
+    void RenderSubgridCross(CrosshairGrid parentGrid, CrosshairGrid subgrid, GridCell parentCell);
+    void FlashInvalidKey();
+}

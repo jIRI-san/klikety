@@ -444,25 +444,24 @@ public class CrosshairStateMachineTests {
     // --- EnterSubgrid disabled path (#4) ---
 
     [Fact]
-    public void Enter_CellTooSmallForSubgrid_FiresActionInstead() {
+    public void Enter_CellTooSmallForSubgrid_PositionsCursorAndAwaitAction() {
         var actionMapper = new ActionMapper(new Dictionary<string, MouseAction>());
         // minCellPx = 2000 ensures any sub-cell would be too small
         var sm = new CrosshairStateMachine(HorizKeys, VertKeys, actionMapper, true, minCellPx: 2000);
         var grid = CreateGrid();
         sm.Activate(grid, new Point(550, 550));
 
-        Point? actionPoint = null;
-        MouseAction? actionType = null;
-        sm.ActionRequested += (pt, act) => { actionPoint = pt; actionType = act; };
+        GridCell? selectedCell = null;
+        sm.CellSelected += cell => selectedCell = cell;
 
         GridCell? subgridCell = null;
         sm.SubgridEntered += (cell, _) => subgridCell = cell;
 
         sm.OnKey(VKey.Return);
 
-        // Subgrid disabled → fires action instead
+        // Subgrid disabled → fires CellSelected, transitions to BothSet, awaits action key
         Assert.Null(subgridCell);
-        Assert.NotNull(actionPoint);
-        Assert.Equal(MouseAction.LeftClick, actionType);
+        Assert.NotNull(selectedCell);
+        Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
 }

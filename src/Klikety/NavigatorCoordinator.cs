@@ -129,6 +129,9 @@ public sealed partial class NavigatorCoordinator {
         } catch (NotSupportedException ex) {
             LogModeSwitchFailed(defaultModeName, ex.Message);
             DeactivateOverlay();
+        } catch (InvalidOperationException ex) {
+            LogModeSwitchFailed(defaultModeName, ex.Message);
+            DeactivateOverlay();
         }
     }
 
@@ -299,6 +302,9 @@ public sealed partial class NavigatorCoordinator {
             LogModeSwitchFailed(targetModeName, ex.Message);
             DeactivateOverlay();
         } catch (ArgumentException ex) {
+            LogModeSwitchFailed(targetModeName, ex.Message);
+            DeactivateOverlay();
+        } catch (InvalidOperationException ex) {
             LogModeSwitchFailed(targetModeName, ex.Message);
             DeactivateOverlay();
         } finally {

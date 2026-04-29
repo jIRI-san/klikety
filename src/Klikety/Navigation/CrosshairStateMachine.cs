@@ -47,12 +47,23 @@ public sealed class CrosshairStateMachine {
     public CrosshairStateMachine(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
         bool arrowKeysEnabled, int minCellPx = 5) {
+        ArgumentNullException.ThrowIfNull(horizKeys);
+        ArgumentNullException.ThrowIfNull(vertKeys);
+
         if (horizKeys.Length > 52) {
             throw new ArgumentOutOfRangeException(nameof(horizKeys), "Maximum 52 axis keys supported.");
         }
 
         if (vertKeys.Length > 52) {
             throw new ArgumentOutOfRangeException(nameof(vertKeys), "Maximum 52 axis keys supported.");
+        }
+
+        // Validate disjointness — overlapping keys would silently prefer horiz
+        var horizSet = new HashSet<VKey>(horizKeys);
+        foreach (var vk in vertKeys) {
+            if (horizSet.Contains(vk)) {
+                throw new ArgumentException($"Key {vk} appears in both horizontal and vertical arrays.", nameof(vertKeys));
+            }
         }
 
         _horizKeys = horizKeys;
@@ -225,9 +236,10 @@ public sealed class CrosshairStateMachine {
             _vertKeys, cell.Bounds.Height, _minCellPx, hasCenterCell: true);
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
-            // Cell too small for subgrid — treat as action at center
+            // Cell too small for subgrid — position cursor at center, await user action key
             _actionPoint = CrosshairGridCalculator.CenterOf(cell);
-            ActionRequested?.Invoke(_actionPoint, MouseAction.LeftClick);
+            CellSelected?.Invoke(cell);
+            CurrentState = State.BothSet;
             return;
         }
 
@@ -235,7 +247,8 @@ public sealed class CrosshairStateMachine {
             cell.Bounds, hReduction.ActiveKeys.Length, vReduction.ActiveKeys.Length);
 
         _actionPoint = CrosshairGridCalculator.CenterOf(cell);
-        // TODO: step 3.5 — push L2/L3 session onto level stack for recursive subgrid navigation
+        // TODO: Phase 4/5 — push L2/L3 session onto level stack for recursive subgrid navigation.
+        // Currently renders the subgrid visually but subsequent keys still operate on L1.
         SubgridEntered?.Invoke(cell, subgrid);
     }
 

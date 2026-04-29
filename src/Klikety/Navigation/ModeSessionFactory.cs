@@ -49,7 +49,6 @@ public sealed class ModeSessionFactory {
             mode.VerticalKeys ?? throw new InvalidOperationException("Crosshair mode requires VerticalKeys."),
             _actionMapper,
             mode,
-            _crosshairRenderer,
-            _config.Level3CellSizeThreshold);
+            _crosshairRenderer);
     }
 }

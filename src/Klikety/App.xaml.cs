@@ -90,10 +90,14 @@ public partial class App : Application {
         var labelGenerator = new LabelGenerator(config.FirstKeys, config.SecondKeys, resolver);
         var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
 
-        // Create crosshair renderer
-        var horizLabels = new AxisLabelGenerator(config.Modes.Crosshair.HorizontalKeys!, resolver);
-        var vertLabels = new AxisLabelGenerator(config.Modes.Crosshair.VerticalKeys!, resolver);
-        var crosshairRenderer = new CrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
+        // Create crosshair renderer (only if mode is enabled with valid keys)
+        CrosshairRenderer? crosshairRenderer = null;
+        var crosshairMode = config.Modes.Crosshair;
+        if (crosshairMode is { Enabled: true, HorizontalKeys: not null, VerticalKeys: not null }) {
+            var horizLabels = new AxisLabelGenerator(crosshairMode.HorizontalKeys, resolver);
+            var vertLabels = new AxisLabelGenerator(crosshairMode.VerticalKeys, resolver);
+            crosshairRenderer = new CrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
+        }
 
         // Create action mapper and session factory
         var actionMapper = new ActionMapper(config.ActionBindings);

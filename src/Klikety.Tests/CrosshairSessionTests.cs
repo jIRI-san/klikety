@@ -178,4 +178,59 @@ public class CrosshairSessionTests {
 
         Assert.Equal("RenderSubgridCross", renderer.Calls[^1].Method);
     }
+
+    // --- Origin restore after axis selection + Escape (#8) ---
+
+    [Fact]
+    public void Escape_AfterAxisSelection_RestoresOriginalOrigin() {
+        var (session, _) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        session.OnKey(VKey.A); // Changes cursor to horiz-selected cell
+
+        Point? lastCursor = null;
+        session.CursorMoveRequested += pt => lastCursor = pt;
+
+        session.OnKey(VKey.Escape); // Clear axis → back to AwaitInput
+        session.OnKey(VKey.Escape); // Cancel from AwaitInput → restore origin
+
+        Assert.Equal(new Point(550, 550), lastCursor);
+    }
+
+    // --- Factory wiring (#8) ---
+
+    [Fact]
+    public void ModeSessionFactory_CreatesCrosshairSession() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                Crosshair = new ModeConfig {
+                    Enabled = true, ChordKey = VKey.N, ArrowKeys = true, TwoKey = true,
+                    HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
+                    VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
+                },
+            },
+        };
+        var actionMapper = new ActionMapper(config.ActionBindings);
+        var factory = new ModeSessionFactory(config, actionMapper, null, null);
+
+        var session = factory.Create("Crosshair");
+
+        Assert.IsType<CrosshairSession>(session);
+    }
+
+    [Fact]
+    public void ModeSessionFactory_CrosshairWithNullKeys_Throws() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                Crosshair = new ModeConfig {
+                    Enabled = true, ChordKey = VKey.N, ArrowKeys = true, TwoKey = true,
+                    // HorizontalKeys/VerticalKeys left null
+                },
+            },
+        };
+        var actionMapper = new ActionMapper(config.ActionBindings);
+        var factory = new ModeSessionFactory(config, actionMapper, null, null);
+
+        Assert.Throws<InvalidOperationException>(() => factory.Create("Crosshair"));
+    }
 }

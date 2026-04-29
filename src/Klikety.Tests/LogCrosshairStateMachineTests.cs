@@ -1,0 +1,357 @@
+using System.Drawing;
+
+using Klikety.Config;
+using Klikety.Grid;
+using Klikety.Input;
+using Klikety.Navigation;
+
+namespace Klikety.Tests;
+
+public class LogCrosshairStateMachineTests {
+    static readonly VKey[] HorizKeys = [
+        VKey.A, VKey.S, VKey.D, VKey.F, VKey.G,
+        VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon,
+    ];
+
+    static readonly VKey[] VertKeys = [
+        VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T,
+        VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P,
+    ];
+
+    static LogCrosshairStateMachine CreateSM(bool arrowKeys = true) {
+        var actionMapper = new ActionMapper(new Dictionary<string, MouseAction>());
+        return new LogCrosshairStateMachine(HorizKeys, VertKeys, actionMapper, arrowKeys);
+    }
+
+    static LogCrosshairGrid CreateGrid(Point? center = null) {
+        var c = center ?? new Point(550, 550);
+        return LogGridCalculator.Calculate(
+            c, new Rectangle(0, 0, 1100, 1100), logBaseSize: 5,
+            HorizKeys.Length, VertKeys.Length);
+    }
+
+    // --- Basic state transitions ---
+
+    [Fact]
+    public void AfterActivate_StateIsAwaitInput() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+    }
+
+    [Fact]
+    public void HorizKey_TransitionsToHorizSet() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.A);
+        Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
+    }
+
+    [Fact]
+    public void VertKey_TransitionsToVertSet() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.Q);
+        Assert.Equal(LogCrosshairStateMachine.State.VertSet, sm.CurrentState);
+    }
+
+    [Fact]
+    public void HorizThenVert_BothSet_StateIsVertSet() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.F); // horiz
+        sm.OnKey(VKey.R); // vert
+        Assert.Equal(LogCrosshairStateMachine.State.VertSet, sm.CurrentState);
+    }
+
+    [Fact]
+    public void VertThenHoriz_BothSet_StateIsHorizSet() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.R); // vert
+        sm.OnKey(VKey.F); // horiz
+        Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
+    }
+
+    // --- Events ---
+
+    [Fact]
+    public void HorizKey_FiresHorizSelected() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        int? selectedCol = null;
+        sm.HorizSelected += (col, _) => selectedCol = col;
+
+        sm.OnKey(VKey.A); // key index 0 → col 0
+
+        Assert.Equal(0, selectedCol);
+    }
+
+    [Fact]
+    public void VertKey_FiresVertSelected() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        int? selectedRow = null;
+        sm.VertSelected += (row, _) => selectedRow = row;
+
+        sm.OnKey(VKey.Q); // key index 0 → row 0
+
+        Assert.Equal(0, selectedRow);
+    }
+
+    [Fact]
+    public void BothAxes_FiresCellSelected() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        GridCell? cell = null;
+        sm.CellSelected += c => cell = c;
+
+        sm.OnKey(VKey.F); // horiz
+        sm.OnKey(VKey.R); // vert → both set
+
+        Assert.NotNull(cell);
+    }
+
+    // --- Same-axis re-press ---
+
+    [Fact]
+    public void SameHorizRePress_UpdatesColumn() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        int lastCol = -1;
+        sm.HorizSelected += (col, _) => lastCol = col;
+
+        sm.OnKey(VKey.A); // col 0
+        Assert.Equal(0, lastCol);
+
+        sm.OnKey(VKey.S); // col 1
+        Assert.Equal(1, lastCol);
+    }
+
+    // --- LIFO Escape ---
+
+    [Fact]
+    public void Escape_FromHorizOnly_GoesToAwaitInput() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.F); // HorizSet
+        sm.OnKey(VKey.Escape);
+        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+    }
+
+    [Fact]
+    public void Escape_FromVertOnly_GoesToAwaitInput() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.R); // VertSet
+        sm.OnKey(VKey.Escape);
+        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+    }
+
+    [Fact]
+    public void Escape_FromBothSetViaHoriz_ClearsHoriz_FallsToVertSet() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.R); // vert first
+        sm.OnKey(VKey.F); // horiz last → HorizSet
+        Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
+
+        sm.OnKey(VKey.Escape); // clears horiz (LIFO)
+        Assert.Equal(LogCrosshairStateMachine.State.VertSet, sm.CurrentState);
+    }
+
+    [Fact]
+    public void Escape_FromBothSetViaVert_ClearsVert_FallsToHorizSet() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.F); // horiz first
+        sm.OnKey(VKey.R); // vert last → VertSet
+        Assert.Equal(LogCrosshairStateMachine.State.VertSet, sm.CurrentState);
+
+        sm.OnKey(VKey.Escape); // clears vert (LIFO)
+        Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
+    }
+
+    [Fact]
+    public void Escape_FromAwaitInput_FiresCancelled() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        bool cancelled = false;
+        sm.Cancelled += () => cancelled = true;
+
+        sm.OnKey(VKey.Escape);
+        Assert.True(cancelled);
+    }
+
+    // --- Action keys ---
+
+    [Fact]
+    public void ActionKey_FiresActionRequested() {
+        var actionMapper = new ActionMapper(
+            new Dictionary<string, MouseAction> { ["Space"] = MouseAction.LeftClick });
+        var sm = new LogCrosshairStateMachine(HorizKeys, VertKeys, actionMapper, true);
+        sm.Activate(CreateGrid(), new Point(550, 550));
+
+        Point? actionPt = null;
+        MouseAction? action = null;
+        sm.ActionRequested += (pt, a) => { actionPt = pt; action = a; };
+
+        sm.OnKey(VKey.Space);
+
+        Assert.NotNull(actionPt);
+        Assert.Equal(MouseAction.LeftClick, action);
+    }
+
+    // --- Enter is no-op ---
+
+    [Fact]
+    public void Enter_WithNoAxis_IsNoOp() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        bool anyEvent = false;
+        sm.CellSelected += _ => anyEvent = true;
+        sm.InvalidKeyPressed += () => anyEvent = true;
+
+        sm.OnKey(VKey.Return);
+
+        Assert.False(anyEvent);
+        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+    }
+
+    [Fact]
+    public void Enter_WithAxisSet_IsNoOp() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.F); // HorizSet
+
+        bool anyEvent = false;
+        sm.CellSelected += _ => anyEvent = true;
+
+        sm.OnKey(VKey.Return);
+
+        Assert.False(anyEvent);
+        Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
+    }
+
+    // --- Arrow navigation ---
+
+    [Fact]
+    public void ArrowRight_InAwaitInput_MovesOnCross() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        int? movedRow = null, movedCol = null;
+        sm.ArrowMoved += (r, c) => { movedRow = r; movedCol = c; };
+
+        sm.OnKey(VKey.Right);
+
+        Assert.NotNull(movedRow);
+        Assert.Equal(5, movedRow); // center row stays
+        Assert.Equal(6, movedCol); // one right
+    }
+
+    [Fact]
+    public void Arrow_AfterAxisKey_IsInvalid() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.F); // HorizSet
+
+        bool invalid = false;
+        sm.InvalidKeyPressed += () => invalid = true;
+
+        sm.OnKey(VKey.Right);
+        Assert.True(invalid);
+    }
+
+    [Fact]
+    public void Arrow_Disabled_FiresInvalid() {
+        var sm = CreateSM(arrowKeys: false);
+        sm.Activate(CreateGrid(), new Point(550, 550));
+
+        bool invalid = false;
+        sm.InvalidKeyPressed += () => invalid = true;
+
+        sm.OnKey(VKey.Right);
+        Assert.True(invalid);
+    }
+
+    // --- Invalid keys ---
+
+    [Fact]
+    public void UnknownKey_FiresInvalidKeyPressed() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        bool invalid = false;
+        sm.InvalidKeyPressed += () => invalid = true;
+
+        sm.OnKey(VKey.Tab);
+        Assert.True(invalid);
+    }
+
+    // --- Degenerate cells ---
+
+    [Fact]
+    public void DegenerateCell_FiresInvalidKeyPressed() {
+        var sm = CreateSM();
+        // Grid with center very near left edge → left columns are degenerate
+        var grid = LogGridCalculator.Calculate(
+            new Point(2, 550), new Rectangle(0, 0, 1100, 1100),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+        sm.Activate(grid, new Point(2, 550));
+
+        bool invalid = false;
+        sm.InvalidKeyPressed += () => invalid = true;
+
+        sm.OnKey(VKey.A); // leftmost key → likely degenerate column
+
+        Assert.True(invalid);
+    }
+
+    // --- Reset ---
+
+    [Fact]
+    public void Reset_GoesToIdle() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.F);
+
+        sm.Reset();
+
+        Assert.Equal(LogCrosshairStateMachine.State.Idle, sm.CurrentState);
+    }
+
+    [Fact]
+    public void KeysInIdle_AreIgnored() {
+        var sm = CreateSM();
+        bool anyEvent = false;
+        sm.HorizSelected += (_, _) => anyEvent = true;
+        sm.InvalidKeyPressed += () => anyEvent = true;
+
+        sm.OnKey(VKey.A);
+
+        Assert.False(anyEvent);
+    }
+
+    // --- Constructor validation ---
+
+    [Fact]
+    public void NullHorizKeys_Throws() =>
+        Assert.Throws<ArgumentNullException>(() =>
+            new LogCrosshairStateMachine(null!, VertKeys, new ActionMapper([]), true));
+
+    [Fact]
+    public void NullVertKeys_Throws() =>
+        Assert.Throws<ArgumentNullException>(() =>
+            new LogCrosshairStateMachine(HorizKeys, null!, new ActionMapper([]), true));
+
+    [Fact]
+    public void OverlappingKeys_Throws() =>
+        Assert.Throws<ArgumentException>(() =>
+            new LogCrosshairStateMachine(HorizKeys, HorizKeys, new ActionMapper([]), true));
+
+    [Fact]
+    public void TooManyKeys_Throws() {
+        var tooMany = new VKey[53];
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new LogCrosshairStateMachine(tooMany, VertKeys, new ActionMapper([]), true));
+    }
+}

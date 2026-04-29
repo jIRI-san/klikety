@@ -78,7 +78,7 @@
   - Defaults: `uniformGrid { enabled: true, default: true, arrowKeys: true, twoKey: true }`, `crosshair { enabled: true, chordKey: N, arrowKeys: true, twoKey: true, horizontalKeys: [A,S,D,F,G,H,J,K,L,;], verticalKeys: [Q,W,E,R,T,Y,U,I,O,P] }`, `logCrosshair { enabled: true, chordKey: M, arrowKeys: true, twoKey: true, horizontalKeys: [A,S,D,F,G,H,J,K,L,;], verticalKeys: [Q,W,E,R,T,Y,U,I,O,P] }`
   - HotKey stays at root level
 
-- [~] 1.2 Config auto-migration via `JsonDocument` pre-pass `M`
+- [x] 1.2 Config auto-migration via `JsonDocument` pre-pass `M`
   - Parse raw JSON with `JsonDocumentOptions { CommentHandling = Skip, AllowTrailingCommas = true }` (existing configs use JSONC)
   - Detect old shape (has `navigationMode`, no `modes`); transform: map `navigationMode` to per-mode `twoKey`/`arrowKeys`; write `configVersion: 1`
   - **Key set migration**: if old `firstKeys`/`secondKeys` match known 8-key defaults → write them explicitly (no silent 64→100 cell change). Only fresh installs get 10-key defaults. Crosshair/LogCrosshair `horizontalKeys`/`verticalKeys` always get 10-key defaults (new feature, no backward compat needed)

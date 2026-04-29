@@ -89,7 +89,7 @@
   - Unknown fields → warn and preserve in output (round-trip)
   - Tests: old→new migration; `Arrow`-only; missing fields; malformed; N/M conflict; G/H conflict; version too high; mixed shape (both `navigationMode` and `modes` → `modes` wins); idempotency (already-migrated config → no mutations)
 
-- [ ] 1.2a "Reset config" tray menu option `S`
+- [~] 1.2a "Reset config" tray menu option `S`
   - Visible when config has blocking violations or `configVersion` > current
   - On click: copy embedded default config → `%APPDATA%\Klikety\config.json`; re-trigger config load + coordinator bootstrap
   - Bootstrap: `DeactivateOverlay()` → unregister hotkey → dispose coordinator → reload → validate → reconstruct if valid

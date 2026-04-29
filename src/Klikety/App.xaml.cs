@@ -19,6 +19,7 @@ public partial class App : Application {
     private HotKeyService? _hotKeyService;
     private NavigatorCoordinator? _coordinator;
     private ILoggerFactory? _loggerFactory;
+    private bool _hasBlockingViolations;
 
     protected override void OnStartup(StartupEventArgs e) {
         base.OnStartup(e);
@@ -26,11 +27,27 @@ public partial class App : Application {
         // First-run: extract default config, schemas, and themes
         FirstRunExtractor.EnsureDefaults();
 
+        // Create hotkey service (reused across resets)
+        _hotKeyService = new HotKeyService();
+
+        // Bootstrap coordinator from config
+        var violations = BootstrapCoordinator();
+
+        // Setup tray icon
+        SetupTrayIcon(violations, _loggerFactory!.CreateLogger<App>());
+    }
+
+    /// <summary>
+    /// Creates (or re-creates) the coordinator from current config on disk.
+    /// Returns the list of violations for tray notification.
+    /// </summary>
+    private List<string> BootstrapCoordinator() {
         // Load config
         var configResult = ConfigLoader.Load();
         var config = configResult.Config;
 
-        // Logging
+        // Logging — dispose previous if re-bootstrapping
+        _loggerFactory?.Dispose();
         _loggerFactory = LoggingSetup.CreateLoggerFactory(config.LogLevel, config.FileLoggingEnabled, config.RetainedLogFileCount);
         var logger = _loggerFactory.CreateLogger<App>();
 
@@ -43,6 +60,18 @@ public partial class App : Application {
             violations.Add(hotKeyViolation);
         }
 
+        // Check for blocking violations (migration errors)
+        _hasBlockingViolations = configResult.Violations.Any(v =>
+            v.Contains("newer than supported") ||
+            v.Contains("could not be parsed") ||
+            v.Contains("Failed to write") ||
+            v.Contains("Cannot read config") ||
+            v.Contains("not a JSON object"));
+
+        if (_hasBlockingViolations) {
+            return violations;
+        }
+
         // Load theme
         var (theme, themeWarning) = ThemeLoader.Load(config.Theme);
         if (themeWarning is not null) {
@@ -50,7 +79,6 @@ public partial class App : Application {
         }
 
         // Create services
-        _hotKeyService = new HotKeyService();
         var hookService = new KeyboardHookService();
         var mouseService = new MouseActionService();
 
@@ -72,7 +100,7 @@ public partial class App : Application {
 
         // Create coordinator
         _coordinator = new NavigatorCoordinator(
-            _hotKeyService,
+            _hotKeyService!,
             hookService,
             mouseService,
             overlayWindow,
@@ -82,13 +110,13 @@ public partial class App : Application {
             logger);
 
         // Register hotkey
+        _hotKeyService!.Unregister();
         if (!_hotKeyService.Register(config.HotKey)) {
             LogHotkeyRegistrationFailed(logger, config.HotKey.Modifiers, config.HotKey.Key);
             violations.Add($"Failed to register global hotkey {config.HotKey.Modifiers}+{config.HotKey.Key}.");
         }
 
-        // Setup tray icon
-        SetupTrayIcon(violations, logger);
+        return violations;
     }
 
     private void SetupTrayIcon(List<string> violations, ILogger logger) {
@@ -101,6 +129,17 @@ public partial class App : Application {
         };
         _trayIcon.ForceCreate();
 
+        SetupTrayContextMenu(violations, logger);
+
+        // Show violations as tray notification
+        if (violations.Count > 0) {
+            var message = string.Join("\n", violations);
+            LogStartupViolations(logger, message);
+            _trayIcon.ShowNotification("Klikety — Configuration Issues", message);
+        }
+    }
+
+    private void SetupTrayContextMenu(List<string> violations, ILogger logger) {
         var contextMenu = new System.Windows.Controls.ContextMenu();
 
         // About
@@ -119,6 +158,35 @@ public partial class App : Application {
             Process.Start("explorer.exe", configFolder);
         };
         contextMenu.Items.Add(configFolderItem);
+
+        // Reset Configuration (visible only when config has blocking violations)
+        if (_hasBlockingViolations) {
+            var resetItem = new System.Windows.Controls.MenuItem { Header = "Reset Configuration" };
+            resetItem.Click += (_, _) => {
+                var error = ConfigResetter.ResetToDefaults();
+                if (error is not null) {
+                    _trayIcon?.ShowNotification("Klikety — Reset Failed", error);
+                    return;
+                }
+
+                // Re-bootstrap: deactivate overlay, re-create coordinator
+                _coordinator?.DeactivateOverlay();
+                _coordinator = null;
+
+                var newViolations = BootstrapCoordinator();
+
+                // Rebuild tray menu to reflect new state
+                SetupTrayContextMenu(newViolations, logger);
+
+                if (newViolations.Count > 0) {
+                    var msg = string.Join("\n", newViolations);
+                    _trayIcon?.ShowNotification("Klikety — Configuration Issues", msg);
+                } else {
+                    _trayIcon?.ShowNotification("Klikety", "Configuration reset to defaults.");
+                }
+            };
+            contextMenu.Items.Add(resetItem);
+        }
 
         contextMenu.Items.Add(new System.Windows.Controls.Separator());
 
@@ -151,14 +219,7 @@ public partial class App : Application {
         };
         contextMenu.Items.Add(quitItem);
 
-        _trayIcon.ContextMenu = contextMenu;
-
-        // Show violations as tray notification
-        if (violations.Count > 0) {
-            var message = string.Join("\n", violations);
-            LogStartupViolations(logger, message);
-            _trayIcon.ShowNotification("Klikety — Configuration Issues", message);
-        }
+        _trayIcon!.ContextMenu = contextMenu;
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to register global hotkey {Modifiers}+{Key}")]

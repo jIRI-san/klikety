@@ -118,7 +118,7 @@
   - Config: new `modes` block with defaults including axis key arrays
   - Comment: "N and M are default chord keys — do not use in action bindings"
 
-- [ ] 1.7 `dotnet format` `S`
+- [x] 1.7 `dotnet format` `S`
 
 ## Phase 2: Infrastructure & Interface Extraction
 

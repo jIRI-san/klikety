@@ -4,6 +4,7 @@ description: 'Continue Implementation — use when executing an implementation p
 argument-hint: 'Optional: plan slug or filename to select a specific plan (e.g. "001-data-persistence")'
 user-invocable: true
 disable-model-invocation: true
+context: fork
 ---
 
 # Continue Implementation

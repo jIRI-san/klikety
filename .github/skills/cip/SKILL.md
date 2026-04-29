@@ -4,6 +4,7 @@ description: 'Create Implementation Plan — use when planning a new feature, de
 argument-hint: 'Plan name for a new plan (e.g. "data persistence"), or an existing plan slug to resume (e.g. "001-data-persistence")'
 user-invocable: true
 disable-model-invocation: true
+context: fork
 ---
 
 # Create Implementation Plan

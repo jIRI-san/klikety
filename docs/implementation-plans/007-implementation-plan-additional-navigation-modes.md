@@ -187,7 +187,7 @@
 
 ## Phase 3: Crosshair Mode
 
-- [ ] 3.1 `CrosshairGridCalculator` [after: 2.4] `M`
+- [x] 3.1 `CrosshairGridCalculator` [after: 2.4] `M`
   - `(N+1)×(N+1)` uniform cells from screen bounds + per-axis key count (from mode's `horizontalKeys.Length`/`verticalKeys.Length`)
   - Center cell at `(vertKeys/2, horizKeys/2)`
   - For L2/L3: parent cell bounds + reduced key counts from `DynamicKeyReducer`

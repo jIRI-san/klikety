@@ -9,7 +9,8 @@ public class ConfigLoaderTests {
     public void Load_MissingFile_ReturnsDefaults() {
         var result = ConfigLoader.Load(Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json"));
         Assert.Empty(result.Violations);
-        Assert.Equal(NavigationMode.Both, result.Config.NavigationMode);
+        Assert.True(result.Config.Modes.UniformGrid.Enabled);
+        Assert.True(result.Config.Modes.UniformGrid.Default);
         Assert.Equal(8, result.Config.FirstKeys.Length);
         Assert.Equal(8, result.Config.SecondKeys.Length);
     }
@@ -29,17 +30,20 @@ public class ConfigLoaderTests {
             var result = ConfigLoader.Load(path);
             Assert.Equal(HotKeyModifiers.Control, result.Config.HotKey.Modifiers);
             Assert.Equal(Input.VKey.OemTilde, result.Config.HotKey.Key);
-            Assert.Equal(NavigationMode.TwoKey, result.Config.NavigationMode);
+            // After migration, navigationMode is removed; check modes shape instead
+            Assert.True(result.Config.Modes.UniformGrid.TwoKey);
+            Assert.False(result.Config.Modes.UniformGrid.ArrowKeys);
             Assert.Equal(25000, result.Config.Level3CellSizeThreshold);
         } finally { File.Delete(path); }
     }
 
     [Fact]
-    public void Load_MalformedJson_ReturnsDefaults() {
+    public void Load_MalformedJson_ReturnsDefaultsWithError() {
         var path = WriteTempFile("{invalid json}}}");
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Equal(NavigationMode.Both, result.Config.NavigationMode);
+            Assert.True(result.Config.Modes.UniformGrid.Enabled);
+            Assert.Contains(result.Violations, v => v.Contains("could not be parsed"));
         } finally { File.Delete(path); }
     }
 
@@ -119,6 +123,33 @@ public class ConfigLoaderTests {
             var result = ConfigLoader.Load(path);
             Assert.Contains(result.Violations, v => v.Contains("firstKeys") && v.Contains("duplicate"));
         } finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Load_VersionTooHigh_BlockingErrorPropagated() {
+        var json = """{ "configVersion": 999, "modes": {} }""";
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("newer than supported"));
+        } finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Load_LegacyConfig_MigrationWarningsAppended() {
+        var json = """
+        {
+            "navigationMode": "both",
+            "firstKeys": ["A", "S", "D", "F"],
+            "secondKeys": ["W", "E", "R", "T"],
+            "actionBindings": { "N": "RightClick" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("Crosshair") && v.Contains("auto-disabled"));
+        } finally { File.Delete(path); try { File.Delete(path + ".bak"); } catch { } }
     }
 
     private static string WriteTempFile(string content) {

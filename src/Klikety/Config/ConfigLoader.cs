@@ -43,10 +43,23 @@ public static class ConfigLoader {
     public static ConfigLoadResult Load() => Load(ConfigPath);
 
     public static ConfigLoadResult Load(string path) {
+        // Run migration pre-pass before deserialization
+        var migration = ConfigMigrator.MigrateIfNeeded(path);
+        if (migration.BlockingError is not null) {
+            return new ConfigLoadResult {
+                Config = new ConfigModel(),
+                Violations = [migration.BlockingError],
+            };
+        }
+
         var (config, parseError) = ReadConfig(path);
         var violations = Validate(config);
         if (parseError is not null) {
             violations.Insert(0, parseError);
+        }
+        // Append migration warnings as non-blocking violations
+        foreach (var w in migration.Warnings) {
+            violations.Add(w);
         }
         return new ConfigLoadResult { Config = config, Violations = violations };
     }

@@ -213,6 +213,21 @@ Container with three named properties (`UniformGrid`, `Crosshair`, `LogCrosshair
 
 Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = current (modes shape). Used by the migration pre-pass to detect old configs.
 
+### Config Migration (`ConfigMigrator`)
+
+`ConfigMigrator.MigrateIfNeeded(path)` runs a `JsonNode`-based pre-pass before deserialization:
+
+- Detects old shape (has `navigationMode`, no `modes`) and transforms to new shape.
+- Maps legacy `navigationMode` to per-mode `twoKey`/`arrowKeys` on `UniformGrid`.
+- Key set migration: preserves user's original `firstKeys`/`secondKeys` (no silent 8→10 expansion). Crosshair/LogCrosshair get 10-key defaults.
+- Conflict handling: N/M chord keys conflicting with `actionBindings` → auto-disable mode. New 10-key axis keys conflicting with `actionBindings` → fall back to legacy key set.
+- Post-migration normalization: at least one enabled mode, exactly one default.
+- Atomic write: temp file → `.bak` backup → rename. Write errors return `BlockingError`.
+- `configVersion` > known → fail-closed with blocking error.
+- Mixed shape (`modes` + `navigationMode`) → `modes` wins.
+- Unknown fields preserved (round-trip).
+- Idempotent: already-migrated configs produce no mutations.
+
 ## Key Scheme
 
 ### Unified 8×8 grid

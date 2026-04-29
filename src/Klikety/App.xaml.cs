@@ -101,6 +101,7 @@ public partial class App : Application {
             mouseService,
             overlayWindow,
             sessionFactory,
+            PlatformServices.Instance,
             config,
             logger);
 

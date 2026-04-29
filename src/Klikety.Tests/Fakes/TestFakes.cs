@@ -7,6 +7,78 @@ using Klikety.Services;
 
 namespace Klikety.Tests.Fakes;
 
+// --- Platform Services Fakes ---
+
+public sealed class FakeKeyStateProvider : IKeyStateProvider {
+    private readonly HashSet<VKey> _downKeys = [];
+
+    public void SetKeyDown(VKey key) => _downKeys.Add(key);
+    public void SetKeyUp(VKey key) => _downKeys.Remove(key);
+    public bool IsKeyDown(VKey key) => _downKeys.Contains(key);
+}
+
+public sealed class FakeTimer : IDebounceTimer {
+    public event Action? Elapsed;
+    public bool IsRunning { get; private set; }
+    public TimeSpan? LastInterval { get; private set; }
+
+    public void Start(TimeSpan interval) {
+        LastInterval = interval;
+        IsRunning = true;
+    }
+
+    public void Stop() {
+        IsRunning = false;
+    }
+
+    public void SimulateElapsed() => Elapsed?.Invoke();
+
+    public void Dispose() => Stop();
+}
+
+public sealed class FakeTimerFactory : ITimerFactory {
+    public FakeTimer LastCreated { get; private set; } = null!;
+
+    public IDebounceTimer Create() {
+        LastCreated = new FakeTimer();
+        return LastCreated;
+    }
+}
+
+public sealed class FakeCursorPositionProvider : ICursorPositionProvider {
+    public Point Position { get; set; } = new(500, 500);
+    public Point GetCursorPosition() => Position;
+}
+
+public sealed class FakeScreenBoundsProvider : IScreenBoundsProvider {
+    public Rectangle Bounds { get; set; } = new(0, 0, 1920, 1080);
+    public Rectangle GetPrimaryScreenBounds() => Bounds;
+}
+
+public sealed class FakeKeyboardLayoutProvider : IKeyboardLayoutProvider {
+    /// <summary>
+    /// US English QWERTY layout handle (0x04090409).
+    /// </summary>
+    public nint Layout { get; set; } = 0x04090409;
+    public nint GetActiveKeyboardLayout() => Layout;
+}
+
+public sealed class FakePlatformServices : IPlatformServices {
+    public FakeKeyStateProvider KeyState { get; } = new();
+    public FakeTimerFactory Timers { get; } = new();
+    public FakeCursorPositionProvider Cursor { get; } = new();
+    public FakeScreenBoundsProvider Screen { get; } = new();
+    public FakeKeyboardLayoutProvider KeyboardLayout { get; } = new();
+
+    IKeyStateProvider IPlatformServices.KeyState => KeyState;
+    ITimerFactory IPlatformServices.Timers => Timers;
+    ICursorPositionProvider IPlatformServices.Cursor => Cursor;
+    IScreenBoundsProvider IPlatformServices.Screen => Screen;
+    IKeyboardLayoutProvider IPlatformServices.KeyboardLayout => KeyboardLayout;
+}
+
+// --- End Platform Services Fakes ---
+
 /// <summary>
 /// Test resolver that returns uppercase VKey name as the label.
 /// Deterministic, no Win32 dependency.

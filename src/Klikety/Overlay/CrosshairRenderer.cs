@@ -87,31 +87,28 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     }
 
     /// <summary>
-    /// Highlights a specific column on the cross.
+    /// Highlights a specific column — vertical labels render at selected column.
     /// </summary>
     public void HighlightColumn(CrosshairGrid grid, int col) {
         _canvas.Children.Clear();
         EnsureTransform();
 
         var region = ComputeRegion(grid);
+        int crossRow = grid.CenterRow;
+        int crossCol = col;
 
-        for (int row = 0; row < grid.Rows; row++) {
+        for (int r = 0; r < grid.Rows; r++) {
             for (int c = 0; c < grid.Cols; c++) {
-                var dipRect = DipRectForCell(row, c, region, grid.Cols, grid.Rows);
-                bool onCross = grid.IsOnCross(row, c);
-                bool isHighlightCol = c == col;
+                var dipRect = DipRectForCell(r, c, region, grid.Cols, grid.Rows);
+                bool onShiftedCross = r == crossRow || c == crossCol;
+                bool isIntersection = r == crossRow && c == crossCol;
 
-                if (isHighlightCol && row == grid.CenterRow) {
-                    // Intersection of highlighted column and center row
+                if (isIntersection) {
                     AddCellRect(dipRect, _highlightBg, _highlightBorder, _theme.CellBorderThickness * 2);
-                    AddCrossLabel(dipRect, row, c, grid, _labelBrush);
-                } else if (isHighlightCol && onCross) {
-                    // Highlighted column cells on cross (center col cells in this column)
-                    AddCellRect(dipRect, _crossBgBrush, _highlightBorder);
-                    AddCrossLabel(dipRect, row, c, grid, _labelBrush);
-                } else if (onCross) {
-                    AddCellRect(dipRect, _cellBgBrush, _cellBorderBrush);
-                    AddCrossLabel(dipRect, row, c, grid, _labelBrush, 0.4);
+                    AddShiftedLabel(dipRect, r, c, crossRow, crossCol, grid, _labelBrush);
+                } else if (onShiftedCross) {
+                    AddCellRect(dipRect, _crossBgBrush, _cellBorderBrush);
+                    AddShiftedLabel(dipRect, r, c, crossRow, crossCol, grid, _labelBrush, 0.7);
                 } else {
                     AddCellRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
@@ -120,29 +117,28 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     }
 
     /// <summary>
-    /// Highlights a specific row on the cross.
+    /// Highlights a specific row — horizontal labels render at selected row.
     /// </summary>
     public void HighlightRow(CrosshairGrid grid, int row) {
         _canvas.Children.Clear();
         EnsureTransform();
 
         var region = ComputeRegion(grid);
+        int crossRow = row;
+        int crossCol = grid.CenterCol;
 
         for (int r = 0; r < grid.Rows; r++) {
-            for (int col = 0; col < grid.Cols; col++) {
-                var dipRect = DipRectForCell(r, col, region, grid.Cols, grid.Rows);
-                bool onCross = grid.IsOnCross(r, col);
-                bool isHighlightRow = r == row;
+            for (int c = 0; c < grid.Cols; c++) {
+                var dipRect = DipRectForCell(r, c, region, grid.Cols, grid.Rows);
+                bool onShiftedCross = r == crossRow || c == crossCol;
+                bool isIntersection = r == crossRow && c == crossCol;
 
-                if (isHighlightRow && col == grid.CenterCol) {
+                if (isIntersection) {
                     AddCellRect(dipRect, _highlightBg, _highlightBorder, _theme.CellBorderThickness * 2);
-                    AddCrossLabel(dipRect, r, col, grid, _labelBrush);
-                } else if (isHighlightRow && onCross) {
-                    AddCellRect(dipRect, _crossBgBrush, _highlightBorder);
-                    AddCrossLabel(dipRect, r, col, grid, _labelBrush);
-                } else if (onCross) {
-                    AddCellRect(dipRect, _cellBgBrush, _cellBorderBrush);
-                    AddCrossLabel(dipRect, r, col, grid, _labelBrush, 0.4);
+                    AddShiftedLabel(dipRect, r, c, crossRow, crossCol, grid, _labelBrush);
+                } else if (onShiftedCross) {
+                    AddCellRect(dipRect, _crossBgBrush, _cellBorderBrush);
+                    AddShiftedLabel(dipRect, r, c, crossRow, crossCol, grid, _labelBrush, 0.7);
                 } else {
                     AddCellRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
@@ -151,30 +147,28 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     }
 
     /// <summary>
-    /// Highlights a single cell at the intersection of both axes.
+    /// Highlights a cell — cross rendered at cell's row and column.
     /// </summary>
     public void HighlightCell(CrosshairGrid grid, GridCell cell) {
         _canvas.Children.Clear();
         EnsureTransform();
 
         var region = ComputeRegion(grid);
+        int crossRow = cell.Row;
+        int crossCol = cell.Col;
 
         for (int r = 0; r < grid.Rows; r++) {
             for (int c = 0; c < grid.Cols; c++) {
                 var dipRect = DipRectForCell(r, c, region, grid.Cols, grid.Rows);
-                bool onCross = grid.IsOnCross(r, c);
-                bool isTarget = r == cell.Row && c == cell.Col;
-                bool onTargetCross = r == cell.Row || c == cell.Col;
+                bool onShiftedCross = r == crossRow || c == crossCol;
+                bool isIntersection = r == crossRow && c == crossCol;
 
-                if (isTarget) {
+                if (isIntersection) {
                     AddCellRect(dipRect, _highlightBg, _highlightBorder, _theme.CellBorderThickness * 2);
-                    AddCrossLabel(dipRect, r, c, grid, _labelBrush);
-                } else if (onTargetCross && onCross) {
-                    AddCellRect(dipRect, _crossBgBrush, _highlightBorder);
-                    AddCrossLabel(dipRect, r, c, grid, _labelBrush, 0.6);
-                } else if (onCross) {
-                    AddCellRect(dipRect, _cellBgBrush, _cellBorderBrush);
-                    AddCrossLabel(dipRect, r, c, grid, _labelBrush, 0.3);
+                    AddShiftedLabel(dipRect, r, c, crossRow, crossCol, grid, _labelBrush);
+                } else if (onShiftedCross) {
+                    AddCellRect(dipRect, _crossBgBrush, _cellBorderBrush);
+                    AddShiftedLabel(dipRect, r, c, crossRow, crossCol, grid, _labelBrush, 0.6);
                 } else {
                     AddCellRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
@@ -313,6 +307,49 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
 
         if (onCenterCol) {
             // Vert label: row maps to key index (skip center row)
+            int keyIndex = row < grid.CenterRow ? row : row - 1;
+            return keyIndex >= 0 && keyIndex < _vertLabels.Count
+                ? _vertLabels.LabelFor(keyIndex) : null;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Adds a label for a shifted-cross cell. Labels appear along the shifted
+    /// cross arms (crossRow for horiz labels, crossCol for vert labels).
+    /// </summary>
+    private void AddShiftedLabel(Rect dipRect, int row, int col,
+        int crossRow, int crossCol, CrosshairGrid grid,
+        Brush foreground, double opacity = 1.0) {
+        string? label = GetShiftedCrossLabel(row, col, crossRow, crossCol, grid);
+        if (label is null) {
+            return;
+        }
+
+        double fontSize = ComputeAutoFontSize(dipRect.Width, dipRect.Height, 0.8);
+        AddOutlinedText(label, _typeface, fontSize, foreground, _outlineBrush,
+            _theme.LabelOutlineThickness, opacity,
+            dipRect.X, dipRect.Y, dipRect.Width, dipRect.Height);
+    }
+
+    private string? GetShiftedCrossLabel(int row, int col, int crossRow, int crossCol, CrosshairGrid grid) {
+        bool onHorizArm = row == crossRow;
+        bool onVertArm = col == crossCol;
+
+        if (onHorizArm && onVertArm) {
+            return "\u2022"; // intersection marker
+        }
+
+        if (onHorizArm) {
+            // Horizontal label: col maps to key index (skip center col)
+            int keyIndex = col < grid.CenterCol ? col : col - 1;
+            return keyIndex >= 0 && keyIndex < _horizLabels.Count
+                ? _horizLabels.LabelFor(keyIndex) : null;
+        }
+
+        if (onVertArm) {
+            // Vertical label: row maps to key index (skip center row)
             int keyIndex = row < grid.CenterRow ? row : row - 1;
             return keyIndex >= 0 && keyIndex < _vertLabels.Count
                 ? _vertLabels.LabelFor(keyIndex) : null;

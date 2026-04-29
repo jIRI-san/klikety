@@ -117,6 +117,73 @@ public class CrosshairSessionTests {
     }
 
     [Fact]
+    public void ArrowNav_HighlightsCellAtShiftedPosition() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Arrow right from center should shift to col+1
+        session.OnKey(VKey.Right);
+
+        var lastCall = renderer.Calls[^1];
+        Assert.Equal("HighlightCell", lastCall.Method);
+        Assert.NotNull(lastCall.Cell);
+        // Grid is 11×11, center at (5,5). Right → (5,6)
+        Assert.Equal(5, lastCall.Cell!.Value.Row);
+        Assert.Equal(6, lastCall.Cell.Value.Col);
+    }
+
+    [Fact]
+    public void ArrowKey_AfterHorizSet_Ignored() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        session.OnKey(VKey.A); // Horiz set
+
+        session.OnKey(VKey.Right); // Arrow should be ignored (not in AwaitInput)
+
+        // No HighlightCell call — arrow didn't trigger navigation
+        Assert.DoesNotContain(renderer.Calls, c => c.Method == "HighlightCell");
+    }
+
+    [Fact]
+    public void ArrowKey_AfterVertSet_Ignored() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        session.OnKey(VKey.Q); // Vert set
+
+        session.OnKey(VKey.Down); // Arrow should be ignored (not in AwaitInput)
+
+        Assert.DoesNotContain(renderer.Calls, c => c.Method == "HighlightCell");
+    }
+
+    [Fact]
+    public void HorizKey_RendererReceivesCorrectColumn() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Key A is index 0, maps to col 0 (grid center col is 5, key 0 < 5 → col 0)
+        session.OnKey(VKey.A);
+
+        var lastCall = renderer.Calls[^1];
+        Assert.Equal("HighlightColumn", lastCall.Method);
+        Assert.Equal(0, lastCall.Col);
+    }
+
+    [Fact]
+    public void VertKey_RendererReceivesCorrectRow() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Key Q is index 0, maps to row 0 (grid center row is 5, key 0 < 5 → row 0)
+        session.OnKey(VKey.Q);
+
+        var lastCall = renderer.Calls[^1];
+        Assert.Equal("HighlightRow", lastCall.Method);
+        Assert.Equal(0, lastCall.Row);
+    }
+
+    [Fact]
     public void Deactivate_DisconnectsEvents() {
         var (session, renderer) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));

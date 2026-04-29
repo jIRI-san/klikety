@@ -69,6 +69,38 @@
   // "both"    — both schemes active simultaneously (default).
   "navigationMode": "both",
 
+  // Navigation modes. Each mode can be independently enabled/disabled.
+  // Exactly one mode must be marked "default": true.
+  // N and M are default chord keys — do not use in action bindings.
+  "modes": {
+    "uniformGrid": {
+      "enabled": true,
+      "default": true,
+      "arrowKeys": true,
+      "twoKey": true
+    },
+    "crosshair": {
+      "enabled": true,
+      "chordKey": "N",
+      "arrowKeys": true,
+      "twoKey": true,
+      "horizontalKeys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "OemSemicolon"],
+      "verticalKeys": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"]
+    },
+    "logCrosshair": {
+      "enabled": true,
+      "chordKey": "M",
+      "arrowKeys": true,
+      "twoKey": true,
+      "logBaseSize": 5,
+      "horizontalKeys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "OemSemicolon"],
+      "verticalKeys": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"]
+    }
+  },
+
+  // Config format version. Do not change manually.
+  "configVersion": 1,
+
   // Theme: bare name (resolves to themes/<name>.theme.json) or relative path.
   // Built-in themes: "dark", "light".
   "theme": "dark",

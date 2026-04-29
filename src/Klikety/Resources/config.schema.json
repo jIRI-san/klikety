@@ -60,6 +60,8 @@
         "S",
         "D",
         "F",
+        "G",
+        "H",
         "J",
         "K",
         "L",
@@ -74,6 +76,7 @@
       },
       "maxItems": 16,
       "default": [
+        "Q",
         "W",
         "E",
         "R",
@@ -81,7 +84,8 @@
         "Y",
         "U",
         "I",
-        "O"
+        "O",
+        "P"
       ]
     },
     "level3CellSizeThreshold": {
@@ -102,9 +106,42 @@
     },
     "navigationMode": {
       "type": "string",
-      "description": "Which navigation input schemes are active. 'twoKey' = grid-only; 'arrow' = arrow-key-only; 'both' = both schemes simultaneously.",
+      "description": "Legacy. Migrated to modes.uniformGrid.twoKey/arrowKeys on first load. Kept for backward compatibility.",
       "default": "both",
       "enum": ["twoKey", "arrow", "both"]
+    },
+    "modes": {
+      "type": "object",
+      "description": "Navigation modes. Each mode can be independently enabled/disabled. Exactly one must be default. N and M are default chord keys — do not use in action bindings.",
+      "properties": {
+        "uniformGrid": {
+          "$ref": "#/$defs/modeConfig",
+          "description": "Standard uniform grid mode. Uses firstKeys/secondKeys for two-key navigation."
+        },
+        "crosshair": {
+          "$ref": "#/$defs/modeConfig",
+          "description": "Crosshair mode. Bisects screen along horizontal/vertical axes."
+        },
+        "logCrosshair": {
+          "allOf": [{ "$ref": "#/$defs/modeConfig" }],
+          "description": "Logarithmic crosshair mode. Like crosshair but with log-scaled center cell.",
+          "properties": {
+            "logBaseSize": {
+              "type": "integer",
+              "description": "Base cell size in physical pixels for the center cell.",
+              "default": 5,
+              "minimum": 2,
+              "maximum": 50
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "configVersion": {
+      "type": "integer",
+      "description": "Config format version. Set automatically by migration. Do not change manually.",
+      "minimum": 1
     },
     "theme": {
       "type": "string",
@@ -130,6 +167,46 @@
       "default": 14.0,
       "minimum": 4,
       "examples": [10, 14, 16]
+    }
+  },
+  "$defs": {
+    "modeConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether this mode is available."
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Whether this mode activates on overlay open. Exactly one mode must be default."
+        },
+        "chordKey": {
+          "type": "string",
+          "description": "VKey that switches to this mode while overlay is active. Not needed for the default mode."
+        },
+        "arrowKeys": {
+          "type": "boolean",
+          "description": "Enable arrow-key navigation within this mode."
+        },
+        "twoKey": {
+          "type": "boolean",
+          "description": "Enable two-key (column+row) navigation within this mode."
+        },
+        "horizontalKeys": {
+          "type": "array",
+          "description": "Horizontal axis VKey list for Crosshair/LogCrosshair modes.",
+          "items": { "type": "string" },
+          "maxItems": 16
+        },
+        "verticalKeys": {
+          "type": "array",
+          "description": "Vertical axis VKey list for Crosshair/LogCrosshair modes.",
+          "items": { "type": "string" },
+          "maxItems": 16
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

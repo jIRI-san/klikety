@@ -73,6 +73,12 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
         HideCount++;
     }
 
+    public void ClearCanvas() {
+        ClearCanvasCount++;
+    }
+
+    public int ClearCanvasCount { get; private set; }
+
     public void SimulateFocusLoss() {
         FocusLost?.Invoke(this, EventArgs.Empty);
     }
@@ -128,7 +134,4 @@ public sealed class FakeGridRenderer : IGridRenderer {
 
     public void FlashInvalidKey()
         => Calls.Add(new("FlashInvalidKey"));
-
-    public void ClearCanvas()
-        => Calls.Add(new("ClearCanvas"));
 }

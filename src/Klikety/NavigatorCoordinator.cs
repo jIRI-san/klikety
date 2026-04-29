@@ -204,7 +204,7 @@ public sealed partial class NavigatorCoordinator {
 
         try {
             _hookService.Disable();
-            _gridRenderer?.ClearCanvas();
+            _overlayWindow.ClearCanvas();
             _overlayWindow.Hide();
             _stateMachine.Reset();
         } finally {

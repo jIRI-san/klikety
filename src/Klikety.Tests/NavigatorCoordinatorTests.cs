@@ -187,7 +187,7 @@ public class NavigatorCoordinatorTests {
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.Escape);
 
-        Assert.Contains(renderer.Calls, c => c.Method == "ClearCanvas");
+        Assert.True(overlay.ClearCanvasCount > 0);
         Assert.False(overlay.IsVisible);
     }
 

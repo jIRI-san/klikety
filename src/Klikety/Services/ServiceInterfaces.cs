@@ -42,6 +42,7 @@ public interface IOverlayWindow {
     event EventHandler? FocusLost;
     void Show();
     void Hide();
+    void ClearCanvas();
     bool IsVisible { get; }
 }
 
@@ -57,5 +58,4 @@ public interface IGridRenderer {
     void HighlightColumnOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, int col);
     void HighlightCellOverGrid(IReadOnlyList<GridCell> backgroundCells, IReadOnlyList<GridCell> subgridCells, GridCell highlightedCell);
     void FlashInvalidKey();
-    void ClearCanvas();
 }

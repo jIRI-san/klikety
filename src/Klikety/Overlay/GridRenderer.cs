@@ -191,11 +191,6 @@ public sealed class GridRenderer : IGridRenderer {
         _canvas.Children.Add(fillPath);
     }
 
-    /// <summary>
-    /// Clears all canvas children. Called during deactivation to prevent stale frame flash.
-    /// </summary>
-    public void ClearCanvas() => _canvas.Children.Clear();
-
     private void AddCellRect(Rect dipRect, Brush fill, Brush stroke, double strokeThickness = -1) {
         if (strokeThickness < 0) {
             strokeThickness = _theme.CellBorderThickness;

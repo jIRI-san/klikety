@@ -44,6 +44,10 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         Hide();
     }
 
+    void IOverlayWindow.ClearCanvas() {
+        RootCanvas.Children.Clear();
+    }
+
     /// <summary>
     /// Returns the root Canvas for the GridRenderer to draw on.
     /// </summary>

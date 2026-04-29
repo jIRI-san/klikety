@@ -136,7 +136,7 @@
   - At this step coordinator still owns `_stateMachine` directly
   - Compile-breaking change isolated; run full suite after
 
-- [ ] 2.1c Extract `IModeSession` + `UniformGridSession` skeleton [after: 2.1b] `M`
+- [~] 2.1c Extract `IModeSession` + `UniformGridSession` skeleton [after: 2.1b] `M`
   - `IModeSession` interface: `Activate(Rectangle, Point)`, `OnKey(VKey)`, `Deactivate()`, events `ActionRequested(Point, MouseAction)`, `Cancelled()`, `InvalidKeyPressed()`, `CursorMoveRequested(Point)`
   - `Cancelled` parameterless — coordinator owns `_origin`
   - `Deactivate()` = `Reset()` (direct state, no `OnKey(Escape)`); no surface events; no canvas clear

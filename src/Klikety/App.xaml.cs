@@ -90,9 +90,14 @@ public partial class App : Application {
         var labelGenerator = new LabelGenerator(config.FirstKeys, config.SecondKeys, resolver);
         var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
 
+        // Create crosshair renderer
+        var horizLabels = new AxisLabelGenerator(config.Modes.Crosshair.HorizontalKeys!, resolver);
+        var vertLabels = new AxisLabelGenerator(config.Modes.Crosshair.VerticalKeys!, resolver);
+        var crosshairRenderer = new CrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
+
         // Create action mapper and session factory
         var actionMapper = new ActionMapper(config.ActionBindings);
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer);
+        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer);
 
         // Create coordinator
         _coordinator = new NavigatorCoordinator(

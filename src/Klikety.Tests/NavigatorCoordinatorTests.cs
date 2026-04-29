@@ -337,7 +337,11 @@ public class NavigatorCoordinatorTests {
         var config = new ConfigModel {
             Modes = new ModesConfig {
                 UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-                Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+                Crosshair = new ModeConfig {
+                    Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true,
+                    HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
+                    VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
+                },
             },
         };
         var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
@@ -345,13 +349,11 @@ public class NavigatorCoordinatorTests {
         hotKey.SimulateActivation();
         Assert.True(overlay.IsVisible);
 
-        // Press chord key N before any nav key → mode switch
-        // This will throw NotSupportedException from factory (Crosshair stub)
-        // which triggers DeactivateOverlay via catch
+        // Press chord key N before any nav key → mode switch to Crosshair
         hook.SimulateKeyDown(VKey.N);
 
-        // Crosshair not implemented → SwitchMode catches and deactivates
-        Assert.False(overlay.IsVisible);
+        // Crosshair is now implemented → overlay stays visible
+        Assert.True(overlay.IsVisible);
     }
 
     [Fact]
@@ -529,14 +531,14 @@ public class NavigatorCoordinatorTests {
         var config = new ConfigModel {
             Modes = new ModesConfig {
                 UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-                Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+                LogCrosshair = new ModeConfig { Enabled = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true },
             },
         };
         var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
-        // Chord to Crosshair → NotSupportedException → DeactivateOverlay
-        hook.SimulateKeyDown(VKey.N);
+        // Chord to LogCrosshair → NotSupportedException → DeactivateOverlay
+        hook.SimulateKeyDown(VKey.M);
 
         Assert.False(overlay.IsVisible);
         Assert.False(hook.IsEnabled);
@@ -547,7 +549,7 @@ public class NavigatorCoordinatorTests {
         var config = new ConfigModel {
             Modes = new ModesConfig {
                 UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-                Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+                LogCrosshair = new ModeConfig { Enabled = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true },
             },
         };
         var (_, hotKey, hook, _, overlay, renderer, _) = CreateCoordinator(configOverride: config);
@@ -555,8 +557,8 @@ public class NavigatorCoordinatorTests {
         hotKey.SimulateActivation();
         Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
 
-        // Switch attempt (will fail on Crosshair)
-        hook.SimulateKeyDown(VKey.N);
+        // Switch attempt (will fail on LogCrosshair)
+        hook.SimulateKeyDown(VKey.M);
 
         // ClearCanvas should have been called during switch attempt
         Assert.True(overlay.ClearCanvasCount > 0);
@@ -678,12 +680,12 @@ public class NavigatorCoordinatorTests {
         var config = new ConfigModel {
             Modes = new ModesConfig {
                 UniformGrid = new ModeConfig { Enabled = true, TwoKey = true, ArrowKeys = true },
-                Crosshair = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+                LogCrosshair = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true },
             },
         };
         var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator(configOverride: config);
 
-        // QWERTY = true so it doesn't fall back — will try to Create("Crosshair") → throws
+        // QWERTY = true so it doesn't fall back — will try to Create("LogCrosshair") → throws
         platform.KeyboardLayout.Qwerty = true;
         hotKey.SimulateActivation();
 

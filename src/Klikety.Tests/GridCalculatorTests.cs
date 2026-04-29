@@ -27,11 +27,19 @@ public class GridCalculatorTests {
         Assert.Equal(bounds.Height, lastCell.Bounds.Y + lastCell.Bounds.Height);
     }
 
+    [Fact]
+    public void Calculate_10x10Grid_ReturnsCorrectCellCount() {
+        var bounds = new Rectangle(0, 0, 1920, 1080);
+        var cells = GridCalculator.Calculate(bounds, 10, 10);
+        Assert.Equal(100, cells.Count);
+    }
+
     [Theory]
-    [InlineData(1920, 1080, 9, 8)]   // 1080p
-    [InlineData(2560, 1440, 9, 8)]   // 1440p
-    [InlineData(3840, 2160, 9, 8)]   // 4K
-    [InlineData(1920, 1200, 9, 8)]   // 1920x1200
+    [InlineData(1920, 1080, 9, 8)]    // legacy 9×8
+    [InlineData(1920, 1080, 10, 10)]  // new 10×10
+    [InlineData(2560, 1440, 10, 10)]  // 1440p 10×10
+    [InlineData(3840, 2160, 10, 10)]  // 4K 10×10
+    [InlineData(1920, 1200, 9, 8)]    // 1920x1200
     public void Calculate_VariousResolutions_NoCellGaps(int w, int h, int cols, int rows) {
         var bounds = new Rectangle(0, 0, w, h);
         var cells = GridCalculator.Calculate(bounds, cols, rows);

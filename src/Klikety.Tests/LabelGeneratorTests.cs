@@ -64,6 +64,46 @@ public class LabelGeneratorTests {
     }
 
     [Fact]
+    public void Grid_10x10_AllLabelsUnique() {
+        VKey[] first = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
+        VKey[] second = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P];
+        var gen = new LabelGenerator(first, second);
+        Assert.Equal(10, gen.Cols);
+        Assert.Equal(10, gen.Rows);
+
+        var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int r = 0; r < gen.Rows; r++) {
+            for (int c = 0; c < gen.Cols; c++) {
+                Assert.True(labels.Add(gen.LabelFor(r, c).ToString()), $"Duplicate at ({r},{c})");
+            }
+        }
+        Assert.Equal(100, labels.Count);
+    }
+
+    [Fact]
+    public void Grid_Legacy8Keys_StillWorks() {
+        VKey[] first = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
+        VKey[] second = [VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O];
+        var gen = new LabelGenerator(first, second);
+        Assert.Equal(8, gen.Cols);
+        Assert.Equal(8, gen.Rows);
+
+        // All 64 labels unique and round-trip
+        var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int r = 0; r < gen.Rows; r++) {
+            for (int c = 0; c < gen.Cols; c++) {
+                var label = gen.LabelFor(r, c);
+                Assert.True(labels.Add(label.ToString()));
+                var cell = gen.CellFor(label.ToString());
+                Assert.NotNull(cell);
+                Assert.Equal(r, cell.Value.Row);
+                Assert.Equal(c, cell.Value.Col);
+            }
+        }
+        Assert.Equal(64, labels.Count);
+    }
+
+    [Fact]
     public void SmallGrid_3x2() {
         VKey[] first = [VKey.A, VKey.S, VKey.D];
         VKey[] second = [VKey.W, VKey.E];

@@ -95,7 +95,7 @@
   - Bootstrap: `DeactivateOverlay()` → unregister hotkey → dispose coordinator → reload → validate → reconstruct if valid
   - Tests: menu item appears on violation; full reset cycle; reset while overlay active
 
-- [ ] 1.3 Validation `M`
+- [~] 1.3 Validation `M`
   - Per-mode key disjointness: chord keys vs `firstKeys`/`secondKeys` (UniformGrid), vs `horizontalKeys`/`verticalKeys` (Crosshair/LogCrosshair), vs `actionBindings`, vs arrows/Esc/Enter, vs hotkey trigger + modifier VKeys
   - Cross-mode: chord keys mutually unique; per-mode axis keys vs action bindings; when Crosshair/LogCrosshair enabled, their axis keys vs hotkey
   - Structural: exactly one `default: true`; at least one `enabled: true`; every enabled mode has `twoKey || arrowKeys`

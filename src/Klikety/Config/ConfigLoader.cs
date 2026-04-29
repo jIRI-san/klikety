@@ -131,10 +131,6 @@ public static class ConfigLoader {
             }
         }
 
-        // Check for overlap between navigation keys and action keys (explicit + implicit Space)
-        var allNavKeys = new HashSet<VKey>(config.FirstKeys);
-        allNavKeys.UnionWith(config.SecondKeys);
-
         // Collect all effective action keys (explicit bindings + implicit Space default)
         var actionKeys = new HashSet<VKey>();
         foreach (var binding in config.ActionBindings) {
@@ -143,6 +139,10 @@ public static class ConfigLoader {
             }
         }
         actionKeys.Add(VKey.Space); // implicit default
+
+        // Check for overlap between navigation keys and action keys
+        var allNavKeys = new HashSet<VKey>(config.FirstKeys);
+        allNavKeys.UnionWith(config.SecondKeys);
 
         foreach (var actionKey in actionKeys) {
             if (allNavKeys.Contains(actionKey)) {
@@ -155,6 +155,174 @@ public static class ConfigLoader {
             violations.Add($"Hotkey trigger '{config.HotKey.Key}' conflicts with a navigation key.");
         }
 
+        // Hotkey modifier VKeys for conflict checking
+        var hotkeyVKeys = new HashSet<VKey>();
+        hotkeyVKeys.Add(config.HotKey.Key);
+        if (config.HotKey.Modifiers.HasFlag(HotKeyModifiers.Alt)) { hotkeyVKeys.Add(VKey.Menu); hotkeyVKeys.Add(VKey.LMenu); hotkeyVKeys.Add(VKey.RMenu); }
+        if (config.HotKey.Modifiers.HasFlag(HotKeyModifiers.Control)) { hotkeyVKeys.Add(VKey.Control); hotkeyVKeys.Add(VKey.LControl); hotkeyVKeys.Add(VKey.RControl); }
+        if (config.HotKey.Modifiers.HasFlag(HotKeyModifiers.Shift)) { hotkeyVKeys.Add(VKey.Shift); hotkeyVKeys.Add(VKey.LShift); hotkeyVKeys.Add(VKey.RShift); }
+        if (config.HotKey.Modifiers.HasFlag(HotKeyModifiers.Win)) { hotkeyVKeys.Add(VKey.LWin); hotkeyVKeys.Add(VKey.RWin); }
+
+        // === Mode validation ===
+        ValidateModes(config, violations, actionKeys, hotkeyVKeys);
+
         return violations;
+    }
+
+    private static void ValidateModes(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> hotkeyVKeys) {
+        var modes = config.Modes;
+        var modeEntries = new (string Name, ModeConfig Config)[] {
+            ("UniformGrid", modes.UniformGrid),
+            ("Crosshair", modes.Crosshair),
+            ("LogCrosshair", modes.LogCrosshair),
+        };
+
+        // Structural: at least one enabled
+        if (!modeEntries.Any(m => m.Config.Enabled)) {
+            violations.Add("At least one mode must be enabled.");
+        }
+
+        // Structural: exactly one default
+        var defaultCount = modeEntries.Count(m => m.Config.Default);
+        if (defaultCount == 0) {
+            violations.Add("Exactly one mode must be marked as default.");
+        } else if (defaultCount > 1) {
+            violations.Add("Only one mode may be marked as default.");
+        }
+
+        // Default mode must be enabled
+        foreach (var (name, mc) in modeEntries) {
+            if (mc.Default && !mc.Enabled) {
+                violations.Add($"{name}: default mode must be enabled.");
+            }
+        }
+
+        // Every enabled mode must have twoKey || arrowKeys
+        // Crosshair/LogCrosshair additionally require twoKey
+        foreach (var (name, mc) in modeEntries) {
+            if (!mc.Enabled) continue;
+            if (name is "Crosshair" or "LogCrosshair" && !mc.TwoKey) {
+                violations.Add($"{name}: Crosshair/LogCrosshair modes require twoKey: true.");
+            } else if (!mc.TwoKey && !mc.ArrowKeys) {
+                violations.Add($"{name}: enabled mode must have twoKey or arrowKeys (or both).");
+            }
+        }
+
+        // Mode-specific: logBaseSize ∈ [2, 50]
+        if (modes.LogCrosshair.Enabled && (modes.LogCrosshair.LogBaseSize < 2 || modes.LogCrosshair.LogBaseSize > 50)) {
+            violations.Add($"LogCrosshair: logBaseSize must be between 2 and 50 (got {modes.LogCrosshair.LogBaseSize}).");
+        }
+
+        // Chord keys: collect and check mutual uniqueness
+        var chordKeys = new Dictionary<VKey, string>();
+        foreach (var (name, mc) in modeEntries) {
+            if (!mc.Enabled) continue;
+
+            // Enabled non-default mode must have a chord key
+            if (!mc.Default && mc.ChordKey is null) {
+                violations.Add($"{name}: enabled non-default mode must have a chordKey.");
+                continue;
+            }
+
+            if (mc.ChordKey is not { } chord) continue;
+
+            // Chord vs reserved
+            if (ReservedKeys.Contains(chord)) {
+                violations.Add($"{name}: chord key '{chord}' is reserved.");
+            }
+
+            // Chord vs action bindings
+            if (actionKeys.Contains(chord)) {
+                violations.Add($"{name}: chord key '{chord}' conflicts with an action binding.");
+            }
+
+            // Chord vs hotkey
+            if (hotkeyVKeys.Contains(chord)) {
+                violations.Add($"{name}: chord key '{chord}' conflicts with hotkey.");
+            }
+
+            // Cross-mode: chord keys mutually unique
+            if (chordKeys.TryGetValue(chord, out var otherMode)) {
+                violations.Add($"Chord key '{chord}' is used by both {otherMode} and {name}.");
+            } else {
+                chordKeys[chord] = name;
+            }
+        }
+
+        // Per-mode axis key validation for Crosshair/LogCrosshair
+        foreach (var (name, mc) in modeEntries) {
+            if (name == "UniformGrid" || !mc.Enabled) continue;
+
+            ValidateAxisKeys(name, "horizontalKeys", mc.HorizontalKeys, violations, actionKeys, hotkeyVKeys);
+            ValidateAxisKeys(name, "verticalKeys", mc.VerticalKeys, violations, actionKeys, hotkeyVKeys);
+
+            // No overlap between horiz and vert within same mode
+            if (mc.HorizontalKeys is not null && mc.VerticalKeys is not null) {
+                var horizSet = new HashSet<VKey>(mc.HorizontalKeys);
+                foreach (var vk in mc.VerticalKeys) {
+                    if (horizSet.Contains(vk)) {
+                        violations.Add($"{name}: key '{vk}' appears in both horizontalKeys and verticalKeys.");
+                    }
+                }
+            }
+
+            // Axis keys vs chord keys
+            if (mc.HorizontalKeys is not null) {
+                foreach (var vk in mc.HorizontalKeys) {
+                    if (chordKeys.ContainsKey(vk)) {
+                        violations.Add($"{name}: horizontalKey '{vk}' conflicts with chord key.");
+                    }
+                }
+            }
+            if (mc.VerticalKeys is not null) {
+                foreach (var vk in mc.VerticalKeys) {
+                    if (chordKeys.ContainsKey(vk)) {
+                        violations.Add($"{name}: verticalKey '{vk}' conflicts with chord key.");
+                    }
+                }
+            }
+        }
+
+        // UniformGrid: firstKeys/secondKeys vs chord keys
+        foreach (var fk in config.FirstKeys) {
+            if (chordKeys.ContainsKey(fk)) {
+                violations.Add($"UniformGrid firstKey '{fk}' conflicts with chord key.");
+            }
+        }
+        foreach (var sk in config.SecondKeys) {
+            if (chordKeys.ContainsKey(sk)) {
+                violations.Add($"UniformGrid secondKey '{sk}' conflicts with chord key.");
+            }
+        }
+    }
+
+    private static void ValidateAxisKeys(string modeName, string arrayName, VKey[]? keys, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> hotkeyVKeys) {
+        if (keys is null || keys.Length == 0) {
+            violations.Add($"{modeName}: {arrayName} must not be empty when mode is enabled.");
+            return;
+        }
+
+        var seen = new HashSet<VKey>();
+        foreach (var vk in keys) {
+            // Reserved
+            if (ReservedKeys.Contains(vk)) {
+                violations.Add($"{modeName}: reserved key '{vk}' may not be used in {arrayName}.");
+            }
+
+            // Duplicates
+            if (!seen.Add(vk)) {
+                violations.Add($"{modeName}: {arrayName} contains duplicate key '{vk}'.");
+            }
+
+            // Vs action bindings
+            if (actionKeys.Contains(vk)) {
+                violations.Add($"{modeName}: {arrayName} key '{vk}' conflicts with an action binding.");
+            }
+
+            // Vs hotkey
+            if (hotkeyVKeys.Contains(vk)) {
+                violations.Add($"{modeName}: {arrayName} key '{vk}' conflicts with hotkey.");
+            }
+        }
     }
 }

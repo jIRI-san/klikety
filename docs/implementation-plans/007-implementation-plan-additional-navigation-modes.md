@@ -145,7 +145,7 @@
   - `IOverlayWindow.ClearCanvas()` added; `ClearCanvas()` removed from `IGridRenderer`; `GridRenderer` keeps internal clear as private detail
   - `DeactivateOverlay()` switches to `_overlayWindow.ClearCanvas()`
 
-- [~] 2.1d Migrate coordinator handlers to `UniformGridSession` [after: 2.1c] `L`
+- [x] 2.1d Migrate coordinator handlers to `UniformGridSession` [after: 2.1c] `L`
   - Incremental, one group at a time with test runs between:
     1. `OnColumnHighlighted` + `OnSubgridCellHighlighted`
     2. `OnCellEntered` + `OnSubgridCellEntered`

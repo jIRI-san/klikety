@@ -3,6 +3,73 @@ using Klikety.Input;
 namespace Klikety.Config;
 
 /// <summary>
+/// Per-mode configuration. Each navigation mode has its own toggles, chord key,
+/// and axis key arrays.
+/// <para>
+/// Bool properties default to <c>false</c> and arrays to <c>null</c> by design.
+/// Usable defaults live in <see cref="ModesConfig"/> property initializers.
+/// The config loader (JsonDocument pre-pass) is responsible for merging partial
+/// user overrides onto those defaults — bare <c>new ModeConfig()</c> yields an
+/// all-disabled instance.
+/// </para>
+/// </summary>
+public sealed class ModeConfig {
+    public bool Enabled { get; init; }
+    public bool Default { get; init; }
+    public VKey? ChordKey { get; init; }
+    public bool ArrowKeys { get; init; }
+    public bool TwoKey { get; init; }
+
+    /// <summary>
+    /// Base cell size in physical pixels for LogCrosshair center cell.
+    /// Only meaningful for LogCrosshair mode. Default 5.
+    /// </summary>
+    public int LogBaseSize { get; init; } = 5;
+
+    /// <summary>
+    /// Horizontal axis keys for Crosshair/LogCrosshair modes.
+    /// Null = use 10-key QWERTY defaults at load time.
+    /// </summary>
+    public VKey[]? HorizontalKeys { get; init; }
+
+    /// <summary>
+    /// Vertical axis keys for Crosshair/LogCrosshair modes.
+    /// Null = use 10-key QWERTY defaults at load time.
+    /// </summary>
+    public VKey[]? VerticalKeys { get; init; }
+}
+
+/// <summary>
+/// Container for all navigation mode configurations.
+/// </summary>
+public sealed class ModesConfig {
+    public ModeConfig UniformGrid { get; init; } = new() {
+        Enabled = true,
+        Default = true,
+        ArrowKeys = true,
+        TwoKey = true,
+    };
+
+    public ModeConfig Crosshair { get; init; } = new() {
+        Enabled = true,
+        ChordKey = VKey.N,
+        ArrowKeys = true,
+        TwoKey = true,
+        HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
+        VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
+    };
+
+    public ModeConfig LogCrosshair { get; init; } = new() {
+        Enabled = true,
+        ChordKey = VKey.M,
+        ArrowKeys = true,
+        TwoKey = true,
+        HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
+        VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
+    };
+}
+
+/// <summary>
 /// Win32 modifier flags for RegisterHotKey. Values match MOD_* constants.
 /// </summary>
 [Flags]
@@ -28,6 +95,17 @@ public sealed class HotKeyConfig {
 /// </summary>
 public sealed class ConfigModel {
     public HotKeyConfig HotKey { get; init; } = new();
+
+    /// <summary>
+    /// Per-mode configuration for all navigation modes.
+    /// </summary>
+    public ModesConfig Modes { get; init; } = new();
+
+    /// <summary>
+    /// Config schema version for migration detection.
+    /// 0 = legacy (pre-modes), 1 = current.
+    /// </summary>
+    public int ConfigVersion { get; init; }
 
     /// <summary>
     /// Maps VKey names to mouse actions. Space → LeftClick is always the default

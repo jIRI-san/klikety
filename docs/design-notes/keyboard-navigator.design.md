@@ -191,6 +191,28 @@ interface IGridRenderer {
 - `LabelGenerator` derives display characters via `ToUnicode` / `MapVirtualKey` against the active HKL so on-screen labels reflect the user's keyboard layout.
 - Fallback: if `ToUnicode` returns no character (dead key, unmapped), VKey name string is used as the label.
 
+## Navigation Modes
+
+Three navigation modes, each with independent configuration via `ModeConfig`:
+
+- **UniformGrid** (existing) — two-key grid scheme using `firstKeys`/`secondKeys` at root level.
+- **Crosshair** (planned) — cross-style navigation with per-mode `horizontalKeys`/`verticalKeys`.
+- **LogCrosshair** (planned) — logarithmic-scaled cross grid with per-mode axis keys.
+
+### `ModeConfig`
+
+Per-mode settings: `Enabled`, `Default`, `ChordKey` (nullable — default mode has none), `ArrowKeys`, `TwoKey`, `LogBaseSize` (LogCrosshair only), `HorizontalKeys`/`VerticalKeys` (Crosshair/LogCrosshair axis keys, nullable — null means use defaults).
+
+Bool properties default to `false` and arrays to `null`. Usable defaults live in `ModesConfig` property initializers. The config loader (JsonDocument pre-pass) merges partial user overrides onto those defaults.
+
+### `ModesConfig`
+
+Container with three named properties (`UniformGrid`, `Crosshair`, `LogCrosshair`), each a `ModeConfig` with appropriate defaults. Lives on `ConfigModel.Modes`.
+
+### `ConfigVersion`
+
+Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = current (modes shape). Used by the migration pre-pass to detect old configs.
+
 ## Key Scheme
 
 ### Unified 8×8 grid

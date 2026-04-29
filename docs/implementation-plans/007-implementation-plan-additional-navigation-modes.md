@@ -68,8 +68,9 @@
 | R-15 | CrossArrowNavigator backtracking to center | M | L | Inherent to cross; future: direct center-jump option |
 
 ## Phase 1: Config & Key Expansion
+<!-- worktree: feature/007-additional-navigation-modes-config-key-expansion-step-1-1 -->
 
-- [ ] 1.1 New `ConfigModel` shape `M`
+- [~] 1.1 New `ConfigModel` shape `M`
   - Add `ModeConfig` class: `bool Enabled`, `bool Default`, `VKey? ChordKey`, `bool ArrowKeys`, `bool TwoKey`, `int LogBaseSize` (LogCrosshair only, default 5), `VKey[]? HorizontalKeys`, `VKey[]? VerticalKeys` (axis keys for Crosshair/LogCrosshair; null = use defaults)
   - Add `ConfigModel.Modes` with three named properties: `UniformGrid`, `Crosshair`, `LogCrosshair`
   - Add `ConfigModel.ConfigVersion` (`int`, default 0)

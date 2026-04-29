@@ -360,13 +360,13 @@ public class LogCrosshairStateMachineTests {
     [Fact]
     public void Escape_FromHorizOnly_FiresAxisCleared() {
         var sm = CreateSM();
-        sm.Activate(CreateGrid(), new Point(550, 550));
-        sm.OnKey(VKey.F); // HorizSet
+    sm.Activate(CreateGrid(), new Point(550, 550));
 
-        bool cleared = false;
+    bool cleared = false;
         sm.AxisCleared += () => cleared = true;
 
-        sm.OnKey(VKey.Escape);
+    sm.OnKey(VKey.F); // HorizSet
+    sm.OnKey(VKey.Escape);
 
         Assert.True(cleared);
         Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
@@ -375,13 +375,13 @@ public class LogCrosshairStateMachineTests {
     [Fact]
     public void Escape_FromVertOnly_FiresAxisCleared() {
         var sm = CreateSM();
-        sm.Activate(CreateGrid(), new Point(550, 550));
-        sm.OnKey(VKey.R); // VertSet
+    sm.Activate(CreateGrid(), new Point(550, 550));
 
-        bool cleared = false;
+    bool cleared = false;
         sm.AxisCleared += () => cleared = true;
 
-        sm.OnKey(VKey.Escape);
+    sm.OnKey(VKey.R); // VertSet
+    sm.OnKey(VKey.Escape);
 
         Assert.True(cleared);
         Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);

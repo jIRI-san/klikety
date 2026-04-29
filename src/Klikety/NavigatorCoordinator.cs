@@ -126,13 +126,7 @@ public sealed partial class NavigatorCoordinator {
 
             _activeSession = session;
             session.Activate(_screenBounds, _origin);
-        } catch (NotSupportedException ex) {
-            LogModeSwitchFailed(defaultModeName, ex.Message);
-            DeactivateOverlay();
-        } catch (ArgumentException ex) {
-            LogModeSwitchFailed(defaultModeName, ex.Message);
-            DeactivateOverlay();
-        } catch (InvalidOperationException ex) {
+        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
             LogModeSwitchFailed(defaultModeName, ex.Message);
             DeactivateOverlay();
         }
@@ -301,13 +295,7 @@ public sealed partial class NavigatorCoordinator {
 
             _activeSession = session;
             session.Activate(_screenBounds, _origin);
-        } catch (NotSupportedException ex) {
-            LogModeSwitchFailed(targetModeName, ex.Message);
-            DeactivateOverlay();
-        } catch (ArgumentException ex) {
-            LogModeSwitchFailed(targetModeName, ex.Message);
-            DeactivateOverlay();
-        } catch (InvalidOperationException ex) {
+        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
             LogModeSwitchFailed(targetModeName, ex.Message);
             DeactivateOverlay();
         } finally {

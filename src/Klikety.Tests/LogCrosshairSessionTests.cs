@@ -239,4 +239,25 @@ public class LogCrosshairSessionTests {
 
         Assert.Throws<InvalidOperationException>(() => factory.Create("LogCrosshair"));
     }
+
+    // --- Flash lifecycle across deactivate/reactivate ---
+
+    [Fact]
+    public void InvalidKey_AfterReactivation_StillFlashes() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Flash during first activation
+        session.OnKey(VKey.Tab);
+        Assert.Contains(renderer.Calls, c => c.Method == "FlashInvalidKey");
+
+        // Deactivate and reactivate
+        session.Deactivate();
+        renderer.Calls.Clear();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Flash should still work after reactivation
+        session.OnKey(VKey.Tab);
+        Assert.Contains(renderer.Calls, c => c.Method == "FlashInvalidKey");
+    }
 }

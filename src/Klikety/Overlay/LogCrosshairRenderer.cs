@@ -196,8 +196,8 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     }
 
     public void FlashInvalidKey() {
-        if (_flashRect is null) {
-            _flashRect = new Rectangle {
+    if (_flashRect is null || _flashRect.Parent is null) {
+      _flashRect = new Rectangle {
                 Fill = new SolidColorBrush(Color.FromArgb(80, 255, 0, 0)),
                 IsHitTestVisible = false,
             };

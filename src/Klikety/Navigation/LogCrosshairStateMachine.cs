@@ -189,15 +189,15 @@ public sealed class LogCrosshairStateMachine {
                 _horizIndex = -1;
                 if (_vertIndex >= 0) {
                     int row = KeyIndexToRow(_vertIndex, _grid!.CenterRow);
-                    var cell = _grid.CellAt(row, _grid.CenterCol);
-                    _actionPoint = LogGridCalculator.CenterOf(cell);
+          var cell = _grid!.CellAt(row, _grid!.CenterCol);
+          _actionPoint = LogGridCalculator.CenterOf(cell);
                     CurrentState = State.VertSet;
                     VertSelected?.Invoke(row, _vertIndex);
                 } else {
                     _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
-                    _arrowRow = _grid.CenterRow;
-                    _arrowCol = _grid.CenterCol;
-                    CurrentState = State.AwaitInput;
+          _arrowRow = _grid!.CenterRow;
+          _arrowCol = _grid!.CenterCol;
+          CurrentState = State.AwaitInput;
                     AxisCleared?.Invoke();
                 }
                 break;
@@ -206,15 +206,15 @@ public sealed class LogCrosshairStateMachine {
                 _vertIndex = -1;
                 if (_horizIndex >= 0) {
                     int col = KeyIndexToCol(_horizIndex, _grid!.CenterCol);
-                    var cell = _grid.CellAt(_grid.CenterRow, col);
-                    _actionPoint = LogGridCalculator.CenterOf(cell);
+          var cell = _grid!.CellAt(_grid!.CenterRow, col);
+          _actionPoint = LogGridCalculator.CenterOf(cell);
                     CurrentState = State.HorizSet;
                     HorizSelected?.Invoke(col, _horizIndex);
                 } else {
                     _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
-                    _arrowRow = _grid.CenterRow;
-                    _arrowCol = _grid.CenterCol;
-                    CurrentState = State.AwaitInput;
+          _arrowRow = _grid!.CenterRow;
+          _arrowCol = _grid!.CenterCol;
+          CurrentState = State.AwaitInput;
                     AxisCleared?.Invoke();
                 }
                 break;

@@ -1,5 +1,4 @@
 using Klikety.Input;
-using Klikety.Interop;
 
 namespace Klikety.Grid;
 
@@ -13,7 +12,7 @@ public readonly record struct CellLabel(string First, string Second) {
 
 /// <summary>
 /// Generates display labels for grid cells by translating VKey codes
-/// to characters using the active keyboard layout (HKL).
+/// to characters using an <see cref="IKeyLabelResolver"/>.
 /// Provides bidirectional lookup: (row, col) → label and label → (row, col).
 /// </summary>
 public sealed class LabelGenerator {
@@ -27,12 +26,8 @@ public sealed class LabelGenerator {
     /// </summary>
     /// <param name="firstKeys">Column keys (first-key set).</param>
     /// <param name="secondKeys">Row keys (second-key set).</param>
-    /// <param name="hkl">Keyboard layout handle. Pass IntPtr.Zero to use the current thread's HKL.</param>
-    public LabelGenerator(VKey[] firstKeys, VKey[] secondKeys, nint hkl = 0) {
-        if (hkl == 0) {
-            hkl = NativeMethods.GetActiveKeyboardLayout();
-        }
-
+    /// <param name="resolver">Resolves VKey to display character.</param>
+    public LabelGenerator(VKey[] firstKeys, VKey[] secondKeys, IKeyLabelResolver resolver) {
         _cols = firstKeys.Length;
         _rows = secondKeys.Length;
         _labels = new CellLabel[_rows, _cols];
@@ -40,12 +35,8 @@ public sealed class LabelGenerator {
 
         for (int row = 0; row < _rows; row++) {
             for (int col = 0; col < _cols; col++) {
-                var ch1 = NativeMethods.VKeyToChar((uint)firstKeys[col], hkl);
-                var ch2 = NativeMethods.VKeyToChar((uint)secondKeys[row], hkl);
-
-                // Fall back to VKey name if ToUnicode fails (dead key, unmapped)
-                string first = ch1.HasValue ? char.ToUpper(ch1.Value).ToString() : firstKeys[col].ToString();
-                string second = ch2.HasValue ? char.ToUpper(ch2.Value).ToString() : secondKeys[row].ToString();
+                string first = resolver.Resolve(firstKeys[col]);
+                string second = resolver.Resolve(secondKeys[row]);
 
                 var label = new CellLabel(first, second);
                 _labels[row, col] = label;

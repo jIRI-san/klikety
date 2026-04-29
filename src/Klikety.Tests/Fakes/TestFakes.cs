@@ -7,6 +7,14 @@ using Klikety.Services;
 
 namespace Klikety.Tests.Fakes;
 
+/// <summary>
+/// Test resolver that returns uppercase VKey name as the label.
+/// Deterministic, no Win32 dependency.
+/// </summary>
+public sealed class FakeKeyLabelResolver : IKeyLabelResolver {
+    public string Resolve(VKey key) => key.ToString().ToUpperInvariant();
+}
+
 public sealed class FakeKeyboardHookService : IKeyboardHookService {
     public event EventHandler<VKey>? KeyPressed;
     public bool IsEnabled { get; private set; }

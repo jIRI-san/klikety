@@ -122,7 +122,7 @@
 
 ## Phase 2: Infrastructure & Interface Extraction
 
-- [ ] 2.1a Extract `KeyLabelResolver` shared helper [after: 1.4] `S`
+- [~] 2.1a Extract `KeyLabelResolver` shared helper [after: 1.4] `S`
   - `IKeyLabelResolver` interface + static production impl using `ToUnicode`/`MapVirtualKey`
   - Refactor `LabelGenerator` to accept `IKeyLabelResolver` (zero behavior change)
   - `AxisLabelGenerator`: single-char labels from axis `VKey[]` via `IKeyLabelResolver`

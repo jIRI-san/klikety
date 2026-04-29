@@ -86,7 +86,8 @@ public partial class App : Application {
         var overlayWindow = new OverlayWindow();
 
         // Create label generator
-        var labelGenerator = new LabelGenerator(config.FirstKeys, config.SecondKeys);
+        var resolver = new Win32KeyLabelResolver();
+        var labelGenerator = new LabelGenerator(config.FirstKeys, config.SecondKeys, resolver);
         var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
 
         // Create state machine

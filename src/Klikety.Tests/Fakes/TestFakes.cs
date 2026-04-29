@@ -60,7 +60,9 @@ public sealed class FakeKeyboardLayoutProvider : IKeyboardLayoutProvider {
     /// US English QWERTY layout handle (0x04090409).
     /// </summary>
     public nint Layout { get; set; } = 0x04090409;
+    public bool Qwerty { get; set; } = true;
     public nint GetActiveKeyboardLayout() => Layout;
+    public bool IsQwertyCompatible() => Qwerty;
 }
 
 public sealed class FakePlatformServices : IPlatformServices {

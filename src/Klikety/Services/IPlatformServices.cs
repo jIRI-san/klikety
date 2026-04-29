@@ -12,7 +12,8 @@ public interface IKeyStateProvider {
 }
 
 /// <summary>
-/// A cancellable one-shot timer.
+/// A cancellable one-shot timer. Implementations MUST guarantee that
+/// <see cref="Elapsed"/> fires on the same thread that called <see cref="Start"/>.
 /// </summary>
 public interface IDebounceTimer : IDisposable {
     event Action? Elapsed;
@@ -42,10 +43,11 @@ public interface IScreenBoundsProvider {
 }
 
 /// <summary>
-/// Provides the active keyboard layout handle.
+/// Provides the active keyboard layout handle and QWERTY detection.
 /// </summary>
 public interface IKeyboardLayoutProvider {
     nint GetActiveKeyboardLayout();
+    bool IsQwertyCompatible();
 }
 
 /// <summary>

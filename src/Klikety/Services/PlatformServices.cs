@@ -30,22 +30,41 @@ internal sealed partial class Win32KeyStateProvider : IKeyStateProvider {
 }
 
 internal sealed class ThreadingTimerFactory : ITimerFactory {
-    public IDebounceTimer Create() => new ThreadingTimer();
+    public IDebounceTimer Create() => new DispatcherDebounceTimer();
 }
 
-internal sealed class ThreadingTimer : IDebounceTimer {
-    private System.Threading.Timer? _timer;
+/// <summary>
+/// Debounce timer that marshals callbacks to the WPF dispatcher thread.
+/// Uses a cancelled flag to prevent post-dispose firing.
+/// </summary>
+internal sealed class DispatcherDebounceTimer : IDebounceTimer {
+    private System.Windows.Threading.DispatcherTimer? _timer;
+    private bool _disposed;
 
     public event Action? Elapsed;
 
     public void Start(TimeSpan interval) {
         Stop();
-        _timer = new System.Threading.Timer(_ => Elapsed?.Invoke(), null, interval, Timeout.InfiniteTimeSpan);
+        _disposed = false;
+        _timer = new System.Windows.Threading.DispatcherTimer { Interval = interval };
+        _timer.Tick += OnTick;
+        _timer.Start();
+    }
+
+    private void OnTick(object? sender, EventArgs e) {
+        _timer?.Stop();
+        if (!_disposed) {
+            Elapsed?.Invoke();
+        }
     }
 
     public void Stop() {
-        _timer?.Dispose();
-        _timer = null;
+        _disposed = true;
+        if (_timer is not null) {
+            _timer.Stop();
+            _timer.Tick -= OnTick;
+            _timer = null;
+        }
     }
 
     public void Dispose() => Stop();
@@ -61,4 +80,11 @@ internal sealed class Win32ScreenBoundsProvider : IScreenBoundsProvider {
 
 internal sealed class Win32KeyboardLayoutProvider : IKeyboardLayoutProvider {
     public nint GetActiveKeyboardLayout() => NativeMethods.GetActiveKeyboardLayout();
+
+    public bool IsQwertyCompatible() {
+        var hkl = GetActiveKeyboardLayout();
+        // Probe: does VK_Q map to 'Q'? If yes, layout is QWERTY-compatible.
+        var ch = NativeMethods.VKeyToChar((uint)VKey.Q, hkl);
+        return ch is 'Q' or 'q';
+    }
 }

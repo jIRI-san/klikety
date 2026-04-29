@@ -20,14 +20,6 @@ public sealed class ModeSessionFactory {
     }
 
     /// <summary>
-    /// Creates a session for the default enabled mode.
-    /// </summary>
-    public IModeSession CreateDefault() {
-        // For now, always UniformGrid. Multi-mode dispatch added in Phase 3/4.
-        return CreateUniformGrid();
-    }
-
-    /// <summary>
     /// Creates a session for the named mode.
     /// </summary>
     public IModeSession Create(string modeName) => modeName switch {

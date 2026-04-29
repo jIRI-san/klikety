@@ -28,9 +28,6 @@ public sealed partial class NavigatorCoordinator {
     /// <summary>Debounce timeout duration.</summary>
     private static readonly TimeSpan DebounceTimeout = TimeSpan.FromMilliseconds(500);
 
-    /// <summary>Known QWERTY layout handles (low word = language ID 0x0409 = US English).</summary>
-    private const int QwertyLanguageId = 0x0409;
-
 #pragma warning disable CA1859 // Will hold different session types (Crosshair, LogCrosshair)
     private IModeSession? _activeSession;
 #pragma warning restore CA1859
@@ -40,7 +37,6 @@ public sealed partial class NavigatorCoordinator {
     private bool _nonQwertyWarningShown;
     private Point _origin;
     private Rectangle _screenBounds;
-    private int _sessionGeneration;
 
     // Debounce state
     private readonly HashSet<VKey> _debounceKeys = [];
@@ -121,15 +117,19 @@ public sealed partial class NavigatorCoordinator {
         _modeLocked = false;
 
         // Create and activate default mode session
-        var session = _sessionFactory.Create(defaultModeName);
+        try {
+            var session = _sessionFactory.Create(defaultModeName);
 
-        session.ActionRequested += OnSessionActionRequested;
-        session.Cancelled += OnSessionCancelled;
-        session.CursorMoveRequested += OnSessionCursorMoveRequested;
+            session.ActionRequested += OnSessionActionRequested;
+            session.Cancelled += OnSessionCancelled;
+            session.CursorMoveRequested += OnSessionCursorMoveRequested;
 
-        _activeSession = session;
-        _sessionGeneration++;
-        session.Activate(_screenBounds, _origin);
+            _activeSession = session;
+            session.Activate(_screenBounds, _origin);
+        } catch (NotSupportedException ex) {
+            LogModeSwitchFailed(defaultModeName, ex.Message);
+            DeactivateOverlay();
+        }
     }
 
     private string GetDefaultModeName() {
@@ -159,9 +159,7 @@ public sealed partial class NavigatorCoordinator {
     }
 
     private bool IsQwertyLayout() {
-        var hkl = _platform.KeyboardLayout.GetActiveKeyboardLayout();
-        // Low word of HKL is the language identifier
-        return (hkl & 0xFFFF) == QwertyLanguageId;
+        return _platform.KeyboardLayout.IsQwertyCompatible();
     }
 
     private void PopulateDebounceKeys() {
@@ -236,8 +234,10 @@ public sealed partial class NavigatorCoordinator {
             return;
         }
 
-        // Trigger-key fast removal: on first keydown for a different key, remove trigger
-        if (_debounceKeys.Contains(_config.HotKey.Key)) {
+        // Trigger-key fast removal: on first keydown for a different key,
+        // remove trigger only if no longer physically held
+        if (_debounceKeys.Contains(_config.HotKey.Key)
+            && !_platform.KeyState.IsKeyDown(_config.HotKey.Key)) {
             _debounceKeys.Remove(_config.HotKey.Key);
         }
 
@@ -259,10 +259,11 @@ public sealed partial class NavigatorCoordinator {
             return;
         }
 
-        // Any nav/arrow/action key locks the mode
-        _modeLocked = true;
-
-        _activeSession?.OnKey(e.Key);
+        // Any key forwarded to session locks the mode
+        if (_activeSession is not null) {
+            _modeLocked = true;
+            _activeSession.OnKey(e.Key);
+        }
     }
 
     private void SwitchMode(string targetModeName) {
@@ -293,9 +294,11 @@ public sealed partial class NavigatorCoordinator {
             session.CursorMoveRequested += OnSessionCursorMoveRequested;
 
             _activeSession = session;
-            _sessionGeneration++;
             session.Activate(_screenBounds, _origin);
-        } catch (Exception ex) {
+        } catch (NotSupportedException ex) {
+            LogModeSwitchFailed(targetModeName, ex.Message);
+            DeactivateOverlay();
+        } catch (ArgumentException ex) {
             LogModeSwitchFailed(targetModeName, ex.Message);
             DeactivateOverlay();
         } finally {
@@ -314,6 +317,7 @@ public sealed partial class NavigatorCoordinator {
         // Bounds validation
         if (!_screenBounds.Contains(point)) {
             LogActionOutOfBounds(point.X, point.Y);
+            _mouseService.MoveTo(_origin);
             DeactivateOverlay();
             return;
         }

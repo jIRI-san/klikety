@@ -128,7 +128,7 @@
   - `AxisLabelGenerator`: single-char labels from axis `VKey[]` via `IKeyLabelResolver`
   - Tests use fake `IKeyLabelResolver` (no Win32 dependency)
 
-- [~] 2.1b `IKeyboardHookService` key-up support [after: 2.1a] `M`
+- [x] 2.1b `IKeyboardHookService` key-up support [after: 2.1a] `M`
   - `KeyPressed` → `KeyEvent(EventHandler<KeyHookEventArgs>)` where `record KeyHookEventArgs(VKey Key, bool IsDown)`
   - Hook handles `WM_KEYDOWN`/`WM_SYSKEYDOWN` + `WM_KEYUP`/`WM_SYSKEYUP`
   - `FakeKeyboardHookService`: `SimulateKeyDown(VKey)` + `SimulateKeyUp(VKey)`

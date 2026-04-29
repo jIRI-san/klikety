@@ -242,7 +242,10 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     // --- Private helpers ---
 
     private void EnsureTransform() {
-        if (_transformInitialized) return;
+        if (_transformInitialized) {
+            return;
+        }
+
         var source = PresentationSource.FromVisual(_canvas);
         if (source?.CompositionTarget != null) {
             _transformFromDevice = source.CompositionTarget.TransformFromDevice;
@@ -283,7 +286,9 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     private void AddCrossLabel(Rect dipRect, int row, int col, CrosshairGrid grid,
         Brush foreground, double opacity = 1.0, double heightFraction = 0.8) {
         string? label = GetCrossLabel(row, col, grid);
-        if (label is null) return;
+        if (label is null) {
+            return;
+        }
 
         double fontSize = ComputeAutoFontSize(dipRect.Width, dipRect.Height, heightFraction);
         AddOutlinedText(label, _typeface, fontSize, foreground, _outlineBrush,

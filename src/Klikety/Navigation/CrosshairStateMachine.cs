@@ -191,29 +191,29 @@ public sealed class CrosshairStateMachine {
                 break;
 
             case State.HorizSet: {
-                // Only horiz → select center-row cell at that column → subgrid
-                int col = KeyIndexToCol(_horizIndex, _grid.CenterCol);
-                var cell = _grid.CellAt(_grid.CenterRow, col);
-                EnterSubgrid(cell);
-                break;
-            }
+                    // Only horiz → select center-row cell at that column → subgrid
+                    int col = KeyIndexToCol(_horizIndex, _grid.CenterCol);
+                    var cell = _grid.CellAt(_grid.CenterRow, col);
+                    EnterSubgrid(cell);
+                    break;
+                }
 
             case State.VertSet: {
-                // Only vert → select center-col cell at that row → subgrid
-                int row = KeyIndexToRow(_vertIndex, _grid.CenterRow);
-                var cell = _grid.CellAt(row, _grid.CenterCol);
-                EnterSubgrid(cell);
-                break;
-            }
+                    // Only vert → select center-col cell at that row → subgrid
+                    int row = KeyIndexToRow(_vertIndex, _grid.CenterRow);
+                    var cell = _grid.CellAt(row, _grid.CenterCol);
+                    EnterSubgrid(cell);
+                    break;
+                }
 
             case State.BothSet: {
-                // Both set → enter subgrid at intersection
-                int col = KeyIndexToCol(_horizIndex, _grid.CenterCol);
-                int row = KeyIndexToRow(_vertIndex, _grid.CenterRow);
-                var cell = _grid.CellAt(row, col);
-                EnterSubgrid(cell);
-                break;
-            }
+                    // Both set → enter subgrid at intersection
+                    int col = KeyIndexToCol(_horizIndex, _grid.CenterCol);
+                    int row = KeyIndexToRow(_vertIndex, _grid.CenterRow);
+                    var cell = _grid.CellAt(row, col);
+                    EnterSubgrid(cell);
+                    break;
+                }
         }
     }
 

@@ -96,14 +96,20 @@ public sealed class CrosshairSession : IModeSession {
     }
 
     private void OnHorizSelected(int col, int keyIndex) {
-        if (_grid is null) return;
+        if (_grid is null) {
+            return;
+        }
+
         CursorMoveRequested?.Invoke(
             CrosshairGridCalculator.CenterOf(_grid.CellAt(_grid.CenterRow, col)));
         _renderer?.HighlightColumn(_grid, col);
     }
 
     private void OnVertSelected(int row, int keyIndex) {
-        if (_grid is null) return;
+        if (_grid is null) {
+            return;
+        }
+
         CursorMoveRequested?.Invoke(
             CrosshairGridCalculator.CenterOf(_grid.CellAt(row, _grid.CenterCol)));
         _renderer?.HighlightRow(_grid, row);
@@ -130,7 +136,10 @@ public sealed class CrosshairSession : IModeSession {
     }
 
     private void OnArrowMoved(int row, int col) {
-        if (_grid is null) return;
+        if (_grid is null) {
+            return;
+        }
+
         var cell = _grid.CellAt(row, col);
         CursorMoveRequested?.Invoke(CrosshairGridCalculator.CenterOf(cell));
         _renderer?.HighlightCell(_grid, cell);

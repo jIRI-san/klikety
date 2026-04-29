@@ -204,21 +204,21 @@
   - Labels via `AxisLabelGenerator`; `arrowKeys: false` → skip arrow navigator
   - Structured logging
 
-- [ ] 3.3 `CrosshairRenderer` [after: 3.1] `L`
+- [x] 3.3 `CrosshairRenderer` [after: 3.1] `L`
   - Mode-specific API: `RenderCross`, `HighlightAxis`, `HighlightCell`, `RenderSubgridCross`, `FlashInvalidKey`, `SetTransform`
   - Cross cells: borders + single-char labels; non-cross: 15% opacity dim
   - Extract `TextRenderHelper` from `GridRenderer`; extract fan-out label logic
   - `FakeCrosshairRenderer` for tests
 
-- [ ] 3.4 Wire Crosshair into mode factory + integration test [after: 3.2, 3.3, 2.2] `M`
+- [x] 3.4 Wire Crosshair into mode factory + integration test [after: 3.2, 3.3, 2.2] `M`
   - Tests: chord N → cross; axis keys → L2 → action; Enter → offset; Esc back
 
-- [ ] 3.5 Crosshair unit tests [after: 3.2, 3.1] `M`
+- [x] 3.5 Crosshair unit tests [after: 3.2, 3.1] `M`
   - State transitions, re-press, Enter variants, Esc, action, cross-arm arrow nav
   - Grid calculator at various sizes; `AxisLabelGenerator` with fake resolver
   - Out-of-range keys; `arrowKeys: false`; custom axis keys; contract tests
 
-- [ ] 3.6 `dotnet format` + full test suite [after: 3.5] `S`
+- [x] 3.6 `dotnet format` + full test suite [after: 3.5] `S`
 
 ## Phase 4: LogCrosshair Mode
 

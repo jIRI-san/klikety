@@ -14,20 +14,25 @@ public class NavigatorCoordinatorTests {
     private static (NavigatorCoordinator Coordinator, FakeHotKeyService HotKey, FakeKeyboardHookService Hook,
         FakeMouseActionService Mouse, FakeOverlayWindow Overlay, FakeGridRenderer Renderer) CreateCoordinator(
         NavigationMode mode = NavigationMode.Both) {
-        var config = new ConfigModel { NavigationMode = mode };
+        var modeConfig = new ModeConfig {
+            Enabled = true,
+            Default = true,
+            TwoKey = mode is NavigationMode.TwoKey or NavigationMode.Both,
+            ArrowKeys = mode is NavigationMode.Arrow or NavigationMode.Both,
+        };
+        var config = new ConfigModel {
+            Modes = new ModesConfig { UniformGrid = modeConfig },
+        };
         var hotKey = new FakeHotKeyService();
         var hook = new FakeKeyboardHookService();
         var mouse = new FakeMouseActionService();
         var overlay = new FakeOverlayWindow();
         var actionMapper = new ActionMapper(config.ActionBindings);
-        var sm = new NavigatorStateMachine(
-            config.FirstKeys, config.SecondKeys,
-            actionMapper, config.NavigationMode, config.Level3CellSizeThreshold);
         var renderer = new FakeGridRenderer();
 
         var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sm, renderer, config,
-            NullLogger.Instance);
+            hotKey, hook, mouse, overlay, renderer, config,
+            actionMapper, NullLogger.Instance);
 
         return (coordinator, hotKey, hook, mouse, overlay, renderer);
     }

@@ -90,14 +90,8 @@ public partial class App : Application {
         var labelGenerator = new LabelGenerator(config.FirstKeys, config.SecondKeys, resolver);
         var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
 
-        // Create state machine
+        // Create action mapper
         var actionMapper = new ActionMapper(config.ActionBindings);
-        var stateMachine = new NavigatorStateMachine(
-            config.FirstKeys,
-            config.SecondKeys,
-            actionMapper,
-            config.NavigationMode,
-            config.Level3CellSizeThreshold);
 
         // Create coordinator
         _coordinator = new NavigatorCoordinator(
@@ -105,9 +99,9 @@ public partial class App : Application {
             hookService,
             mouseService,
             overlayWindow,
-            stateMachine,
             gridRenderer,
             config,
+            actionMapper,
             logger);
 
         // Register hotkey

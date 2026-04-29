@@ -21,6 +21,7 @@ public sealed class UniformGridSession : IModeSession {
     private readonly IGridRenderer? _gridRenderer;
 
     private NavigatorStateMachine? _stateMachine;
+    private Point _origin;
 
     // Cell lists per level for rendering context
     private IReadOnlyList<GridCell> _l1Cells = [];
@@ -54,6 +55,7 @@ public sealed class UniformGridSession : IModeSession {
     }
 
     public void Activate(Rectangle screenBounds, Point origin) {
+        _origin = origin;
         _l1Cells = GridCalculator.Calculate(
             screenBounds,
             _firstKeys.Length,
@@ -142,7 +144,8 @@ public sealed class UniformGridSession : IModeSession {
     }
 
     private void OnCancelled(Point _) {
-        // Session fires parameterless Cancelled — coordinator owns origin
+        // Restore cursor to origin, then signal coordinator
+        CursorMoveRequested?.Invoke(_origin);
         Cancelled?.Invoke();
     }
 
@@ -160,8 +163,7 @@ public sealed class UniformGridSession : IModeSession {
 
     private void OnColumnUnhighlighted(int level) {
         if (level == 1) {
-            // Session requests cursor-to-origin via CursorMoveRequested
-            // but origin is owned by coordinator, so just signal "restore"
+            CursorMoveRequested?.Invoke(_origin);
             _subgridCells = null;
             _l2SubgridCells = null;
             _gridRenderer?.RenderGrid(_l1Cells);

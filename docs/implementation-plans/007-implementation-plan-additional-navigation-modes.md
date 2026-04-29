@@ -109,7 +109,7 @@
   - Verify `LabelGenerator` and `GridCalculator` handle 10×10 (already data-driven)
   - Update embedded `config.json` resource
 
-- [ ] 1.5 Update UniformGrid tests `S`
+- [x] 1.5 Update UniformGrid tests `S`
   - Verify 10×10 grid works; add 8-key backward compat test
   - Zero regressions
 

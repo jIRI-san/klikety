@@ -3,6 +3,7 @@ using System.Drawing;
 using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
+using Klikety.Navigation;
 using Klikety.Services;
 
 namespace Klikety.Tests.Fakes;
@@ -205,6 +206,33 @@ public sealed class FakeGridRenderer : IGridRenderer {
 
     public void HighlightCellOverGrid(IReadOnlyList<GridCell> bg, IReadOnlyList<GridCell> sub, GridCell cell)
         => Calls.Add(new("HighlightCellOverGrid", sub));
+
+    public void FlashInvalidKey()
+        => Calls.Add(new("FlashInvalidKey"));
+}
+
+public sealed class FakeCrosshairRenderer : ICrosshairRenderer {
+    public record RenderCall(string Method, CrosshairGrid? Grid = null,
+        int? Col = null, int? Row = null, GridCell? Cell = null);
+
+    public List<RenderCall> Calls { get; } = [];
+
+    public void SetTransform(System.Windows.Media.Matrix m) { }
+
+    public void RenderCross(CrosshairGrid grid)
+        => Calls.Add(new("RenderCross", grid));
+
+    public void HighlightColumn(CrosshairGrid grid, int col)
+        => Calls.Add(new("HighlightColumn", grid, Col: col));
+
+    public void HighlightRow(CrosshairGrid grid, int row)
+        => Calls.Add(new("HighlightRow", grid, Row: row));
+
+    public void HighlightCell(CrosshairGrid grid, GridCell cell)
+        => Calls.Add(new("HighlightCell", grid, Cell: cell));
+
+    public void RenderSubgridCross(CrosshairGrid parentGrid, CrosshairGrid subgrid, GridCell parentCell)
+        => Calls.Add(new("RenderSubgridCross", subgrid, Cell: parentCell));
 
     public void FlashInvalidKey()
         => Calls.Add(new("FlashInvalidKey"));

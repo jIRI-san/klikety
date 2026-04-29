@@ -253,10 +253,10 @@
 
 ## Phase 5: Design Notes & Final Validation
 
-- [ ] 5.1 Update `keyboard-navigator.design.md` [after: 4.6] `M`
+- [x] 5.1 Update `keyboard-navigator.design.md` [after: 4.6] `M`
   - Document: modes, chord activation, `IModeSession`, dynamic key reduction, configurable axis keys, renderers, multi-monitor non-goal
 
-- [ ] 5.2 Final test suite + `dotnet format` + build clean [after: 5.1] `S`
+- [x] 5.2 Final test suite + `dotnet format` + build clean [after: 5.1] `S`
 
 ## Known Plan Issues
 

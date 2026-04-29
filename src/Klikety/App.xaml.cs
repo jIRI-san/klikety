@@ -99,9 +99,18 @@ public partial class App : Application {
             crosshairRenderer = new CrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
         }
 
+        // Create log-crosshair renderer (only if mode is enabled with valid keys)
+        LogCrosshairRenderer? logCrosshairRenderer = null;
+        var logCrosshairMode = config.Modes.LogCrosshair;
+        if (logCrosshairMode is { Enabled: true, HorizontalKeys: not null, VerticalKeys: not null }) {
+            var horizLabels = new AxisLabelGenerator(logCrosshairMode.HorizontalKeys, resolver);
+            var vertLabels = new AxisLabelGenerator(logCrosshairMode.VerticalKeys, resolver);
+            logCrosshairRenderer = new LogCrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
+        }
+
         // Create action mapper and session factory
         var actionMapper = new ActionMapper(config.ActionBindings);
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer);
+        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer, logCrosshairRenderer);
 
         // Create coordinator
         _coordinator = new NavigatorCoordinator(

@@ -12,14 +12,17 @@ public sealed class ModeSessionFactory {
     private readonly ActionMapper _actionMapper;
     private readonly IGridRenderer? _gridRenderer;
     private readonly ICrosshairRenderer? _crosshairRenderer;
+    private readonly ILogCrosshairRenderer? _logCrosshairRenderer;
 
     public ModeSessionFactory(
         ConfigModel config, ActionMapper actionMapper,
-        IGridRenderer? gridRenderer, ICrosshairRenderer? crosshairRenderer = null) {
+        IGridRenderer? gridRenderer, ICrosshairRenderer? crosshairRenderer = null,
+        ILogCrosshairRenderer? logCrosshairRenderer = null) {
         _config = config;
         _actionMapper = actionMapper;
         _gridRenderer = gridRenderer;
         _crosshairRenderer = crosshairRenderer;
+        _logCrosshairRenderer = logCrosshairRenderer;
     }
 
     /// <summary>
@@ -28,7 +31,7 @@ public sealed class ModeSessionFactory {
     public IModeSession Create(string modeName) => modeName switch {
         "UniformGrid" => CreateUniformGrid(),
         "Crosshair" => CreateCrosshair(),
-        "LogCrosshair" => throw new NotSupportedException("LogCrosshair mode not yet implemented."),
+        "LogCrosshair" => CreateLogCrosshair(),
         _ => throw new ArgumentException($"Unknown mode: {modeName}", nameof(modeName)),
     };
 
@@ -50,5 +53,15 @@ public sealed class ModeSessionFactory {
             _actionMapper,
             mode,
             _crosshairRenderer);
+    }
+
+    private LogCrosshairSession CreateLogCrosshair() {
+        var mode = _config.Modes.LogCrosshair;
+        return new LogCrosshairSession(
+            mode.HorizontalKeys ?? throw new InvalidOperationException("LogCrosshair mode requires HorizontalKeys."),
+            mode.VerticalKeys ?? throw new InvalidOperationException("LogCrosshair mode requires VerticalKeys."),
+            _actionMapper,
+            mode,
+            _logCrosshairRenderer);
     }
 }

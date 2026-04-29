@@ -203,4 +203,40 @@ public class LogCrosshairSessionTests {
         Assert.Equal(5, grid.Cols);
         Assert.Equal(5, grid.Rows);
     }
+
+    // --- Factory wiring ---
+
+    [Fact]
+    public void ModeSessionFactory_CreatesLogCrosshairSession() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                LogCrosshair = new ModeConfig {
+                    Enabled = true, ChordKey = VKey.M, ArrowKeys = true, TwoKey = true, LogBaseSize = 5,
+                    HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
+                    VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
+                },
+            },
+        };
+        var actionMapper = new ActionMapper(config.ActionBindings);
+        var factory = new ModeSessionFactory(config, actionMapper, null, null, null);
+
+        var session = factory.Create("LogCrosshair");
+
+        Assert.IsType<LogCrosshairSession>(session);
+    }
+
+    [Fact]
+    public void ModeSessionFactory_LogCrosshairWithNullKeys_Throws() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                LogCrosshair = new ModeConfig {
+                    Enabled = true, ChordKey = VKey.M, ArrowKeys = true, TwoKey = true,
+                },
+            },
+        };
+        var actionMapper = new ActionMapper(config.ActionBindings);
+        var factory = new ModeSessionFactory(config, actionMapper, null, null, null);
+
+        Assert.Throws<InvalidOperationException>(() => factory.Create("LogCrosshair"));
+    }
 }

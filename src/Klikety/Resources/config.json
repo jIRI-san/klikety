@@ -22,18 +22,21 @@
   },
 
   // VKey lists for two-key grid navigation.
-  // First key selects a column, second key selects a row → 8×8 = 64 cells per level.
+  // First key selects a column, second key selects a row → 10×10 = 100 cells per level.
   "firstKeys": [
     "A",
     "S",
     "D",
     "F",
+    "G",
+    "H",
     "J",
     "K",
     "L",
     "OemSemicolon"
   ],
   "secondKeys": [
+    "Q",
     "W",
     "E",
     "R",
@@ -41,7 +44,8 @@
     "Y",
     "U",
     "I",
-    "O"
+    "O",
+    "P"
   ],
 
   // Physical pixel² area threshold for level-3 auto-activation.

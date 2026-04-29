@@ -11,8 +11,8 @@ public class ConfigLoaderTests {
         Assert.Empty(result.Violations);
         Assert.True(result.Config.Modes.UniformGrid.Enabled);
         Assert.True(result.Config.Modes.UniformGrid.Default);
-        Assert.Equal(8, result.Config.FirstKeys.Length);
-        Assert.Equal(8, result.Config.SecondKeys.Length);
+        Assert.Equal(10, result.Config.FirstKeys.Length);
+        Assert.Equal(10, result.Config.SecondKeys.Length);
     }
 
     [Fact]

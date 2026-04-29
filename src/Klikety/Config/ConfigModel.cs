@@ -116,12 +116,12 @@ public sealed class ConfigModel {
     /// <summary>
     /// First-key VKey list (selects grid column). Combined left+right hand keys for unified grid.
     /// </summary>
-    public VKey[] FirstKeys { get; init; } = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
+    public VKey[] FirstKeys { get; init; } = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
 
     /// <summary>
     /// Second-key VKey list (selects grid row). Combined left+right hand keys for unified grid.
     /// </summary>
-    public VKey[] SecondKeys { get; init; } = [VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O];
+    public VKey[] SecondKeys { get; init; } = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P];
 
     /// <summary>
     /// Level-3 auto-activation threshold in physical pixels² (cell area).

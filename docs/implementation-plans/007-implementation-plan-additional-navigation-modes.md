@@ -104,7 +104,7 @@
   - Unknown mode entries via `JsonDocument` pre-pass → warning
   - Violations surfaced via tray notification; blocking violations → skip coordinator creation (startup gate)
 
-- [ ] 1.4 Expand key sets `M`
+- [~] 1.4 Expand key sets `M`
   - `ConfigModel` defaults: `firstKeys` → 10 keys, `secondKeys` → 10 keys
   - Verify `LabelGenerator` and `GridCalculator` handle 10×10 (already data-driven)
   - Update embedded `config.json` resource

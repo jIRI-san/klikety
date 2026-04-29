@@ -19,10 +19,9 @@ public sealed partial class NavigatorCoordinator {
     private readonly IKeyboardHookService _hookService;
     private readonly IMouseActionService _mouseService;
     private readonly IOverlayWindow _overlayWindow;
-    private readonly IGridRenderer? _gridRenderer;
     private readonly ConfigModel _config;
     private readonly ILogger _logger;
-    private readonly ActionMapper _actionMapper;
+    private readonly ModeSessionFactory _sessionFactory;
 
 #pragma warning disable CA1859 // Will hold different session types (Crosshair, LogCrosshair)
     private IModeSession? _activeSession;
@@ -35,17 +34,15 @@ public sealed partial class NavigatorCoordinator {
         IKeyboardHookService hookService,
         IMouseActionService mouseService,
         IOverlayWindow overlayWindow,
-        IGridRenderer? gridRenderer,
+        ModeSessionFactory sessionFactory,
         ConfigModel config,
-        ActionMapper actionMapper,
         ILogger logger) {
         _hotKeyService = hotKeyService;
         _hookService = hookService;
         _mouseService = mouseService;
         _overlayWindow = overlayWindow;
-        _gridRenderer = gridRenderer;
+        _sessionFactory = sessionFactory;
         _config = config;
-        _actionMapper = actionMapper;
         _logger = logger;
 
         _hotKeyService.Activated += OnHotKeyActivated;
@@ -67,12 +64,8 @@ public sealed partial class NavigatorCoordinator {
             return;
         }
 
-        // Create and activate UniformGrid session
-        var modeConfig = _config.Modes.UniformGrid;
-        var session = new UniformGridSession(
-            _config.FirstKeys, _config.SecondKeys,
-            _actionMapper, modeConfig,
-            _config.Level3CellSizeThreshold, _gridRenderer);
+        // Create and activate default mode session
+        var session = _sessionFactory.CreateDefault();
 
         session.ActionRequested += OnSessionActionRequested;
         session.Cancelled += OnSessionCancelled;

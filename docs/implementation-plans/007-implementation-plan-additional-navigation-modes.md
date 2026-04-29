@@ -153,7 +153,7 @@
     4. `OnInvalidKeyPressed` + `OnSubgridRendered`
   - Final: coordinator holds `IModeSession _activeSession`, delegates `OnKey()` only
 
-- [ ] 2.2 Mode factory [after: 2.1d] `M`
+- [~] 2.2 Mode factory [after: 2.1d] `M`
   - Input: mode name, config, theme, canvas, label generator, action mapper
   - Output: `IModeSession` — switch on mode name
   - UniformGrid now; Crosshair/LogCrosshair stubs until Phases 3/4

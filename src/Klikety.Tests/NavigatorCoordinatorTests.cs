@@ -29,10 +29,11 @@ public class NavigatorCoordinatorTests {
         var overlay = new FakeOverlayWindow();
         var actionMapper = new ActionMapper(config.ActionBindings);
         var renderer = new FakeGridRenderer();
+        var sessionFactory = new ModeSessionFactory(config, actionMapper, renderer);
 
         var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, renderer, config,
-            actionMapper, NullLogger.Instance);
+            hotKey, hook, mouse, overlay, sessionFactory, config,
+            NullLogger.Instance);
 
         return (coordinator, hotKey, hook, mouse, overlay, renderer);
     }

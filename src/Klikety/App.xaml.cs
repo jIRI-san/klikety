@@ -90,8 +90,9 @@ public partial class App : Application {
         var labelGenerator = new LabelGenerator(config.FirstKeys, config.SecondKeys, resolver);
         var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
 
-        // Create action mapper
+        // Create action mapper and session factory
         var actionMapper = new ActionMapper(config.ActionBindings);
+        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer);
 
         // Create coordinator
         _coordinator = new NavigatorCoordinator(
@@ -99,9 +100,8 @@ public partial class App : Application {
             hookService,
             mouseService,
             overlayWindow,
-            gridRenderer,
+            sessionFactory,
             config,
-            actionMapper,
             logger);
 
         // Register hotkey

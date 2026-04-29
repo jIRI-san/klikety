@@ -25,18 +25,6 @@ public sealed class ModeConfig {
     /// Only meaningful for LogCrosshair mode. Default 5.
     /// </summary>
     public int LogBaseSize { get; init; } = 5;
-
-    /// <summary>
-    /// Horizontal axis keys for Crosshair/LogCrosshair modes.
-    /// Null = use 10-key QWERTY defaults at load time.
-    /// </summary>
-    public VKey[]? HorizontalKeys { get; init; }
-
-    /// <summary>
-    /// Vertical axis keys for Crosshair/LogCrosshair modes.
-    /// Null = use 10-key QWERTY defaults at load time.
-    /// </summary>
-    public VKey[]? VerticalKeys { get; init; }
 }
 
 /// <summary>
@@ -55,8 +43,6 @@ public sealed class ModesConfig {
         ChordKey = VKey.N,
         ArrowKeys = true,
         TwoKey = true,
-        HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
-        VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
     };
 
     public ModeConfig LogCrosshair { get; init; } = new() {
@@ -64,8 +50,6 @@ public sealed class ModesConfig {
         ChordKey = VKey.M,
         ArrowKeys = true,
         TwoKey = true,
-        HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
-        VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
     };
 }
 
@@ -114,14 +98,14 @@ public sealed class ConfigModel {
     public Dictionary<string, MouseAction> ActionBindings { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
-    /// First-key VKey list (selects grid column). Combined left+right hand keys for unified grid.
+    /// Horizontal axis VKey list (selects grid column). Shared by all navigation modes.
     /// </summary>
-    public VKey[] FirstKeys { get; init; } = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
+    public VKey[] HorizontalKeys { get; init; } = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
 
     /// <summary>
-    /// Second-key VKey list (selects grid row). Combined left+right hand keys for unified grid.
+    /// Vertical axis VKey list (selects grid row). Shared by all navigation modes.
     /// </summary>
-    public VKey[] SecondKeys { get; init; } = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P];
+    public VKey[] VerticalKeys { get; init; } = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P];
 
     /// <summary>
     /// Level-3 auto-activation threshold in physical pixels² (cell area).

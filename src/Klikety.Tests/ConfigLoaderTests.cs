@@ -11,8 +11,8 @@ public class ConfigLoaderTests {
         Assert.Empty(result.Violations);
         Assert.True(result.Config.Modes.UniformGrid.Enabled);
         Assert.True(result.Config.Modes.UniformGrid.Default);
-        Assert.Equal(10, result.Config.FirstKeys.Length);
-        Assert.Equal(10, result.Config.SecondKeys.Length);
+        Assert.Equal(10, result.Config.HorizontalKeys.Length);
+        Assert.Equal(10, result.Config.VerticalKeys.Length);
     }
 
     [Fact]
@@ -51,14 +51,16 @@ public class ConfigLoaderTests {
     public void Load_ReservedKeyInFirstKeys_ReportsViolation() {
         var json = """
         {
-            "firstKeys": ["A", "S", "Escape", "F"],
-            "secondKeys": ["W", "E", "R", "T"]
+            "configVersion": 2,
+            "modes": { "uniformGrid": { "enabled": true, "default": true, "twoKey": true } },
+            "horizontalKeys": ["A", "S", "Escape", "F"],
+            "verticalKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Contains(result.Violations, v => v.Contains("Escape") && v.Contains("firstKeys"));
+            Assert.Contains(result.Violations, v => v.Contains("Escape") && v.Contains("horizontalKeys"));
         } finally { File.Delete(path); }
     }
 
@@ -66,14 +68,16 @@ public class ConfigLoaderTests {
     public void Load_ReservedKeyInSecondKeys_ReportsViolation() {
         var json = """
         {
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "Return", "R", "T"]
+            "configVersion": 2,
+            "modes": { "uniformGrid": { "enabled": true, "default": true, "twoKey": true } },
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "Return", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Contains(result.Violations, v => v.Contains("Return") && v.Contains("secondKeys"));
+            Assert.Contains(result.Violations, v => v.Contains("Return") && v.Contains("verticalKeys"));
         } finally { File.Delete(path); }
     }
 
@@ -81,8 +85,10 @@ public class ConfigLoaderTests {
     public void Load_OverlappingFirstAndSecondKeys_ReportsViolation() {
         var json = """
         {
-            "firstKeys": ["A", "S", "D", "W"],
-            "secondKeys": ["W", "E", "R", "T"]
+            "configVersion": 2,
+            "modes": { "uniformGrid": { "enabled": true, "default": true, "twoKey": true } },
+            "horizontalKeys": ["A", "S", "D", "W"],
+            "verticalKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
@@ -96,8 +102,10 @@ public class ConfigLoaderTests {
     public void Load_ActionKeyConflictsWithNavKey_ReportsViolation() {
         var json = """
         {
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"],
+            "configVersion": 2,
+            "modes": { "uniformGrid": { "enabled": true, "default": true, "twoKey": true } },
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"],
             "actionBindings": {
                 "A": "RightClick"
             }
@@ -114,14 +122,16 @@ public class ConfigLoaderTests {
     public void Load_DuplicateFirstKeys_ReportsViolation() {
         var json = """
         {
-            "firstKeys": ["A", "S", "A", "F"],
-            "secondKeys": ["W", "E", "R", "T"]
+            "configVersion": 2,
+            "modes": { "uniformGrid": { "enabled": true, "default": true, "twoKey": true } },
+            "horizontalKeys": ["A", "S", "A", "F"],
+            "verticalKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Contains(result.Violations, v => v.Contains("firstKeys") && v.Contains("duplicate"));
+            Assert.Contains(result.Violations, v => v.Contains("horizontalKeys") && v.Contains("duplicate"));
         } finally { File.Delete(path); }
     }
 
@@ -140,8 +150,8 @@ public class ConfigLoaderTests {
         var json = """
         {
             "navigationMode": "both",
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"],
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"],
             "actionBindings": { "N": "RightClick" }
         }
         """;
@@ -330,10 +340,12 @@ public class ConfigLoaderTests {
     public void Validate_AxisKeyConflictsWithChord_ReportsViolation() {
         var json = """
         {
-            "configVersion": 1,
+            "configVersion": 2,
+            "horizontalKeys": ["N","S"],
+            "verticalKeys": ["W","E"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
-                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N", "horizontalKeys": ["N","S"], "verticalKeys": ["W","E"] },
+                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N" },
                 "logCrosshair": { "enabled": false }
             }
         }
@@ -341,7 +353,7 @@ public class ConfigLoaderTests {
         var path = WriteTempFile(json);
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Contains(result.Violations, v => v.Contains("horizontalKey") && v.Contains("chord"));
+            Assert.Contains(result.Violations, v => v.Contains("HorizontalKey") && v.Contains("chord"));
         } finally { Cleanup(path); }
     }
 
@@ -349,12 +361,12 @@ public class ConfigLoaderTests {
     public void Validate_FirstKeyConflictsWithChord_ReportsViolation() {
         var json = """
         {
-            "configVersion": 1,
-            "firstKeys": ["A","S","D","N"],
-            "secondKeys": ["W","E","R","T"],
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","N"],
+            "verticalKeys": ["W","E","R","T"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
-                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N", "horizontalKeys": ["F","G"], "verticalKeys": ["H","J"] },
+                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N" },
                 "logCrosshair": { "enabled": false }
             }
         }
@@ -362,7 +374,7 @@ public class ConfigLoaderTests {
         var path = WriteTempFile(json);
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Contains(result.Violations, v => v.Contains("firstKey") && v.Contains("chord"));
+            Assert.Contains(result.Violations, v => v.Contains("HorizontalKey") && v.Contains("chord"));
         } finally { Cleanup(path); }
     }
 
@@ -371,8 +383,8 @@ public class ConfigLoaderTests {
         var json = """
         {
             "configVersion": 1,
-            "firstKeys": ["A","S","D","F"],
-            "secondKeys": ["W","E","R","T"],
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true, "twoKey": true, "arrowKeys": true },
                 "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N", "horizontalKeys": ["G","H","J","K"], "verticalKeys": ["Y","U","I","O"] },
@@ -467,12 +479,12 @@ public class ConfigLoaderTests {
     public void Validate_SecondKeyConflictsWithChord_ReportsViolation() {
         var json = """
         {
-            "configVersion": 1,
-            "firstKeys": ["A","S","D","F"],
-            "secondKeys": ["W","E","R","N"],
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","N"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
-                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N", "horizontalKeys": ["G","H"], "verticalKeys": ["Y","U"] },
+                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N" },
                 "logCrosshair": { "enabled": false }
             }
         }
@@ -480,7 +492,7 @@ public class ConfigLoaderTests {
         var path = WriteTempFile(json);
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Contains(result.Violations, v => v.Contains("secondKey") && v.Contains("chord"));
+            Assert.Contains(result.Violations, v => v.Contains("VerticalKey") && v.Contains("chord"));
         } finally { Cleanup(path); }
     }
 
@@ -488,11 +500,13 @@ public class ConfigLoaderTests {
     public void Validate_AxisKeyConflictsWithAction_ReportsViolation() {
         var json = """
         {
-            "configVersion": 1,
+            "configVersion": 2,
+            "horizontalKeys": ["G","H"],
+            "verticalKeys": ["Y","U"],
             "actionBindings": { "G": "RightClick" },
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
-                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N", "horizontalKeys": ["G","H"], "verticalKeys": ["Y","U"] },
+                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N" },
                 "logCrosshair": { "enabled": false }
             }
         }
@@ -500,7 +514,7 @@ public class ConfigLoaderTests {
         var path = WriteTempFile(json);
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Contains(result.Violations, v => v.Contains("horizontalKeys") && v.Contains("action"));
+            Assert.Contains(result.Violations, v => v.Contains("'G'") && v.Contains("conflicts"));
         } finally { Cleanup(path); }
     }
 
@@ -527,10 +541,12 @@ public class ConfigLoaderTests {
     public void Validate_EmptyAxisKeysWhenEnabled_ReportsViolation() {
         var json = """
         {
-            "configVersion": 1,
+            "configVersion": 2,
+            "horizontalKeys": [],
+            "verticalKeys": ["W","E"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
-                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N", "horizontalKeys": [], "verticalKeys": ["W","E"] },
+                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N" },
                 "logCrosshair": { "enabled": false }
             }
         }

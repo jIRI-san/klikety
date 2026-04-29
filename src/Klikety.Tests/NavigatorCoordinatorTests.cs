@@ -339,8 +339,6 @@ public class NavigatorCoordinatorTests {
                 UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
                 Crosshair = new ModeConfig {
                     Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true,
-                    HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
-                    VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
                 },
             },
         };
@@ -531,13 +529,13 @@ public class NavigatorCoordinatorTests {
         var config = new ConfigModel {
             Modes = new ModesConfig {
                 UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-                LogCrosshair = new ModeConfig { Enabled = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true },
+                LogCrosshair = new ModeConfig { Enabled = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true, LogBaseSize = 0 },
             },
         };
         var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
-        // Chord to LogCrosshair → NotSupportedException → DeactivateOverlay
+        // Chord to LogCrosshair → ArgumentOutOfRangeException (logBaseSize < 1) → DeactivateOverlay
         hook.SimulateKeyDown(VKey.M);
 
         Assert.False(overlay.IsVisible);
@@ -549,7 +547,7 @@ public class NavigatorCoordinatorTests {
         var config = new ConfigModel {
             Modes = new ModesConfig {
                 UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-                LogCrosshair = new ModeConfig { Enabled = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true },
+                LogCrosshair = new ModeConfig { Enabled = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true, LogBaseSize = 0 },
             },
         };
         var (_, hotKey, hook, _, overlay, renderer, _) = CreateCoordinator(configOverride: config);
@@ -557,7 +555,7 @@ public class NavigatorCoordinatorTests {
         hotKey.SimulateActivation();
         Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
 
-        // Switch attempt (will fail on LogCrosshair)
+        // Switch attempt (will fail on LogCrosshair — logBaseSize < 2)
         hook.SimulateKeyDown(VKey.M);
 
         // ClearCanvas should have been called during switch attempt
@@ -680,16 +678,16 @@ public class NavigatorCoordinatorTests {
         var config = new ConfigModel {
             Modes = new ModesConfig {
                 UniformGrid = new ModeConfig { Enabled = true, TwoKey = true, ArrowKeys = true },
-                LogCrosshair = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true },
+                LogCrosshair = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true, LogBaseSize = 0 },
             },
         };
         var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator(configOverride: config);
 
-        // QWERTY = true so it doesn't fall back — will try to Create("LogCrosshair") → throws
+        // QWERTY = true so it doesn't fall back — will try to Activate LogCrosshair → throws (logBaseSize < 2)
         platform.KeyboardLayout.Qwerty = true;
         hotKey.SimulateActivation();
 
-        // Should have deactivated cleanly after NotSupportedException
+        // Should have deactivated cleanly after ArgumentOutOfRangeException
         Assert.False(overlay.IsVisible);
     }
 

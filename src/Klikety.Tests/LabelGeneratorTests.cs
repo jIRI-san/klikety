@@ -6,19 +6,19 @@ namespace Klikety.Tests;
 
 public class LabelGeneratorTests {
     private static readonly IKeyLabelResolver Resolver = new FakeKeyLabelResolver();
-    private static readonly VKey[] DefaultFirstKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L];
-    private static readonly VKey[] DefaultSecondKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I];
+    private static readonly VKey[] DefaultHorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L];
+    private static readonly VKey[] DefaultVerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I];
 
     [Fact]
     public void LabelCount_MatchesRowsTimesCols() {
-        var gen = new LabelGenerator(DefaultFirstKeys, DefaultSecondKeys, Resolver);
-        Assert.Equal(DefaultFirstKeys.Length, gen.Cols);
-        Assert.Equal(DefaultSecondKeys.Length, gen.Rows);
+        var gen = new LabelGenerator(DefaultHorizontalKeys, DefaultVerticalKeys, Resolver);
+        Assert.Equal(DefaultHorizontalKeys.Length, gen.Cols);
+        Assert.Equal(DefaultVerticalKeys.Length, gen.Rows);
     }
 
     [Fact]
     public void AllLabelsUnique() {
-        var gen = new LabelGenerator(DefaultFirstKeys, DefaultSecondKeys, Resolver);
+        var gen = new LabelGenerator(DefaultHorizontalKeys, DefaultVerticalKeys, Resolver);
         var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int r = 0; r < gen.Rows; r++) {
             for (int c = 0; c < gen.Cols; c++) {
@@ -29,7 +29,7 @@ public class LabelGeneratorTests {
 
     [Fact]
     public void CellFor_RoundTrips() {
-        var gen = new LabelGenerator(DefaultFirstKeys, DefaultSecondKeys, Resolver);
+        var gen = new LabelGenerator(DefaultHorizontalKeys, DefaultVerticalKeys, Resolver);
         for (int r = 0; r < gen.Rows; r++) {
             for (int c = 0; c < gen.Cols; c++) {
                 var label = gen.LabelFor(r, c);
@@ -43,7 +43,7 @@ public class LabelGeneratorTests {
 
     [Fact]
     public void CellFor_IsCaseInsensitive() {
-        var gen = new LabelGenerator(DefaultFirstKeys, DefaultSecondKeys, Resolver);
+        var gen = new LabelGenerator(DefaultHorizontalKeys, DefaultVerticalKeys, Resolver);
         var label = gen.LabelFor(0, 0);
         var lower = gen.CellFor(label.ToString().ToLowerInvariant());
         var upper = gen.CellFor(label.ToString().ToUpperInvariant());
@@ -52,13 +52,13 @@ public class LabelGeneratorTests {
 
     [Fact]
     public void CellFor_InvalidLabel_ReturnsNull() {
-        var gen = new LabelGenerator(DefaultFirstKeys, DefaultSecondKeys, Resolver);
+        var gen = new LabelGenerator(DefaultHorizontalKeys, DefaultVerticalKeys, Resolver);
         Assert.Null(gen.CellFor("ZZ"));
     }
 
     [Fact]
     public void Label_HasFirstAndSecondParts() {
-        var gen = new LabelGenerator(DefaultFirstKeys, DefaultSecondKeys, Resolver);
+        var gen = new LabelGenerator(DefaultHorizontalKeys, DefaultVerticalKeys, Resolver);
         var label = gen.LabelFor(0, 0);
         Assert.False(string.IsNullOrEmpty(label.First));
         Assert.False(string.IsNullOrEmpty(label.Second));

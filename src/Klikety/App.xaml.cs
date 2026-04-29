@@ -87,24 +87,24 @@ public partial class App : Application {
 
         // Create label generator
         var resolver = new Win32KeyLabelResolver();
-        var labelGenerator = new LabelGenerator(config.FirstKeys, config.SecondKeys, resolver);
+        var labelGenerator = new LabelGenerator(config.HorizontalKeys, config.VerticalKeys, resolver);
         var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
 
-        // Create crosshair renderer (only if mode is enabled with valid keys)
+        // Create crosshair renderer (only if mode is enabled)
         CrosshairRenderer? crosshairRenderer = null;
         var crosshairMode = config.Modes.Crosshair;
-        if (crosshairMode is { Enabled: true, HorizontalKeys: not null, VerticalKeys: not null }) {
-            var horizLabels = new AxisLabelGenerator(crosshairMode.HorizontalKeys, resolver);
-            var vertLabels = new AxisLabelGenerator(crosshairMode.VerticalKeys, resolver);
+        if (crosshairMode is { Enabled: true }) {
+            var horizLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
+            var vertLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
             crosshairRenderer = new CrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
         }
 
-        // Create log-crosshair renderer (only if mode is enabled with valid keys)
+        // Create log-crosshair renderer (only if mode is enabled)
         LogCrosshairRenderer? logCrosshairRenderer = null;
         var logCrosshairMode = config.Modes.LogCrosshair;
-        if (logCrosshairMode is { Enabled: true, HorizontalKeys: not null, VerticalKeys: not null }) {
-            var horizLabels = new AxisLabelGenerator(logCrosshairMode.HorizontalKeys, resolver);
-            var vertLabels = new AxisLabelGenerator(logCrosshairMode.VerticalKeys, resolver);
+        if (logCrosshairMode is { Enabled: true }) {
+            var horizLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
+            var vertLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
             logCrosshairRenderer = new LogCrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
         }
 

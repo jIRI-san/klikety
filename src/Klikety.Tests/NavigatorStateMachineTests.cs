@@ -8,12 +8,12 @@ using Klikety.Navigation;
 namespace Klikety.Tests;
 
 public class NavigatorStateMachineTests {
-    private static readonly VKey[] FirstKeys = [VKey.A, VKey.S, VKey.D];
-    private static readonly VKey[] SecondKeys = [VKey.W, VKey.E];
+    private static readonly VKey[] HorizontalKeys = [VKey.A, VKey.S, VKey.D];
+    private static readonly VKey[] VerticalKeys = [VKey.W, VKey.E];
 
     private static NavigatorStateMachine CreateMachine(NavigationMode mode = NavigationMode.Both, int level3Threshold = 0) {
         var mapper = new ActionMapper(new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase));
-        return new NavigatorStateMachine(FirstKeys, SecondKeys, mapper, mode, level3Threshold);
+        return new NavigatorStateMachine(HorizontalKeys, VerticalKeys, mapper, mode, level3Threshold);
     }
 
     private static IReadOnlyList<GridCell> CreateGrid()

@@ -80,44 +80,44 @@ public static class ConfigLoader {
     private static List<string> Validate(ConfigModel config) {
         var violations = new List<string>();
 
-        var firstSet = new HashSet<VKey>(config.FirstKeys);
-        var secondSet = new HashSet<VKey>(config.SecondKeys);
+        var horizSet = new HashSet<VKey>(config.HorizontalKeys);
+        var vertSet = new HashSet<VKey>(config.VerticalKeys);
 
-        // Check firstKeys for reserved keys
-        foreach (var key in config.FirstKeys) {
+        // Check horizontalKeys for reserved keys
+        foreach (var key in config.HorizontalKeys) {
             if (ReservedKeys.Contains(key)) {
-                violations.Add($"Reserved key '{key}' may not be used in firstKeys.");
+                violations.Add($"Reserved key '{key}' may not be used in horizontalKeys.");
             }
         }
 
-        // Check secondKeys for reserved keys
-        foreach (var key in config.SecondKeys) {
+        // Check verticalKeys for reserved keys
+        foreach (var key in config.VerticalKeys) {
             if (ReservedKeys.Contains(key)) {
-                violations.Add($"Reserved key '{key}' may not be used in secondKeys.");
+                violations.Add($"Reserved key '{key}' may not be used in verticalKeys.");
             }
         }
 
-        // Check firstKeys ∩ secondKeys = ∅
-        foreach (var overlap in firstSet.Intersect(secondSet)) {
-            violations.Add($"Key '{overlap}' appears in both firstKeys and secondKeys.");
+        // Check horizontalKeys ∩ verticalKeys = ∅
+        foreach (var overlap in horizSet.Intersect(vertSet)) {
+            violations.Add($"Key '{overlap}' appears in both horizontalKeys and verticalKeys.");
         }
 
         // Validate non-empty
-        if (config.FirstKeys.Length == 0) {
-            violations.Add("firstKeys must not be empty.");
+        if (config.HorizontalKeys.Length == 0) {
+            violations.Add("horizontalKeys must not be empty.");
         }
 
-        if (config.SecondKeys.Length == 0) {
-            violations.Add("secondKeys must not be empty.");
+        if (config.VerticalKeys.Length == 0) {
+            violations.Add("verticalKeys must not be empty.");
         }
 
         // Validate no duplicates
-        if (config.FirstKeys.Length != firstSet.Count) {
-            violations.Add("firstKeys contains duplicate keys.");
+        if (config.HorizontalKeys.Length != horizSet.Count) {
+            violations.Add("horizontalKeys contains duplicate keys.");
         }
 
-        if (config.SecondKeys.Length != secondSet.Count) {
-            violations.Add("secondKeys contains duplicate keys.");
+        if (config.VerticalKeys.Length != vertSet.Count) {
+            violations.Add("verticalKeys contains duplicate keys.");
         }
 
         // Check actionBindings for reserved keys and unrecognized VKey names
@@ -141,8 +141,8 @@ public static class ConfigLoader {
         actionKeys.Add(VKey.Space); // implicit default
 
         // Check for overlap between navigation keys and action keys
-        var allNavKeys = new HashSet<VKey>(config.FirstKeys);
-        allNavKeys.UnionWith(config.SecondKeys);
+        var allNavKeys = new HashSet<VKey>(config.HorizontalKeys);
+        allNavKeys.UnionWith(config.VerticalKeys);
 
         foreach (var actionKey in actionKeys) {
             if (allNavKeys.Contains(actionKey)) {
@@ -256,81 +256,15 @@ public static class ConfigLoader {
             }
         }
 
-        // Per-mode axis key validation for Crosshair/LogCrosshair
-        foreach (var (name, mc) in modeEntries) {
-            if (name == "UniformGrid" || !mc.Enabled) {
-                continue;
-            }
-
-            ValidateAxisKeys(name, "horizontalKeys", mc.HorizontalKeys, violations, actionKeys, hotkeyVKeys);
-            ValidateAxisKeys(name, "verticalKeys", mc.VerticalKeys, violations, actionKeys, hotkeyVKeys);
-
-            // No overlap between horiz and vert within same mode
-            if (mc.HorizontalKeys is not null && mc.VerticalKeys is not null) {
-                var horizSet = new HashSet<VKey>(mc.HorizontalKeys);
-                foreach (var vk in mc.VerticalKeys) {
-                    if (horizSet.Contains(vk)) {
-                        violations.Add($"{name}: key '{vk}' appears in both horizontalKeys and verticalKeys.");
-                    }
-                }
-            }
-
-            // Axis keys vs chord keys
-            if (mc.HorizontalKeys is not null) {
-                foreach (var vk in mc.HorizontalKeys) {
-                    if (chordKeys.ContainsKey(vk)) {
-                        violations.Add($"{name}: horizontalKey '{vk}' conflicts with chord key.");
-                    }
-                }
-            }
-            if (mc.VerticalKeys is not null) {
-                foreach (var vk in mc.VerticalKeys) {
-                    if (chordKeys.ContainsKey(vk)) {
-                        violations.Add($"{name}: verticalKey '{vk}' conflicts with chord key.");
-                    }
-                }
+        // Navigation keys vs chord keys
+        foreach (var hk in config.HorizontalKeys) {
+            if (chordKeys.ContainsKey(hk)) {
+                violations.Add($"HorizontalKey '{hk}' conflicts with chord key.");
             }
         }
-
-        // UniformGrid: firstKeys/secondKeys vs chord keys
-        foreach (var fk in config.FirstKeys) {
-            if (chordKeys.ContainsKey(fk)) {
-                violations.Add($"UniformGrid firstKey '{fk}' conflicts with chord key.");
-            }
-        }
-        foreach (var sk in config.SecondKeys) {
-            if (chordKeys.ContainsKey(sk)) {
-                violations.Add($"UniformGrid secondKey '{sk}' conflicts with chord key.");
-            }
-        }
-    }
-
-    private static void ValidateAxisKeys(string modeName, string arrayName, VKey[]? keys, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> hotkeyVKeys) {
-        if (keys is null || keys.Length == 0) {
-            violations.Add($"{modeName}: {arrayName} must not be empty when mode is enabled.");
-            return;
-        }
-
-        var seen = new HashSet<VKey>();
-        foreach (var vk in keys) {
-            // Reserved
-            if (ReservedKeys.Contains(vk)) {
-                violations.Add($"{modeName}: reserved key '{vk}' may not be used in {arrayName}.");
-            }
-
-            // Duplicates
-            if (!seen.Add(vk)) {
-                violations.Add($"{modeName}: {arrayName} contains duplicate key '{vk}'.");
-            }
-
-            // Vs action bindings
-            if (actionKeys.Contains(vk)) {
-                violations.Add($"{modeName}: {arrayName} key '{vk}' conflicts with an action binding.");
-            }
-
-            // Vs hotkey
-            if (hotkeyVKeys.Contains(vk)) {
-                violations.Add($"{modeName}: {arrayName} key '{vk}' conflicts with hotkey.");
+        foreach (var vk in config.VerticalKeys) {
+            if (chordKeys.ContainsKey(vk)) {
+                violations.Add($"VerticalKey '{vk}' conflicts with chord key.");
             }
         }
     }

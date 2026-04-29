@@ -205,8 +205,6 @@ public class CrosshairSessionTests {
             Modes = new ModesConfig {
                 Crosshair = new ModeConfig {
                     Enabled = true, ChordKey = VKey.N, ArrowKeys = true, TwoKey = true,
-                    HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
-                    VerticalKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P],
                 },
             },
         };
@@ -216,21 +214,5 @@ public class CrosshairSessionTests {
         var session = factory.Create("Crosshair");
 
         Assert.IsType<CrosshairSession>(session);
-    }
-
-    [Fact]
-    public void ModeSessionFactory_CrosshairWithNullKeys_Throws() {
-        var config = new ConfigModel {
-            Modes = new ModesConfig {
-                Crosshair = new ModeConfig {
-                    Enabled = true, ChordKey = VKey.N, ArrowKeys = true, TwoKey = true,
-                    // HorizontalKeys/VerticalKeys left null
-                },
-            },
-        };
-        var actionMapper = new ActionMapper(config.ActionBindings);
-        var factory = new ModeSessionFactory(config, actionMapper, null, null);
-
-        Assert.Throws<InvalidOperationException>(() => factory.Create("Crosshair"));
     }
 }

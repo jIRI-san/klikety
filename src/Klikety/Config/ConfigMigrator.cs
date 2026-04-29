@@ -20,7 +20,7 @@ public sealed class MigrationResult {
 /// a JsonDocument pre-pass. Performs atomic writes with .bak backup.
 /// </summary>
 public static class ConfigMigrator {
-    public const int CurrentConfigVersion = 1;
+    public const int CurrentConfigVersion = 2;
 
     private static readonly VKey[] Default8FirstKeys =
         [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
@@ -95,19 +95,65 @@ public static class ConfigMigrator {
             };
         }
 
-        // If modes already present, treat as current (idempotent)
+        // If modes already present, migrate from v1 → v2 if needed
         if (obj.ContainsKey("modes")) {
-            // Both modes and navigationMode → modes wins, strip navigationMode
+            bool changed = false;
+            var v1Warnings = new List<string>();
+
+            // Strip navigationMode if still present
             if (obj.Remove("navigationMode")) {
+                v1Warnings.Add("Both 'modes' and 'navigationMode' present; 'modes' takes precedence. 'navigationMode' removed.");
+                changed = true;
+            }
+
+            // v1 → v2: lift per-mode horizontalKeys/verticalKeys to root, remove keySets
+            if (version < 2) {
+                // Remove dead keySets artifact
+                if (obj.Remove("keySets")) {
+                    changed = true;
+                }
+
+                // Promote horizontalKeys/verticalKeys from crosshair (or logCrosshair) to root
+                if (!obj.ContainsKey("horizontalKeys")) {
+                    VKey[]? promotedHoriz = null;
+                    VKey[]? promotedVert = null;
+
+                    if (obj["modes"] is JsonObject modesObj) {
+                        // Try crosshair first, then logCrosshair
+                        foreach (var modeName in new[] { "crosshair", "logCrosshair" }) {
+                            if (modesObj[modeName] is JsonObject modeObj) {
+                                promotedHoriz ??= ReadVKeyArrayFromNode(modeObj, "horizontalKeys");
+                                promotedVert ??= ReadVKeyArrayFromNode(modeObj, "verticalKeys");
+                                modeObj.Remove("horizontalKeys");
+                                modeObj.Remove("verticalKeys");
+                            }
+                        }
+                    }
+
+                    // Fall back to firstKeys/secondKeys if present at root
+                    promotedHoriz ??= ReadVKeyArray(obj, "firstKeys");
+                    promotedVert ??= ReadVKeyArray(obj, "secondKeys");
+
+                    // Write to root (use defaults if nothing found)
+                    obj["horizontalKeys"] = ToJsonArray(promotedHoriz ?? Default10HorizontalKeys);
+                    obj["verticalKeys"] = ToJsonArray(promotedVert ?? Default10VerticalKeys);
+                    changed = true;
+                }
+
+                // Remove legacy root firstKeys/secondKeys
+                if (obj.Remove("firstKeys")) { changed = true; }
+                if (obj.Remove("secondKeys")) { changed = true; }
+
                 obj["configVersion"] = CurrentConfigVersion;
+                changed = true;
+            }
+
+            if (changed) {
                 var writeError = AtomicWrite(path, obj);
                 if (writeError is not null) {
                     return new MigrationResult { WasMigrated = false, BlockingError = writeError };
                 }
-                return new MigrationResult {
-                    WasMigrated = true,
-                    Warnings = ["Both 'modes' and 'navigationMode' present; 'modes' takes precedence. 'navigationMode' removed."],
-                };
+                return new MigrationResult { WasMigrated = true, Warnings = v1Warnings };
             }
             return new MigrationResult { WasMigrated = false };
         }
@@ -129,10 +175,33 @@ public static class ConfigMigrator {
         var oldFirstKeys = ReadVKeyArray(obj, "firstKeys");
         var oldSecondKeys = ReadVKeyArray(obj, "secondKeys");
 
+        // Determine shared axis keys (promote to root level)
+        var horizKeys = Default10HorizontalKeys;
+        var vertKeys = Default10VerticalKeys;
+
+        // Check if new 10-key defaults conflict with action bindings
+        var (_, horizConflict) = FilterConflictingKeys(horizKeys, actionKeys);
+        var (_, vertConflict) = FilterConflictingKeys(vertKeys, actionKeys);
+
+        if (horizConflict) {
+            horizKeys = oldFirstKeys ?? Default8FirstKeys;
+            warnings.Add("Default horizontalKeys conflict with actionBindings; using legacy firstKeys instead.");
+        }
+        if (vertConflict) {
+            vertKeys = oldSecondKeys ?? Default8SecondKeys;
+            warnings.Add("Default verticalKeys conflict with actionBindings; using legacy secondKeys instead.");
+        }
+
+        // Write shared axis keys at root (replacing firstKeys/secondKeys)
+        obj.Remove("firstKeys");
+        obj.Remove("secondKeys");
+        obj["horizontalKeys"] = ToJsonArray(horizKeys);
+        obj["verticalKeys"] = ToJsonArray(vertKeys);
+
         // Build modes object
         var modes = new JsonObject();
 
-        // UniformGrid: preserve existing twoKey/arrowKeys and key sets
+        // UniformGrid: preserve existing twoKey/arrowKeys
         var uniformGrid = new JsonObject {
             ["enabled"] = true,
             ["default"] = true,
@@ -148,29 +217,11 @@ public static class ConfigMigrator {
             warnings.Add($"Crosshair chord key '{chordN}' conflicts with actionBindings; Crosshair mode auto-disabled.");
         }
 
-        var crosshairHorizKeys = Default10HorizontalKeys;
-        var crosshairVertKeys = Default10VerticalKeys;
-
-        // Check if new 10-key defaults conflict with action bindings
-        var (_, horizConflict) = FilterConflictingKeys(crosshairHorizKeys, actionKeys);
-        var (_, vertConflict) = FilterConflictingKeys(crosshairVertKeys, actionKeys);
-
-        if (horizConflict) {
-            crosshairHorizKeys = oldFirstKeys ?? Default8FirstKeys;
-            warnings.Add("Default Crosshair horizontalKeys conflict with actionBindings; using legacy firstKeys instead.");
-        }
-        if (vertConflict) {
-            crosshairVertKeys = oldSecondKeys ?? Default8SecondKeys;
-            warnings.Add("Default Crosshair verticalKeys conflict with actionBindings; using legacy secondKeys instead.");
-        }
-
         var crosshair = new JsonObject {
             ["enabled"] = crosshairEnabled,
             ["chordKey"] = chordN.ToString(),
             ["arrowKeys"] = true,
             ["twoKey"] = true,
-            ["horizontalKeys"] = ToJsonArray(crosshairHorizKeys),
-            ["verticalKeys"] = ToJsonArray(crosshairVertKeys),
         };
         modes["crosshair"] = crosshair;
 
@@ -181,16 +232,11 @@ public static class ConfigMigrator {
             warnings.Add($"LogCrosshair chord key '{chordM}' conflicts with actionBindings; LogCrosshair mode auto-disabled.");
         }
 
-        var logHorizKeys = crosshairHorizKeys; // same conflict resolution
-        var logVertKeys = crosshairVertKeys;
-
         var logCrosshair = new JsonObject {
             ["enabled"] = logCrosshairEnabled,
             ["chordKey"] = chordM.ToString(),
             ["arrowKeys"] = true,
             ["twoKey"] = true,
-            ["horizontalKeys"] = ToJsonArray(logHorizKeys),
-            ["verticalKeys"] = ToJsonArray(logVertKeys),
             ["logBaseSize"] = 5,
         };
         modes["logCrosshair"] = logCrosshair;
@@ -247,6 +293,10 @@ public static class ConfigMigrator {
             }
         }
         return result.Count > 0 ? result.ToArray() : null;
+    }
+
+    private static VKey[]? ReadVKeyArrayFromNode(JsonObject obj, string propertyName) {
+        return ReadVKeyArray(obj, propertyName);
     }
 
     private static (VKey[] Safe, bool HadConflict) FilterConflictingKeys(VKey[] keys, HashSet<VKey> actionKeys) {

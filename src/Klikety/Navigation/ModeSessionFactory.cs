@@ -37,8 +37,8 @@ public sealed class ModeSessionFactory {
 
     private UniformGridSession CreateUniformGrid() {
         return new UniformGridSession(
-            _config.FirstKeys,
-            _config.SecondKeys,
+            _config.HorizontalKeys,
+            _config.VerticalKeys,
             _actionMapper,
             _config.Modes.UniformGrid,
             _config.Level3CellSizeThreshold,
@@ -48,8 +48,8 @@ public sealed class ModeSessionFactory {
     private CrosshairSession CreateCrosshair() {
         var mode = _config.Modes.Crosshair;
         return new CrosshairSession(
-            mode.HorizontalKeys ?? throw new InvalidOperationException("Crosshair mode requires HorizontalKeys."),
-            mode.VerticalKeys ?? throw new InvalidOperationException("Crosshair mode requires VerticalKeys."),
+            _config.HorizontalKeys,
+            _config.VerticalKeys,
             _actionMapper,
             mode,
             _crosshairRenderer);
@@ -58,8 +58,8 @@ public sealed class ModeSessionFactory {
     private LogCrosshairSession CreateLogCrosshair() {
         var mode = _config.Modes.LogCrosshair;
         return new LogCrosshairSession(
-            mode.HorizontalKeys ?? throw new InvalidOperationException("LogCrosshair mode requires HorizontalKeys."),
-            mode.VerticalKeys ?? throw new InvalidOperationException("LogCrosshair mode requires VerticalKeys."),
+            _config.HorizontalKeys,
+            _config.VerticalKeys,
             _actionMapper,
             mode,
             _logCrosshairRenderer);

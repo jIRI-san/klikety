@@ -48,9 +48,9 @@
         { "Space": "LeftClick", "OemSemicolon": "RightClick", "OemQuotes": "DoubleClick" }
       ]
     },
-    "firstKeys": {
+    "horizontalKeys": {
       "type": "array",
-      "description": "First-key VKey list (selects grid column). Combined left+right hand keys for unified grid.",
+      "description": "Horizontal axis VKey list (selects grid column). Shared by all navigation modes.",
       "items": {
         "type": "string"
       },
@@ -68,9 +68,9 @@
         "OemSemicolon"
       ]
     },
-    "secondKeys": {
+    "verticalKeys": {
       "type": "array",
-      "description": "Second-key VKey list (selects grid row). Combined left+right hand keys for unified grid.",
+      "description": "Vertical axis VKey list (selects grid row). Shared by all navigation modes.",
       "items": {
         "type": "string"
       },
@@ -192,18 +192,6 @@
         "twoKey": {
           "type": "boolean",
           "description": "Enable two-key (column+row) navigation within this mode."
-        },
-        "horizontalKeys": {
-          "type": "array",
-          "description": "Horizontal axis VKey list for Crosshair/LogCrosshair modes.",
-          "items": { "type": "string" },
-          "maxItems": 16
-        },
-        "verticalKeys": {
-          "type": "array",
-          "description": "Vertical axis VKey list for Crosshair/LogCrosshair modes.",
-          "items": { "type": "string" },
-          "maxItems": 16
         }
       },
       "additionalProperties": false

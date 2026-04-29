@@ -21,9 +21,9 @@
     "V": "RightClick"
   },
 
-  // VKey lists for two-key grid navigation.
-  // First key selects a column, second key selects a row → 10×10 = 100 cells per level.
-  "firstKeys": [
+  // VKey lists for axis navigation. Shared by all modes.
+  // Horizontal keys select a column, vertical keys select a row.
+  "horizontalKeys": [
     "A",
     "S",
     "D",
@@ -35,7 +35,7 @@
     "L",
     "OemSemicolon"
   ],
-  "secondKeys": [
+  "verticalKeys": [
     "Q",
     "W",
     "E",
@@ -83,23 +83,19 @@
       "enabled": true,
       "chordKey": "N",
       "arrowKeys": true,
-      "twoKey": true,
-      "horizontalKeys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "OemSemicolon"],
-      "verticalKeys": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"]
+      "twoKey": true
     },
     "logCrosshair": {
       "enabled": true,
       "chordKey": "M",
       "arrowKeys": true,
       "twoKey": true,
-      "logBaseSize": 5,
-      "horizontalKeys": ["A", "S", "D", "F", "G", "H", "J", "K", "L", "OemSemicolon"],
-      "verticalKeys": ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"]
+      "logBaseSize": 5
     }
   },
 
   // Config format version. Do not change manually.
-  "configVersion": 1,
+  "configVersion": 2,
 
   // Theme: bare name (resolves to themes/<name>.theme.json) or relative path.
   // Built-in themes: "dark", "light".

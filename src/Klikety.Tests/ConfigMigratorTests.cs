@@ -21,8 +21,8 @@ public class ConfigMigratorTests {
         var json = """
         {
             "navigationMode": "both",
-            "firstKeys": ["A", "S", "D", "F", "J", "K", "L", "OemSemicolon"],
-            "secondKeys": ["W", "E", "R", "T", "Y", "U", "I", "O"],
+            "horizontalKeys": ["A", "S", "D", "F", "J", "K", "L", "OemSemicolon"],
+            "verticalKeys": ["W", "E", "R", "T", "Y", "U", "I", "O"],
             "actionBindings": { "X": "DoubleClick", "C": "MiddleClick", "V": "RightClick" }
         }
         """;
@@ -35,7 +35,7 @@ public class ConfigMigratorTests {
             var migrated = ReadJsonObject(path);
             Assert.True(migrated.ContainsKey("modes"));
             Assert.False(migrated.ContainsKey("navigationMode"));
-            Assert.Equal(1, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(2, migrated["configVersion"]!.GetValue<int>());
 
             var ug = migrated["modes"]!["uniformGrid"]!;
             Assert.True(ug["enabled"]!.GetValue<bool>());
@@ -50,8 +50,8 @@ public class ConfigMigratorTests {
         var json = """
         {
             "navigationMode": "arrow",
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"]
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
@@ -71,8 +71,8 @@ public class ConfigMigratorTests {
         var json = """
         {
             "navigationMode": "twoKey",
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"]
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
@@ -92,8 +92,8 @@ public class ConfigMigratorTests {
         var json = """
         {
             "navigationMode": "both",
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"],
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"],
             "actionBindings": { "N": "RightClick" }
         }
         """;
@@ -113,8 +113,8 @@ public class ConfigMigratorTests {
         var json = """
         {
             "navigationMode": "both",
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"],
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"],
             "actionBindings": { "M": "DoubleClick" }
         }
         """;
@@ -135,8 +135,8 @@ public class ConfigMigratorTests {
         var json = """
         {
             "navigationMode": "both",
-            "firstKeys": ["A", "S", "D", "F", "J", "K", "L", "OemSemicolon"],
-            "secondKeys": ["W", "E", "R", "T", "Y", "U", "I", "O"],
+            "horizontalKeys": ["A", "S", "D", "F", "J", "K", "L", "OemSemicolon"],
+            "verticalKeys": ["W", "E", "R", "T", "Y", "U", "I", "O"],
             "actionBindings": { "G": "RightClick" }
         }
         """;
@@ -147,7 +147,7 @@ public class ConfigMigratorTests {
             Assert.Contains(result.Warnings, w => w.Contains("horizontalKeys") && w.Contains("legacy"));
 
             var migrated = ReadJsonObject(path);
-            var horizKeys = migrated["modes"]!["crosshair"]!["horizontalKeys"]!.AsArray();
+            var horizKeys = migrated["horizontalKeys"]!.AsArray();
             // Should be the old 8-key set, not 10-key
             Assert.Equal(8, horizKeys.Count);
         } finally { Cleanup(path); }
@@ -168,7 +168,9 @@ public class ConfigMigratorTests {
     public void MigrateIfNeeded_AlreadyMigrated_NoMutation() {
         var json = """
         {
-            "configVersion": 1,
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true }
             }
@@ -222,8 +224,8 @@ public class ConfigMigratorTests {
     public void MigrateIfNeeded_MissingNavigationMode_DefaultsToBoth() {
         var json = """
         {
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"]
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
@@ -243,8 +245,8 @@ public class ConfigMigratorTests {
         var json = """
         {
             "navigationMode": "both",
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"]
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"]
         }
         """;
         var path = WriteTempFile(json);
@@ -274,8 +276,8 @@ public class ConfigMigratorTests {
         {
             "navigationMode": "both",
             "customField": "preserved",
-            "firstKeys": ["A", "S"],
-            "secondKeys": ["W", "E"]
+            "horizontalKeys": ["A", "S"],
+            "verticalKeys": ["W", "E"]
         }
         """;
         var path = WriteTempFile(json);
@@ -291,8 +293,8 @@ public class ConfigMigratorTests {
         var json = """
         {
             "navigationMode": "both",
-            "firstKeys": ["A", "S", "D", "F"],
-            "secondKeys": ["W", "E", "R", "T"],
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"],
             "actionBindings": { "N": "RightClick", "M": "DoubleClick" }
         }
         """;

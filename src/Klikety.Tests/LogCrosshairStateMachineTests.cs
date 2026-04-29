@@ -354,4 +354,110 @@ public class LogCrosshairStateMachineTests {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new LogCrosshairStateMachine(tooMany, VertKeys, new ActionMapper([]), true));
     }
+
+    // --- Fix #1: AxisCleared event ---
+
+    [Fact]
+    public void Escape_FromHorizOnly_FiresAxisCleared() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.F); // HorizSet
+
+        bool cleared = false;
+        sm.AxisCleared += () => cleared = true;
+
+        sm.OnKey(VKey.Escape);
+
+        Assert.True(cleared);
+        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+    }
+
+    [Fact]
+    public void Escape_FromVertOnly_FiresAxisCleared() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.OnKey(VKey.R); // VertSet
+
+        bool cleared = false;
+        sm.AxisCleared += () => cleared = true;
+
+        sm.OnKey(VKey.Escape);
+
+        Assert.True(cleared);
+        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+    }
+
+    // --- Fix #4: Action after both axes ---
+
+    [Fact]
+    public void ActionKey_AfterBothAxes_FiresAtCellCenter() {
+        var actionMapper = new ActionMapper(
+            new Dictionary<string, MouseAction> { ["Space"] = MouseAction.LeftClick });
+        var sm = new LogCrosshairStateMachine(HorizKeys, VertKeys, actionMapper, true);
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        sm.OnKey(VKey.F); // horiz key index 3 → col 3
+        sm.OnKey(VKey.R); // vert key index 3 → row 3
+
+        Point? actionPt = null;
+        sm.ActionRequested += (pt, _) => actionPt = pt;
+        sm.OnKey(VKey.Space);
+
+        Assert.NotNull(actionPt);
+        // Should be at the center of cell(3,3), not at origin (550,550)
+        var expectedCell = grid.CellAt(3, 3);
+        Assert.Equal(LogGridCalculator.CenterOf(expectedCell), actionPt.Value);
+    }
+
+    // --- Fix #5: Arrow into degenerate cell ---
+
+    [Fact]
+    public void Arrow_IntoDegenerateCell_FiresInvalidKeyPressed() {
+        var sm = CreateSM();
+        // Grid with center at col=5 very near left edge → leftward cells degenerate
+        var grid = LogGridCalculator.Calculate(
+            new Point(2, 550), new Rectangle(0, 0, 1100, 1100),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+        sm.Activate(grid, new Point(2, 550));
+
+        bool invalid = false;
+        sm.InvalidKeyPressed += () => invalid = true;
+
+        // Arrow left from center (center col = 5) repeatedly to hit degenerate
+        for (int i = 0; i < 5; i++) {
+            sm.OnKey(VKey.Left);
+        }
+
+        Assert.True(invalid);
+    }
+
+    // --- Fix #6: Arrow → axis → escape → action sequence ---
+
+    [Fact]
+    public void Arrow_ThenAxis_ThenEscape_ActionFiresAtCenterCellCenter() {
+        var actionMapper = new ActionMapper(
+            new Dictionary<string, MouseAction> { ["Space"] = MouseAction.LeftClick });
+        var sm = new LogCrosshairStateMachine(HorizKeys, VertKeys, actionMapper, true);
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        // Arrow right (moves to center row, col 6)
+        sm.OnKey(VKey.Right);
+
+        // Select horiz axis
+        sm.OnKey(VKey.F); // HorizSet
+
+        // Escape back to AwaitInput
+        sm.OnKey(VKey.Escape);
+        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+
+        // Action fires at center cell center (not at arrow position or axis position)
+        Point? actionPt = null;
+        sm.ActionRequested += (pt, _) => actionPt = pt;
+        sm.OnKey(VKey.Space);
+
+        var expectedCenter = LogGridCalculator.CenterOf(grid.CenterCell);
+        Assert.Equal(expectedCenter, actionPt);
+    }
 }

@@ -40,6 +40,7 @@ public sealed class LogCrosshairStateMachine {
     public event Action? Cancelled;
     public event Action? InvalidKeyPressed;
     public event Action<int, int>? ArrowMoved;          // (row, col) after arrow nav
+    public event Action? AxisCleared;                   // Escape cleared last axis → back to base cross
 
     public LogCrosshairStateMachine(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
@@ -194,7 +195,10 @@ public sealed class LogCrosshairStateMachine {
                     VertSelected?.Invoke(row, _vertIndex);
                 } else {
                     _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
+                    _arrowRow = _grid.CenterRow;
+                    _arrowCol = _grid.CenterCol;
                     CurrentState = State.AwaitInput;
+                    AxisCleared?.Invoke();
                 }
                 break;
 
@@ -208,7 +212,10 @@ public sealed class LogCrosshairStateMachine {
                     HorizSelected?.Invoke(col, _horizIndex);
                 } else {
                     _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
+                    _arrowRow = _grid.CenterRow;
+                    _arrowCol = _grid.CenterCol;
                     CurrentState = State.AwaitInput;
+                    AxisCleared?.Invoke();
                 }
                 break;
 

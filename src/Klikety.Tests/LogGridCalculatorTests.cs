@@ -307,4 +307,36 @@ public class LogGridCalculatorTests {
         Assert.Equal(900, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Right);
         Assert.Equal(700, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Bottom);
     }
+
+    // --- Fix #8: logBaseSize larger than screen ---
+
+    [Fact]
+    public void LogBaseSize_LargerThanScreen_ProducesValidGrid() {
+        var bounds = new Rectangle(0, 0, 100, 100);
+        // logBaseSize=200 exceeds screen — ratio falls back to 1.0, all edges clamped
+        var grid = LogGridCalculator.Calculate(
+            new Point(50, 50), bounds,
+            logBaseSize: 200, horizKeyCount: 4, vertKeyCount: 4);
+
+        // Grid structure valid
+        Assert.Equal(5, grid.Cols);
+        Assert.Equal(5, grid.Rows);
+
+        // Full bounds coverage
+        Assert.Equal(0, grid.CellAt(0, 0).Bounds.X);
+        Assert.Equal(0, grid.CellAt(0, 0).Bounds.Y);
+        Assert.Equal(100, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Right);
+        Assert.Equal(100, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Bottom);
+
+        // Most cells will be degenerate (width/height < 1) due to clamping
+        bool hasDegenerate = false;
+        for (int r = 0; r < grid.Rows; r++) {
+            for (int c = 0; c < grid.Cols; c++) {
+                if (grid.IsDegenerate(r, c)) {
+                    hasDegenerate = true;
+                }
+            }
+        }
+        Assert.True(hasDegenerate);
+    }
 }

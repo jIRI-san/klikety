@@ -43,6 +43,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     int _nextRect;
     int _nextText;
 
+    // Pooled flash overlay (single instance, reused)
+    Rectangle? _flashRect;
+
     public LogCrosshairRenderer(
         Canvas canvas, ThemeModel theme,
         AxisLabelGenerator horizLabels, AxisLabelGenerator vertLabels) {
@@ -193,21 +196,30 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     }
 
     public void FlashInvalidKey() {
-        var flash = new Rectangle {
-            Width = _canvas.ActualWidth,
-            Height = _canvas.ActualHeight,
-            Fill = new SolidColorBrush(Color.FromArgb(80, 255, 0, 0)),
-            IsHitTestVisible = false,
-        };
-        Canvas.SetLeft(flash, 0);
-        Canvas.SetTop(flash, 0);
-        _canvas.Children.Add(flash);
+        if (_flashRect is null) {
+            _flashRect = new Rectangle {
+                Fill = new SolidColorBrush(Color.FromArgb(80, 255, 0, 0)),
+                IsHitTestVisible = false,
+            };
+            _canvas.Children.Add(_flashRect);
+        }
+
+        _flashRect.Width = _canvas.ActualWidth;
+        _flashRect.Height = _canvas.ActualHeight;
+        _flashRect.Visibility = Visibility.Visible;
+        _flashRect.Opacity = 1.0;
+        Canvas.SetLeft(_flashRect, 0);
+        Canvas.SetTop(_flashRect, 0);
 
         var animation = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(200)) {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
         };
-        animation.Completed += (_, _) => _canvas.Children.Remove(flash);
-        flash.BeginAnimation(UIElement.OpacityProperty, animation);
+        animation.Completed += (_, _) => {
+            if (_flashRect is not null) {
+                _flashRect.Visibility = Visibility.Collapsed;
+            }
+        };
+        _flashRect.BeginAnimation(UIElement.OpacityProperty, animation);
     }
 
     // --- Pool management ---

@@ -44,6 +44,7 @@ public sealed class LogCrosshairSession : IModeSession {
         _sm.Cancelled += OnCancelled;
         _sm.InvalidKeyPressed += OnInvalidKeyPressed;
         _sm.ArrowMoved += OnArrowMoved;
+        _sm.AxisCleared += OnAxisCleared;
     }
 
     public void Activate(Rectangle screenBounds, Point origin) {
@@ -109,5 +110,14 @@ public sealed class LogCrosshairSession : IModeSession {
         var cell = _grid.CellAt(row, col);
         CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(cell));
         _renderer?.HighlightCell(_grid, cell);
+    }
+
+    void OnAxisCleared() {
+        if (_grid is null) {
+            return;
+        }
+
+        CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(_grid.CenterCell));
+        _renderer?.RenderCross(_grid);
     }
 }

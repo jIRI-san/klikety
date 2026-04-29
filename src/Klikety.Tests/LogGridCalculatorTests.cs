@@ -1,0 +1,310 @@
+using System.Drawing;
+
+using Klikety.Grid;
+
+namespace Klikety.Tests;
+
+public class LogGridCalculatorTests {
+    // --- Basic structure ---
+
+    [Fact]
+    public void TenKeys_Creates11x11Grid() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        Assert.Equal(11, grid.Cols);
+        Assert.Equal(11, grid.Rows);
+        Assert.Equal(121, grid.Cells.Count);
+    }
+
+    [Fact]
+    public void FourKeys_Creates5x5Grid() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(500, 500), new Rectangle(0, 0, 1000, 1000),
+            logBaseSize: 5, horizKeyCount: 4, vertKeyCount: 4);
+
+        Assert.Equal(5, grid.Cols);
+        Assert.Equal(5, grid.Rows);
+        Assert.Equal(25, grid.Cells.Count);
+    }
+
+    [Fact]
+    public void AsymmetricKeys_CorrectDimensions() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 6);
+
+        Assert.Equal(11, grid.Cols);
+        Assert.Equal(7, grid.Rows);
+    }
+
+    // --- Center cell ---
+
+    [Fact]
+    public void CenterCell_AtCorrectIndex() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        Assert.Equal(5, grid.CenterCol);
+        Assert.Equal(5, grid.CenterRow);
+    }
+
+    [Fact]
+    public void CenterCell_ApproximatelyBaseSize() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 10, horizKeyCount: 10, vertKeyCount: 10);
+
+        var center = grid.CenterCell;
+        // Center cell should be approximately logBaseSize (rounding may cause ±1)
+        Assert.InRange(center.Bounds.Width, 9, 11);
+        Assert.InRange(center.Bounds.Height, 9, 11);
+    }
+
+    // --- Cell growth ---
+
+    [Fact]
+    public void CellsGrowOutwardFromCenter_Horizontal() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        int centerRow = grid.CenterRow;
+
+        // Right of center: each cell at least as wide as the previous
+        for (int col = grid.CenterCol + 1; col < grid.Cols - 1; col++) {
+            var inner = grid.CellAt(centerRow, col);
+            var outer = grid.CellAt(centerRow, col + 1);
+            Assert.True(outer.Bounds.Width >= inner.Bounds.Width,
+                $"Cell ({centerRow},{col + 1}) width {outer.Bounds.Width} should be >= ({centerRow},{col}) width {inner.Bounds.Width}");
+        }
+
+        // Left of center: each cell at least as wide as the previous inward
+        for (int col = grid.CenterCol - 1; col > 0; col--) {
+            var inner = grid.CellAt(centerRow, col);
+            var outer = grid.CellAt(centerRow, col - 1);
+            Assert.True(outer.Bounds.Width >= inner.Bounds.Width,
+                $"Cell ({centerRow},{col - 1}) width {outer.Bounds.Width} should be >= ({centerRow},{col}) width {inner.Bounds.Width}");
+        }
+    }
+
+    [Fact]
+    public void CellsGrowOutwardFromCenter_Vertical() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        int centerCol = grid.CenterCol;
+
+        // Below center
+        for (int row = grid.CenterRow + 1; row < grid.Rows - 1; row++) {
+            var inner = grid.CellAt(row, centerCol);
+            var outer = grid.CellAt(row + 1, centerCol);
+            Assert.True(outer.Bounds.Height >= inner.Bounds.Height,
+                $"Cell ({row + 1},{centerCol}) height {outer.Bounds.Height} should be >= ({row},{centerCol}) height {inner.Bounds.Height}");
+        }
+
+        // Above center
+        for (int row = grid.CenterRow - 1; row > 0; row--) {
+            var inner = grid.CellAt(row, centerCol);
+            var outer = grid.CellAt(row - 1, centerCol);
+            Assert.True(outer.Bounds.Height >= inner.Bounds.Height,
+                $"Cell ({row - 1},{centerCol}) height {outer.Bounds.Height} should be >= ({row},{centerCol}) height {inner.Bounds.Height}");
+        }
+    }
+
+    // --- Full coverage ---
+
+    [Fact]
+    public void CellsCoverEntireBounds_Centered() {
+        var bounds = new Rectangle(0, 0, 1920, 1080);
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), bounds,
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        Assert.Equal(0, grid.CellAt(0, 0).Bounds.X);
+        Assert.Equal(0, grid.CellAt(0, 0).Bounds.Y);
+        Assert.Equal(bounds.Width, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Right);
+        Assert.Equal(bounds.Height, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Bottom);
+    }
+
+    [Fact]
+    public void CellsCoverEntireBounds_OffCenter() {
+        var bounds = new Rectangle(0, 0, 1920, 1080);
+        var grid = LogGridCalculator.Calculate(
+            new Point(300, 200), bounds,
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        Assert.Equal(0, grid.CellAt(0, 0).Bounds.X);
+        Assert.Equal(0, grid.CellAt(0, 0).Bounds.Y);
+        Assert.Equal(bounds.Width, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Right);
+        Assert.Equal(bounds.Height, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Bottom);
+    }
+
+    [Fact]
+    public void NoCellGaps_Horizontal() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        for (int row = 0; row < grid.Rows; row++) {
+            for (int col = 0; col < grid.Cols - 1; col++) {
+                var left = grid.CellAt(row, col);
+                var right = grid.CellAt(row, col + 1);
+                Assert.Equal(left.Bounds.Right, right.Bounds.X);
+            }
+        }
+    }
+
+    [Fact]
+    public void NoCellGaps_Vertical() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        for (int col = 0; col < grid.Cols; col++) {
+            for (int row = 0; row < grid.Rows - 1; row++) {
+                var top = grid.CellAt(row, col);
+                var bottom = grid.CellAt(row + 1, col);
+                Assert.Equal(top.Bounds.Bottom, bottom.Bounds.Y);
+            }
+        }
+    }
+
+    // --- Off-center cursor ---
+
+    [Fact]
+    public void OffCenterCursor_LastCellAbsorption() {
+        var bounds = new Rectangle(0, 0, 1920, 1080);
+        var grid = LogGridCalculator.Calculate(
+            new Point(300, 540), bounds,
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        // Rightmost cell (longer side) should be larger than leftmost
+        var rightmost = grid.CellAt(grid.CenterRow, grid.Cols - 1);
+        var leftmost = grid.CellAt(grid.CenterRow, 0);
+        Assert.True(rightmost.Bounds.Width > leftmost.Bounds.Width);
+    }
+
+    // --- Cursor near edge → degenerate cells ---
+
+    [Fact]
+    public void CursorNearEdge_DegenerateCellsOnShortSide() {
+        var bounds = new Rectangle(0, 0, 1920, 1080);
+        var grid = LogGridCalculator.Calculate(
+            new Point(2, 540), bounds,
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        bool hasDegenerate = false;
+        for (int col = 0; col < grid.CenterCol; col++) {
+            if (grid.IsDegenerate(grid.CenterRow, col)) {
+                hasDegenerate = true;
+                break;
+            }
+        }
+        Assert.True(hasDegenerate);
+    }
+
+    // --- Cross detection ---
+
+    [Fact]
+    public void IsOnCross_CenterRowAndCol() {
+        var grid = LogGridCalculator.Calculate(
+            new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        Assert.True(grid.IsOnCross(grid.CenterRow, 0));
+        Assert.True(grid.IsOnCross(0, grid.CenterCol));
+        Assert.True(grid.IsOnCross(grid.CenterRow, grid.CenterCol));
+        Assert.False(grid.IsOnCross(0, 0));
+    }
+
+    // --- Bounds with offset ---
+
+    [Fact]
+    public void BoundsWithOffset_CoversFully() {
+        var bounds = new Rectangle(100, 200, 800, 600);
+        var grid = LogGridCalculator.Calculate(
+            new Point(500, 500), bounds,
+            logBaseSize: 5, horizKeyCount: 4, vertKeyCount: 4);
+
+        Assert.Equal(100, grid.CellAt(0, 0).Bounds.X);
+        Assert.Equal(200, grid.CellAt(0, 0).Bounds.Y);
+        Assert.Equal(900, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Right);
+        Assert.Equal(800, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Bottom);
+    }
+
+    // --- CenterOf helper ---
+
+    [Fact]
+    public void CenterOf_ReturnsMiddle() {
+        var cell = new GridCell(0, 0, new Rectangle(100, 200, 50, 30));
+        var center = LogGridCalculator.CenterOf(cell);
+        Assert.Equal(125, center.X);
+        Assert.Equal(215, center.Y);
+    }
+
+    // --- Validation ---
+
+    [Fact]
+    public void ZeroWidth_Throws() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LogGridCalculator.Calculate(new Point(0, 0), new Rectangle(0, 0, 0, 100), 5, 10, 10));
+
+    [Fact]
+    public void ZeroHeight_Throws() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LogGridCalculator.Calculate(new Point(0, 0), new Rectangle(0, 0, 100, 0), 5, 10, 10));
+
+    [Fact]
+    public void ZeroHorizKeys_Throws() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LogGridCalculator.Calculate(new Point(50, 50), new Rectangle(0, 0, 100, 100), 5, 0, 10));
+
+    [Fact]
+    public void ZeroVertKeys_Throws() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LogGridCalculator.Calculate(new Point(50, 50), new Rectangle(0, 0, 100, 100), 5, 10, 0));
+
+    [Fact]
+    public void ZeroBaseSize_Throws() =>
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            LogGridCalculator.Calculate(new Point(50, 50), new Rectangle(0, 0, 100, 100), 0, 10, 10));
+
+    // --- Various resolutions ---
+
+    [Theory]
+    [InlineData(1920, 1080)]
+    [InlineData(2560, 1440)]
+    [InlineData(3840, 2160)]
+    [InlineData(1366, 768)]
+    public void VariousResolutions_FullCoverage(int width, int height) {
+        var bounds = new Rectangle(0, 0, width, height);
+        var grid = LogGridCalculator.Calculate(
+            new Point(width / 2, height / 2), bounds,
+            logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
+
+        Assert.Equal(0, grid.CellAt(0, 0).Bounds.X);
+        Assert.Equal(0, grid.CellAt(0, 0).Bounds.Y);
+        Assert.Equal(width, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Right);
+        Assert.Equal(height, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Bottom);
+    }
+
+    // --- Center at bounds edge (clamped) ---
+
+    [Fact]
+    public void CenterOutsideBounds_ClampedToBounds() {
+        var bounds = new Rectangle(100, 100, 800, 600);
+        // Center outside bounds — should be clamped
+        var grid = LogGridCalculator.Calculate(
+            new Point(50, 50), bounds,
+            logBaseSize: 5, horizKeyCount: 4, vertKeyCount: 4);
+
+        Assert.Equal(100, grid.CellAt(0, 0).Bounds.X);
+        Assert.Equal(100, grid.CellAt(0, 0).Bounds.Y);
+        Assert.Equal(900, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Right);
+        Assert.Equal(700, grid.CellAt(grid.Rows - 1, grid.Cols - 1).Bounds.Bottom);
+    }
+}

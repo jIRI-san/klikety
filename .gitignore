@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Temp working docs (lessons learned, scratch notes)
+docs/temp/
+
 # User-specific files
 *.rsuser
 *.suo

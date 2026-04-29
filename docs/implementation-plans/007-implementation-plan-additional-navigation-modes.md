@@ -222,18 +222,18 @@
 
 ## Phase 4: LogCrosshair Mode
 
-- [ ] 4.1 `LogGridCalculator` [after: 2.4] `M`
+- [x] 4.1 `LogGridCalculator` [after: 2.4] `M`
   - Input: center point, screen bounds, base size (`logBaseSize`), keys-per-axis (from mode's axis key array lengths)
   - One exponent per axis via binary search; shorter side clips; min distance clamped
   - Degenerate cells flagged; float precision via last-cell absorption
   - Tests: resolutions, cursor positions, edge cases
 
-- [ ] 4.2 `LogCrosshairRenderer` [after: 4.1, 3.3] `M`
+- [x] 4.2 `LogCrosshairRenderer` [after: 4.1, 3.3] `M`
   - Mode-specific API; element pooling (shapes mutated, not recreated); staleness via `Parent == null`
   - Performance instrumentation; text geometry caching; DrawingVisual fallback if >70ms
   - `FakeLogCrosshairRenderer` for tests
 
-- [ ] 4.3 `LogCrosshairStateMachine` + `LogCrosshairSession` [after: 4.1, 3.2] `L`
+- [x] 4.3 `LogCrosshairStateMachine` + `LogCrosshairSession` [after: 4.1, 3.2] `L`
   - States: `Idle`, `AwaitInput`, `HorizSet`, `VertSet` (flat, no L2/L3)
   - Axis keys from mode config `horizontalKeys`/`verticalKeys`
   - Re-render coalescing: `_pendingNavKey` overwritten; bootstrap callback; `_callbackPending` + `_renderInProgress` gates; 16ms min interval; generation + `_active` checks
@@ -242,14 +242,14 @@
   - Origin for restoration = initial activation position
   - Structured logging
 
-- [ ] 4.4 LogCrosshair unit tests [after: 4.3, 4.1] `M`
+- [x] 4.4 LogCrosshair unit tests [after: 4.3, 4.1] `M`
   - State transitions, re-render cycle, coalescing, eager `_actionPoint`, degenerate cells
   - Grid calculator tests; custom axis keys; contract tests
 
-- [ ] 4.5 Wire LogCrosshair into mode factory + integration test [after: 4.3, 4.2, 2.2] `M`
+- [x] 4.5 Wire LogCrosshair into mode factory + integration test [after: 4.3, 4.2, 2.2] `M`
   - Tests: chord M → log grid → select → re-render → action; Esc → origin; multiple re-renders
 
-- [ ] 4.6 `dotnet format` + full test suite [after: 4.5] `S`
+- [x] 4.6 `dotnet format` + full test suite [after: 4.5] `S`
 
 ## Phase 5: Design Notes & Final Validation
 

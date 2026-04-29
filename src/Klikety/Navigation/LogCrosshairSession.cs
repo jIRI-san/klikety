@@ -62,14 +62,20 @@ public sealed class LogCrosshairSession : IModeSession {
     }
 
     void OnHorizSelected(int col, int keyIndex) {
-        if (_grid is null) return;
+        if (_grid is null) {
+            return;
+        }
+
         CursorMoveRequested?.Invoke(
             LogGridCalculator.CenterOf(_grid.CellAt(_grid.CenterRow, col)));
         _renderer?.HighlightColumn(_grid, col);
     }
 
     void OnVertSelected(int row, int keyIndex) {
-        if (_grid is null) return;
+        if (_grid is null) {
+            return;
+        }
+
         CursorMoveRequested?.Invoke(
             LogGridCalculator.CenterOf(_grid.CellAt(row, _grid.CenterCol)));
         _renderer?.HighlightRow(_grid, row);
@@ -96,7 +102,10 @@ public sealed class LogCrosshairSession : IModeSession {
     }
 
     void OnArrowMoved(int row, int col) {
-        if (_grid is null) return;
+        if (_grid is null) {
+            return;
+        }
+
         var cell = _grid.CellAt(row, col);
         CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(cell));
         _renderer?.HighlightCell(_grid, cell);

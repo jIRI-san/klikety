@@ -315,6 +315,15 @@ Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = current (modes s
 - Unknown fields preserved (round-trip).
 - Idempotent: already-migrated configs produce no mutations.
 
+### First-Run Extraction (`FirstRunExtractor`)
+
+`FirstRunExtractor.EnsureDefaults()` extracts embedded resources to `%APPDATA%\Klikety\` on startup. Two categories:
+
+- **Always-overwrite** (schemas): `config.schema.json`, `themes/theme.schema.json`. Written via atomic temp-file + `File.Move(overwrite: true)` on every startup. Ensures users get latest schema after upgrades.
+- **Skip-if-exists** (user-editable): `config.json`, `themes/dark.theme.json`, `themes/light.theme.json`. Written only when absent (first run).
+
+Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessException`. Returns `List<string>` of warning messages from the internal testable overload. Public overload writes warnings via `Trace.TraceWarning`. Non-blocking — app continues regardless of extraction failures.
+
 ## Key Scheme
 
 ### Unified 8×8 grid

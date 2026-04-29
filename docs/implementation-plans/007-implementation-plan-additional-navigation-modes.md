@@ -177,13 +177,13 @@
   - `maxKeys < 2` → empty (level disabled)
   - Tests: various sizes, edge cases, per-axis asymmetry, resolution integration
 
-- [ ] 2.5 Infrastructure tests [after: 2.3] `M`
+- [x] 2.5 Infrastructure tests [after: 2.3] `M`
   - Mode switching lifecycle; event leaks; debounce (suppression, timeout, ordering, re-entrancy)
   - SwitchMode failures (factory throw, Activate throw, old Deactivate throw)
   - Focus-loss during SwitchMode; contract enforcement; multi-monitor guardrail; non-QWERTY fallback
   - Click-through safety ordering; stale keys after hook disable; action triggers focus-loss
 
-- [ ] 2.6 `dotnet format` + full test suite [after: 2.5] `S`
+- [x] 2.6 `dotnet format` + full test suite [after: 2.5] `S`
 
 ## Phase 3: Crosshair Mode
 

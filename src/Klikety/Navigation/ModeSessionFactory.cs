@@ -52,7 +52,8 @@ public sealed class ModeSessionFactory {
             _config.VerticalKeys,
             _actionMapper,
             mode,
-            _crosshairRenderer);
+            _crosshairRenderer,
+            gridRenderer: _gridRenderer);
     }
 
     private LogCrosshairSession CreateLogCrosshair() {
@@ -62,6 +63,7 @@ public sealed class ModeSessionFactory {
             _config.VerticalKeys,
             _actionMapper,
             mode,
-            _logCrosshairRenderer);
+            _logCrosshairRenderer,
+            gridRenderer: _gridRenderer);
     }
 }

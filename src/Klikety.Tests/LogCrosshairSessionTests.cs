@@ -83,14 +83,20 @@ public class LogCrosshairSessionTests {
     // --- Both axes ---
 
     [Fact]
-    public void BothAxes_RendersHighlightCell() {
+    public void BothAxes_EntersL2_RoutesKeysToL2() {
         var (session, renderer) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
 
-        session.OnKey(VKey.F); // horiz
-        session.OnKey(VKey.R); // vert
+        var actions = new List<(Point, MouseAction)>();
+        session.ActionRequested += (pt, act) => actions.Add((pt, act));
 
-        Assert.Equal("HighlightCell", renderer.Calls[^1].Method);
+        session.OnKey(VKey.F); // horiz
+        session.OnKey(VKey.R); // vert → auto-L2
+
+        // Now in L2 — action key fires
+        session.OnKey(VKey.Space);
+
+        Assert.Single(actions);
     }
 
     // --- Cancel ---

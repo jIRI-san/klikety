@@ -56,21 +56,21 @@ public class LogCrosshairStateMachineTests {
     }
 
     [Fact]
-    public void HorizThenVert_BothSet_StateIsVertSet() {
+    public void HorizThenVert_BothSet_TransitionsToBothSet() {
         var sm = CreateSM();
         sm.Activate(CreateGrid(), new Point(550, 550));
         sm.OnKey(VKey.F); // horiz
         sm.OnKey(VKey.R); // vert
-        Assert.Equal(LogCrosshairStateMachine.State.VertSet, sm.CurrentState);
+        Assert.Equal(LogCrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
 
     [Fact]
-    public void VertThenHoriz_BothSet_StateIsHorizSet() {
+    public void VertThenHoriz_BothSet_TransitionsToBothSet() {
         var sm = CreateSM();
         sm.Activate(CreateGrid(), new Point(550, 550));
         sm.OnKey(VKey.R); // vert
         sm.OnKey(VKey.F); // horiz
-        Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
+        Assert.Equal(LogCrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
 
     // --- Events ---
@@ -100,14 +100,14 @@ public class LogCrosshairStateMachineTests {
     }
 
     [Fact]
-    public void BothAxes_FiresCellSelected() {
+    public void BothAxes_FiresSubgridEntered() {
         var sm = CreateSM();
         sm.Activate(CreateGrid(), new Point(550, 550));
         GridCell? cell = null;
-        sm.CellSelected += c => cell = c;
+        sm.SubgridEntered += c => cell = c;
 
         sm.OnKey(VKey.F); // horiz
-        sm.OnKey(VKey.R); // vert → both set
+        sm.OnKey(VKey.R); // vert → both set → auto-L2
 
         Assert.NotNull(cell);
     }
@@ -149,24 +149,24 @@ public class LogCrosshairStateMachineTests {
     }
 
     [Fact]
-    public void Escape_FromBothSetViaHoriz_ClearsHoriz_FallsToVertSet() {
+    public void Escape_FromBothSet_ClearsLastSetAxis_HorizLast() {
         var sm = CreateSM();
         sm.Activate(CreateGrid(), new Point(550, 550));
         sm.OnKey(VKey.R); // vert first
-        sm.OnKey(VKey.F); // horiz last → HorizSet
-        Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
+        sm.OnKey(VKey.F); // horiz last → BothSet
+        Assert.Equal(LogCrosshairStateMachine.State.BothSet, sm.CurrentState);
 
         sm.OnKey(VKey.Escape); // clears horiz (LIFO)
         Assert.Equal(LogCrosshairStateMachine.State.VertSet, sm.CurrentState);
     }
 
     [Fact]
-    public void Escape_FromBothSetViaVert_ClearsVert_FallsToHorizSet() {
+    public void Escape_FromBothSet_ClearsLastSetAxis_VertLast() {
         var sm = CreateSM();
         sm.Activate(CreateGrid(), new Point(550, 550));
         sm.OnKey(VKey.F); // horiz first
-        sm.OnKey(VKey.R); // vert last → VertSet
-        Assert.Equal(LogCrosshairStateMachine.State.VertSet, sm.CurrentState);
+        sm.OnKey(VKey.R); // vert last → BothSet
+        Assert.Equal(LogCrosshairStateMachine.State.BothSet, sm.CurrentState);
 
         sm.OnKey(VKey.Escape); // clears vert (LIFO)
         Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
@@ -202,35 +202,36 @@ public class LogCrosshairStateMachineTests {
         Assert.Equal(MouseAction.LeftClick, action);
     }
 
-    // --- Enter is no-op ---
+    // --- Enter behavior ---
 
     [Fact]
-    public void Enter_WithNoAxis_IsNoOp() {
+    public void Enter_WithNoAxis_EntersSubgridOrCellSelectedAtCenter() {
         var sm = CreateSM();
         sm.Activate(CreateGrid(), new Point(550, 550));
-        bool anyEvent = false;
-        sm.CellSelected += _ => anyEvent = true;
-        sm.InvalidKeyPressed += () => anyEvent = true;
+        bool entered = false;
+        sm.SubgridEntered += _ => entered = true;
+        sm.CellSelected += _ => entered = true;
 
         sm.OnKey(VKey.Return);
 
-        Assert.False(anyEvent);
-        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+        Assert.True(entered);
+        Assert.Equal(LogCrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
 
     [Fact]
-    public void Enter_WithAxisSet_IsNoOp() {
+    public void Enter_WithAxisSet_EntersSubgridOrCellSelectedAtCenterOfUnsetAxis() {
         var sm = CreateSM();
         sm.Activate(CreateGrid(), new Point(550, 550));
         sm.OnKey(VKey.F); // HorizSet
 
-        bool anyEvent = false;
-        sm.CellSelected += _ => anyEvent = true;
+        bool entered = false;
+        sm.SubgridEntered += _ => entered = true;
+        sm.CellSelected += _ => entered = true;
 
         sm.OnKey(VKey.Return);
 
-        Assert.False(anyEvent);
-        Assert.Equal(LogCrosshairStateMachine.State.HorizSet, sm.CurrentState);
+        Assert.True(entered);
+        Assert.Equal(LogCrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
 
     // --- Arrow navigation ---

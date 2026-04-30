@@ -156,20 +156,20 @@ public class CrosshairStateMachineTests {
     // --- Cell selection ---
 
     [Fact]
-    public void BothAxes_FiresCellSelected() {
+    public void BothAxes_FiresSubgridEntered() {
         var sm = CreateSM();
         var grid = CreateGrid();
         sm.Activate(grid, new Point(550, 550));
 
-        GridCell? selected = null;
-        sm.CellSelected += cell => selected = cell;
+        GridCell? entered = null;
+        sm.SubgridEntered += (cell, _) => entered = cell;
 
         sm.OnKey(VKey.A); // col 0
         sm.OnKey(VKey.Q); // row 0
 
-        Assert.NotNull(selected);
-        Assert.Equal(0, selected.Value.Row);
-        Assert.Equal(0, selected.Value.Col);
+        Assert.NotNull(entered);
+        Assert.Equal(0, entered.Value.Row);
+        Assert.Equal(0, entered.Value.Col);
     }
 
     // --- Enter behavior ---
@@ -225,21 +225,21 @@ public class CrosshairStateMachineTests {
     }
 
     [Fact]
-    public void Enter_BothSet_EntersSubgridAtIntersection() {
+    public void Enter_BothSet_IsNoOp() {
         var sm = CreateSM();
         var grid = CreateGrid();
         sm.Activate(grid, new Point(550, 550));
 
-        GridCell? parentCell = null;
-        sm.SubgridEntered += (cell, _) => parentCell = cell;
+        int subgridCount = 0;
+        sm.SubgridEntered += (_, _) => subgridCount++;
 
         sm.OnKey(VKey.A); // col 0
-        sm.OnKey(VKey.Q); // row 0
-        sm.OnKey(VKey.Return);
+        sm.OnKey(VKey.Q); // row 0 — auto-enters subgrid
+        Assert.Equal(1, subgridCount);
 
-        Assert.NotNull(parentCell);
-        Assert.Equal(0, parentCell.Value.Row);
-        Assert.Equal(0, parentCell.Value.Col);
+        sm.OnKey(VKey.Return); // no-op from BothSet
+        Assert.Equal(1, subgridCount); // no additional SubgridEntered
+        Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
 
     // --- Escape behavior ---
@@ -462,6 +462,30 @@ public class CrosshairStateMachineTests {
         // Subgrid disabled → fires CellSelected, transitions to BothSet, awaits action key
         Assert.Null(subgridCell);
         Assert.NotNull(selectedCell);
+        Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
+    }
+
+    [Fact]
+    public void TwoKeys_CellTooSmallForSubgrid_FiresCellSelectedNotSubgridEntered() {
+        var actionMapper = new ActionMapper(new Dictionary<string, MouseAction>());
+        // minCellPx = 2000 ensures subgrid disabled on auto-L2
+        var sm = new CrosshairStateMachine(HorizKeys, VertKeys, actionMapper, true, minCellPx: 2000);
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        GridCell? selectedCell = null;
+        sm.CellSelected += cell => selectedCell = cell;
+
+        GridCell? subgridCell = null;
+        sm.SubgridEntered += (cell, _) => subgridCell = cell;
+
+        sm.OnKey(VKey.A); // col 0
+        sm.OnKey(VKey.Q); // row 0 — auto-L2 triggers but IsDisabled
+
+        Assert.Null(subgridCell);
+        Assert.NotNull(selectedCell);
+        Assert.Equal(0, selectedCell.Value.Row);
+        Assert.Equal(0, selectedCell.Value.Col);
         Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
 }

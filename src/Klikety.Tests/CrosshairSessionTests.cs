@@ -61,14 +61,21 @@ public class CrosshairSessionTests {
     }
 
     [Fact]
-    public void BothAxes_HighlightsCell() {
+    public void BothAxes_EntersL2_RoutesKeysToL2() {
         var (session, renderer) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
 
+        var actions = new List<(Point, MouseAction)>();
+        session.ActionRequested += (pt, act) => actions.Add((pt, act));
+
+        // Two axis keys → auto-enters L2
         session.OnKey(VKey.A);
         session.OnKey(VKey.Q);
 
-        Assert.Equal("HighlightCell", renderer.Calls[^1].Method);
+        // Now in L2 — action key fires from L2
+        session.OnKey(VKey.Space);
+
+        Assert.Single(actions);
     }
 
     [Fact]
@@ -237,13 +244,19 @@ public class CrosshairSessionTests {
     // --- Enter with subgrid ---
 
     [Fact]
-    public void Enter_TriggersSubgridRender() {
+    public void Enter_EntersL2_RoutesKeysToL2() {
         var (session, renderer) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
 
-        session.OnKey(VKey.Return);
+        var actions = new List<(Point, MouseAction)>();
+        session.ActionRequested += (pt, act) => actions.Add((pt, act));
 
-        Assert.Equal("RenderSubgridCross", renderer.Calls[^1].Method);
+        session.OnKey(VKey.Return); // Enter at AwaitInput → L2
+
+        // Now in L2 — action key fires
+        session.OnKey(VKey.Space);
+
+        Assert.Single(actions);
     }
 
     // --- Origin restore after axis selection + Escape (#8) ---
@@ -281,5 +294,90 @@ public class CrosshairSessionTests {
         var session = factory.Create("Crosshair");
 
         Assert.IsType<CrosshairSession>(session);
+    }
+
+    // --- L2 level stack integration tests (step 4.4) ---
+
+    [Fact]
+    public void L2_TwoAxisKeys_ThenL2Action_FiresAction() {
+        var (session, _) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        var actions = new List<(Point Pt, MouseAction Act)>();
+        session.ActionRequested += (pt, act) => actions.Add((pt, act));
+
+        // L1: two axis keys → auto-enters L2
+        session.OnKey(VKey.A); // horiz col 0
+        session.OnKey(VKey.Q); // vert row 0 → L2
+
+        // L2: two-key sequence → fires action
+        session.OnKey(VKey.A); // L2 first key
+        session.OnKey(VKey.Q); // L2 second key → action
+        session.OnKey(VKey.Space); // action key at L2 position
+
+        Assert.Single(actions);
+    }
+
+    [Fact]
+    public void L2_EscapeFromL2_ReturnsToL1_HighlightsCell() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Enter L2
+        session.OnKey(VKey.A);
+        session.OnKey(VKey.Q);
+
+        // Escape from L2 → back to L1
+        session.OnKey(VKey.Escape);
+
+        // Should restore L1 highlight (HighlightCell)
+        Assert.Equal("HighlightCell", renderer.Calls[^1].Method);
+    }
+
+    [Fact]
+    public void L2_EscapeFromL2_ThenNewAxisKey_WorksOnL1() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Enter L2
+        session.OnKey(VKey.A);
+        session.OnKey(VKey.Q);
+
+        // Escape from L2 → back to L1
+        session.OnKey(VKey.Escape);
+
+        // New axis key should work on L1
+        session.OnKey(VKey.S); // different horiz key
+
+        // L1 SM still in BothSet → auto-enters L2 again with new col
+        // (pressing horiz key overrides previous, then re-triggers auto-L2)
+        // Actually after pop, SM is still in BothSet state.
+        // New horiz key → HandleHorizKey with _vertIndex >= 0 → auto-L2 again.
+        // Verify action works from new L2
+        var actions = new List<(Point, MouseAction)>();
+        session.ActionRequested += (pt, act) => actions.Add((pt, act));
+        session.OnKey(VKey.Space);
+        Assert.Single(actions);
+    }
+
+    [Fact]
+    public void L2_CursorMoveRequested_BubblesFromL2() {
+        var (session, _) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        var cursorMoves = new List<Point>();
+        session.CursorMoveRequested += pt => cursorMoves.Add(pt);
+
+        // Enter L2
+        session.OnKey(VKey.A);
+        session.OnKey(VKey.Q);
+
+        int movesAfterL2Entry = cursorMoves.Count;
+
+        // L2 two keys → enters cell → cursor move
+        session.OnKey(VKey.A);
+        session.OnKey(VKey.Q);
+
+        Assert.True(cursorMoves.Count > movesAfterL2Entry);
     }
 }

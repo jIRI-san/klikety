@@ -277,7 +277,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
             return;
         }
 
-        double fontSize = ComputeAutoFontSize(dipRect.Width, dipRect.Height);
+        double fontSize = ComputeGradualFontSize(dipRect, row, col, grid);
         var ft = new FormattedText(label, System.Globalization.CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight, _typeface, fontSize, foreground,
             VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
@@ -363,11 +363,30 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         return null;
     }
 
-    static double ComputeAutoFontSize(double cellWidth, double cellHeight) {
-        double fontFromHeight = cellHeight * 0.8 / 1.2;
-        double fontFromWidth = cellWidth * 0.95 / 0.55;
-        double fontSize = Math.Min(fontFromHeight, fontFromWidth);
-        return Math.Max(fontSize, 8.0);
+    double ComputeGradualFontSize(Rect dipRect, int row, int col, LogCrosshairGrid grid) {
+        double cellExtent = Math.Min(dipRect.Width, dipRect.Height);
+        double maxFitSize = cellExtent * 0.8 / 1.2; // max that fits in cell
+
+        // Distance from center (max of row/col distance)
+        int rowDist = Math.Abs(row - grid.CenterRow);
+        int colDist = Math.Abs(col - grid.CenterCol);
+        int distanceIndex = Math.Max(rowDist, colDist);
+
+        int maxIndex = Math.Max(grid.CenterRow, Math.Max(grid.CenterCol,
+            Math.Max(grid.Rows - 1 - grid.CenterRow, grid.Cols - 1 - grid.CenterCol)));
+
+        if (maxIndex == 0 || distanceIndex == 0) {
+            return Math.Max(maxFitSize, 8.0);
+        }
+
+        double baseFontSize = _theme.LabelFontSize > 0 ? _theme.LabelFontSize : 14.0;
+        double maxFontSize = Math.Min(maxFitSize, baseFontSize * 3);
+        double scaleFactor = (maxFontSize - baseFontSize) / (maxIndex * baseFontSize);
+
+        double computed = baseFontSize * (1 + distanceIndex * scaleFactor);
+        // Cap to cell extent
+        double capped = Math.Min(computed, maxFitSize);
+        return Math.Max(capped, 8.0);
     }
 
     static SolidColorBrush BrushFromHex(string hex, double opacity = 1.0) {

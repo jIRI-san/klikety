@@ -7,9 +7,9 @@ using Klikety.Input;
 namespace Klikety.Navigation;
 
 /// <summary>
-/// State machine for LogCrosshair mode — flat navigation (no subgrid/L2/L3).
-/// Axis keys select horizontal/vertical offsets. Same-axis re-press overrides.
-/// Esc clears the last-set axis (LIFO). Enter is a no-op (no subgrid).
+/// State machine for LogCrosshair mode. Axis keys select horizontal/vertical offsets.
+/// Same-axis re-press overrides. Both axes set → auto-enters L2 subgrid.
+/// Esc clears the last-set axis (LIFO). Enter enters subgrid at current position.
 /// Degenerate cells (from log grid edge) produce <see cref="InvalidKeyPressed"/>.
 /// </summary>
 public sealed class LogCrosshairStateMachine {
@@ -17,10 +17,12 @@ public sealed class LogCrosshairStateMachine {
     readonly VKey[] _vertKeys;
     readonly ActionMapper _actionMapper;
     readonly bool _arrowKeysEnabled;
+    readonly int _minCellPx;
 
     LogCrosshairGrid? _grid;
     int _horizIndex = -1; // -1 = not set
     int _vertIndex = -1;
+    bool _lastSetWasHoriz;
     int _arrowRow;
     int _arrowCol;
     Point _actionPoint;
@@ -28,14 +30,15 @@ public sealed class LogCrosshairStateMachine {
     readonly Dictionary<VKey, int> _horizKeyMap = [];
     readonly Dictionary<VKey, int> _vertKeyMap = [];
 
-    public enum State { Idle, AwaitInput, HorizSet, VertSet }
+    public enum State { Idle, AwaitInput, HorizSet, VertSet, BothSet }
 
     public State CurrentState { get; private set; } = State.Idle;
 
     // Events
     public event Action<int, int>? HorizSelected;      // (col, keyIndex)
     public event Action<int, int>? VertSelected;        // (row, keyIndex)
-    public event Action<GridCell>? CellSelected;        // Both axes set → cell highlighted
+    public event Action<GridCell>? CellSelected;        // Both axes set but subgrid disabled
+    public event Action<GridCell>? SubgridEntered;      // Both axes set → L2 at this cell
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action? Cancelled;
     public event Action? InvalidKeyPressed;
@@ -44,7 +47,7 @@ public sealed class LogCrosshairStateMachine {
 
     public LogCrosshairStateMachine(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
-        bool arrowKeysEnabled) {
+        bool arrowKeysEnabled, int minCellPx = 5) {
         ArgumentNullException.ThrowIfNull(horizKeys);
         ArgumentNullException.ThrowIfNull(vertKeys);
 
@@ -68,6 +71,7 @@ public sealed class LogCrosshairStateMachine {
         _vertKeys = vertKeys;
         _actionMapper = actionMapper;
         _arrowKeysEnabled = arrowKeysEnabled;
+        _minCellPx = minCellPx;
 
         for (int i = 0; i < horizKeys.Length; i++) {
             _horizKeyMap[horizKeys[i]] = i;
@@ -111,8 +115,9 @@ public sealed class LogCrosshairStateMachine {
             return;
         }
 
-        // Enter is a no-op in LogCrosshair (flat mode, no subgrid)
+        // Enter — confirm selection / enter subgrid
         if (key == VKey.Return) {
+            HandleEnter();
             return;
         }
 
@@ -147,14 +152,15 @@ public sealed class LogCrosshairStateMachine {
         }
 
         _horizIndex = keyIndex;
+        _lastSetWasHoriz = true;
 
         var cell = _grid.CellAt(row, col);
         _actionPoint = LogGridCalculator.CenterOf(cell);
-        CurrentState = State.HorizSet;
 
         if (_vertIndex >= 0) {
-            CellSelected?.Invoke(cell);
+            EnterSubgrid(cell);
         } else {
+            CurrentState = State.HorizSet;
             HorizSelected?.Invoke(col, keyIndex);
         }
     }
@@ -171,20 +177,40 @@ public sealed class LogCrosshairStateMachine {
         }
 
         _vertIndex = keyIndex;
+        _lastSetWasHoriz = false;
 
         var cell = _grid.CellAt(row, col);
         _actionPoint = LogGridCalculator.CenterOf(cell);
-        CurrentState = State.VertSet;
 
         if (_horizIndex >= 0) {
-            CellSelected?.Invoke(cell);
+            EnterSubgrid(cell);
         } else {
+            CurrentState = State.VertSet;
             VertSelected?.Invoke(row, keyIndex);
         }
     }
 
     void HandleEscape() {
         switch (CurrentState) {
+            case State.BothSet:
+                // LIFO: clear the most recently set axis
+                if (_lastSetWasHoriz) {
+                    _horizIndex = -1;
+                    int row = KeyIndexToRow(_vertIndex, _grid!.CenterRow);
+                    var cell = _grid.CellAt(row, _grid.CenterCol);
+                    _actionPoint = LogGridCalculator.CenterOf(cell);
+                    CurrentState = State.VertSet;
+                    VertSelected?.Invoke(row, _vertIndex);
+                } else {
+                    _vertIndex = -1;
+                    int col = KeyIndexToCol(_horizIndex, _grid!.CenterCol);
+                    var cell = _grid.CellAt(_grid.CenterRow, col);
+                    _actionPoint = LogGridCalculator.CenterOf(cell);
+                    CurrentState = State.HorizSet;
+                    HorizSelected?.Invoke(col, _horizIndex);
+                }
+                break;
+
             case State.HorizSet:
                 _horizIndex = -1;
                 if (_vertIndex >= 0) {
@@ -245,6 +271,54 @@ public sealed class LogCrosshairStateMachine {
         var cell = _grid.CellAt(newRow, newCol);
         _actionPoint = LogGridCalculator.CenterOf(cell);
         ArrowMoved?.Invoke(newRow, newCol);
+    }
+
+    void HandleEnter() {
+        if (_grid is null) {
+            return;
+        }
+
+        switch (CurrentState) {
+            case State.AwaitInput:
+                EnterSubgrid(_grid.CellAt(_arrowRow, _arrowCol));
+                break;
+
+            case State.HorizSet: {
+                    int col = KeyIndexToCol(_horizIndex, _grid.CenterCol);
+                    var cell = _grid.CellAt(_grid.CenterRow, col);
+                    EnterSubgrid(cell);
+                    break;
+                }
+
+            case State.VertSet: {
+                    int row = KeyIndexToRow(_vertIndex, _grid.CenterRow);
+                    var cell = _grid.CellAt(row, _grid.CenterCol);
+                    EnterSubgrid(cell);
+                    break;
+                }
+
+            case State.BothSet:
+                // BothSet only reachable when IsDisabled — no-op
+                break;
+        }
+    }
+
+    void EnterSubgrid(GridCell cell) {
+        var hReduction = DynamicKeyReducer.ComputeActiveKeys(
+            _horizKeys, cell.Bounds.Width, _minCellPx, hasCenterCell: false);
+        var vReduction = DynamicKeyReducer.ComputeActiveKeys(
+            _vertKeys, cell.Bounds.Height, _minCellPx, hasCenterCell: false);
+
+        _actionPoint = LogGridCalculator.CenterOf(cell);
+
+        if (hReduction.IsDisabled || vReduction.IsDisabled) {
+            CellSelected?.Invoke(cell);
+            CurrentState = State.BothSet;
+            return;
+        }
+
+        CurrentState = State.BothSet;
+        SubgridEntered?.Invoke(cell);
     }
 
     static int KeyIndexToCol(int keyIndex, int centerCol) =>

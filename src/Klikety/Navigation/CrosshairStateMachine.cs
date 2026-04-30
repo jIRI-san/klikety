@@ -153,12 +153,10 @@ public sealed class CrosshairStateMachine {
         int col = KeyIndexToCol(keyIndex, _grid!.CenterCol);
 
         if (_vertIndex >= 0) {
-            // Both set
+            // Both set — auto-enter L2 subgrid
             int row = KeyIndexToRow(_vertIndex, _grid.CenterRow);
-            CurrentState = State.BothSet;
             var cell = _grid.CellAt(row, col);
-            _actionPoint = CrosshairGridCalculator.CenterOf(cell);
-            CellSelected?.Invoke(cell);
+            EnterSubgrid(cell);
         } else {
             CurrentState = State.HorizSet;
             // Action point: center of center-row cell at this column
@@ -175,12 +173,10 @@ public sealed class CrosshairStateMachine {
         int row = KeyIndexToRow(keyIndex, _grid!.CenterRow);
 
         if (_horizIndex >= 0) {
-            // Both set
+            // Both set — auto-enter L2 subgrid
             int col = KeyIndexToCol(_horizIndex, _grid.CenterCol);
-            CurrentState = State.BothSet;
             var cell = _grid.CellAt(row, col);
-            _actionPoint = CrosshairGridCalculator.CenterOf(cell);
-            CellSelected?.Invoke(cell);
+            EnterSubgrid(cell);
         } else {
             CurrentState = State.VertSet;
             // Action point: center of center-col cell at this row
@@ -218,11 +214,8 @@ public sealed class CrosshairStateMachine {
                 }
 
             case State.BothSet: {
-                    // Both set → enter subgrid at intersection
-                    int col = KeyIndexToCol(_horizIndex, _grid.CenterCol);
-                    int row = KeyIndexToRow(_vertIndex, _grid.CenterRow);
-                    var cell = _grid.CellAt(row, col);
-                    EnterSubgrid(cell);
+                    // BothSet only reachable when IsDisabled — Enter is a no-op here
+                    // (user must press an action key like Space)
                     break;
                 }
         }
@@ -247,8 +240,7 @@ public sealed class CrosshairStateMachine {
             cell.Bounds, hReduction.ActiveKeys.Length, vReduction.ActiveKeys.Length);
 
         _actionPoint = CrosshairGridCalculator.CenterOf(cell);
-        // TODO: Phase 4/5 — push L2/L3 session onto level stack for recursive subgrid navigation.
-        // Currently renders the subgrid visually but subsequent keys still operate on L1.
+        CurrentState = State.BothSet;
         SubgridEntered?.Invoke(cell, subgrid);
     }
 

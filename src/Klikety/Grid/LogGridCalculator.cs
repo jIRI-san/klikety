@@ -67,9 +67,18 @@ public static class LogGridCalculator {
             for (int col = 0; col < cols; col++) {
                 int x = (int)Math.Round(colEdges[col]);
                 int nextX = (int)Math.Round(colEdges[col + 1]);
+                int w = nextX - x;
+                int h = nextY - y;
+
+                // Force square cells: use min(width, height) for both dimensions
+                int side = Math.Min(w, h);
+                // Center the square within the original cell bounds
+                int sqX = x + (w - side) / 2;
+                int sqY = y + (h - side) / 2;
+
                 int idx = row * cols + col;
-                cells[idx] = new GridCell(row, col, new Rectangle(x, y, nextX - x, nextY - y));
-                if (nextX - x < 1 || nextY - y < 1) {
+                cells[idx] = new GridCell(row, col, new Rectangle(sqX, sqY, side, side));
+                if (side < 1) {
                     degenerateIndices.Add(idx);
                 }
             }

@@ -24,7 +24,7 @@ Three navigation modes, each implementing `IModeSession` with independent config
 
 - **UniformGrid** — two-key grid scheme using `firstKeys`/`secondKeys`. L1→L2→L3 level stack.
 - **Crosshair** — cross-style axis key navigation with uniform grid cells. Supports L2 subgrid.
-- **LogCrosshair** — logarithmic-scaled cross grid centered on cursor. Flat (no subgrid).
+- **LogCrosshair** — logarithmic-scaled cross grid centered on cursor. Supports L2 subgrid via `SubgridEntered` event and `UniformGridSession` level stack.
 
 ## `IModeSession` Interface
 
@@ -65,10 +65,11 @@ Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, Actio
 - `_lastSetWasHoriz` tracks which axis was set most recently for LIFO Escape from `BothSet`.
 - `_actionPoint` updated eagerly on every axis key to the cell center at the intersection of selected axes (or center row/col if only one axis set).
 - Arrow navigation via `CrossArrowNavigator` — only in `AwaitInput` state (before any axis key).
-- Enter: computes L2 subgrid via `DynamicKeyReducer`. If cell too small → fires `CellSelected` + stays in `BothSet` (user picks action). Otherwise fires `SubgridEntered`.
+- Enter: computes L2 subgrid via `DynamicKeyReducer`. If cell too small → fires `CellSelected` + stays in `BothSet` (user picks action). Otherwise fires `SubgridEntered`. If `SubgridEntered` handler throws, catches exception and falls back to `CellSelected` path (prevents stuck `BothSet`).
 - Escape LIFO: `BothSet` → clears last-set axis → single-axis state. Single-axis → `AwaitInput`. `AwaitInput` → `Cancelled`.
+- `SubgridExited` event: fired by `ResetToAwaitInput(row, col)` when L2 session is popped. Resets state to `AwaitInput` with `_arrowRow`/`_arrowCol` at the given position, `_actionPoint` at cell center. Session handler re-renders full cross + highlights the arrow-position cell.
 
-**Dynamic Key Reduction** (`DynamicKeyReducer`): At L2/L3, outermost keys are dropped symmetrically to keep cells ≥ `minCellPx`. Formula: `maxKeys = parentExtentPx / minCellPx - 1` (Crosshair: round to even). Returns `DynamicKeyReduction(ActiveKeys, OriginalStartIndex)`. `IsDisabled` when `< 2` keys remain.
+**Dynamic Key Reduction** (`DynamicKeyReducer`): At L2/L3, outermost keys are dropped symmetrically to keep cells ≥ `minCellPx` (default 5). Formula: `maxKeys = parentExtentPx / minCellPx - 1` (Crosshair: round to even). Returns `DynamicKeyReduction(ActiveKeys, OriginalStartIndex)`. `IsDisabled` when `< 2` keys remain. `UniformGridSession` accepts a `minCellPx` constructor parameter (default 5) and passes it to `NavigatorStateMachine`. Crosshair/LogCrosshair sessions pass their `_minCellPx` field through to the inner `UniformGridSession`.
 
 **Renderer** (`CrosshairRenderer`, implements `ICrosshairRenderer`): Mode-specific API — `RenderCross`, `HighlightColumn`, `HighlightRow`, `HighlightCell`, `RenderSubgridCross`, `FlashInvalidKey`. Cross cells (center row + center column) get borders + single-char labels. Non-cross cells dimmed at 15% opacity. Uses DIP-space grid computation like `GridRenderer`.
 
@@ -87,19 +88,20 @@ Algorithm:
 
 Result type: `LogCrosshairGrid` with `IsDegenerate(row, col)` method. Same structure as `CrosshairGrid` (Cells, Cols, Rows, CenterCol, CenterRow, CellAt, CenterCell, IsOnCross).
 
-**State machine** (`LogCrosshairStateMachine`): States: `Idle`, `AwaitInput`, `HorizSet`, `VertSet`. Flat — no subgrid, no L2/L3.
+**State machine** (`LogCrosshairStateMachine`): States: `Idle`, `AwaitInput`, `HorizSet`, `VertSet`, `BothSet`.
 
 - Same axis-key mapping as Crosshair (key index → grid index, skipping center).
 - `HorizSet`/`VertSet` track the last-set axis. Both can be set simultaneously — state reflects which was set most recently.
 - Degenerate cells: axis key or arrow targeting a degenerate cell fires `InvalidKeyPressed` (rejected).
-- Enter: no-op (flat mode, no subgrid).
+- Enter: computes L2 subgrid via `DynamicKeyReducer`. If cell too small → fires `CellSelected` + stays in `BothSet`. Otherwise fires `SubgridEntered`. If handler throws, falls back to `CellSelected`.
 - Arrow navigation: `CrossArrowNavigator` in `AwaitInput` only. Arrows into degenerate cells also fire `InvalidKeyPressed`.
-- Escape LIFO: `HorizSet` with vert set → clears horiz → `VertSet`. `HorizSet` alone → `AwaitInput` + fires `AxisCleared`. `VertSet` similarly. `AxisCleared` event resets `_arrowRow`/`_arrowCol` to grid center.
+- Escape LIFO: `BothSet` → clears last-set axis → single-axis state. `HorizSet`/`VertSet` alone → `AwaitInput` + fires `AxisCleared`. `AwaitInput` → `Cancelled`.
 - `AxisCleared` event: notifies session to re-render base cross and move cursor back to center cell.
+- `SubgridExited` event: fired by `ResetToAwaitInput(row, col)` when L2 session is popped. Same semantics as Crosshair — resets to `AwaitInput`, sets action point, session re-renders cross + highlights cell.
 
 **Renderer** (`LogCrosshairRenderer`, implements `ILogCrosshairRenderer`): Same visual API as `ICrosshairRenderer` minus `RenderSubgridCross`. Uses **element pooling**: rectangles and text paths are reused across renders via index tracking. Staleness detected via `Parent == null` after external canvas clear. `FlashInvalidKey` uses a pooled single rectangle (collapsed when not animating).
 
-**Session** (`LogCrosshairSession`): Wraps SM + renderer. Grid computed at `Activate()` using cursor origin as center point. `AxisCleared` → re-renders cross + moves cursor to center cell center.
+**Session** (`LogCrosshairSession`): Wraps SM + renderer. Grid computed at `Activate()` using cursor origin as center point. `AxisCleared` → re-renders cross + moves cursor to center cell center. Supports L2 level stack via `UniformGridSession` (same as `CrosshairSession`). `SubgridExited` → re-renders full cross + highlights the arrow-position cell.
 
 ## `AxisLabelGenerator`
 

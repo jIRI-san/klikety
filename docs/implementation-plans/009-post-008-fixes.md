@@ -29,24 +29,24 @@
 ## Phase 1: minCellPx Unification
 <!-- worktree: -->
 
-- [ ] 1.1 Change `NavigatorStateMachine` default `minCellPx` from 20 to 5. Add `minCellPx` parameter to `UniformGridSession` constructor (default 5), pass through to `NavigatorStateMachine`. Update `ModeSessionFactory.CreateUniformGrid()` to pass `minCellPx: 5`. (REQ-1, RISK-1) `S`
-- [ ] 1.2 In `CrosshairSession.OnSubgridEntered` and `LogCrosshairSession.OnSubgridEntered`: pass `_minCellPx` (the session's existing field, not a literal) to the inner `UniformGridSession` constructor. Verify `DynamicKeyReducer` calls in these sessions already use `_minCellPx`. (REQ-2, RISK-1) `S`
-- [ ] 1.3 Update tests: `NavigatorStateMachineTests` that verify L2/L3 reduction behavior — adjust expectations for 5px threshold. Verify L3 now activates on standard screen sizes. Update any tests asserting old `minCellPx=20` reduction counts. (REQ-1, RISK-2) [after: 1.1] `M`
+- [x] 1.1 Change `NavigatorStateMachine` default `minCellPx` from 20 to 5. Add `minCellPx` parameter to `UniformGridSession` constructor (default 5), pass through to `NavigatorStateMachine`. Update `ModeSessionFactory.CreateUniformGrid()` to pass `minCellPx: 5`. (REQ-1, RISK-1) `S`
+- [x] 1.2 In `CrosshairSession.OnSubgridEntered` and `LogCrosshairSession.OnSubgridEntered`: pass `_minCellPx` (the session's existing field, not a literal) to the inner `UniformGridSession` constructor. Verify `DynamicKeyReducer` calls in these sessions already use `_minCellPx`. (REQ-2, RISK-1) `S`
+- [x] 1.3 Update tests: `NavigatorStateMachineTests` that verify L2/L3 reduction behavior — adjust expectations for 5px threshold. Verify L3 now activates on standard screen sizes. Update any tests asserting old `minCellPx=20` reduction counts. (REQ-1, RISK-2) [after: 1.1] `M`
 
 ## Phase 2: Crosshair L2 Pop Behavior
 <!-- worktree: -->
 
-- [ ] 2.1 Add `ResetToAwaitInput(int row, int col)` to `CrosshairStateMachine` and `LogCrosshairStateMachine`: resets state to `AwaitInput`, sets `_arrowRow`/`_arrowCol` to given position, clears `_horizIndex`/`_vertIndex` to -1, computes `_actionPoint` as center of `_grid.CellAt(row, col)`. Fires new `SubgridExited` event (signature: `Action?`). (REQ-3, RISK-3) `S`
-- [ ] 2.2 In `CrosshairSession.OnL2Cancelled` and `LogCrosshairSession.OnL2Cancelled`: after `PopL2()`, call `_sm.ResetToAwaitInput(_lastVertRow, _lastHorizCol)`. Subscribe to `SubgridExited` event in constructor — handler renders full cross via `_renderer?.RenderCross(_grid)` then highlights arrow-position cell via `_renderer?.HighlightCell(_grid, cell)`, fires `CursorMoveRequested` at cell center. Also: wrap `SubgridEntered?.Invoke` in `EnterSubgrid` with try/catch — on failure, fall back to `CellSelected` path (prevents stuck BothSet). (REQ-3, RISK-3) [after: 2.1] `M`
-- [ ] 2.3 Unit tests: (a) Escape from crosshair L2 → SM in AwaitInput, `_actionPoint` at L2-entry cell center, `SubgridExited` fired. (b) Session test: pop → full cross rendered + cell highlighted + cursor at correct position. (c) Axis key or arrow works immediately after pop. (d) Pop → axis keys → re-enter L2 (no immediate re-trigger). (e) Update existing tests that assert old pop behavior (HighlightCell without RenderCross, BothSet retention). (REQ-3) [after: 2.2] `M`
+- [x] 2.1 Add `ResetToAwaitInput(int row, int col)` to `CrosshairStateMachine` and `LogCrosshairStateMachine`: resets state to `AwaitInput`, sets `_arrowRow`/`_arrowCol` to given position, clears `_horizIndex`/`_vertIndex` to -1, computes `_actionPoint` as center of `_grid.CellAt(row, col)`. Fires new `SubgridExited` event (signature: `Action?`). (REQ-3, RISK-3) `S`
+- [x] 2.2 In `CrosshairSession.OnL2Cancelled` and `LogCrosshairSession.OnL2Cancelled`: after `PopL2()`, call `_sm.ResetToAwaitInput(_lastVertRow, _lastHorizCol)`. Subscribe to `SubgridExited` event in constructor — handler renders full cross via `_renderer?.RenderCross(_grid)` then highlights arrow-position cell via `_renderer?.HighlightCell(_grid, cell)`, fires `CursorMoveRequested` at cell center. Also: wrap `SubgridEntered?.Invoke` in `EnterSubgrid` with try/catch — on failure, fall back to `CellSelected` path (prevents stuck BothSet). (REQ-3, RISK-3) [after: 2.1] `M`
+- [x] 2.3 Unit tests: (a) Escape from crosshair L2 → SM in AwaitInput, `_actionPoint` at L2-entry cell center, `SubgridExited` fired. (b) Session test: pop → full cross rendered + cell highlighted + cursor at correct position. (c) Axis key or arrow works immediately after pop. (d) Pop → axis keys → re-enter L2 (no immediate re-trigger). (e) Update existing tests that assert old pop behavior (HighlightCell without RenderCross, BothSet retention). (REQ-3) [after: 2.2] `M`
 
 ## Phase 3: LogCrosshair Crash Fix
 <!-- worktree: -->
 
-- [ ] 3.1 In `LogCrosshairRenderer.ComputeGradualFontSize`: (a) Early return `1.0` when `cellFitSize < 1.0`. (b) For the `maxIndex == 0 || distanceIndex == 0` branch: replace `Math.Clamp(baseFontSize, 8.0, cellFitSize)` with `Math.Min(baseFontSize, cellFitSize)` (no 8.0 floor — cap to cell, floor to 1.0 from guard above). (c) General case: final floor changed from `Math.Max(capped, 8.0)` to `Math.Max(capped, 1.0)` — labels will be small but won't overflow cells. (REQ-4) `S`
-- [ ] 3.2 Unit test: call `ComputeGradualFontSize` (via rendering a grid with tiny cells at high DPI mock) — verify no throw, returned size ≤ cellFitSize for all cells. (REQ-4) [after: 3.1] `S`
+- [x] 3.1 In `LogCrosshairRenderer.ComputeGradualFontSize`: (a) Early return `1.0` when `cellFitSize < 1.0`. (b) For the `maxIndex == 0 || distanceIndex == 0` branch: replace `Math.Clamp(baseFontSize, 8.0, cellFitSize)` with `Math.Min(baseFontSize, cellFitSize)` (no 8.0 floor — cap to cell, floor to 1.0 from guard above). (c) General case: final floor changed from `Math.Max(capped, 8.0)` to `Math.Max(capped, 1.0)` — labels will be small but won't overflow cells. (REQ-4) `S`
+- [x] 3.2 Unit test: call `ComputeGradualFontSize` (via rendering a grid with tiny cells at high DPI mock) — verify no throw, returned size ≤ cellFitSize for all cells. (REQ-4) [after: 3.1] `S`
 
 ## Phase 4: Design Note Update
 <!-- worktree: -->
 
-- [ ] 4.1 Update `navigation-modes.design.md`: remove "Flat (no subgrid)" from LogCrosshair description. Document L2 support via `SubgridEntered` event and `UniformGridSession` level stack. Document `SubgridExited` event on both crosshair SMs. (REQ-5) [after: 2.2] `S`
+- [x] 4.1 Update `navigation-modes.design.md`: remove "Flat (no subgrid)" from LogCrosshair description. Document L2 support via `SubgridEntered` event and `UniformGridSession` level stack. Document `SubgridExited` event on both crosshair SMs. (REQ-5) [after: 2.2] `S`

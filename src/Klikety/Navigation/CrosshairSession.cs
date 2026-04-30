@@ -134,7 +134,7 @@ public sealed class CrosshairSession : IModeSession {
         _renderer?.HighlightCell(_grid, cell);
     }
 
-    private void OnSubgridEntered(GridCell parentCell, CrosshairGrid subgrid) {
+    private void OnSubgridEntered(GridCell parentCell) {
         CursorMoveRequested?.Invoke(CrosshairGridCalculator.CenterOf(parentCell));
 
         // Track L1 axis positions for restore on pop
@@ -148,9 +148,9 @@ public sealed class CrosshairSession : IModeSession {
             _vertKeys, parentCell.Bounds.Height, _minCellPx, hasCenterCell: false);
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
-            // Can't enter L2 — just render the subgrid cross
+            // Can't enter L2 — highlight the cell
             if (_grid is not null) {
-                _renderer?.RenderSubgridCross(_grid, subgrid, parentCell);
+                _renderer?.HighlightCell(_grid, parentCell);
             }
             return;
         }

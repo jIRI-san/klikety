@@ -193,56 +193,65 @@ public sealed class LogCrosshairStateMachine {
     void HandleEscape() {
         switch (CurrentState) {
             case State.BothSet:
-                // LIFO: clear the most recently set axis
-                if (_lastSetWasHoriz) {
+                // LIFO undo — clear last-set axis, or fall to AwaitInput if only one was set
+                if (_lastSetWasHoriz && _horizIndex >= 0) {
                     _horizIndex = -1;
-                    int row = KeyIndexToRow(_vertIndex, _grid!.CenterRow);
-                    var cell = _grid.CellAt(row, _grid.CenterCol);
-                    _actionPoint = LogGridCalculator.CenterOf(cell);
-                    CurrentState = State.VertSet;
-                    VertSelected?.Invoke(row, _vertIndex);
-                } else {
+                    if (_vertIndex >= 0) {
+                        int row = KeyIndexToRow(_vertIndex, _grid!.CenterRow);
+                        var cell = _grid.CellAt(row, _grid.CenterCol);
+                        _actionPoint = LogGridCalculator.CenterOf(cell);
+                        CurrentState = State.VertSet;
+                        VertSelected?.Invoke(row, _vertIndex);
+                    } else {
+                        _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
+                        _arrowRow = _grid.CenterRow;
+                        _arrowCol = _grid.CenterCol;
+                        CurrentState = State.AwaitInput;
+                        AxisCleared?.Invoke();
+                    }
+                } else if (!_lastSetWasHoriz && _vertIndex >= 0) {
                     _vertIndex = -1;
-                    int col = KeyIndexToCol(_horizIndex, _grid!.CenterCol);
-                    var cell = _grid.CellAt(_grid.CenterRow, col);
-                    _actionPoint = LogGridCalculator.CenterOf(cell);
-                    CurrentState = State.HorizSet;
-                    HorizSelected?.Invoke(col, _horizIndex);
+                    if (_horizIndex >= 0) {
+                        int col = KeyIndexToCol(_horizIndex, _grid!.CenterCol);
+                        var cell = _grid.CellAt(_grid.CenterRow, col);
+                        _actionPoint = LogGridCalculator.CenterOf(cell);
+                        CurrentState = State.HorizSet;
+                        HorizSelected?.Invoke(col, _horizIndex);
+                    } else {
+                        _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
+                        _arrowRow = _grid.CenterRow;
+                        _arrowCol = _grid.CenterCol;
+                        CurrentState = State.AwaitInput;
+                        AxisCleared?.Invoke();
+                    }
+                } else {
+                    // Fallback: entered via Enter path → return to AwaitInput
+                    _horizIndex = -1;
+                    _vertIndex = -1;
+                    _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
+                    _arrowRow = _grid.CenterRow;
+                    _arrowCol = _grid.CenterCol;
+                    CurrentState = State.AwaitInput;
+                    AxisCleared?.Invoke();
                 }
                 break;
 
             case State.HorizSet:
                 _horizIndex = -1;
-                if (_vertIndex >= 0) {
-                    int row = KeyIndexToRow(_vertIndex, _grid!.CenterRow);
-          var cell = _grid!.CellAt(row, _grid!.CenterCol);
-          _actionPoint = LogGridCalculator.CenterOf(cell);
-                    CurrentState = State.VertSet;
-                    VertSelected?.Invoke(row, _vertIndex);
-                } else {
-                    _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
-          _arrowRow = _grid!.CenterRow;
-          _arrowCol = _grid!.CenterCol;
-          CurrentState = State.AwaitInput;
-                    AxisCleared?.Invoke();
-                }
+                _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
+                _arrowRow = _grid.CenterRow;
+                _arrowCol = _grid.CenterCol;
+                CurrentState = State.AwaitInput;
+                AxisCleared?.Invoke();
                 break;
 
             case State.VertSet:
                 _vertIndex = -1;
-                if (_horizIndex >= 0) {
-                    int col = KeyIndexToCol(_horizIndex, _grid!.CenterCol);
-          var cell = _grid!.CellAt(_grid!.CenterRow, col);
-          _actionPoint = LogGridCalculator.CenterOf(cell);
-                    CurrentState = State.HorizSet;
-                    HorizSelected?.Invoke(col, _horizIndex);
-                } else {
-                    _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
-          _arrowRow = _grid!.CenterRow;
-          _arrowCol = _grid!.CenterCol;
-          CurrentState = State.AwaitInput;
-                    AxisCleared?.Invoke();
-                }
+                _actionPoint = LogGridCalculator.CenterOf(_grid!.CenterCell);
+                _arrowRow = _grid.CenterRow;
+                _arrowCol = _grid.CenterCol;
+                CurrentState = State.AwaitInput;
+                AxisCleared?.Invoke();
                 break;
 
             case State.AwaitInput:
@@ -297,9 +306,13 @@ public sealed class LogCrosshairStateMachine {
                     break;
                 }
 
-            case State.BothSet:
-                // BothSet only reachable when IsDisabled — no-op
-                break;
+            case State.BothSet: {
+                    // Re-enter L2 at current intersection
+                    int row2 = _vertIndex >= 0 ? KeyIndexToRow(_vertIndex, _grid.CenterRow) : _grid.CenterRow;
+                    int col2 = _horizIndex >= 0 ? KeyIndexToCol(_horizIndex, _grid.CenterCol) : _grid.CenterCol;
+                    EnterSubgrid(_grid.CellAt(row2, col2));
+                    break;
+                }
         }
     }
 

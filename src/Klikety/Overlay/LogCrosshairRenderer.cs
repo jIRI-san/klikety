@@ -365,7 +365,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
     double ComputeGradualFontSize(Rect dipRect, int row, int col, LogCrosshairGrid grid) {
         double cellExtent = Math.Min(dipRect.Width, dipRect.Height);
-        double maxFitSize = cellExtent * 0.8 / 1.2; // max that fits in cell
+        double cellFitSize = cellExtent * 0.8;
 
         // Distance from center (max of row/col distance)
         int rowDist = Math.Abs(row - grid.CenterRow);
@@ -375,17 +375,24 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         int maxIndex = Math.Max(grid.CenterRow, Math.Max(grid.CenterCol,
             Math.Max(grid.Rows - 1 - grid.CenterRow, grid.Cols - 1 - grid.CenterCol)));
 
+        double baseFontSize = _theme.LabelFontSize > 0 ? _theme.LabelFontSize : 14.0;
+
         if (maxIndex == 0 || distanceIndex == 0) {
-            return Math.Max(maxFitSize, 8.0);
+            return Math.Clamp(baseFontSize, 8.0, cellFitSize);
         }
 
-        double baseFontSize = _theme.LabelFontSize > 0 ? _theme.LabelFontSize : 14.0;
-        double maxFontSize = Math.Min(maxFitSize, baseFontSize * 3);
-        double scaleFactor = (maxFontSize - baseFontSize) / (maxIndex * baseFontSize);
+        // Compute max font size from outermost cell extent
+        var outerCell = grid.CellAt(0, 0);
+        var outerDip = DipRect(outerCell);
+        double outerExtent = Math.Min(outerDip.Width, outerDip.Height);
+        double maxFontSize = Math.Min(outerExtent * 0.8, baseFontSize * 3);
 
-        double computed = baseFontSize * (1 + distanceIndex * scaleFactor);
-        // Cap to cell extent
-        double capped = Math.Min(computed, maxFitSize);
+        // Linear interpolation: baseFontSize at distance 1, maxFontSize at maxIndex
+        double t = (double)(distanceIndex - 1) / Math.Max(maxIndex - 1, 1);
+        double computed = baseFontSize + t * (maxFontSize - baseFontSize);
+
+        // Cap to current cell extent
+        double capped = Math.Min(computed, cellFitSize);
         return Math.Max(capped, 8.0);
     }
 

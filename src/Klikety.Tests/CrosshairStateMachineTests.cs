@@ -162,7 +162,7 @@ public class CrosshairStateMachineTests {
         sm.Activate(grid, new Point(550, 550));
 
         GridCell? entered = null;
-        sm.SubgridEntered += (cell, _) => entered = cell;
+        sm.SubgridEntered += cell => entered = cell;
 
         sm.OnKey(VKey.A); // col 0
         sm.OnKey(VKey.Q); // row 0
@@ -181,7 +181,7 @@ public class CrosshairStateMachineTests {
         sm.Activate(grid, new Point(550, 550));
 
         GridCell? parentCell = null;
-        sm.SubgridEntered += (cell, _) => parentCell = cell;
+        sm.SubgridEntered += cell => parentCell = cell;
 
         sm.OnKey(VKey.Return);
 
@@ -197,7 +197,7 @@ public class CrosshairStateMachineTests {
         sm.Activate(grid, new Point(550, 550));
 
         GridCell? parentCell = null;
-        sm.SubgridEntered += (cell, _) => parentCell = cell;
+        sm.SubgridEntered += cell => parentCell = cell;
 
         sm.OnKey(VKey.A); // col 0
         sm.OnKey(VKey.Return);
@@ -214,7 +214,7 @@ public class CrosshairStateMachineTests {
         sm.Activate(grid, new Point(550, 550));
 
         GridCell? parentCell = null;
-        sm.SubgridEntered += (cell, _) => parentCell = cell;
+        sm.SubgridEntered += cell => parentCell = cell;
 
         sm.OnKey(VKey.Q); // row 0
         sm.OnKey(VKey.Return);
@@ -225,20 +225,20 @@ public class CrosshairStateMachineTests {
     }
 
     [Fact]
-    public void Enter_BothSet_IsNoOp() {
+    public void Enter_BothSet_ReentersSubgrid() {
         var sm = CreateSM();
         var grid = CreateGrid();
         sm.Activate(grid, new Point(550, 550));
 
         int subgridCount = 0;
-        sm.SubgridEntered += (_, _) => subgridCount++;
+        sm.SubgridEntered += _ => subgridCount++;
 
         sm.OnKey(VKey.A); // col 0
         sm.OnKey(VKey.Q); // row 0 — auto-enters subgrid
         Assert.Equal(1, subgridCount);
 
-        sm.OnKey(VKey.Return); // no-op from BothSet
-        Assert.Equal(1, subgridCount); // no additional SubgridEntered
+        sm.OnKey(VKey.Return); // re-enters subgrid from BothSet
+        Assert.Equal(2, subgridCount);
         Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
 
@@ -430,7 +430,7 @@ public class CrosshairStateMachineTests {
         sm.Activate(grid, new Point(550, 550));
 
         GridCell? parentCell = null;
-        sm.SubgridEntered += (cell, _) => parentCell = cell;
+        sm.SubgridEntered += cell => parentCell = cell;
 
         // Move right from center (5,5) → (5,6)
         sm.OnKey(VKey.Right);
@@ -455,7 +455,7 @@ public class CrosshairStateMachineTests {
         sm.CellSelected += cell => selectedCell = cell;
 
         GridCell? subgridCell = null;
-        sm.SubgridEntered += (cell, _) => subgridCell = cell;
+        sm.SubgridEntered += cell => subgridCell = cell;
 
         sm.OnKey(VKey.Return);
 
@@ -477,7 +477,7 @@ public class CrosshairStateMachineTests {
         sm.CellSelected += cell => selectedCell = cell;
 
         GridCell? subgridCell = null;
-        sm.SubgridEntered += (cell, _) => subgridCell = cell;
+        sm.SubgridEntered += cell => subgridCell = cell;
 
         sm.OnKey(VKey.A); // col 0
         sm.OnKey(VKey.Q); // row 0 — auto-L2 triggers but IsDisabled

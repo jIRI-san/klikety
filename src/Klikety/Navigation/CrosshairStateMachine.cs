@@ -42,7 +42,7 @@ public sealed class CrosshairStateMachine {
     public event Action? Cancelled;
     public event Action? InvalidKeyPressed;
     public event Action<int, int>? ArrowMoved;         // (row, col) after arrow nav
-    public event Action<GridCell, CrosshairGrid>? SubgridEntered; // Cell selected + subgrid computed
+    public event Action<GridCell>? SubgridEntered;      // Cell selected for L2 entry
 
     public CrosshairStateMachine(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
@@ -214,19 +214,20 @@ public sealed class CrosshairStateMachine {
                 }
 
             case State.BothSet: {
-                    // BothSet only reachable when IsDisabled — Enter is a no-op here
-                    // (user must press an action key like Space)
+                    // Re-enter L2 at current intersection
+                    int row2 = _vertIndex >= 0 ? KeyIndexToRow(_vertIndex, _grid.CenterRow) : _grid.CenterRow;
+                    int col2 = _horizIndex >= 0 ? KeyIndexToCol(_horizIndex, _grid.CenterCol) : _grid.CenterCol;
+                    EnterSubgrid(_grid.CellAt(row2, col2));
                     break;
                 }
         }
     }
 
     private void EnterSubgrid(GridCell cell) {
-        // Compute subgrid using dynamic key reduction
         var hReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _horizKeys, cell.Bounds.Width, _minCellPx, hasCenterCell: true);
+            _horizKeys, cell.Bounds.Width, _minCellPx, hasCenterCell: false);
         var vReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _vertKeys, cell.Bounds.Height, _minCellPx, hasCenterCell: true);
+            _vertKeys, cell.Bounds.Height, _minCellPx, hasCenterCell: false);
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
             // Cell too small for subgrid — position cursor at center, await user action key
@@ -236,32 +237,45 @@ public sealed class CrosshairStateMachine {
             return;
         }
 
-        var subgrid = CrosshairGridCalculator.Calculate(
-            cell.Bounds, hReduction.ActiveKeys.Length, vReduction.ActiveKeys.Length);
-
         _actionPoint = CrosshairGridCalculator.CenterOf(cell);
         CurrentState = State.BothSet;
-        SubgridEntered?.Invoke(cell, subgrid);
+        SubgridEntered?.Invoke(cell);
     }
 
     private void HandleEscape() {
         switch (CurrentState) {
             case State.BothSet:
-                // Clear the most recently set axis (LIFO undo)
-                if (_lastSetWasHoriz) {
+                // LIFO undo — clear last-set axis, or fall to AwaitInput if only one was set
+                if (_lastSetWasHoriz && _horizIndex >= 0) {
                     _horizIndex = -1;
-                    int row = KeyIndexToRow(_vertIndex, _grid!.CenterRow);
-                    var cell = _grid.CellAt(row, _grid.CenterCol);
-                    _actionPoint = CrosshairGridCalculator.CenterOf(cell);
-                    CurrentState = State.VertSet;
-                    VertSelected?.Invoke(row, _vertIndex);
-                } else {
+                    if (_vertIndex >= 0) {
+                        int row = KeyIndexToRow(_vertIndex, _grid!.CenterRow);
+                        var cell = _grid.CellAt(row, _grid.CenterCol);
+                        _actionPoint = CrosshairGridCalculator.CenterOf(cell);
+                        CurrentState = State.VertSet;
+                        VertSelected?.Invoke(row, _vertIndex);
+                    } else {
+                        _actionPoint = CrosshairGridCalculator.CenterOf(_grid!.CenterCell);
+                        CurrentState = State.AwaitInput;
+                    }
+                } else if (!_lastSetWasHoriz && _vertIndex >= 0) {
                     _vertIndex = -1;
-                    int col = KeyIndexToCol(_horizIndex, _grid!.CenterCol);
-                    var cell = _grid.CellAt(_grid.CenterRow, col);
-                    _actionPoint = CrosshairGridCalculator.CenterOf(cell);
-                    CurrentState = State.HorizSet;
-                    HorizSelected?.Invoke(col, _horizIndex);
+                    if (_horizIndex >= 0) {
+                        int col = KeyIndexToCol(_horizIndex, _grid!.CenterCol);
+                        var cell = _grid.CellAt(_grid.CenterRow, col);
+                        _actionPoint = CrosshairGridCalculator.CenterOf(cell);
+                        CurrentState = State.HorizSet;
+                        HorizSelected?.Invoke(col, _horizIndex);
+                    } else {
+                        _actionPoint = CrosshairGridCalculator.CenterOf(_grid!.CenterCell);
+                        CurrentState = State.AwaitInput;
+                    }
+                } else {
+                    // Fallback: both or neither set via Enter path → return to AwaitInput
+                    _horizIndex = -1;
+                    _vertIndex = -1;
+                    _actionPoint = CrosshairGridCalculator.CenterOf(_grid!.CenterCell);
+                    CurrentState = State.AwaitInput;
                 }
                 break;
 

@@ -25,6 +25,7 @@ public sealed class LogCrosshairSession : IModeSession {
 
     readonly LogCrosshairStateMachine _sm;
     LogCrosshairGrid? _grid;
+    Rectangle _screenBounds;
     Point _origin;
 
     // L2 level stack
@@ -68,6 +69,7 @@ public sealed class LogCrosshairSession : IModeSession {
 
     public void Activate(Rectangle screenBounds, Point origin) {
         _origin = origin;
+        _screenBounds = screenBounds;
         _grid = LogGridCalculator.Calculate(
             origin, screenBounds, _logBaseSize, _horizKeys.Length, _vertKeys.Length);
         _sm.Activate(_grid, origin);
@@ -94,9 +96,9 @@ public sealed class LogCrosshairSession : IModeSession {
             return;
         }
 
-        CursorMoveRequested?.Invoke(
-            LogGridCalculator.CenterOf(_grid.CellAt(_grid.CenterRow, col)));
-        _renderer?.HighlightColumn(_grid, col);
+        var newCenter = LogGridCalculator.CenterOf(_grid.CellAt(_grid.CenterRow, col));
+        CursorMoveRequested?.Invoke(newCenter);
+        RecenterGrid(newCenter);
     }
 
     void OnVertSelected(int row, int keyIndex) {
@@ -104,9 +106,9 @@ public sealed class LogCrosshairSession : IModeSession {
             return;
         }
 
-        CursorMoveRequested?.Invoke(
-            LogGridCalculator.CenterOf(_grid.CellAt(row, _grid.CenterCol)));
-        _renderer?.HighlightRow(_grid, row);
+        var newCenter = LogGridCalculator.CenterOf(_grid.CellAt(row, _grid.CenterCol));
+        CursorMoveRequested?.Invoke(newCenter);
+        RecenterGrid(newCenter);
     }
 
     void OnCellSelected(GridCell cell) {
@@ -135,8 +137,9 @@ public sealed class LogCrosshairSession : IModeSession {
         }
 
         var cell = _grid.CellAt(row, col);
-        CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(cell));
-        _renderer?.HighlightCell(_grid, cell);
+        var newCenter = LogGridCalculator.CenterOf(cell);
+        CursorMoveRequested?.Invoke(newCenter);
+        RecenterGrid(newCenter);
     }
 
     void OnAxisCleared() {
@@ -144,7 +147,15 @@ public sealed class LogCrosshairSession : IModeSession {
             return;
         }
 
-        CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(_grid.CenterCell));
+        var center = LogGridCalculator.CenterOf(_grid.CenterCell);
+        CursorMoveRequested?.Invoke(center);
+        RecenterGrid(center);
+    }
+
+    void RecenterGrid(Point newCenter) {
+        _grid = LogGridCalculator.Calculate(
+            newCenter, _screenBounds, _logBaseSize, _horizKeys.Length, _vertKeys.Length);
+        _sm.UpdateGrid(_grid, newCenter);
         _renderer?.RenderCross(_grid);
     }
 

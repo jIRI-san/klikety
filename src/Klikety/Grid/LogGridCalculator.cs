@@ -61,24 +61,39 @@ public static class LogGridCalculator {
         var cells = new GridCell[cols * rows];
         var degenerateIndices = new HashSet<int>();
 
-        for (int row = 0; row < rows; row++) {
-            int y = (int)Math.Round(rowEdges[row]);
-            int nextY = (int)Math.Round(rowEdges[row + 1]);
-            for (int col = 0; col < cols; col++) {
-                int x = (int)Math.Round(colEdges[col]);
-                int nextX = (int)Math.Round(colEdges[col + 1]);
-                int w = nextX - x;
-                int h = nextY - y;
+        // Center axis positions (pixel coordinates of the center point)
+        int centerY = (int)Math.Round((rowEdges[centerRow] + rowEdges[centerRow + 1]) / 2.0);
+        int centerX = (int)Math.Round((colEdges[centerCol] + colEdges[centerCol + 1]) / 2.0);
+        int centerRowHeight = (int)Math.Round(rowEdges[centerRow + 1]) - (int)Math.Round(rowEdges[centerRow]);
+        int centerColWidth = (int)Math.Round(colEdges[centerCol + 1]) - (int)Math.Round(colEdges[centerCol]);
 
-                // Force square cells: use min(width, height) for both dimensions
-                int side = Math.Min(w, h);
-                // Center the square within the original cell bounds
-                int sqX = x + (w - side) / 2;
-                int sqY = y + (h - side) / 2;
+        for (int row = 0; row < rows; row++) {
+            int baseY = (int)Math.Round(rowEdges[row]);
+            int baseH = (int)Math.Round(rowEdges[row + 1]) - baseY;
+            for (int col = 0; col < cols; col++) {
+                int baseX = (int)Math.Round(colEdges[col]);
+                int baseW = (int)Math.Round(colEdges[col + 1]) - baseX;
+
+                int x = baseX, y = baseY, w = baseW, h = baseH;
+                bool onCenterRow = row == centerRow;
+                bool onCenterCol = col == centerCol;
+
+                // Scale cross arm thickness proportionally to cell size, centered on axis
+                if (onCenterRow && !onCenterCol) {
+                    // Horizontal arm: height grows with width, centered on Y axis
+                    int scaledH = Math.Max(centerRowHeight, (int)(w * 0.3));
+                    y = centerY - scaledH / 2;
+                    h = scaledH;
+                } else if (onCenterCol && !onCenterRow) {
+                    // Vertical arm: width grows with height, centered on X axis
+                    int scaledW = Math.Max(centerColWidth, (int)(h * 0.3));
+                    x = centerX - scaledW / 2;
+                    w = scaledW;
+                }
 
                 int idx = row * cols + col;
-                cells[idx] = new GridCell(row, col, new Rectangle(sqX, sqY, side, side));
-                if (side < 1) {
+                cells[idx] = new GridCell(row, col, new Rectangle(x, y, w, h));
+                if (w < 1 || h < 1) {
                     degenerateIndices.Add(idx);
                 }
             }

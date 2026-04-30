@@ -45,14 +45,14 @@ public class LogCrosshairSessionTests {
     // --- Horiz key ---
 
     [Fact]
-    public void HorizKey_RendersHighlightColumn() {
+    public void HorizKey_RecentersGrid() {
         var (session, renderer) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
 
         session.OnKey(VKey.A);
 
-        Assert.Equal("HighlightColumn", renderer.Calls[^1].Method);
-        Assert.Equal(0, renderer.Calls[^1].Col); // key 0 → col 0
+        // After horiz key, grid recenters at new cursor pos and renders fresh cross
+        Assert.Equal("RenderCross", renderer.Calls[^1].Method);
     }
 
     [Fact]
@@ -70,14 +70,14 @@ public class LogCrosshairSessionTests {
     // --- Vert key ---
 
     [Fact]
-    public void VertKey_RendersHighlightRow() {
+    public void VertKey_RecentersGrid() {
         var (session, renderer) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
 
         session.OnKey(VKey.Q);
 
-        Assert.Equal("HighlightRow", renderer.Calls[^1].Method);
-        Assert.Equal(0, renderer.Calls[^1].Row);
+        // After vert key, grid recenters at new cursor pos and renders fresh cross
+        Assert.Equal("RenderCross", renderer.Calls[^1].Method);
     }
 
     // --- Both axes ---
@@ -152,13 +152,14 @@ public class LogCrosshairSessionTests {
     // --- Arrow key ---
 
     [Fact]
-    public void ArrowKey_RendersHighlightCell() {
+    public void ArrowKey_RecentersGrid() {
         var (session, renderer) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
 
         session.OnKey(VKey.Right);
 
-        Assert.Equal("HighlightCell", renderer.Calls[^1].Method);
+        // After arrow key, grid recenters at new cursor pos and renders fresh cross
+        Assert.Equal("RenderCross", renderer.Calls[^1].Method);
     }
 
     // --- Deactivate + re-activate ---

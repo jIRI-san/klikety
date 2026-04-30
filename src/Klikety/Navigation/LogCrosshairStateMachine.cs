@@ -368,4 +368,18 @@ public sealed class LogCrosshairStateMachine {
         CurrentState = State.AwaitInput;
         SubgridExited?.Invoke();
     }
+
+    /// <summary>
+    /// Replaces the grid reference and resets to AwaitInput at the new grid's center.
+    /// Used after the session recalculates the grid centered on the new cursor position.
+    /// </summary>
+    public void UpdateGrid(LogCrosshairGrid grid, Point newCenter) {
+        _grid = grid;
+        _horizIndex = -1;
+        _vertIndex = -1;
+        _arrowRow = grid.CenterRow;
+        _arrowCol = grid.CenterCol;
+        _actionPoint = newCenter;
+        CurrentState = State.AwaitInput;
+    }
 }

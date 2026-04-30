@@ -171,7 +171,7 @@ public sealed class UniformGridSession : IModeSession {
         CursorMoveRequested?.Invoke(center);
 
         _subgridCells = _l2SubgridCells;
-        SetLabelOffsetForLevel(level);
+        SetLabelOffsetForLevel(level - 1);
         _gridRenderer?.RenderSubgridOverGrid(_l1Cells, cells);
     }
 

@@ -87,7 +87,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
                 bool onCross = grid.IsOnCross(row, col);
 
                 if (onCross) {
-                    UseRect(dipRect, _cellBgBrush, _cellBorderBrush);
+                    UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
                     UseCrossLabel(dipRect, row, col, grid, _labelBrush);
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
@@ -113,13 +113,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
                 bool isHighlightCol = c == col;
 
                 if (isHighlightCol && row == grid.CenterRow) {
-                    UseRect(dipRect, _highlightBg, _highlightBorder, _theme.CellBorderThickness * 2);
+                    UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
                     UseCrossLabel(dipRect, row, c, grid, _labelBrush);
                 } else if (isHighlightCol && onCross) {
-                    UseRect(dipRect, _crossBgBrush, _highlightBorder);
+                    UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
                     UseCrossLabel(dipRect, row, c, grid, _labelBrush);
                 } else if (onCross) {
-                    UseRect(dipRect, _cellBgBrush, _cellBorderBrush);
+                    UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
                     UseCrossLabel(dipRect, row, c, grid, _labelBrush, 0.4);
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
@@ -145,13 +145,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
                 bool isHighlightRow = r == row;
 
                 if (isHighlightRow && col == grid.CenterCol) {
-                    UseRect(dipRect, _highlightBg, _highlightBorder, _theme.CellBorderThickness * 2);
+                    UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
                     UseCrossLabel(dipRect, r, col, grid, _labelBrush);
                 } else if (isHighlightRow && onCross) {
-                    UseRect(dipRect, _crossBgBrush, _highlightBorder);
+                    UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
                     UseCrossLabel(dipRect, r, col, grid, _labelBrush);
                 } else if (onCross) {
-                    UseRect(dipRect, _cellBgBrush, _cellBorderBrush);
+                    UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
                     UseCrossLabel(dipRect, r, col, grid, _labelBrush, 0.4);
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
@@ -178,13 +178,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
                 bool onTargetCross = r == cell.Row || c == cell.Col;
 
                 if (isTarget) {
-                    UseRect(dipRect, _highlightBg, _highlightBorder, _theme.CellBorderThickness * 2);
+                    UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
                     UseCrossLabel(dipRect, r, c, grid, _labelBrush);
                 } else if (onTargetCross && onCross) {
-                    UseRect(dipRect, _crossBgBrush, _highlightBorder);
+                    UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
                     UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.6);
                 } else if (onCross) {
-                    UseRect(dipRect, _cellBgBrush, _cellBorderBrush);
+                    UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
                     UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.3);
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
@@ -303,7 +303,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         outline.Data = geometry;
         outline.Fill = Brushes.Transparent;
         outline.Stroke = _outlineBrush;
-        outline.StrokeThickness = _theme.LabelOutlineThickness * 2;
+        outline.StrokeThickness = Math.Max(_theme.LabelOutlineThickness * 2, fontSize * 0.08);
         outline.StrokeLineJoin = PenLineJoin.Round;
         outline.Opacity = opacity;
         Canvas.SetLeft(outline, offsetX);
@@ -340,6 +340,16 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         return new Rect(tl, br);
     }
 
+    /// <summary>
+    /// Computes scaled border thickness based on cell size.
+    /// Larger cells get proportionally thicker borders.
+    /// </summary>
+    double ScaledBorderThickness(Rect dipRect) {
+        double extent = Math.Min(dipRect.Width, dipRect.Height);
+        double scaled = extent * 0.02 + _theme.CellBorderThickness * 0.5;
+        return Math.Clamp(scaled, _theme.CellBorderThickness, _theme.CellBorderThickness * 4);
+    }
+
     string? GetCrossLabel(int row, int col, LogCrosshairGrid grid) {
         bool onCenterRow = row == grid.CenterRow;
         bool onCenterCol = col == grid.CenterCol;
@@ -364,48 +374,24 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     }
 
     double ComputeGradualFontSize(Rect dipRect, int row, int col, LogCrosshairGrid grid) {
-        var outerCell = grid.CellAt(0, 0);
-        var outerDip = DipRect(outerCell);
         double baseFontSize = _theme.LabelFontSize > 0 ? _theme.LabelFontSize : 14.0;
 
-        return ComputeGradualFontSize(
-            dipRect, row, col, grid.CenterRow, grid.CenterCol,
-            grid.Rows, grid.Cols, outerDip, baseFontSize);
+        return ComputeGradualFontSize(dipRect, baseFontSize);
     }
 
-    internal static double ComputeGradualFontSize(
-        Rect dipRect, int row, int col, int centerRow, int centerCol,
-        int totalRows, int totalCols, Rect outerDipRect, double baseFontSize) {
+    /// <summary>
+    /// Font size scales directly with cell extent — log grid cells already encode distance
+    /// from center via their size (larger = farther). Use 70% of cell extent, clamped.
+    /// </summary>
+    internal static double ComputeGradualFontSize(Rect dipRect, double baseFontSize) {
         double cellExtent = Math.Min(dipRect.Width, dipRect.Height);
-        double cellFitSize = cellExtent * 0.8;
+        double fontSize = cellExtent * 0.7;
 
-        if (cellFitSize < 1.0) {
+        if (fontSize < 1.0) {
             return 1.0;
         }
 
-        // Distance from center (max of row/col distance)
-        int rowDist = Math.Abs(row - centerRow);
-        int colDist = Math.Abs(col - centerCol);
-        int distanceIndex = Math.Max(rowDist, colDist);
-
-        int maxIndex = Math.Max(centerRow, Math.Max(centerCol,
-            Math.Max(totalRows - 1 - centerRow, totalCols - 1 - centerCol)));
-
-        if (maxIndex == 0 || distanceIndex == 0) {
-            return Math.Min(baseFontSize, cellFitSize);
-        }
-
-        // Compute max font size from outermost cell extent
-        double outerExtent = Math.Min(outerDipRect.Width, outerDipRect.Height);
-        double maxFontSize = Math.Min(outerExtent * 0.8, baseFontSize * 3);
-
-        // Linear interpolation: baseFontSize at distance 1, maxFontSize at maxIndex
-        double t = (double)(distanceIndex - 1) / Math.Max(maxIndex - 1, 1);
-        double computed = baseFontSize + t * (maxFontSize - baseFontSize);
-
-        // Cap to current cell extent
-        double capped = Math.Min(computed, cellFitSize);
-        return Math.Max(capped, 1.0);
+        return fontSize;
     }
 
     static SolidColorBrush BrushFromHex(string hex, double opacity = 1.0) {

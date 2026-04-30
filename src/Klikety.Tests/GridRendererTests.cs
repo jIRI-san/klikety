@@ -49,64 +49,47 @@ public class GridRendererTests {
 public class LogCrosshairRendererFontTests {
     [Fact]
     public void ComputeGradualFontSize_TinyCell_Returns1() {
-        // Cell smaller than 1.0/0.8 DIP → cellFitSize < 1.0 → returns 1.0
-        var dipRect = new Rect(0, 0, 1.0, 1.0); // cellFitSize = 0.8
-        var outerDip = new Rect(0, 0, 100, 100);
+        // Cell smaller than 1.0/0.7 DIP → fontSize < 1.0 → returns 1.0
+        var dipRect = new Rect(0, 0, 1.0, 1.0);
 
-        double result = LogCrosshairRenderer.ComputeGradualFontSize(
-            dipRect, row: 0, col: 0, centerRow: 5, centerCol: 5,
-            totalRows: 11, totalCols: 11, outerDip, baseFontSize: 14.0);
+        double result = LogCrosshairRenderer.ComputeGradualFontSize(dipRect, baseFontSize: 14.0);
 
         Assert.Equal(1.0, result);
     }
 
     [Fact]
-    public void ComputeGradualFontSize_NeverExceedsCellFitSize() {
-        // Test across all positions of an 11×11 grid with tiny cells (3×3 DIP)
-        var outerDip = new Rect(0, 0, 100, 100);
-        int rows = 11, cols = 11;
-        int centerRow = 5, centerCol = 5;
+    public void ComputeGradualFontSize_NeverExceedsCellExtent() {
+        // Font should never exceed 70% of cell extent
+        for (int size = 2; size <= 200; size += 10) {
+            var dipRect = new Rect(0, 0, size, size);
+            double maxExpected = size * 0.7;
 
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                var dipRect = new Rect(0, 0, 3.0, 3.0);
-                double cellFitSize = 3.0 * 0.8; // 2.4
+            double result = LogCrosshairRenderer.ComputeGradualFontSize(dipRect, baseFontSize: 14.0);
 
-                double result = LogCrosshairRenderer.ComputeGradualFontSize(
-                    dipRect, r, c, centerRow, centerCol, rows, cols, outerDip, baseFontSize: 14.0);
-
-                Assert.True(result <= cellFitSize,
-                    $"Font size {result} exceeds cellFitSize {cellFitSize} at ({r},{c})");
-                Assert.True(result >= 1.0,
-                    $"Font size {result} below 1.0 at ({r},{c})");
-            }
+            Assert.True(result <= maxExpected + 0.001,
+                $"Font size {result} exceeds {maxExpected} for cell size {size}");
+            Assert.True(result >= 1.0,
+                $"Font size {result} below 1.0 for cell size {size}");
         }
     }
 
     [Fact]
-    public void ComputeGradualFontSize_CenterCell_CapsToCell() {
-        // Center cell with small extent — should cap baseFontSize to cellFitSize
-        var dipRect = new Rect(0, 0, 6.0, 6.0); // cellFitSize = 4.8
-        var outerDip = new Rect(0, 0, 100, 100);
+    public void ComputeGradualFontSize_SmallCell_ScalesWithExtent() {
+        // Small cell — font = cell * 0.7
+        var dipRect = new Rect(0, 0, 6.0, 6.0);
 
-        double result = LogCrosshairRenderer.ComputeGradualFontSize(
-            dipRect, row: 5, col: 5, centerRow: 5, centerCol: 5,
-            totalRows: 11, totalCols: 11, outerDip, baseFontSize: 14.0);
+        double result = LogCrosshairRenderer.ComputeGradualFontSize(dipRect, baseFontSize: 14.0);
 
-        Assert.Equal(4.8, result, precision: 5);
+        Assert.Equal(4.2, result, precision: 5); // 6 * 0.7 = 4.2
     }
 
     [Fact]
-    public void ComputeGradualFontSize_NormalCell_NoThrow() {
-        // Normal-sized cells should return a value without throwing
-        var outerDip = new Rect(0, 0, 200, 200);
-        var dipRect = new Rect(0, 0, 50, 50);
+    public void ComputeGradualFontSize_LargeCell_ScalesWithExtent() {
+        // Large cell — font = cell * 0.7
+        var dipRect = new Rect(0, 0, 200, 200);
 
-        double result = LogCrosshairRenderer.ComputeGradualFontSize(
-            dipRect, row: 2, col: 3, centerRow: 5, centerCol: 5,
-            totalRows: 11, totalCols: 11, outerDip, baseFontSize: 14.0);
+        double result = LogCrosshairRenderer.ComputeGradualFontSize(dipRect, baseFontSize: 14.0);
 
-        Assert.True(result >= 1.0);
-        Assert.True(result <= 50.0 * 0.8);
+        Assert.Equal(140.0, result, precision: 5); // 200 * 0.7 = 140
     }
 }

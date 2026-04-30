@@ -118,7 +118,7 @@ public class LogGridCalculatorTests {
     // --- Full coverage ---
 
     [Fact]
-    public void CellsAreSquare_Centered() {
+    public void CellsHavePositiveDimensions_Centered() {
         var bounds = new Rectangle(0, 0, 1920, 1080);
         var grid = LogGridCalculator.Calculate(
             new Point(960, 540), bounds,
@@ -127,14 +127,15 @@ public class LogGridCalculatorTests {
         for (int r = 0; r < grid.Rows; r++) {
             for (int c = 0; c < grid.Cols; c++) {
                 if (!grid.IsDegenerate(r, c)) {
-                    Assert.Equal(grid.CellAt(r, c).Bounds.Width, grid.CellAt(r, c).Bounds.Height);
+                    Assert.True(grid.CellAt(r, c).Bounds.Width > 0);
+                    Assert.True(grid.CellAt(r, c).Bounds.Height > 0);
                 }
             }
         }
     }
 
     [Fact]
-    public void CellsAreSquare_OffCenter() {
+    public void CellsHavePositiveDimensions_OffCenter() {
         var bounds = new Rectangle(0, 0, 1920, 1080);
         var grid = LogGridCalculator.Calculate(
             new Point(300, 200), bounds,
@@ -143,38 +144,43 @@ public class LogGridCalculatorTests {
         for (int r = 0; r < grid.Rows; r++) {
             for (int c = 0; c < grid.Cols; c++) {
                 if (!grid.IsDegenerate(r, c)) {
-                    Assert.Equal(grid.CellAt(r, c).Bounds.Width, grid.CellAt(r, c).Bounds.Height);
+                    Assert.True(grid.CellAt(r, c).Bounds.Width > 0);
+                    Assert.True(grid.CellAt(r, c).Bounds.Height > 0);
                 }
             }
         }
     }
 
     [Fact]
-    public void CellsOnCenterRow_HaveConsistentHeight() {
+    public void CellsOnCenterRow_HeightGrowsOutward() {
         var grid = LogGridCalculator.Calculate(
             new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
             logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
 
-        // All cells in center row should have same height (square = min dim)
-        for (int col = 0; col < grid.Cols; col++) {
-            var cell = grid.CellAt(grid.CenterRow, col);
-            if (!grid.IsDegenerate(grid.CenterRow, col)) {
-                Assert.Equal(cell.Bounds.Width, cell.Bounds.Height);
+        // Cells farther from center should have height >= cells closer to center
+        for (int col = grid.CenterCol + 2; col < grid.Cols; col++) {
+            var inner = grid.CellAt(grid.CenterRow, col - 1);
+            var outer = grid.CellAt(grid.CenterRow, col);
+            if (!grid.IsDegenerate(grid.CenterRow, col) && !grid.IsDegenerate(grid.CenterRow, col - 1)) {
+                Assert.True(outer.Bounds.Height >= inner.Bounds.Height,
+                    $"Col {col}: outer height {outer.Bounds.Height} < inner {inner.Bounds.Height}");
             }
         }
     }
 
     [Fact]
-    public void CellsOnCenterCol_HaveConsistentWidth() {
+    public void CellsOnCenterCol_WidthGrowsOutward() {
         var grid = LogGridCalculator.Calculate(
             new Point(960, 540), new Rectangle(0, 0, 1920, 1080),
             logBaseSize: 5, horizKeyCount: 10, vertKeyCount: 10);
 
-        // All cells in center col should have same width (square = min dim)
-        for (int row = 0; row < grid.Rows; row++) {
-            var cell = grid.CellAt(row, grid.CenterCol);
-            if (!grid.IsDegenerate(row, grid.CenterCol)) {
-                Assert.Equal(cell.Bounds.Width, cell.Bounds.Height);
+        // Cells farther from center should have width >= cells closer to center
+        for (int row = grid.CenterRow + 2; row < grid.Rows; row++) {
+            var inner = grid.CellAt(row - 1, grid.CenterCol);
+            var outer = grid.CellAt(row, grid.CenterCol);
+            if (!grid.IsDegenerate(row, grid.CenterCol) && !grid.IsDegenerate(row - 1, grid.CenterCol)) {
+                Assert.True(outer.Bounds.Width >= inner.Bounds.Width,
+                    $"Row {row}: outer width {outer.Bounds.Width} < inner {inner.Bounds.Width}");
             }
         }
     }
@@ -294,7 +300,7 @@ public class LogGridCalculatorTests {
     [InlineData(2560, 1440)]
     [InlineData(3840, 2160)]
     [InlineData(1366, 768)]
-    public void VariousResolutions_SquareCells(int width, int height) {
+    public void VariousResolutions_CellsWithinBounds(int width, int height) {
         var bounds = new Rectangle(0, 0, width, height);
         var grid = LogGridCalculator.Calculate(
             new Point(width / 2, height / 2), bounds,
@@ -304,7 +310,8 @@ public class LogGridCalculatorTests {
             for (int c = 0; c < grid.Cols; c++) {
                 if (!grid.IsDegenerate(r, c)) {
                     var cell = grid.CellAt(r, c);
-                    Assert.Equal(cell.Bounds.Width, cell.Bounds.Height);
+                    Assert.True(cell.Bounds.Width > 0);
+                    Assert.True(cell.Bounds.Height > 0);
                     Assert.True(cell.Bounds.X >= 0);
                     Assert.True(cell.Bounds.Y >= 0);
                     Assert.True(cell.Bounds.Right <= width);
@@ -324,9 +331,12 @@ public class LogGridCalculatorTests {
             new Point(50, 50), bounds,
             logBaseSize: 5, horizKeyCount: 4, vertKeyCount: 4);
 
-        // All cells within bounds
+        // Non-cross cells within bounds (cross cells may extend for readability)
         for (int r = 0; r < grid.Rows; r++) {
             for (int c = 0; c < grid.Cols; c++) {
+                if (r == grid.CenterRow || c == grid.CenterCol) {
+                    continue;
+                }
                 var cell = grid.CellAt(r, c);
                 Assert.True(cell.Bounds.X >= bounds.X);
                 Assert.True(cell.Bounds.Y >= bounds.Y);

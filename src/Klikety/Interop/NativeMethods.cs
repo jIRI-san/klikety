@@ -61,7 +61,9 @@ internal static partial class NativeMethods {
     public static Rectangle GetPrimaryScreenBounds() {
         var hMon = MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
         var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
-        GetMonitorInfo(hMon, ref info);
+        if (!GetMonitorInfo(hMon, ref info)) {
+            return new Rectangle(0, 0, 1920, 1080); // safe fallback
+        }
         var rc = info.rcMonitor;
         return new Rectangle(rc.Left, rc.Top, rc.Right - rc.Left, rc.Bottom - rc.Top);
     }

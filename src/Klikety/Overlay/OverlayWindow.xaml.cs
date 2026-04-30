@@ -48,6 +48,10 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         Hide();
     }
 
+    void IOverlayWindow.Close() {
+        Close();
+    }
+
     void IOverlayWindow.ClearCanvas() {
         RootCanvas.Children.Clear();
     }

@@ -183,8 +183,8 @@ public partial class App : Application {
                     return;
                 }
 
-                // Re-bootstrap: deactivate overlay, re-create coordinator
-                _coordinator?.DeactivateOverlay();
+                // Re-bootstrap: dispose old coordinator, re-create
+                _coordinator?.Dispose();
                 _coordinator = null;
 
                 var newViolations = BootstrapCoordinator();
@@ -225,7 +225,7 @@ public partial class App : Application {
         // Quit
         var quitItem = new System.Windows.Controls.MenuItem { Header = "Quit" };
         quitItem.Click += (_, _) => {
-            _coordinator?.DeactivateOverlay();
+            _coordinator?.Dispose();
             _hotKeyService?.Dispose();
             _trayIcon?.Dispose();
             _loggerFactory?.Dispose();

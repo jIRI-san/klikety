@@ -211,6 +211,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         Canvas.SetLeft(_flashRect, 0);
         Canvas.SetTop(_flashRect, 0);
 
+        // Stop any in-flight animation before starting a new one
+        _flashRect.BeginAnimation(UIElement.OpacityProperty, null);
+
         var animation = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(200)) {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
         };

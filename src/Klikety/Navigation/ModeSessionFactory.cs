@@ -64,7 +64,6 @@ public sealed class ModeSessionFactory {
             _config.VerticalKeys,
             _actionMapper,
             mode,
-            _logCrosshairRenderer,
-            gridRenderer: _gridRenderer);
+            _logCrosshairRenderer);
     }
 }

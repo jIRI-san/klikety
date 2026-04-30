@@ -152,6 +152,10 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
         ClearCanvasCount++;
     }
 
+    public void Close() {
+        IsVisible = false;
+    }
+
     public int ClearCanvasCount { get; private set; }
 
     public void SimulateFocusLoss() {

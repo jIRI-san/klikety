@@ -42,6 +42,7 @@ public interface IOverlayWindow {
     event EventHandler? FocusLost;
     void Show();
     void Hide();
+    void Close();
     void ClearCanvas();
     bool IsVisible { get; }
 }

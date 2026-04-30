@@ -193,8 +193,7 @@
           "type": "boolean",
           "description": "Enable two-key (column+row) navigation within this mode."
         }
-      },
-      "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

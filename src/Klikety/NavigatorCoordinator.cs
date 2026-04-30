@@ -15,7 +15,7 @@ namespace Klikety;
 /// Delegates key input and rendering to the active <see cref="IModeSession"/>.
 /// Handles chord dispatch, debounce, mode lock, and guardrails.
 /// </summary>
-public sealed partial class NavigatorCoordinator {
+public sealed partial class NavigatorCoordinator : IDisposable {
     private readonly IHotKeyService _hotKeyService;
     private readonly IKeyboardHookService _hookService;
     private readonly IMouseActionService _mouseService;
@@ -103,7 +103,12 @@ public sealed partial class NavigatorCoordinator {
         // Populate debounce keys BEFORE hook enable (closes TOCTOU)
         PopulateDebounceKeys();
 
-        _overlayWindow.Show();
+        try {
+            _overlayWindow.Show();
+        } catch (InvalidOperationException) {
+            LogHookInstallFailed();
+            return;
+        }
 
         if (!_hookService.Enable()) {
             LogHookInstallFailed();
@@ -400,4 +405,12 @@ public sealed partial class NavigatorCoordinator {
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Action point ({X}, {Y}) out of screen bounds — suppressed")]
     private partial void LogActionOutOfBounds(int x, int y);
+
+    public void Dispose() {
+        _hotKeyService.Activated -= OnHotKeyActivated;
+        _hookService.KeyEvent -= OnKeyEvent;
+        _overlayWindow.FocusLost -= OnFocusLost;
+        DeactivateOverlay();
+        _overlayWindow.Close();
+    }
 }

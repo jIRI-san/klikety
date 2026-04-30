@@ -163,6 +163,21 @@ public static class ConfigLoader {
         if (config.HotKey.Modifiers.HasFlag(HotKeyModifiers.Shift)) { hotkeyVKeys.Add(VKey.Shift); hotkeyVKeys.Add(VKey.LShift); hotkeyVKeys.Add(VKey.RShift); }
         if (config.HotKey.Modifiers.HasFlag(HotKeyModifiers.Win)) { hotkeyVKeys.Add(VKey.LWin); hotkeyVKeys.Add(VKey.RWin); }
 
+        // Check hotkey modifier VKeys don't appear in navigation or action keys
+        foreach (var modKey in hotkeyVKeys) {
+            if (modKey == config.HotKey.Key) {
+                continue;
+            }
+
+            if (allNavKeys.Contains(modKey)) {
+                violations.Add($"Hotkey modifier '{modKey}' conflicts with a navigation key.");
+            }
+
+            if (actionKeys.Contains(modKey)) {
+                violations.Add($"Hotkey modifier '{modKey}' conflicts with an action key.");
+            }
+        }
+
         // === Mode validation ===
         ValidateModes(config, violations, actionKeys, hotkeyVKeys);
 

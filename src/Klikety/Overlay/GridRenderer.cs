@@ -172,7 +172,13 @@ public sealed class GridRenderer : IGridRenderer {
     /// Second centered in the right half.
     /// </summary>
     private void AddLabel(Rect dipRect, int row, int col, Brush foreground, double opacity = 1.0, double heightFraction = 0.8) {
-        var cellLabel = _labelGenerator.LabelFor(row + _labelRowOffset, col + _labelColOffset);
+        int labelRow = row + _labelRowOffset;
+        int labelCol = col + _labelColOffset;
+        if (labelRow < 0 || labelRow >= _labelGenerator.Rows || labelCol < 0 || labelCol >= _labelGenerator.Cols) {
+            return;
+        }
+
+        var cellLabel = _labelGenerator.LabelFor(labelRow, labelCol);
         double halfWidth = dipRect.Width / 2;
         double fontSize = ComputeAutoFontSize(halfWidth, dipRect.Height, heightFraction);
 

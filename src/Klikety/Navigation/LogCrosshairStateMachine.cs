@@ -336,7 +336,7 @@ public sealed class LogCrosshairStateMachine {
         CurrentState = State.BothSet;
         try {
             SubgridEntered?.Invoke(cell);
-        } catch {
+        } catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or ArgumentException) {
             // L2 session construction failed — fall back to CellSelected
             CellSelected?.Invoke(cell);
         }

@@ -121,11 +121,6 @@ public sealed class ConfigModel {
     public string LogLevel { get; init; } = "Warning";
 
     /// <summary>
-    /// Which navigation input schemes are active.
-    /// </summary>
-    public NavigationMode NavigationMode { get; init; } = NavigationMode.Both;
-
-    /// <summary>
     /// Theme name (bare name resolves to themes/&lt;name&gt;.theme.json) or
     /// relative path from the config folder.
     /// </summary>

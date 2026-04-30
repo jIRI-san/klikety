@@ -42,8 +42,10 @@ public sealed class MouseActionService : IMouseActionService {
 
     public void MoveTo(Point physicalPoint) {
         var bounds = NativeMethods.GetPrimaryScreenBounds();
-        int normalizedX = (int)((physicalPoint.X - bounds.X) * 65535.0 / (bounds.Width - 1));
-        int normalizedY = (int)((physicalPoint.Y - bounds.Y) * 65535.0 / (bounds.Height - 1));
+        int divisorX = Math.Max(bounds.Width - 1, 1);
+        int divisorY = Math.Max(bounds.Height - 1, 1);
+        int normalizedX = (int)((physicalPoint.X - bounds.X) * 65535.0 / divisorX);
+        int normalizedY = (int)((physicalPoint.Y - bounds.Y) * 65535.0 / divisorY);
 
         var input = new INPUT {
             type = INPUT_MOUSE,

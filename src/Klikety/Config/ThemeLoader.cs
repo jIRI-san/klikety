@@ -52,6 +52,11 @@ public static class ThemeLoader {
             return null;
         }
 
+        // Reject absolute/rooted paths
+        if (Path.IsPathRooted(themeValue)) {
+            return null;
+        }
+
         // Bare name → themes/<name>.theme.json
         if (!themeValue.Contains('/') && !themeValue.Contains('\\') && !themeValue.EndsWith(".theme.json", StringComparison.OrdinalIgnoreCase)) {
             return Path.Combine(ThemesFolder, $"{themeValue}.theme.json");

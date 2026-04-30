@@ -366,7 +366,7 @@ public static class ConfigMigrator {
     private static string? AtomicWrite(string path, JsonObject obj) {
         try {
             var dir = Path.GetDirectoryName(path)!;
-            var tmpPath = Path.Combine(dir, Path.GetFileName(path) + ".tmp");
+            var tmpPath = Path.Combine(dir, Path.GetRandomFileName());
             var bakPath = path + ".bak";
 
             var options = new JsonSerializerOptions { WriteIndented = true };

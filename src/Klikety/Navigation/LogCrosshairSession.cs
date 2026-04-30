@@ -21,7 +21,6 @@ public sealed class LogCrosshairSession : IModeSession {
     readonly int _minCellPx;
     readonly int _subgridMinCellPx;
     readonly ILogCrosshairRenderer? _renderer;
-    readonly IGridRenderer? _gridRenderer;
 
     readonly LogCrosshairStateMachine _sm;
     LogCrosshairGrid? _grid;
@@ -39,8 +38,7 @@ public sealed class LogCrosshairSession : IModeSession {
 
     public LogCrosshairSession(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
-        ModeConfig modeConfig, ILogCrosshairRenderer? renderer, int minCellPx = 10,
-        IGridRenderer? gridRenderer = null) {
+        ModeConfig modeConfig, ILogCrosshairRenderer? renderer, int minCellPx = 10) {
         _horizKeys = horizKeys;
         _vertKeys = vertKeys;
         _actionMapper = actionMapper;
@@ -49,7 +47,6 @@ public sealed class LogCrosshairSession : IModeSession {
         _minCellPx = minCellPx;
         _subgridMinCellPx = minCellPx * 3;
         _renderer = renderer;
-        _gridRenderer = gridRenderer;
 
         _sm = new LogCrosshairStateMachine(
             _horizKeys, _vertKeys, actionMapper, modeConfig.ArrowKeys, minCellPx,
@@ -212,9 +209,10 @@ public sealed class LogCrosshairSession : IModeSession {
         }
 
         var cell = _grid.CellAt(_lastVertRow, _lastHorizCol);
-        _renderer?.RenderCross(_grid);
-        _renderer?.HighlightCell(_grid, cell);
-        CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(cell));
+        var newCenter = LogGridCalculator.CenterOf(cell);
+        CursorMoveRequested?.Invoke(newCenter);
+        RecenterGrid(newCenter);
+        _renderer?.HighlightCell(_grid, _grid.CellAt(_grid.CenterRow, _grid.CenterCol));
     }
 
     void PopL2() {

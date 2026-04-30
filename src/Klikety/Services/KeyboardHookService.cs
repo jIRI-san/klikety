@@ -58,10 +58,11 @@ public sealed class KeyboardHookService : IKeyboardHookService {
 
     public void Disable() {
         if (_hookId != 0) {
-            UnhookWindowsHookEx(_hookId);
-            _hookId = 0;
+            if (UnhookWindowsHookEx(_hookId)) {
+                _hookId = 0;
+                _hookProc = null;
+            }
         }
-        _hookProc = null;
     }
 
     private nint HookCallback(int nCode, nint wParam, nint lParam) {

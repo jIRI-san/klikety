@@ -17,7 +17,9 @@ globs:
 
 - `OverlayWindow` is a WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to primary screen bounds converted to DIPs via `PresentationSource` transform.
 - `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, exception, Quit. It calls `IGridRenderer.ClearCanvas()`, hides the overlay, calls `IKeyboardHookService.Disable()`, and resets `NavigatorStateMachine` to `Idle`. Safe to call multiple times.
+- `NavigatorCoordinator` implements `IDisposable`. `Dispose()` unsubscribes from all service events (`Activated`, `KeyEvent`, `FocusLost`), calls `DeactivateOverlay()`, and closes the overlay window. Called by `App.xaml.cs` on coordinator replacement (config reset) and application quit.
 - `OverlayWindow.Deactivated` event wires to `DeactivateOverlay()` to handle focus loss (Alt+Tab, OS notifications, background app stealing focus).
+- `OverlayWindow.Show()` wrapped in try/catch for `InvalidOperationException` (no `PresentationSource` available) — prevents activation failure from leaving the overlay in an indeterminate state.
 - Cursor position at `Activate()` time is saved; restored via `IMouseActionService.MoveTo(originPoint)` when Escape is pressed at L1 or focus is lost.
 - Escape from L2/L3 to L1 also restores cursor to origin position (coordinator calls `MoveTo(_origin)` on `ColumnUnhighlighted(1)`).
 - If `IKeyboardHookService.Enable()` returns failure on activation, `DeactivateOverlay()` is called immediately and a tray notification is shown — overlay never becomes visible.

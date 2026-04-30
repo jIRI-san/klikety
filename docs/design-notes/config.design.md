@@ -11,8 +11,9 @@ globs:
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.
 - Written on first run from embedded `config.json` template if absent. **Not overwritten on subsequent runs** — changing defaults in the embedded template does not affect existing installs. When a config or theme default changes during development, the user's `%APPDATA%\Klikety\config.json` and `%APPDATA%\Klikety\themes\*.theme.json` must be updated manually (or the files deleted to trigger re-extraction).
-- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `firstKeys`/`secondKeys` (flat VKey arrays), `level3CellSizeThreshold`, `logLevel`, `navigationMode`, `theme`.
-- Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; cross-set disjointness (`firstKeys ∩ secondKeys = ∅`); per-set duplicate check; all violations collected and surfaced via tray notification list.
+- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `firstKeys`/`secondKeys` (flat VKey arrays), `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`.
+- `navigationMode` is a legacy field — migrated to `modes.uniformGrid.twoKey/arrowKeys` on first load. Kept in schema for backward compatibility. `ConfigModel` no longer has a `NavigationMode` property (dead code removed); the enum is only used internally by `NavigatorStateMachine` and `UniformGridSession`.
+- Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; hotkey modifier VKeys checked against nav/action key sets; cross-set disjointness (`firstKeys ∩ secondKeys = ∅`); per-set duplicate check; all violations collected and surfaced via tray notification list.
 
 ## `ConfigVersion`
 
@@ -27,7 +28,7 @@ Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = current (modes s
 - Key set migration: preserves user's original `firstKeys`/`secondKeys` (no silent 8→10 expansion). Crosshair/LogCrosshair get 10-key defaults.
 - Conflict handling: N/M chord keys conflicting with `actionBindings` → auto-disable mode. New 10-key axis keys conflicting with `actionBindings` → fall back to legacy key set.
 - Post-migration normalization: at least one enabled mode, exactly one default.
-- Atomic write: temp file → `.bak` backup → rename. Write errors return `BlockingError`.
+- Atomic write: random temp file (`Path.GetRandomFileName()`) → `.bak` backup → rename. Write errors return `BlockingError`.
 - `configVersion` > known → fail-closed with blocking error.
 - Mixed shape (`modes` + `navigationMode`) → `modes` wins.
 - Unknown fields preserved (round-trip).
@@ -46,7 +47,7 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.
 - `ShutdownMode=OnExplicitShutdown` — process persists until "Quit" menu item calls `Application.Current.Shutdown()`.
-- Context menu items: **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Start with Windows** (toggle with checkmark), **Quit**.
+- Context menu items: **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Quit** (disposes coordinator, hotkey service, tray icon, logger factory).
 - Tray notifications used for: hotkey conflict, hook install failure, config/key-binding violations, theme load failure.
 
 ## Logging

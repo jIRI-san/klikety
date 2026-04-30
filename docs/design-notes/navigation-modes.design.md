@@ -65,7 +65,7 @@ Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, Actio
 - `_lastSetWasHoriz` tracks which axis was set most recently for LIFO Escape from `BothSet`.
 - `_actionPoint` updated eagerly on every axis key to the cell center at the intersection of selected axes (or center row/col if only one axis set).
 - Arrow navigation via `CrossArrowNavigator` — only in `AwaitInput` state (before any axis key).
-- Enter: computes L2 subgrid via `DynamicKeyReducer`. If cell too small → fires `CellSelected` + stays in `BothSet` (user picks action). Otherwise fires `SubgridEntered`. If `SubgridEntered` handler throws, catches exception and falls back to `CellSelected` path (prevents stuck `BothSet`).
+- Enter: computes L2 subgrid via `DynamicKeyReducer`. If cell too small → fires `CellSelected` + stays in `BothSet` (user picks action). Otherwise fires `SubgridEntered`. If `SubgridEntered` handler throws specific exceptions (`InvalidOperationException`, `NotSupportedException`, `ArgumentException`), catches and falls back to `CellSelected` path (prevents stuck `BothSet`).
 - Escape LIFO: `BothSet` → clears last-set axis → single-axis state. Single-axis → `AwaitInput`. `AwaitInput` → `Cancelled`.
 - `SubgridExited` event: fired by `ResetToAwaitInput(row, col)` when L2 session is popped. Resets state to `AwaitInput` with `_arrowRow`/`_arrowCol` at the given position, `_actionPoint` at cell center. Session handler re-renders full cross + highlights the arrow-position cell.
 
@@ -77,14 +77,15 @@ Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, Actio
 
 ## LogCrosshair Mode
 
-**Grid**: `LogGridCalculator` produces a `(N+1)×(M+1)` grid with logarithmic cell sizing. Cells grow geometrically from center outward.
+**Grid**: `LogGridCalculator` produces a `(N+1)×(M+1)` grid with logarithmic cell sizing. Cells grow geometrically from center outward. **Cross-arm cells** (center row and center column) expand proportionally in their perpendicular dimension: horizontal arm cells grow in height (30% of width, minimum = center row height), vertical arm cells grow in width (30% of height, minimum = center column width). This ensures labels remain readable on all cross cells regardless of aspect ratio.
 
 Algorithm:
 1. Center cell has `logBaseSize` pixels width/height (default 5).
 2. Growth ratio found via binary search per axis: `baseSize · (r + r² + … + r^cellsPerSide) = availableDistance`.
 3. The shorter half-axis constrains the ratio; outermost cells on the longer side absorb remaining space (last-cell absorption).
-4. Cells with width or height < 1 pixel are flagged as degenerate.
-5. All edge positions clamped to screen bounds.
+4. Cross-arm cells are anchored on the center axis (centerY for horiz arm, centerX for vert arm) and expand symmetrically.
+5. Cells with width or height < 1 pixel are flagged as degenerate.
+6. All edge positions clamped to screen bounds (cross-arm cells may extend beyond their row/col band for readability).
 
 Result type: `LogCrosshairGrid` with `IsDegenerate(row, col)` method. Same structure as `CrosshairGrid` (Cells, Cols, Rows, CenterCol, CenterRow, CellAt, CenterCell, IsOnCross).
 
@@ -93,15 +94,18 @@ Result type: `LogCrosshairGrid` with `IsDegenerate(row, col)` method. Same struc
 - Same axis-key mapping as Crosshair (key index → grid index, skipping center).
 - `HorizSet`/`VertSet` track the last-set axis. Both can be set simultaneously — state reflects which was set most recently.
 - Degenerate cells: axis key or arrow targeting a degenerate cell fires `InvalidKeyPressed` (rejected).
-- Enter: computes L2 subgrid via `DynamicKeyReducer`. If cell too small → fires `CellSelected` + stays in `BothSet`. Otherwise fires `SubgridEntered`. If handler throws, falls back to `CellSelected`.
+- Enter: computes L2 subgrid via `DynamicKeyReducer`. If cell too small → fires `CellSelected` + stays in `BothSet`. Otherwise fires `SubgridEntered`. If handler throws specific exceptions (`InvalidOperationException`, `NotSupportedException`, `ArgumentException`), falls back to `CellSelected`.
 - Arrow navigation: `CrossArrowNavigator` in `AwaitInput` only. Arrows into degenerate cells also fire `InvalidKeyPressed`.
 - Escape LIFO: `BothSet` → clears last-set axis → single-axis state. `HorizSet`/`VertSet` alone → `AwaitInput` + fires `AxisCleared`. `AwaitInput` → `Cancelled`.
-- `AxisCleared` event: notifies session to re-render base cross and move cursor back to center cell.
-- `SubgridExited` event: fired by `ResetToAwaitInput(row, col)` when L2 session is popped. Same semantics as Crosshair — resets to `AwaitInput`, sets action point, session re-renders cross + highlights cell.
+- `AxisCleared` event: notifies session to recenter grid and re-render base cross and move cursor back to center cell.
+- `SubgridExited` event: fired by `ResetToAwaitInput(row, col)` when L2 session is popped. Same semantics as Crosshair — resets to `AwaitInput`, sets action point, session recenters grid + re-renders cross + highlights cell.
+- `UpdateGrid(grid, newCenter)`: replaces the current grid and resets state to `AwaitInput`. Used by session to recenter on navigation.
 
 **Renderer** (`LogCrosshairRenderer`, implements `ILogCrosshairRenderer`): Same visual API as `ICrosshairRenderer` minus `RenderSubgridCross`. Uses **element pooling**: rectangles and text paths are reused across renders via index tracking. Staleness detected via `Parent == null` after external canvas clear. `FlashInvalidKey` uses a pooled single rectangle (collapsed when not animating).
 
-**Session** (`LogCrosshairSession`): Wraps SM + renderer. Grid computed at `Activate()` using cursor origin as center point. `AxisCleared` → re-renders cross + moves cursor to center cell center. Supports L2 level stack via `UniformGridSession` (same as `CrosshairSession`). `SubgridExited` → re-renders full cross + highlights the arrow-position cell.
+**Session** (`LogCrosshairSession`): Wraps SM + renderer. Grid computed at `Activate()` using cursor origin as center point. **Recenters grid** on every navigation event (horiz key, vert key, arrow move, axis clear, subgrid exit) via `RecenterGrid(newCenter)` — recalculates the log grid centered on the new cursor position, calls `SM.UpdateGrid`, and re-renders. This ensures the logarithmic scale always reflects distance from the current cursor position.
+
+Supports L2 level stack via `CrosshairSession` with dynamically-reduced key sets. L2 session is created with null renderer (visual feedback handled by the crosshair renderer wired into the L2 session itself).
 
 ## `AxisLabelGenerator`
 

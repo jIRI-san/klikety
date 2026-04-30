@@ -109,5 +109,16 @@ When external labels are active, no internal cell labels are rendered — cells 
 ## Theme System
 
 - `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color; connector line color + thickness; label outline color + thickness.
-- `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; fall back to built-in dark on any error + tray notification.
+- `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; rooted/absolute paths rejected via `Path.IsPathRooted`; fall back to built-in dark on any error + tray notification.
 - Built-in `dark.theme.json` and `light.theme.json` shipped as embedded resources; extracted to `%APPDATA%\Klikety\themes\` on first run.
+
+## GridRenderer Safety
+
+- `AddLabel` bounds-checks `row + _labelRowOffset` and `col + _labelColOffset` against `_labelGenerator.Rows`/`Cols` before calling `LabelFor`. Out-of-range offsets (from `DynamicKeyReducer` edge cases) are silently skipped instead of throwing.
+
+## LogCrosshairRenderer
+
+- **Font sizing**: `ComputeGradualFontSize(Rect dipRect, double baseFontSize)` — font size = `cellExtent * 0.7` (where `cellExtent = min(width, height)`), minimum 1.0. Log grid cells encode distance from center via size, so larger cells naturally get bigger labels.
+- **Border thickness**: `ScaledBorderThickness(Rect dipRect)` — `extent * 0.02 + theme.CellBorderThickness * 0.5`, clamped to `[1×, 4×]` of theme thickness. Scales with cell size for readability.
+- **Element pooling**: Rectangles and text paths reused across renders via index tracking (`_nextRect`, `_nextText`). Staleness detected via `Parent == null` after external canvas clear — pools reset on next render.
+- **Flash animation**: `FlashInvalidKey` stops any in-flight animation (`BeginAnimation(null)`) before starting a new one, preventing handler accumulation on rapid key spam.

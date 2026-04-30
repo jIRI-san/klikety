@@ -22,8 +22,9 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 
 - Hook installed only while overlay is visible; uninstalled in `DeactivateOverlay()`.
 - Hook callback reads `VKey` + state from `KBDLLHOOKSTRUCT`, calls `CallNextHookEx` immediately, then posts `VKey` to UI thread via `Dispatcher.InvokeAsync` — no blocking work in callback (OS kills hook after ~300 ms).
-- `KeyPressed` event raised on UI thread only.
+- `KeyEvent` event raised on UI thread only.
 - If `SetWindowsHookEx` returns null, `Enable()` returns `false`; overlay closed + tray notification.
+- `Disable()`: only nulls `_hookProc` (allowing GC) if `UnhookWindowsHookEx` returns success. Prevents crash from collected callback if unhook fails.
 
 ## `IHotKeyService` — `RegisterHotKey`
 
@@ -33,7 +34,7 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 
 ## `IMouseActionService` — `SendInput`
 
-- `MoveTo`: normalizes physical-pixel coords to 0–65535 range using primary screen bounds, then sends `MOUSEINPUT` with `MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE`.
+- `MoveTo`: normalizes physical-pixel coords to 0–65535 range using primary screen bounds, then sends `MOUSEINPUT` with `MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE`. Guards against zero-dimension screens with `Math.Max(bounds.Width - 1, 1)` divisor.
 - `SendAction`: sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. Double-click = two left-click pairs in sequence.
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
 
@@ -41,11 +42,13 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 
 - No WinForms dependency; no `Screen.PrimaryScreen`.
 - **Important**: `LibraryImport` (source-generated) does NOT auto-resolve `W` suffix like `DllImport`. Must use `EntryPoint = "GetMonitorInfoW"` explicitly.
+- Checks `GetMonitorInfo` return value; falls back to 1920×1080 at (0,0) if the call fails.
 - Implementation:
   ```csharp
   var hMon = MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
   var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
-  GetMonitorInfo(hMon, ref info);
+  if (!GetMonitorInfo(hMon, ref info))
+      return new Rectangle(0, 0, 1920, 1080); // safe fallback
   // info.rcMonitor = physical-pixel bounds of primary monitor
   ```
 - Returns `System.Drawing.Rectangle` (physical pixels). Used by `GridCalculator`, `SubgridCalculator`, `MouseActionService`, and `OverlayWindow` sizing.

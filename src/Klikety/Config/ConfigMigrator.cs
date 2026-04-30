@@ -237,7 +237,7 @@ public static class ConfigMigrator {
             ["chordKey"] = chordM.ToString(),
             ["arrowKeys"] = true,
             ["twoKey"] = true,
-            ["logBaseSize"] = 5,
+            ["logBaseSize"] = 10,
         };
         modes["logCrosshair"] = logCrosshair;
 

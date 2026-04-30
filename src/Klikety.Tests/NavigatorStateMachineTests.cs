@@ -550,7 +550,7 @@ public class NavigatorStateMachineTests {
         sm.Activate(grid, new Point(0, 0));
 
         IReadOnlyList<GridCell>? subgridCells = null;
-        sm.CellEntered += (_, sub, level) => { if (level == 1) subgridCells = sub; };
+        sm.CellEntered += (_, sub, level) => { if (level == 1) { subgridCells = sub; } };
 
         // Select cell (0,0) — 100×100 parent
         sm.OnKey(VKey.A); // first horiz key
@@ -580,7 +580,7 @@ public class NavigatorStateMachineTests {
 
         // 'F' (index 3 in full, index 1 in reduced) should work
         int? highlightedCol = null;
-        sm.ColumnHighlighted += (col, _, level) => { if (level == 2) highlightedCol = col; };
+        sm.ColumnHighlighted += (col, _, level) => { if (level == 2) { highlightedCol = col; } };
         sm.OnKey(VKey.F);
         Assert.Equal(1, highlightedCol);
     }
@@ -601,8 +601,13 @@ public class NavigatorStateMachineTests {
         IReadOnlyList<GridCell>? l2Subgrid = null;
         IReadOnlyList<GridCell>? l3Subgrid = null;
         sm.CellEntered += (_, sub, level) => {
-            if (level == 1) l2Subgrid = sub;
-            if (level == 2) l3Subgrid = sub;
+            if (level == 1) {
+                l2Subgrid = sub;
+            }
+
+            if (level == 2) {
+                l3Subgrid = sub;
+            }
         };
 
         // L1 → L2 (no reduction since 300/10 = 30 ≥ 10 keys)
@@ -628,7 +633,7 @@ public class NavigatorStateMachineTests {
         sm.Activate(grid, new Point(0, 0));
 
         IReadOnlyList<GridCell>? l3Subgrid = null;
-        sm.CellEntered += (_, sub, level) => { if (level == 2) l3Subgrid = sub; };
+        sm.CellEntered += (_, sub, level) => { if (level == 2) { l3Subgrid = sub; } };
 
         // L1 → L2
         sm.OnKey(VKey.A);
@@ -652,7 +657,7 @@ public class NavigatorStateMachineTests {
         sm.Activate(grid, new Point(0, 0));
 
         IReadOnlyList<GridCell>? subgrid = null;
-        sm.CellEntered += (_, sub, level) => { if (level == 1) subgrid = sub; };
+        sm.CellEntered += (_, sub, level) => { if (level == 1) { subgrid = sub; } };
 
         sm.OnKey(VKey.A);
         sm.OnKey(VKey.Q);
@@ -673,8 +678,13 @@ public class NavigatorStateMachineTests {
         IReadOnlyList<GridCell>? l2Subgrid = null;
         IReadOnlyList<GridCell>? l3Subgrid = null;
         sm.CellEntered += (_, sub, level) => {
-            if (level == 1) l2Subgrid = sub;
-            if (level == 2) l3Subgrid = sub;
+            if (level == 1) {
+                l2Subgrid = sub;
+            }
+
+            if (level == 2) {
+                l3Subgrid = sub;
+            }
         };
 
         // L1 → L2 (no reduction with minCellPx=5)

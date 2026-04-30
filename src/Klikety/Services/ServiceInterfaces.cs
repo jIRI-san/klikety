@@ -51,6 +51,7 @@ public interface IOverlayWindow {
 /// </summary>
 public interface IGridRenderer {
     void SetTransform(System.Windows.Media.Matrix transformFromDevice);
+    void SetLabelOffset(int colOffset, int rowOffset);
     void RenderGrid(IReadOnlyList<GridCell> cells);
     void HighlightColumn(IReadOnlyList<GridCell> cells, int col);
     void HighlightCell(IReadOnlyList<GridCell> cells, GridCell highlightedCell);
@@ -65,6 +66,7 @@ public interface IGridRenderer {
 /// </summary>
 public interface ICrosshairRenderer {
     void SetTransform(System.Windows.Media.Matrix transformFromDevice);
+    void SetLabelOffset(int horizOffset, int vertOffset);
     void RenderCross(CrosshairGrid grid);
     void HighlightColumn(CrosshairGrid grid, int col);
     void HighlightRow(CrosshairGrid grid, int row);

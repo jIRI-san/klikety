@@ -90,7 +90,7 @@
       "chordKey": "M",
       "arrowKeys": true,
       "twoKey": true,
-      "logBaseSize": 5
+      "logBaseSize": 10
     }
   },
 

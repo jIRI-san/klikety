@@ -19,6 +19,7 @@ public sealed class LogCrosshairSession : IModeSession {
     readonly bool _arrowKeysEnabled;
     readonly int _logBaseSize;
     readonly int _minCellPx;
+    readonly int _subgridMinCellPx;
     readonly ILogCrosshairRenderer? _renderer;
     readonly IGridRenderer? _gridRenderer;
 
@@ -27,7 +28,7 @@ public sealed class LogCrosshairSession : IModeSession {
     Point _origin;
 
     // L2 level stack
-    UniformGridSession? _l2Session;
+    CrosshairSession? _l2Session;
     int _lastHorizCol;
     int _lastVertRow;
 
@@ -37,7 +38,7 @@ public sealed class LogCrosshairSession : IModeSession {
 
     public LogCrosshairSession(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
-        ModeConfig modeConfig, ILogCrosshairRenderer? renderer, int minCellPx = 5,
+        ModeConfig modeConfig, ILogCrosshairRenderer? renderer, int minCellPx = 10,
         IGridRenderer? gridRenderer = null) {
         _horizKeys = horizKeys;
         _vertKeys = vertKeys;
@@ -45,11 +46,13 @@ public sealed class LogCrosshairSession : IModeSession {
         _arrowKeysEnabled = modeConfig.ArrowKeys;
         _logBaseSize = modeConfig.LogBaseSize;
         _minCellPx = minCellPx;
+        _subgridMinCellPx = minCellPx * 3;
         _renderer = renderer;
         _gridRenderer = gridRenderer;
 
         _sm = new LogCrosshairStateMachine(
-            _horizKeys, _vertKeys, actionMapper, modeConfig.ArrowKeys, minCellPx);
+            _horizKeys, _vertKeys, actionMapper, modeConfig.ArrowKeys, minCellPx,
+            _subgridMinCellPx);
 
         _sm.HorizSelected += OnHorizSelected;
         _sm.VertSelected += OnVertSelected;
@@ -152,9 +155,9 @@ public sealed class LogCrosshairSession : IModeSession {
         _lastVertRow = cell.Row;
 
         var hReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _horizKeys, cell.Bounds.Width, _minCellPx, hasCenterCell: false);
+            _horizKeys, cell.Bounds.Width, _subgridMinCellPx, hasCenterCell: true);
         var vReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _vertKeys, cell.Bounds.Height, _minCellPx, hasCenterCell: false);
+            _vertKeys, cell.Bounds.Height, _subgridMinCellPx, hasCenterCell: true);
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
             if (_grid is not null) {
@@ -163,11 +166,13 @@ public sealed class LogCrosshairSession : IModeSession {
             return;
         }
 
+        // Nested sessions use _minCellPx directly (no multiplier) for their subgrid check
         var l2Mode = new ModeConfig { TwoKey = true, ArrowKeys = _arrowKeysEnabled };
-        var l2 = new UniformGridSession(
+        var l2 = new CrosshairSession(
             hReduction.ActiveKeys, vReduction.ActiveKeys,
-            _actionMapper, l2Mode, level3Threshold: 0, _gridRenderer,
-            minCellPx: _minCellPx);
+            _actionMapper, l2Mode, null,
+            minCellPx: _minCellPx,
+            subgridMinCellPx: _minCellPx);
 
         l2.ActionRequested += OnL2ActionRequested;
         l2.Cancelled += OnL2Cancelled;

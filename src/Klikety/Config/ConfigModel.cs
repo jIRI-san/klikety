@@ -22,9 +22,9 @@ public sealed class ModeConfig {
 
     /// <summary>
     /// Base cell size in physical pixels for LogCrosshair center cell.
-    /// Only meaningful for LogCrosshair mode. Default 5.
+    /// Only meaningful for LogCrosshair mode. Default 10.
     /// </summary>
-    public int LogBaseSize { get; init; } = 5;
+    public int LogBaseSize { get; init; } = 10;
 }
 
 /// <summary>

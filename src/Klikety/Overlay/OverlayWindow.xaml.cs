@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 
@@ -11,6 +12,9 @@ public partial class OverlayWindow : Window, IOverlayWindow {
 
     public OverlayWindow() {
         InitializeComponent();
+        if (Debugger.IsAttached) {
+            Topmost = false;
+        }
         Deactivated += (_, _) => FocusLost?.Invoke(this, EventArgs.Empty);
     }
 

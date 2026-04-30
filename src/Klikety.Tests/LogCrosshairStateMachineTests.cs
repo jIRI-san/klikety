@@ -106,8 +106,8 @@ public class LogCrosshairStateMachineTests {
         GridCell? cell = null;
         sm.SubgridEntered += c => cell = c;
 
-        sm.OnKey(VKey.F); // horiz
-        sm.OnKey(VKey.R); // vert → both set → auto-L2
+        sm.OnKey(VKey.A); // horiz — outermost col (large cell)
+        sm.OnKey(VKey.Q); // vert — outermost row → both set → auto-L2
 
         Assert.NotNull(cell);
     }
@@ -361,13 +361,13 @@ public class LogCrosshairStateMachineTests {
     [Fact]
     public void Escape_FromHorizOnly_FiresAxisCleared() {
         var sm = CreateSM();
-    sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.Activate(CreateGrid(), new Point(550, 550));
 
-    bool cleared = false;
+        bool cleared = false;
         sm.AxisCleared += () => cleared = true;
 
-    sm.OnKey(VKey.F); // HorizSet
-    sm.OnKey(VKey.Escape);
+        sm.OnKey(VKey.F); // HorizSet
+        sm.OnKey(VKey.Escape);
 
         Assert.True(cleared);
         Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
@@ -376,13 +376,13 @@ public class LogCrosshairStateMachineTests {
     [Fact]
     public void Escape_FromVertOnly_FiresAxisCleared() {
         var sm = CreateSM();
-    sm.Activate(CreateGrid(), new Point(550, 550));
+        sm.Activate(CreateGrid(), new Point(550, 550));
 
-    bool cleared = false;
+        bool cleared = false;
         sm.AxisCleared += () => cleared = true;
 
-    sm.OnKey(VKey.R); // VertSet
-    sm.OnKey(VKey.Escape);
+        sm.OnKey(VKey.R); // VertSet
+        sm.OnKey(VKey.Escape);
 
         Assert.True(cleared);
         Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);

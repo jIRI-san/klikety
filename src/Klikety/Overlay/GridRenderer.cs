@@ -25,6 +25,10 @@ public sealed class GridRenderer : IGridRenderer {
     private Matrix _transformFromDevice = Matrix.Identity;
     private bool _transformInitialized;
 
+    // Label offset for L2/L3 reduced-key grids
+    private int _labelColOffset;
+    private int _labelRowOffset;
+
     // Cached theme-derived resources (created once in constructor)
     private readonly SolidColorBrush _cellBorderBrush;
     private readonly SolidColorBrush _cellBgBrush;
@@ -82,6 +86,15 @@ public sealed class GridRenderer : IGridRenderer {
     }
 
     /// <summary>
+    /// Sets the label offset for rendering L2/L3 reduced-key grids.
+    /// Offset is applied to row/col when looking up labels from the LabelGenerator.
+    /// </summary>
+    public void SetLabelOffset(int colOffset, int rowOffset) {
+        _labelColOffset = colOffset;
+        _labelRowOffset = rowOffset;
+    }
+
+    /// <summary>
     /// Auto-initializes transform from the canvas's PresentationSource if not set.
     /// </summary>
     private void EnsureTransform() {
@@ -109,6 +122,23 @@ public sealed class GridRenderer : IGridRenderer {
             last.X + last.Width,
             last.Y + last.Height));
         return new Rect(topLeft, bottomRight);
+    }
+
+    /// <summary>
+    /// Derives actual grid dimensions (cols, rows) from the cell list.
+    /// </summary>
+    private static (int Cols, int Rows) DimensionsFromCells(IReadOnlyList<GridCell> cells) {
+        int maxCol = 0, maxRow = 0;
+        for (int i = 0; i < cells.Count; i++) {
+            if (cells[i].Col > maxCol) {
+                maxCol = cells[i].Col;
+            }
+
+            if (cells[i].Row > maxRow) {
+                maxRow = cells[i].Row;
+            }
+        }
+        return (maxCol + 1, maxRow + 1);
     }
 
     /// <summary>
@@ -142,7 +172,7 @@ public sealed class GridRenderer : IGridRenderer {
     /// Second centered in the right half.
     /// </summary>
     private void AddLabel(Rect dipRect, int row, int col, Brush foreground, double opacity = 1.0, double heightFraction = 0.8) {
-        var cellLabel = _labelGenerator.LabelFor(row, col);
+        var cellLabel = _labelGenerator.LabelFor(row + _labelRowOffset, col + _labelColOffset);
         double halfWidth = dipRect.Width / 2;
         double fontSize = ComputeAutoFontSize(halfWidth, dipRect.Height, heightFraction);
 
@@ -210,19 +240,32 @@ public sealed class GridRenderer : IGridRenderer {
 
     /// <summary>
     /// Renders the full grid (all cells with borders and labels).
+    /// When cells are too small for inline labels (e.g. at L3), uses external labels.
     /// </summary>
     public void RenderGrid(IReadOnlyList<GridCell> cells) {
         _canvas.Children.Clear();
         EnsureTransform();
 
         var region = ComputeRegionFromCells(cells);
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+        var (cols, rows) = DimensionsFromCells(cells);
+
+        var firstDip = DipRectForCell(0, 0, region, cols, rows);
+        bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
+
+        double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
+        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _cellBorderBrush;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
-            AddCellRect(dipRect, _cellBgBrush, _cellBorderBrush);
-            AddLabel(dipRect, cell.Row, cell.Col, _labelBrush);
+            AddCellRect(dipRect, _cellBgBrush, borderBrush, borderThickness);
+            if (!useExternalLabels) {
+                AddLabel(dipRect, cell.Row, cell.Col, _labelBrush);
+            }
+        }
+
+        if (useExternalLabels) {
+            RenderExternalColumnLabels(cells, region);
+            RenderExternalRowLabels(cells, region);
         }
     }
 
@@ -234,16 +277,30 @@ public sealed class GridRenderer : IGridRenderer {
         EnsureTransform();
 
         var region = ComputeRegionFromCells(cells);
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+        var (cols, rows) = DimensionsFromCells(cells);
+
+        var firstDip = DipRectForCell(0, 0, region, cols, rows);
+        bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
+
+        double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
+        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _cellBorderBrush;
+        var highlightBg = useExternalLabels ? BrushFromHex(_theme.HighlightedColumnBackground, 0.3) : _highlightBg;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
             bool isHighlighted = cell.Col == col;
             AddCellRect(dipRect,
-                isHighlighted ? _highlightBg : _dimBrush,
-                isHighlighted ? _highlightBorder : _cellBorderBrush);
-            AddLabel(dipRect, cell.Row, cell.Col, _labelBrush, isHighlighted ? 1.0 : 0.3);
+                isHighlighted ? highlightBg : _dimBrush,
+                isHighlighted ? _highlightBorder : borderBrush,
+                isHighlighted ? borderThickness * 2 : borderThickness);
+            if (!useExternalLabels) {
+                AddLabel(dipRect, cell.Row, cell.Col, _labelBrush, isHighlighted ? 1.0 : 0.3);
+            }
+        }
+
+        if (useExternalLabels) {
+            RenderExternalColumnLabels(cells, region);
+            RenderExternalRowLabels(cells, region);
         }
     }
 
@@ -255,8 +312,13 @@ public sealed class GridRenderer : IGridRenderer {
         EnsureTransform();
 
         var region = ComputeRegionFromCells(cells);
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+        var (cols, rows) = DimensionsFromCells(cells);
+
+        var firstDip = DipRectForCell(0, 0, region, cols, rows);
+        bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
+
+        double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
+        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _cellBorderBrush;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
@@ -266,13 +328,20 @@ public sealed class GridRenderer : IGridRenderer {
             Brush bg = isCell ? _highlightBg
                 : inCrossHair ? _crosshairBg
                 : _cellBgBrush;
-            Brush border = inCrossHair ? _highlightBorder : _cellBorderBrush;
-            double thickness = isCell ? _theme.CellBorderThickness * 2
-                : inCrossHair ? _theme.CellBorderThickness * 1.5
-                : _theme.CellBorderThickness;
+            Brush border = inCrossHair ? _highlightBorder : borderBrush;
+            double thickness = isCell ? borderThickness * 2
+                : inCrossHair ? borderThickness * 1.5
+                : borderThickness;
 
             AddCellRect(dipRect, bg, border, thickness);
-            AddLabel(dipRect, cell.Row, cell.Col, _labelBrush);
+            if (!useExternalLabels) {
+                AddLabel(dipRect, cell.Row, cell.Col, _labelBrush);
+            }
+        }
+
+        if (useExternalLabels) {
+            RenderExternalColumnLabels(cells, region);
+            RenderExternalRowLabels(cells, region);
         }
     }
 
@@ -305,8 +374,7 @@ public sealed class GridRenderer : IGridRenderer {
         RenderBackgroundGrid(backgroundCells);
 
         var region = ComputeRegionFromCells(subgridCells);
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+        var (cols, rows) = DimensionsFromCells(subgridCells);
 
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
@@ -355,8 +423,7 @@ public sealed class GridRenderer : IGridRenderer {
         RenderBackgroundGrid(backgroundCells);
 
         var region = ComputeRegionFromCells(subgridCells);
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+        var (cols, rows) = DimensionsFromCells(subgridCells);
 
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
@@ -420,8 +487,7 @@ public sealed class GridRenderer : IGridRenderer {
     /// </summary>
     private void RenderSubgridContent(IReadOnlyList<GridCell> cells) {
         var region = ComputeRegionFromCells(cells);
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+        var (cols, rows) = DimensionsFromCells(cells);
 
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
@@ -457,8 +523,7 @@ public sealed class GridRenderer : IGridRenderer {
     /// Renders column first-key labels above and below the grid.
     /// </summary>
     private void RenderExternalColumnLabels(IReadOnlyList<GridCell> cells, Rect region) {
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+        var (cols, rows) = DimensionsFromCells(cells);
 
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
         double fontSize = ComputeExternalFontSize(firstDip);
@@ -466,7 +531,7 @@ public sealed class GridRenderer : IGridRenderer {
 
         double maxLabelWidth = 0;
         for (int c = 0; c < cols; c++) {
-            var label = _labelGenerator.LabelFor(0, c);
+            var label = _labelGenerator.LabelFor(_labelRowOffset, c + _labelColOffset);
             var size = MeasureText(label.First, _typeface, fontSize);
             maxLabelWidth = Math.Max(maxLabelWidth, size.Width);
         }
@@ -490,7 +555,7 @@ public sealed class GridRenderer : IGridRenderer {
 
         for (int c = 0; c < cols; c++) {
             var cellDip = DipRectForCell(0, c, region, cols, rows);
-            var cellLabel = _labelGenerator.LabelFor(0, c);
+            var cellLabel = _labelGenerator.LabelFor(_labelRowOffset, c + _labelColOffset);
             double anchorX = cellDip.X + cellDip.Width / 2;
             double labelCenterX = labelExtentStart + (c + 0.5) * labelSpacing;
             var labelSize = MeasureText(cellLabel.First, _typeface, fontSize);
@@ -515,8 +580,7 @@ public sealed class GridRenderer : IGridRenderer {
     /// Renders row second-key labels to the left and right of the grid.
     /// </summary>
     private void RenderExternalRowLabels(IReadOnlyList<GridCell> cells, Rect region) {
-        int cols = _labelGenerator.Cols;
-        int rows = _labelGenerator.Rows;
+        var (cols, rows) = DimensionsFromCells(cells);
 
         var firstDip = DipRectForCell(0, 0, region, cols, rows);
         double fontSize = ComputeExternalFontSize(firstDip);
@@ -524,7 +588,7 @@ public sealed class GridRenderer : IGridRenderer {
 
         double maxLabelHeight = 0;
         for (int r = 0; r < rows; r++) {
-            var label = _labelGenerator.LabelFor(r, 0);
+            var label = _labelGenerator.LabelFor(r + _labelRowOffset, _labelColOffset);
             var size = MeasureText(label.Second, _typeface, fontSize);
             maxLabelHeight = Math.Max(maxLabelHeight, size.Height);
         }
@@ -553,7 +617,7 @@ public sealed class GridRenderer : IGridRenderer {
             }
 
             var cellDip = DipRectForCell(r, 0, region, cols, rows);
-            var cellLabel = _labelGenerator.LabelFor(r, 0);
+            var cellLabel = _labelGenerator.LabelFor(r + _labelRowOffset, _labelColOffset);
             double anchorY = cellDip.Y + cellDip.Height / 2;
             double labelCenterY = labelExtentStart + (r + 0.5) * labelSpacing;
             var labelSize = MeasureText(cellLabel.Second, _typeface, fontSize);

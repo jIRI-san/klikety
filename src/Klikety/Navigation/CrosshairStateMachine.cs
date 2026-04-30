@@ -17,6 +17,7 @@ public sealed class CrosshairStateMachine {
     private readonly ActionMapper _actionMapper;
     private readonly bool _arrowKeysEnabled;
     private readonly int _minCellPx;
+    private readonly int _subgridMinCellPx;
 
     private CrosshairGrid? _grid;
     private int _horizIndex = -1; // -1 = not set
@@ -47,7 +48,7 @@ public sealed class CrosshairStateMachine {
 
     public CrosshairStateMachine(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
-        bool arrowKeysEnabled, int minCellPx = 5) {
+        bool arrowKeysEnabled, int minCellPx = 10, int subgridMinCellPx = 0) {
         ArgumentNullException.ThrowIfNull(horizKeys);
         ArgumentNullException.ThrowIfNull(vertKeys);
 
@@ -72,6 +73,7 @@ public sealed class CrosshairStateMachine {
         _actionMapper = actionMapper;
         _arrowKeysEnabled = arrowKeysEnabled;
         _minCellPx = minCellPx;
+        _subgridMinCellPx = subgridMinCellPx > 0 ? subgridMinCellPx : minCellPx * 3;
 
         for (int i = 0; i < horizKeys.Length; i++) {
             _horizKeyMap[horizKeys[i]] = i;
@@ -226,9 +228,9 @@ public sealed class CrosshairStateMachine {
 
     private void EnterSubgrid(GridCell cell) {
         var hReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _horizKeys, cell.Bounds.Width, _minCellPx, hasCenterCell: false);
+            _horizKeys, cell.Bounds.Width, _subgridMinCellPx, hasCenterCell: true);
         var vReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _vertKeys, cell.Bounds.Height, _minCellPx, hasCenterCell: false);
+            _vertKeys, cell.Bounds.Height, _subgridMinCellPx, hasCenterCell: true);
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
             // Cell too small for subgrid — position cursor at center, await user action key

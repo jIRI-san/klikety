@@ -96,7 +96,7 @@ public partial class App : Application {
         if (crosshairMode is { Enabled: true }) {
             var horizLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
             var vertLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
-            crosshairRenderer = new CrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
+            crosshairRenderer = new CrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels, config.MinLabelFontSize);
         }
 
         // Create log-crosshair renderer (only if mode is enabled)

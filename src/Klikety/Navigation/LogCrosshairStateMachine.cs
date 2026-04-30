@@ -18,6 +18,7 @@ public sealed class LogCrosshairStateMachine {
     readonly ActionMapper _actionMapper;
     readonly bool _arrowKeysEnabled;
     readonly int _minCellPx;
+    readonly int _subgridMinCellPx;
 
     LogCrosshairGrid? _grid;
     int _horizIndex = -1; // -1 = not set
@@ -48,7 +49,7 @@ public sealed class LogCrosshairStateMachine {
 
     public LogCrosshairStateMachine(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
-        bool arrowKeysEnabled, int minCellPx = 5) {
+        bool arrowKeysEnabled, int minCellPx = 10, int subgridMinCellPx = 0) {
         ArgumentNullException.ThrowIfNull(horizKeys);
         ArgumentNullException.ThrowIfNull(vertKeys);
 
@@ -73,6 +74,7 @@ public sealed class LogCrosshairStateMachine {
         _actionMapper = actionMapper;
         _arrowKeysEnabled = arrowKeysEnabled;
         _minCellPx = minCellPx;
+        _subgridMinCellPx = subgridMinCellPx > 0 ? subgridMinCellPx : minCellPx * 3;
 
         for (int i = 0; i < horizKeys.Length; i++) {
             _horizKeyMap[horizKeys[i]] = i;
@@ -319,9 +321,9 @@ public sealed class LogCrosshairStateMachine {
 
     void EnterSubgrid(GridCell cell) {
         var hReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _horizKeys, cell.Bounds.Width, _minCellPx, hasCenterCell: false);
+            _horizKeys, cell.Bounds.Width, _subgridMinCellPx, hasCenterCell: true);
         var vReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _vertKeys, cell.Bounds.Height, _minCellPx, hasCenterCell: false);
+            _vertKeys, cell.Bounds.Height, _subgridMinCellPx, hasCenterCell: true);
 
         _actionPoint = LogGridCalculator.CenterOf(cell);
 

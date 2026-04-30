@@ -84,7 +84,7 @@ public sealed class NavigatorStateMachine {
         ActionMapper actionMapper,
         NavigationMode navigationMode,
         int level3Threshold,
-        int minCellPx = 5) {
+        int minCellPx = 10) {
         _firstKeys = firstKeys;
         _secondKeys = secondKeys;
         _actionMapper = actionMapper;
@@ -311,6 +311,9 @@ public sealed class NavigatorStateMachine {
                 HandleSecondKey(vkey, NavigatorState.L1_AwaitSecond, NavigatorState.L1_AwaitAction, _l1Cells, 1, ref _l1SelectedCell);
                 break;
             case NavigatorState.L1_AwaitAction:
+                if (_l2Cells.Count == 0 && TryReselectCell(vkey, _l1Cells, 1, ref _l1SelectedCell)) {
+                    break;
+                }
                 HandleNavFirstKey(vkey, 2);
                 break;
             case NavigatorState.L2_AwaitFirst:
@@ -498,6 +501,16 @@ public sealed class NavigatorStateMachine {
         NavigatorState.L2_AwaitFirst or NavigatorState.L2_AwaitSecond or NavigatorState.L2_AwaitAction => _l2FirstKeys,
         NavigatorState.L3_AwaitFirst or NavigatorState.L3_AwaitSecond or NavigatorState.L3_AwaitAction => _l3FirstKeys,
         _ => _firstKeys,
+    };
+
+    /// <summary>
+    /// Returns the label offset (colOffset, rowOffset) for a given level.
+    /// Used by the renderer to index into the full LabelGenerator.
+    /// </summary>
+    public (int ColOffset, int RowOffset) GetLabelOffsetForLevel(int level) => level switch {
+        2 => (_l2HorizStartIndex, _l2VertStartIndex),
+        3 => (_l2HorizStartIndex + _l3HorizStartIndex, _l2VertStartIndex + _l3VertStartIndex),
+        _ => (0, 0),
     };
 
     private VKey[] GetActiveFirstKeysForLevel(int level) => level switch {

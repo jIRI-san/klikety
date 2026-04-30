@@ -17,6 +17,10 @@ public sealed class CrosshairSession : IModeSession {
     private readonly ActionMapper _actionMapper;
     private readonly bool _arrowKeysEnabled;
     private readonly int _minCellPx;
+    private readonly int _subgridMinCellPx;
+    private readonly int _horizLabelBase;
+    private readonly int _vertLabelBase;
+    private readonly bool _useUniformSubgrid;
     private readonly ICrosshairRenderer? _renderer;
     private readonly IGridRenderer? _gridRenderer;
 
@@ -24,8 +28,8 @@ public sealed class CrosshairSession : IModeSession {
     private CrosshairGrid? _grid;
     private Point _origin;
 
-    // L2 level stack
-    private UniformGridSession? _l2Session;
+    // L2 level stack (can be CrosshairSession or UniformGridSession)
+    private IModeSession? _l2Session;
     private int _lastHorizCol;
     private int _lastVertRow;
 
@@ -35,19 +39,25 @@ public sealed class CrosshairSession : IModeSession {
 
     public CrosshairSession(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
-        ModeConfig modeConfig, ICrosshairRenderer? renderer, int minCellPx = 5,
-        IGridRenderer? gridRenderer = null) {
+        ModeConfig modeConfig, ICrosshairRenderer? renderer, int minCellPx = 10,
+        IGridRenderer? gridRenderer = null, int subgridMinCellPx = 0,
+        int horizLabelBase = 0, int vertLabelBase = 0, bool useUniformSubgrid = false) {
         _horizKeys = horizKeys;
         _vertKeys = vertKeys;
         _actionMapper = actionMapper;
         _arrowKeysEnabled = modeConfig.ArrowKeys;
         _minCellPx = minCellPx;
+        _subgridMinCellPx = subgridMinCellPx > 0 ? subgridMinCellPx : minCellPx * 3;
+        _horizLabelBase = horizLabelBase;
+        _vertLabelBase = vertLabelBase;
+        _useUniformSubgrid = useUniformSubgrid;
         _renderer = renderer;
         _gridRenderer = gridRenderer;
 
         // Construct SM once — reuse across activations
         _sm = new CrosshairStateMachine(
-            _horizKeys, _vertKeys, _actionMapper, _arrowKeysEnabled, _minCellPx);
+            _horizKeys, _vertKeys, _actionMapper, _arrowKeysEnabled, _minCellPx,
+            _subgridMinCellPx);
 
         _sm.HorizSelected += OnHorizSelected;
         _sm.VertSelected += OnVertSelected;
@@ -66,6 +76,9 @@ public sealed class CrosshairSession : IModeSession {
         _grid = CrosshairGridCalculator.Calculate(
             screenBounds, _horizKeys.Length, _vertKeys.Length);
 
+        // Reset label offset to this level's base (important on reactivation)
+        _renderer?.SetLabelOffset(_horizLabelBase, _vertLabelBase);
+
         _sm.Activate(_grid, origin);
         _renderer?.RenderCross(_grid);
     }
@@ -83,6 +96,7 @@ public sealed class CrosshairSession : IModeSession {
         PopL2();
         _sm.Reset();
         _grid = null;
+        _renderer?.SetLabelOffset(0, 0);
     }
 
     private void OnHorizSelected(int col, int keyIndex) {
@@ -142,26 +156,77 @@ public sealed class CrosshairSession : IModeSession {
         _lastHorizCol = parentCell.Col;
         _lastVertRow = parentCell.Row;
 
-        // Compute reduced keys for L2
+        if (_useUniformSubgrid) {
+            CreateUniformL2(parentCell);
+        } else {
+            CreateCrosshairL2(parentCell);
+        }
+    }
+
+    private void CreateCrosshairL2(GridCell parentCell) {
         var hReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _horizKeys, parentCell.Bounds.Width, _minCellPx, hasCenterCell: false);
+            _horizKeys, parentCell.Bounds.Width, _subgridMinCellPx, hasCenterCell: true);
         var vReduction = DynamicKeyReducer.ComputeActiveKeys(
-            _vertKeys, parentCell.Bounds.Height, _minCellPx, hasCenterCell: false);
+            _vertKeys, parentCell.Bounds.Height, _subgridMinCellPx, hasCenterCell: true);
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
-            // Can't enter L2 — highlight the cell
             if (_grid is not null) {
                 _renderer?.HighlightCell(_grid, parentCell);
             }
             return;
         }
 
-        // Create L2 uniform grid session
+        // Set cumulative label offset so renderer shows correct labels at any depth
+        int newHorizOffset = _horizLabelBase + hReduction.OriginalStartIndex;
+        int newVertOffset = _vertLabelBase + vReduction.OriginalStartIndex;
+        _renderer?.SetLabelOffset(newHorizOffset, newVertOffset);
+
+        // Create nested crosshair session — L3 will use uniform grid
+        var l2Mode = new ModeConfig { TwoKey = true, ArrowKeys = _arrowKeysEnabled };
+        var l2 = new CrosshairSession(
+            hReduction.ActiveKeys, vReduction.ActiveKeys,
+            _actionMapper, l2Mode, _renderer,
+            minCellPx: _minCellPx,
+            gridRenderer: _gridRenderer,
+            subgridMinCellPx: _minCellPx,
+            horizLabelBase: newHorizOffset,
+            vertLabelBase: newVertOffset,
+            useUniformSubgrid: true);
+
+        l2.ActionRequested += OnL2ActionRequested;
+        l2.Cancelled += OnL2Cancelled;
+        l2.CursorMoveRequested += OnL2CursorMoveRequested;
+
+        _l2Session = l2;
+        l2.Activate(parentCell.Bounds, CrosshairGridCalculator.CenterOf(parentCell));
+    }
+
+    private void CreateUniformL2(GridCell parentCell) {
+        // Use uniform grid reduction (no center cell)
+        var hReduction = DynamicKeyReducer.ComputeActiveKeys(
+            _horizKeys, parentCell.Bounds.Width, _minCellPx, hasCenterCell: false);
+        var vReduction = DynamicKeyReducer.ComputeActiveKeys(
+            _vertKeys, parentCell.Bounds.Height, _minCellPx, hasCenterCell: false);
+
+        if (hReduction.IsDisabled || vReduction.IsDisabled) {
+            if (_grid is not null) {
+                _renderer?.HighlightCell(_grid, parentCell);
+            }
+            return;
+        }
+
+        int newHorizOffset = _horizLabelBase + hReduction.OriginalStartIndex;
+        int newVertOffset = _vertLabelBase + vReduction.OriginalStartIndex;
+
         var l2Mode = new ModeConfig { TwoKey = true, ArrowKeys = _arrowKeysEnabled };
         var l2 = new UniformGridSession(
             hReduction.ActiveKeys, vReduction.ActiveKeys,
-            _actionMapper, l2Mode, level3Threshold: 0, _gridRenderer,
-            minCellPx: _minCellPx);
+            _actionMapper, l2Mode,
+            level3Threshold: 0,
+            _gridRenderer,
+            minCellPx: _minCellPx,
+            baseLabelColOffset: newHorizOffset,
+            baseLabelRowOffset: newVertOffset);
 
         l2.ActionRequested += OnL2ActionRequested;
         l2.Cancelled += OnL2Cancelled;
@@ -188,6 +253,9 @@ public sealed class CrosshairSession : IModeSession {
         if (_grid is null) {
             return;
         }
+
+        // Reset label offset back to this level's base
+        _renderer?.SetLabelOffset(_horizLabelBase, _vertLabelBase);
 
         var cell = _grid.CellAt(_lastVertRow, _lastHorizCol);
         _renderer?.RenderCross(_grid);

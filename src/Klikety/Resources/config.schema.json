@@ -129,7 +129,7 @@
             "logBaseSize": {
               "type": "integer",
               "description": "Base cell size in physical pixels for the center cell.",
-              "default": 5,
+              "default": 20,
               "minimum": 2,
               "maximum": 50
             }

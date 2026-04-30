@@ -432,9 +432,8 @@ public class CrosshairSessionTests {
 
         int movesAfterL2Entry = cursorMoves.Count;
 
-        // L2 two keys → enters cell → cursor move
-        session.OnKey(VKey.A);
-        session.OnKey(VKey.Q);
+        // L2: select horiz axis (G is in reduced L2 key set) → cursor move
+        session.OnKey(VKey.G);
 
         Assert.True(cursorMoves.Count > movesAfterL2Entry);
     }

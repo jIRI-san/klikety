@@ -189,6 +189,8 @@ public sealed class FakeGridRenderer : IGridRenderer {
 
     public void SetTransform(System.Windows.Media.Matrix m) { }
 
+    public void SetLabelOffset(int colOffset, int rowOffset) { }
+
     public void RenderGrid(IReadOnlyList<GridCell> cells)
         => Calls.Add(new("RenderGrid", cells));
 
@@ -218,6 +220,8 @@ public sealed class FakeCrosshairRenderer : ICrosshairRenderer {
     public List<RenderCall> Calls { get; } = [];
 
     public void SetTransform(System.Windows.Media.Matrix m) { }
+
+    public void SetLabelOffset(int horizOffset, int vertOffset) { }
 
     public void RenderCross(CrosshairGrid grid)
         => Calls.Add(new("RenderCross", grid));

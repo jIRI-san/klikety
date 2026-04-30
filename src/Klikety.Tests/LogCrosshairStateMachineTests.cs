@@ -461,4 +461,74 @@ public class LogCrosshairStateMachineTests {
         var expectedCenter = LogGridCalculator.CenterOf(grid.CenterCell);
         Assert.Equal(expectedCenter, actionPt);
     }
+
+    // --- ResetToAwaitInput (L2 pop) tests ---
+
+    [Fact]
+    public void ResetToAwaitInput_SetsStateToAwaitInput() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        // Enter BothSet
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+        Assert.Equal(LogCrosshairStateMachine.State.BothSet, sm.CurrentState);
+
+        sm.ResetToAwaitInput(2, 3);
+
+        Assert.Equal(LogCrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+    }
+
+    [Fact]
+    public void ResetToAwaitInput_FiresSubgridExited() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+
+        bool exited = false;
+        sm.SubgridExited += () => exited = true;
+
+        sm.ResetToAwaitInput(2, 3);
+
+        Assert.True(exited);
+    }
+
+    [Fact]
+    public void ResetToAwaitInput_ArrowWorksImmediately() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+
+        sm.ResetToAwaitInput(grid.CenterRow, grid.CenterCol);
+
+        (int, int)? arrowResult = null;
+        sm.ArrowMoved += (r, c) => arrowResult = (r, c);
+        sm.OnKey(VKey.Right);
+
+        Assert.NotNull(arrowResult);
+    }
+
+    [Fact]
+    public void EnterSubgrid_WhenHandlerThrows_FallsBackToCellSelected() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        GridCell? cellSelected = null;
+        sm.CellSelected += cell => cellSelected = cell;
+        sm.SubgridEntered += _ => throw new InvalidOperationException("L2 construction failed");
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+
+        Assert.NotNull(cellSelected);
+        Assert.Equal(LogCrosshairStateMachine.State.BothSet, sm.CurrentState);
+    }
 }

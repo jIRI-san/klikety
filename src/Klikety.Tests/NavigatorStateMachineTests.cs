@@ -535,7 +535,7 @@ public class NavigatorStateMachineTests {
     private static readonly VKey[] TenVertKeys = [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T, VKey.Y, VKey.U, VKey.I, VKey.O, VKey.P];
 
     private static NavigatorStateMachine CreateMachineWithReduction(
-        NavigationMode mode = NavigationMode.Both, int level3Threshold = 0, int minCellPx = 20) {
+        NavigationMode mode = NavigationMode.Both, int level3Threshold = 0, int minCellPx = 5) {
         var mapper = new ActionMapper(new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase));
         return new NavigatorStateMachine(TenHorizKeys, TenVertKeys, mapper, mode, level3Threshold, minCellPx);
     }
@@ -545,7 +545,7 @@ public class NavigatorStateMachineTests {
         // 1000x1000 screen, 10x10 grid → L1 cells = 100x100
         // At L2 with minCellPx=20: 100/20 = 5 maxKeys → reduced from 10 to 5 per axis
         // L2 subgrid: 5×5 = 25 cells
-        var sm = CreateMachineWithReduction(NavigationMode.TwoKey);
+        var sm = CreateMachineWithReduction(NavigationMode.TwoKey, minCellPx: 20);
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 1000, 1000), 10, 10);
         sm.Activate(grid, new Point(0, 0));
 
@@ -565,7 +565,7 @@ public class NavigatorStateMachineTests {
     public void L2_ReducedKeys_OnlyCenteredKeysAccepted() {
         // With 10 keys reduced to 5, centered: drop 2.5 from each side → drop 2 left, 3 right
         // Active keys: indices 2..6 → D, F, G, H, J (horiz); E, R, T, Y, U (vert)
-        var sm = CreateMachineWithReduction(NavigationMode.TwoKey);
+        var sm = CreateMachineWithReduction(NavigationMode.TwoKey, minCellPx: 20);
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 1000, 1000), 10, 10);
         sm.Activate(grid, new Point(0, 0));
 
@@ -623,7 +623,7 @@ public class NavigatorStateMachineTests {
         // 1000x1000 screen, 10x10 → L1 cells = 100×100
         // L2 with minCellPx=20: 100/20=5 → reduced to 5 → L2 cells = 5×5 = 25
         // L2 cell = 100/5 = 20×20. L3: 20/20=1 → <2 → disabled
-        var sm = CreateMachineWithReduction(NavigationMode.TwoKey, level3Threshold: 0);
+        var sm = CreateMachineWithReduction(NavigationMode.TwoKey, level3Threshold: 0, minCellPx: 20);
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 1000, 1000), 10, 10);
         sm.Activate(grid, new Point(0, 0));
 
@@ -647,7 +647,7 @@ public class NavigatorStateMachineTests {
     public void L2_Disabled_WhenParentCellTooSmall_StaysAtL1AwaitAction() {
         // 200x200 screen, 10x10 → L1 cells = 20×20
         // L2 with minCellPx=20: 20/20=1 → <2 → disabled
-        var sm = CreateMachineWithReduction(NavigationMode.TwoKey);
+        var sm = CreateMachineWithReduction(NavigationMode.TwoKey, minCellPx: 20);
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 200, 200), 10, 10);
         sm.Activate(grid, new Point(0, 0));
 
@@ -662,9 +662,38 @@ public class NavigatorStateMachineTests {
     }
 
     [Fact]
+    public void L3_Activates_OnStandardScreen_WithMinCellPx5() {
+        // 1920x1080 screen, 10x10 → L1 cells = 192×108
+        // L2 with minCellPx=5: 192/5=38 ≥ 10 → no reduction → 10×10 = 100 L2 cells
+        // L2 cell = 192/10 = ~19×10. L3: min(19,10)/5=2 → 2 keys → 2×2 = 4 cells
+        var sm = CreateMachineWithReduction(NavigationMode.TwoKey, level3Threshold: 0);
+        var grid = GridCalculator.Calculate(new Rectangle(0, 0, 1920, 1080), 10, 10);
+        sm.Activate(grid, new Point(0, 0));
+
+        IReadOnlyList<GridCell>? l2Subgrid = null;
+        IReadOnlyList<GridCell>? l3Subgrid = null;
+        sm.CellEntered += (_, sub, level) => {
+            if (level == 1) l2Subgrid = sub;
+            if (level == 2) l3Subgrid = sub;
+        };
+
+        // L1 → L2 (no reduction with minCellPx=5)
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+        Assert.Equal(100, l2Subgrid!.Count); // 10×10
+
+        // L2 → L3: L2 cell ≥ 5px both axes → L3 activates
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+
+        Assert.NotNull(l3Subgrid);
+        Assert.True(l3Subgrid!.Count >= 4); // at least 2×2
+    }
+
+    [Fact]
     public void ArrowNav_AtL2_UsesReducedColumnCount() {
-        // 1000x1000, 10x10 → L1 = 100×100 → L2: 5×5 = 25 cells
-        var sm = CreateMachineWithReduction(NavigationMode.Both);
+        // 1000x1000, 10x10 → L1 = 100×100 → L2 with minCellPx=20: 5×5 = 25 cells
+        var sm = CreateMachineWithReduction(NavigationMode.Both, minCellPx: 20);
         var grid = GridCalculator.Calculate(new Rectangle(0, 0, 1000, 1000), 10, 10);
         sm.Activate(grid, new Point(0, 0));
 

@@ -57,6 +57,7 @@ public sealed class CrosshairSession : IModeSession {
         _sm.InvalidKeyPressed += OnInvalidKeyPressed;
         _sm.ArrowMoved += OnArrowMoved;
         _sm.SubgridEntered += OnSubgridEntered;
+        _sm.SubgridExited += OnSubgridExited;
     }
 
     public void Activate(Rectangle screenBounds, Point origin) {
@@ -159,7 +160,8 @@ public sealed class CrosshairSession : IModeSession {
         var l2Mode = new ModeConfig { TwoKey = true, ArrowKeys = _arrowKeysEnabled };
         var l2 = new UniformGridSession(
             hReduction.ActiveKeys, vReduction.ActiveKeys,
-            _actionMapper, l2Mode, level3Threshold: 0, _gridRenderer);
+            _actionMapper, l2Mode, level3Threshold: 0, _gridRenderer,
+            minCellPx: _minCellPx);
 
         l2.ActionRequested += OnL2ActionRequested;
         l2.Cancelled += OnL2Cancelled;
@@ -179,13 +181,18 @@ public sealed class CrosshairSession : IModeSession {
 
     private void OnL2Cancelled() {
         PopL2();
+        _sm.ResetToAwaitInput(_lastVertRow, _lastHorizCol);
+    }
 
-        // Restore L1 cross at previously-selected axis positions
-        if (_grid is not null) {
-            var cell = _grid.CellAt(_lastVertRow, _lastHorizCol);
-            CursorMoveRequested?.Invoke(CrosshairGridCalculator.CenterOf(cell));
-            _renderer?.HighlightCell(_grid, cell);
+    private void OnSubgridExited() {
+        if (_grid is null) {
+            return;
         }
+
+        var cell = _grid.CellAt(_lastVertRow, _lastHorizCol);
+        _renderer?.RenderCross(_grid);
+        _renderer?.HighlightCell(_grid, cell);
+        CursorMoveRequested?.Invoke(CrosshairGridCalculator.CenterOf(cell));
     }
 
     private void PopL2() {

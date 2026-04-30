@@ -319,7 +319,7 @@ public class CrosshairSessionTests {
     }
 
     [Fact]
-    public void L2_EscapeFromL2_ReturnsToL1_HighlightsCell() {
+    public void L2_EscapeFromL2_ReturnsToL1_RendersCrossAndHighlightsCell() {
         var (session, renderer) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
 
@@ -330,30 +330,88 @@ public class CrosshairSessionTests {
         // Escape from L2 → back to L1
         session.OnKey(VKey.Escape);
 
-        // Should restore L1 highlight (HighlightCell)
+        // Should render full cross then highlight the arrow-position cell
+        var lastCalls = renderer.Calls.TakeLast(2).ToList();
+        Assert.Equal("RenderCross", lastCalls[0].Method);
+        Assert.Equal("HighlightCell", lastCalls[1].Method);
+    }
+
+    [Fact]
+    public void L2_EscapeFromL2_CursorMovesToCellCenter() {
+        var (session, _) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        var cursorMoves = new List<Point>();
+        session.CursorMoveRequested += pt => cursorMoves.Add(pt);
+
+        // Enter L2
+        session.OnKey(VKey.A);
+        session.OnKey(VKey.Q);
+
+        cursorMoves.Clear();
+
+        // Escape from L2
+        session.OnKey(VKey.Escape);
+
+        // Cursor should end at the L2-entry cell center
+        Assert.NotEmpty(cursorMoves);
+        // All moves should be to the same cell center
+        Assert.All(cursorMoves, pt => Assert.Equal(cursorMoves[0], pt));
+    }
+
+    [Fact]
+    public void L2_EscapeFromL2_ThenAxisKey_WorksImmediately() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Enter L2
+        session.OnKey(VKey.A);
+        session.OnKey(VKey.Q);
+
+        // Escape from L2 → back to L1 (AwaitInput)
+        session.OnKey(VKey.Escape);
+
+        // Axis key should work on L1 immediately (SM is in AwaitInput)
+        session.OnKey(VKey.S); // horiz key → HorizSet
+
+        Assert.Equal("HighlightColumn", renderer.Calls[^1].Method);
+    }
+
+    [Fact]
+    public void L2_EscapeFromL2_ThenArrow_WorksImmediately() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+
+        // Enter L2
+        session.OnKey(VKey.A);
+        session.OnKey(VKey.Q);
+
+        // Escape from L2 → back to L1 (AwaitInput)
+        session.OnKey(VKey.Escape);
+
+        // Arrow should work immediately
+        session.OnKey(VKey.Right);
+
         Assert.Equal("HighlightCell", renderer.Calls[^1].Method);
     }
 
     [Fact]
-    public void L2_EscapeFromL2_ThenNewAxisKey_WorksOnL1() {
-        var (session, renderer) = Create();
+    public void L2_EscapeFromL2_ThenReenterL2_Works() {
+        var (session, _) = Create();
         session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
 
         // Enter L2
         session.OnKey(VKey.A);
         session.OnKey(VKey.Q);
 
-        // Escape from L2 → back to L1
+        // Escape from L2
         session.OnKey(VKey.Escape);
 
-        // New axis key should work on L1
-        session.OnKey(VKey.S); // different horiz key
+        // Re-enter L2 with new axis keys
+        session.OnKey(VKey.S);
+        session.OnKey(VKey.W);
 
-        // L1 SM still in BothSet → auto-enters L2 again with new col
-        // (pressing horiz key overrides previous, then re-triggers auto-L2)
-        // Actually after pop, SM is still in BothSet state.
-        // New horiz key → HandleHorizKey with _vertIndex >= 0 → auto-L2 again.
-        // Verify action works from new L2
+        // Should be back in L2 — action fires from L2
         var actions = new List<(Point, MouseAction)>();
         session.ActionRequested += (pt, act) => actions.Add((pt, act));
         session.OnKey(VKey.Space);

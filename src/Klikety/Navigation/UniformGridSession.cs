@@ -18,6 +18,7 @@ public sealed class UniformGridSession : IModeSession {
     private readonly ActionMapper _actionMapper;
     private readonly NavigationMode _navigationMode;
     private readonly int _level3Threshold;
+    private readonly int _minCellPx;
     private readonly IGridRenderer? _gridRenderer;
 
     private NavigatorStateMachine? _stateMachine;
@@ -38,11 +39,13 @@ public sealed class UniformGridSession : IModeSession {
         ActionMapper actionMapper,
         ModeConfig modeConfig,
         int level3Threshold,
-        IGridRenderer? gridRenderer) {
+        IGridRenderer? gridRenderer,
+        int minCellPx = 5) {
         _firstKeys = firstKeys;
         _secondKeys = secondKeys;
         _actionMapper = actionMapper;
         _level3Threshold = level3Threshold;
+        _minCellPx = minCellPx;
         _gridRenderer = gridRenderer;
 
         // Convert ModeConfig booleans to legacy NavigationMode enum
@@ -64,7 +67,7 @@ public sealed class UniformGridSession : IModeSession {
         _l2SubgridCells = null;
 
         _stateMachine = new NavigatorStateMachine(
-            _firstKeys, _secondKeys, _actionMapper, _navigationMode, _level3Threshold);
+            _firstKeys, _secondKeys, _actionMapper, _navigationMode, _level3Threshold, _minCellPx);
 
         _stateMachine.ColumnHighlighted += OnColumnHighlighted;
         _stateMachine.CellHighlighted += OnCellHighlighted;

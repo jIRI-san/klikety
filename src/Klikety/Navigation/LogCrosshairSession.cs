@@ -60,6 +60,7 @@ public sealed class LogCrosshairSession : IModeSession {
         _sm.InvalidKeyPressed += OnInvalidKeyPressed;
         _sm.ArrowMoved += OnArrowMoved;
         _sm.AxisCleared += OnAxisCleared;
+        _sm.SubgridExited += OnSubgridExited;
     }
 
     public void Activate(Rectangle screenBounds, Point origin) {
@@ -165,7 +166,8 @@ public sealed class LogCrosshairSession : IModeSession {
         var l2Mode = new ModeConfig { TwoKey = true, ArrowKeys = _arrowKeysEnabled };
         var l2 = new UniformGridSession(
             hReduction.ActiveKeys, vReduction.ActiveKeys,
-            _actionMapper, l2Mode, level3Threshold: 0, _gridRenderer);
+            _actionMapper, l2Mode, level3Threshold: 0, _gridRenderer,
+            minCellPx: _minCellPx);
 
         l2.ActionRequested += OnL2ActionRequested;
         l2.Cancelled += OnL2Cancelled;
@@ -185,12 +187,18 @@ public sealed class LogCrosshairSession : IModeSession {
 
     void OnL2Cancelled() {
         PopL2();
+        _sm.ResetToAwaitInput(_lastVertRow, _lastHorizCol);
+    }
 
-        if (_grid is not null) {
-            var cell = _grid.CellAt(_lastVertRow, _lastHorizCol);
-            CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(cell));
-            _renderer?.HighlightCell(_grid, cell);
+    void OnSubgridExited() {
+        if (_grid is null) {
+            return;
         }
+
+        var cell = _grid.CellAt(_lastVertRow, _lastHorizCol);
+        _renderer?.RenderCross(_grid);
+        _renderer?.HighlightCell(_grid, cell);
+        CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(cell));
     }
 
     void PopL2() {

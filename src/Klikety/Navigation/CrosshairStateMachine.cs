@@ -43,6 +43,7 @@ public sealed class CrosshairStateMachine {
     public event Action? InvalidKeyPressed;
     public event Action<int, int>? ArrowMoved;         // (row, col) after arrow nav
     public event Action<GridCell>? SubgridEntered;      // Cell selected for L2 entry
+    public event Action? SubgridExited;                 // L2 popped, returned to L1 cross
 
     public CrosshairStateMachine(
         VKey[] horizKeys, VKey[] vertKeys, ActionMapper actionMapper,
@@ -239,7 +240,12 @@ public sealed class CrosshairStateMachine {
 
         _actionPoint = CrosshairGridCalculator.CenterOf(cell);
         CurrentState = State.BothSet;
-        SubgridEntered?.Invoke(cell);
+        try {
+            SubgridEntered?.Invoke(cell);
+        } catch {
+            // L2 session construction failed — fall back to CellSelected
+            CellSelected?.Invoke(cell);
+        }
     }
 
     private void HandleEscape() {
@@ -332,4 +338,22 @@ public sealed class CrosshairStateMachine {
 
     private static bool IsArrowKey(VKey key) =>
         key is VKey.Left or VKey.Right or VKey.Up or VKey.Down;
+
+    /// <summary>
+    /// Resets state to AwaitInput at the given grid position.
+    /// Used when L2 session is popped — returns to navigable L1 cross.
+    /// </summary>
+    public void ResetToAwaitInput(int row, int col) {
+        if (_grid is null) {
+            return;
+        }
+
+        _horizIndex = -1;
+        _vertIndex = -1;
+        _arrowRow = row;
+        _arrowCol = col;
+        _actionPoint = CrosshairGridCalculator.CenterOf(_grid.CellAt(row, col));
+        CurrentState = State.AwaitInput;
+        SubgridExited?.Invoke();
+    }
 }

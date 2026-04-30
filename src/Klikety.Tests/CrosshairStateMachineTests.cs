@@ -488,4 +488,96 @@ public class CrosshairStateMachineTests {
         Assert.Equal(0, selectedCell.Value.Col);
         Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
     }
+
+    // --- ResetToAwaitInput (L2 pop) tests ---
+
+    [Fact]
+    public void ResetToAwaitInput_SetsStateToAwaitInput() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        // Enter BothSet
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+        Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
+
+        sm.ResetToAwaitInput(2, 3);
+
+        Assert.Equal(CrosshairStateMachine.State.AwaitInput, sm.CurrentState);
+    }
+
+    [Fact]
+    public void ResetToAwaitInput_FiresSubgridExited() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+
+        bool exited = false;
+        sm.SubgridExited += () => exited = true;
+
+        sm.ResetToAwaitInput(2, 3);
+
+        Assert.True(exited);
+    }
+
+    [Fact]
+    public void ResetToAwaitInput_ArrowWorksImmediately() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+
+        // Reset to center-adjacent cell
+        sm.ResetToAwaitInput(grid.CenterRow, grid.CenterCol + 1);
+
+        // Arrow should work (only works in AwaitInput)
+        GridCell? highlighted = null;
+        sm.ArrowMoved += (r, c) => highlighted = grid.CellAt(r, c);
+        sm.OnKey(VKey.Right);
+
+        Assert.NotNull(highlighted);
+    }
+
+    [Fact]
+    public void ResetToAwaitInput_AxisKeyWorksImmediately() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+
+        sm.ResetToAwaitInput(grid.CenterRow, grid.CenterCol + 1);
+
+        // Axis key should transition to HorizSet (not auto-L2, since both cleared)
+        int? horizCol = null;
+        sm.HorizSelected += (col, _) => horizCol = col;
+        sm.OnKey(VKey.S);
+
+        Assert.NotNull(horizCol);
+        Assert.Equal(CrosshairStateMachine.State.HorizSet, sm.CurrentState);
+    }
+
+    [Fact]
+    public void EnterSubgrid_WhenHandlerThrows_FallsBackToCellSelected() {
+        var sm = CreateSM();
+        var grid = CreateGrid();
+        sm.Activate(grid, new Point(550, 550));
+
+        GridCell? cellSelected = null;
+        sm.CellSelected += cell => cellSelected = cell;
+        sm.SubgridEntered += _ => throw new InvalidOperationException("L2 construction failed");
+
+        sm.OnKey(VKey.A);
+        sm.OnKey(VKey.Q);
+
+        Assert.NotNull(cellSelected);
+        Assert.Equal(CrosshairStateMachine.State.BothSet, sm.CurrentState);
+    }
 }

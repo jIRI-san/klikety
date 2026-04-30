@@ -42,7 +42,8 @@ public sealed class ModeSessionFactory {
             _actionMapper,
             _config.Modes.UniformGrid,
             _config.Level3CellSizeThreshold,
-            _gridRenderer);
+            _gridRenderer,
+            minCellPx: 5);
     }
 
     private CrosshairSession CreateCrosshair() {

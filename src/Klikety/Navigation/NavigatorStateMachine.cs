@@ -84,7 +84,7 @@ public sealed class NavigatorStateMachine {
         ActionMapper actionMapper,
         NavigationMode navigationMode,
         int level3Threshold,
-        int minCellPx = 20) {
+        int minCellPx = 5) {
         _firstKeys = firstKeys;
         _secondKeys = secondKeys;
         _actionMapper = actionMapper;

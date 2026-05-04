@@ -18,6 +18,10 @@ public partial class App : Application {
     private TaskbarIcon? _trayIcon;
     private HotKeyService? _hotKeyService;
     private NavigatorCoordinator? _coordinator;
+#if DEBUG
+    private HotKeyService? _debugHotKeyService;
+    private OverlayWindow? _debugOverlay;
+#endif
     private ILoggerFactory? _loggerFactory;
     private bool _hasBlockingViolations;
 
@@ -130,6 +134,10 @@ public partial class App : Application {
             violations.Add($"Failed to register global hotkey {config.HotKey.Modifiers}+{config.HotKey.Key}.");
         }
 
+#if DEBUG
+        SetupDebugLogGridSession(config, theme, resolver);
+#endif
+
         return violations;
     }
 
@@ -241,5 +249,40 @@ public partial class App : Application {
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Startup violations: {Message}")]
     private static partial void LogStartupViolations(ILogger logger, string message);
+
+#if DEBUG
+    private void SetupDebugLogGridSession(ConfigModel config, Config.ThemeModel theme, Win32KeyLabelResolver resolver) {
+        _debugHotKeyService?.Dispose();
+        _debugOverlay?.Close();
+
+        _debugOverlay = new OverlayWindow();
+
+        var colLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
+        var rowLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
+        var logGridRenderer = new LogGridRenderer(
+            _debugOverlay.Canvas, theme, colLabels, rowLabels, config.MinLabelFontSize);
+
+        var session = new Navigation.DebugLogGridSession(
+            logGridRenderer,
+            PlatformServices.Instance.Cursor,
+            PlatformServices.Instance.Screen);
+
+        session.Cancelled += () => _debugOverlay?.Hide();
+
+        _debugHotKeyService = new HotKeyService();
+        _debugHotKeyService.Activated += (_, _) => {
+            var screenBounds = PlatformServices.Instance.Screen.GetPrimaryScreenBounds();
+            var cursor = PlatformServices.Instance.Cursor.GetCursorPosition();
+            _debugOverlay!.Show();
+            session.Activate(screenBounds, cursor);
+        };
+
+        // Ctrl+Shift+G — dedicated debug hotkey for log-grid visual test
+        _debugHotKeyService.Register(new HotKeyConfig {
+            Modifiers = HotKeyModifiers.Control | HotKeyModifiers.Shift,
+            Key = Input.VKey.G,
+        });
+    }
+#endif
 }
 

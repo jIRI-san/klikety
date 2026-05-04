@@ -37,4 +37,8 @@ public sealed class ThemeModel {
     public string ExternalLabelColor { get; init; } = "#FFCC00";
     public string ConnectorLineColor { get; init; } = "#FFCC00";
     public double ConnectorLineThickness { get; init; } = 1.0;
+
+    // LogGrid small-cell tint (cells below external-label threshold)
+    public string SmallCellBackgroundColor { get; init; } = "#1A4A7A";
+    public double SmallCellBackgroundOpacity { get; init; } = 0.5;
 }

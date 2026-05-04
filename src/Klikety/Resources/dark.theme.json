@@ -34,5 +34,8 @@
   // External labels (when cells too small for inline labels)
   "externalLabelColor": "#FFCC00",  // Gold external labels
   "connectorLineColor": "#FFCC00",  // Gold connector lines
-  "connectorLineThickness": 1.0     // 1px connector lines
+  "connectorLineThickness": 1.0, // 1px connector lines
+  // LogGrid small-cell tint
+  "smallCellBackgroundColor": "#1A4A7A", // Dark blue tint for small cells
+  "smallCellBackgroundOpacity": 0.5 // Semi-transparent
 }

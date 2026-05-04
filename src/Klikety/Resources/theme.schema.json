@@ -129,6 +129,27 @@
       "default": 1.5,
       "minimum": 0,
       "examples": [1, 1.5, 2]
+    },
+    "smallCellBackgroundColor": {
+      "type": "string",
+      "description": "Background tint color for LogGrid cells below the external-label threshold.",
+      "default": "#1A4A7A",
+      "examples": [
+        "#1A4A7A",
+        "#C8DEFF"
+      ]
+    },
+    "smallCellBackgroundOpacity": {
+      "type": "number",
+      "description": "Opacity of the small-cell background tint (0.0 = transparent, 1.0 = opaque).",
+      "default": 0.5,
+      "minimum": 0,
+      "maximum": 1,
+      "examples": [
+        0.3,
+        0.5,
+        0.7
+      ]
     }
   },
   "additionalProperties": false

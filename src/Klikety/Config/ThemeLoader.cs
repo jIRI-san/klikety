@@ -100,6 +100,7 @@ public static class ThemeLoader {
         ValidateColor(theme.SubgridLabelColor, nameof(theme.SubgridLabelColor), invalid);
         ValidateColor(theme.ExternalLabelColor, nameof(theme.ExternalLabelColor), invalid);
         ValidateColor(theme.ConnectorLineColor, nameof(theme.ConnectorLineColor), invalid);
+        ValidateColor(theme.SmallCellBackgroundColor, nameof(theme.SmallCellBackgroundColor), invalid);
         return invalid.Count > 0
             ? $"Invalid theme colors (will use defaults): {string.Join(", ", invalid)}"
             : null;

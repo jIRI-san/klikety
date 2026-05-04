@@ -1,4 +1,4 @@
-# 009: Post-008 Fixes — L3 Access, Crosshair Escape, LogCrosshair Crash
+# 009: Post-008 Fixes — L3 Access, Crosshair Escape, LogCrosshair Crash [DONE]
 
 ## Decisions
 

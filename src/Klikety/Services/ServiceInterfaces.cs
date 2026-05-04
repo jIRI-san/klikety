@@ -89,3 +89,17 @@ public interface ILogCrosshairRenderer {
     void HighlightCell(LogCrosshairGrid grid, GridCell cell);
     void FlashInvalidKey();
 }
+
+/// <summary>
+/// Abstracts log-scale grid rendering for testability.
+/// Flat single-level grid (10×10 default). Designed for frequent re-renders
+/// with element pooling. Axis-based external labels for small cells.
+/// </summary>
+public interface ILogGridRenderer {
+    void SetTransform(System.Windows.Media.Matrix transformFromDevice);
+    void RenderGrid(LogGrid grid);
+    void HighlightColumn(LogGrid grid, int col);
+    void HighlightCell(LogGrid grid, GridCell cell);
+    void FlashInvalidKey();
+    void ClearCanvas();
+}

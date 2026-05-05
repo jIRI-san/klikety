@@ -17,6 +17,7 @@ public sealed class KeyboardHookService : IKeyboardHookService {
     private const int WM_SYSKEYDOWN = 0x0104;
     private const int WM_KEYUP = 0x0101;
     private const int WM_SYSKEYUP = 0x0105;
+    private bool _disposed;
 
     private delegate nint LowLevelKeyboardProc(int nCode, nint wParam, nint lParam);
 
@@ -36,6 +37,7 @@ public sealed class KeyboardHookService : IKeyboardHookService {
     private nint _hookId;
     private LowLevelKeyboardProc? _hookProc; // prevent GC
     private readonly Dispatcher _dispatcher;
+    private int _generation; // incremented on Enable/Disable to discard stale events
 
     public event EventHandler<KeyHookEventArgs>? KeyEvent;
 
@@ -57,6 +59,7 @@ public sealed class KeyboardHookService : IKeyboardHookService {
     }
 
     public void Disable() {
+        _generation++;
         if (_hookId != 0) {
             if (UnhookWindowsHookEx(_hookId)) {
                 _hookId = 0;
@@ -73,10 +76,22 @@ public sealed class KeyboardHookService : IKeyboardHookService {
             if (isDown || isUp) {
                 var vkey = (VKey)(uint)Marshal.ReadInt32(lParam);
                 var args = new KeyHookEventArgs(vkey, isDown);
-                _dispatcher.InvokeAsync(() => KeyEvent?.Invoke(this, args));
+                var gen = _generation;
+                _dispatcher.InvokeAsync(() => {
+                    if (gen == _generation) {
+                        KeyEvent?.Invoke(this, args);
+                    }
+                });
             }
         }
 
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
+    }
+
+    public void Dispose() {
+        if (!_disposed) {
+            _disposed = true;
+            Disable();
+        }
     }
 }

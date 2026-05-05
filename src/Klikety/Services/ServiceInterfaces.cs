@@ -21,7 +21,7 @@ public record KeyHookEventArgs(VKey Key, bool IsDown);
 /// <summary>
 /// Abstracts low-level keyboard hook for overlay key capture.
 /// </summary>
-public interface IKeyboardHookService {
+public interface IKeyboardHookService : IDisposable {
     event EventHandler<KeyHookEventArgs>? KeyEvent;
     bool Enable();
     void Disable();

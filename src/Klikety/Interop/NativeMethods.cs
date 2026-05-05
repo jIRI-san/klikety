@@ -40,6 +40,12 @@ internal static partial class NativeMethods {
     private static partial nint GetKeyboardLayout(uint idThread);
 
     [LibraryImport("user32.dll")]
+    private static partial nint GetForegroundWindow();
+
+    [LibraryImport("user32.dll")]
+    private static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
+
+    [LibraryImport("user32.dll")]
     private static partial uint MapVirtualKeyExW(uint uCode, uint uMapType, nint dwhkl);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
@@ -69,9 +75,17 @@ internal static partial class NativeMethods {
     }
 
     /// <summary>
-    /// Gets the active keyboard layout handle for the current thread.
+    /// Gets the active keyboard layout handle for the foreground window's thread.
+    /// Falls back to the current thread's layout if no foreground window exists.
     /// </summary>
     public static nint GetActiveKeyboardLayout() {
+        var hwnd = GetForegroundWindow();
+        if (hwnd != 0) {
+            var threadId = GetWindowThreadProcessId(hwnd, out _);
+            if (threadId != 0) {
+                return GetKeyboardLayout(threadId);
+            }
+        }
         return GetKeyboardLayout(0);
     }
 
@@ -102,9 +116,12 @@ internal static partial class NativeMethods {
 
     /// <summary>
     /// Returns the current cursor position in physical pixels.
+    /// Falls back to (0, 0) if the API call fails.
     /// </summary>
     public static Point GetCursorPosition() {
-        GetCursorPos(out var pt);
+        if (!GetCursorPos(out var pt)) {
+            return Point.Empty;
+        }
         return new Point(pt.X, pt.Y);
     }
 }

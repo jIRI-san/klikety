@@ -157,7 +157,7 @@ public partial class App : Application {
 
     private void SetupTrayIcon(List<string> violations, ILogger logger) {
         var iconUri = new Uri("pack://application:,,,/Resources/klikety.ico", UriKind.Absolute);
-        var iconStream = Application.GetResourceStream(iconUri)?.Stream;
+        using var iconStream = Application.GetResourceStream(iconUri)?.Stream;
 
         _trayIcon = new TaskbarIcon {
             ToolTipText = "Klikety",

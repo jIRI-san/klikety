@@ -112,6 +112,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _overlayWindow.Show();
         } catch (InvalidOperationException) {
             LogHookInstallFailed();
+            DeactivateOverlay();
             return;
         }
 
@@ -418,6 +419,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hookService.KeyEvent -= OnKeyEvent;
         _overlayWindow.FocusLost -= OnFocusLost;
         DeactivateOverlay();
+        _hookService.Dispose();
         _overlayWindow.Close();
     }
 }

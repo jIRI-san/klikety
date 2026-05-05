@@ -56,6 +56,11 @@ public static class ConfigMigrator {
                 WasMigrated = false,
                 BlockingError = $"Cannot read config file: {ex.Message}",
             };
+        } catch (UnauthorizedAccessException ex) {
+            return new MigrationResult {
+                WasMigrated = false,
+                BlockingError = $"Cannot read config file: {ex.Message}",
+            };
         }
 
         // Clean up stale .tmp files from prior failed migrations

@@ -74,6 +74,10 @@ public static class ConfigLoader {
             return (System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions) ?? new ConfigModel(), null);
         } catch (System.Text.Json.JsonException ex) {
             return (new ConfigModel(), $"Config file could not be parsed: {ex.Message}");
+        } catch (IOException ex) {
+            return (new ConfigModel(), $"Config file could not be read: {ex.Message}");
+        } catch (UnauthorizedAccessException ex) {
+            return (new ConfigModel(), $"Config file could not be read: {ex.Message}");
         }
     }
 

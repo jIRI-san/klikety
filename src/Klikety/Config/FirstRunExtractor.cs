@@ -46,8 +46,17 @@ public static class FirstRunExtractor {
     /// <summary>Testable overload accepting explicit paths and assembly. Returns per-file warning messages.</summary>
     internal static List<string> EnsureDefaults(string configFolder, string themesFolder, Assembly assembly) {
         var warnings = new List<string>();
-        Directory.CreateDirectory(configFolder);
-        Directory.CreateDirectory(themesFolder);
+
+        try {
+            Directory.CreateDirectory(configFolder);
+            Directory.CreateDirectory(themesFolder);
+        } catch (IOException ex) {
+            warnings.Add($"Failed to create config directory: {ex.Message}");
+            return warnings;
+        } catch (UnauthorizedAccessException ex) {
+            warnings.Add($"Failed to create config directory: {ex.Message}");
+            return warnings;
+        }
 
         foreach (var (resourceName, relativePath) in AlwaysOverwrite) {
             try {

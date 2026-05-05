@@ -63,12 +63,6 @@
   // Maximum number of rolling log files to keep. Oldest deleted when exceeded.
   "retainedLogFileCount": 7,
 
-  // Navigation input mode.
-  // "twoKey"  — two-key grid scheme only; arrow keys ignored.
-  // "arrow"   — arrow key navigation only; grid keys ignored.
-  // "both"    — both schemes active simultaneously (default).
-  "navigationMode": "both",
-
   // Navigation modes. Each mode can be independently enabled/disabled.
   // Exactly one mode must be marked "default": true.
   // N and M are default chord keys — do not use in action bindings.
@@ -91,11 +85,18 @@
       "arrowKeys": true,
       "twoKey": true,
       "logBaseSize": 10
+    },
+    "logGrid": {
+      "enabled": true,
+      "chordKey": "OemComma",
+      "arrowKeys": true,
+      "twoKey": true,
+      "logGridBaseSize": 10
     }
   },
 
   // Config format version. Do not change manually.
-  "configVersion": 2,
+  "configVersion": 3,
 
   // Theme: bare name (resolves to themes/<name>.theme.json) or relative path.
   // Built-in themes: "dark", "light".

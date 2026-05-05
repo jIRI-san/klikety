@@ -108,6 +108,10 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
         IsEnabled = false;
     }
 
+    public void Dispose() {
+        Disable();
+    }
+
     public void SimulateKeyDown(VKey vkey) {
         KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, true));
     }

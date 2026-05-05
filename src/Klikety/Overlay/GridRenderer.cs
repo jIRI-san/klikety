@@ -45,9 +45,14 @@ public sealed class GridRenderer : IGridRenderer {
     private readonly SolidColorBrush _connectorBrush;
     private readonly SolidColorBrush _bgGridBorderBrush;
     private readonly SolidColorBrush _rowBandBrush;
+    private readonly SolidColorBrush _subgridBorderBrush03;
+    private readonly SolidColorBrush _highlightBg03;
     private readonly FontFamily _fontFamily;
     private readonly FontWeight _fontWeight;
     private readonly Typeface _typeface;
+
+    // Reusable flash rectangle (prevents accumulation on rapid invalid keys)
+    private Rectangle? _flashRect;
 
     public GridRenderer(Canvas canvas, ThemeModel theme, LabelGenerator labelGenerator, double minLabelFontSize = 10.0) {
         _canvas = canvas;
@@ -71,6 +76,8 @@ public sealed class GridRenderer : IGridRenderer {
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
         _bgGridBorderBrush = BrushFromHex(theme.CellBorderColor, 0.15);
         _rowBandBrush = BrushFromHex(theme.SubgridBorderColor, 0.12);
+        _subgridBorderBrush03 = BrushFromHex(theme.SubgridBorderColor, 0.3);
+        _highlightBg03 = BrushFromHex(theme.HighlightedColumnBackground, 0.3);
 
         // Cache font resources
         _fontFamily = new FontFamily(theme.LabelFontFamily);
@@ -261,7 +268,7 @@ public sealed class GridRenderer : IGridRenderer {
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _cellBorderBrush;
+        var borderBrush = useExternalLabels ? _subgridBorderBrush03 : _cellBorderBrush;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
@@ -291,8 +298,8 @@ public sealed class GridRenderer : IGridRenderer {
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _cellBorderBrush;
-        var highlightBg = useExternalLabels ? BrushFromHex(_theme.HighlightedColumnBackground, 0.3) : _highlightBg;
+        var borderBrush = useExternalLabels ? _subgridBorderBrush03 : _cellBorderBrush;
+        var highlightBg = useExternalLabels ? _highlightBg03 : _highlightBg;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
@@ -326,7 +333,7 @@ public sealed class GridRenderer : IGridRenderer {
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _cellBorderBrush;
+        var borderBrush = useExternalLabels ? _subgridBorderBrush03 : _cellBorderBrush;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
@@ -388,8 +395,8 @@ public sealed class GridRenderer : IGridRenderer {
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _subgridBorderBrush;
-        var highlightBg = useExternalLabels ? BrushFromHex(_theme.HighlightedColumnBackground, 0.3) : _highlightBg;
+        var borderBrush = useExternalLabels ? _subgridBorderBrush03 : _subgridBorderBrush;
+        var highlightBg = useExternalLabels ? _highlightBg03 : _highlightBg;
 
         if (useExternalLabels) {
             double rowHeight = region.Height / rows;
@@ -437,7 +444,7 @@ public sealed class GridRenderer : IGridRenderer {
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _subgridBorderBrush;
+        var borderBrush = useExternalLabels ? _subgridBorderBrush03 : _subgridBorderBrush;
 
         if (useExternalLabels) {
             double rowHeight = region.Height / rows;
@@ -501,7 +508,7 @@ public sealed class GridRenderer : IGridRenderer {
         bool useExternalLabels = ShouldUseExternalLabels(firstDip.Height, firstDip.Width, _minLabelFontSize);
 
         double borderThickness = useExternalLabels ? Math.Max(0.5, _theme.CellBorderThickness * 0.5) : _theme.CellBorderThickness;
-        var borderBrush = useExternalLabels ? BrushFromHex(_theme.SubgridBorderColor, 0.3) : _subgridBorderBrush;
+        var borderBrush = useExternalLabels ? _subgridBorderBrush03 : _subgridBorderBrush;
 
         foreach (var cell in cells) {
             var dipRect = DipRectForCell(cell.Row, cell.Col, region, cols, rows);
@@ -718,23 +725,39 @@ public sealed class GridRenderer : IGridRenderer {
 
     /// <summary>
     /// Brief red flash over the overlay to indicate an invalid key press.
+    /// Reuses a single Rectangle to prevent accumulation on rapid key presses.
     /// </summary>
     public void FlashInvalidKey() {
-        var flash = new Rectangle {
-            Width = _canvas.ActualWidth,
-            Height = _canvas.ActualHeight,
-            Fill = new SolidColorBrush(Color.FromArgb(80, 255, 0, 0)),
-            IsHitTestVisible = false,
-        };
-        Canvas.SetLeft(flash, 0);
-        Canvas.SetTop(flash, 0);
-        _canvas.Children.Add(flash);
+        if (_flashRect is null) {
+            _flashRect = new Rectangle {
+                Fill = new SolidColorBrush(Color.FromArgb(80, 255, 0, 0)),
+                IsHitTestVisible = false,
+            };
+            _flashRect.Fill.Freeze();
+        }
+
+        _flashRect.Width = _canvas.ActualWidth;
+        _flashRect.Height = _canvas.ActualHeight;
+        Canvas.SetLeft(_flashRect, 0);
+        Canvas.SetTop(_flashRect, 0);
+
+        // Cancel any in-flight animation before starting a new one
+        _flashRect.BeginAnimation(UIElement.OpacityProperty, null);
+        _flashRect.Opacity = 1.0;
+
+        if (_flashRect.Parent is null) {
+            _canvas.Children.Add(_flashRect);
+        }
 
         var animation = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(200)) {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
         };
-        animation.Completed += (_, _) => _canvas.Children.Remove(flash);
-        flash.BeginAnimation(UIElement.OpacityProperty, animation);
+        animation.Completed += (_, _) => {
+            _flashRect.Visibility = Visibility.Collapsed;
+            _canvas.Children.Remove(_flashRect);
+        };
+        _flashRect.Visibility = Visibility.Visible;
+        _flashRect.BeginAnimation(UIElement.OpacityProperty, animation);
     }
 
     /// <summary>

@@ -144,6 +144,22 @@ public class LogGridStateMachineTests {
         Assert.Equal(6, movedCol);
     }
 
+    [Fact]
+    public void ConsecutiveArrowKeys_InArrowCellSet_ContinueMoving() {
+        var sm = CreateSM();
+        sm.Activate(CreateGrid(), new Point(550, 550));
+        int? movedRow = null, movedCol = null;
+        sm.ArrowMoved += (row, col) => { movedRow = row; movedCol = col; };
+
+        sm.OnKey(VKey.Right); // center col 5 → 6
+        sm.OnKey(VKey.Right); // 6 → 7
+        sm.OnKey(VKey.Down);  // center row 5 → 6
+
+        Assert.Equal(6, movedRow);
+        Assert.Equal(7, movedCol);
+        Assert.Equal(LogGridStateMachine.State.ArrowCellSet, sm.CurrentState);
+    }
+
     // --- Enter behavior ---
 
     [Fact]

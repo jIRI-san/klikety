@@ -100,9 +100,9 @@ public sealed class LogGridStateMachine {
             return;
         }
 
-        // Arrow keys — only in AwaitInput or PostTwoKeyRecenter
+        // Arrow keys — in AwaitInput, ArrowCellSet, or PostTwoKeyRecenter
         if (_arrowKeysEnabled && IsArrowKey(key)
-            && CurrentState is State.AwaitInput or State.PostTwoKeyRecenter) {
+            && CurrentState is State.AwaitInput or State.ArrowCellSet or State.PostTwoKeyRecenter) {
             HandleArrow(key);
             return;
         }

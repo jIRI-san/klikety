@@ -37,6 +37,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     readonly SolidColorBrush _outlineBrush;
     readonly SolidColorBrush _extLabelBrush;
     readonly SolidColorBrush _connectorBrush;
+    readonly SolidColorBrush _labelBorderBrush;
     readonly SolidColorBrush _dimBrush;
     readonly SolidColorBrush _highlightBgBrush;
     readonly SolidColorBrush _highlightBorderBrush;
@@ -70,6 +71,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
         _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
+        _labelBorderBrush = BrushFromHex("#0A1A3A", 0.85);
         _dimBrush = BrushFromHex(theme.DimmedOverlayColor, theme.DimmedOverlayOpacity);
         _highlightBgBrush = BrushFromHex(theme.HighlightedColumnBackground, 0.5);
         _highlightBorderBrush = BrushFromHex(theme.HighlightedColumnBorderColor);
@@ -89,7 +91,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         BeginRender();
         EnsureTransform();
         RenderCells(grid, highlightCol: -1, highlightCell: null);
-        RenderExternalAxisLabels(grid);
+        RenderLabelBorders(grid, showCols: true, showRows: false);
         EndRender();
     }
 
@@ -97,7 +99,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         BeginRender();
         EnsureTransform();
         RenderCells(grid, highlightCol: col, highlightCell: null);
-        RenderExternalAxisLabels(grid);
+        RenderLabelBorders(grid, showCols: false, showRows: true);
         EndRender();
     }
 
@@ -105,7 +107,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         BeginRender();
         EnsureTransform();
         RenderCells(grid, highlightCol: -1, highlightCell: cell);
-        RenderExternalAxisLabels(grid);
+        RenderLabelBorders(grid, showCols: true, showRows: true);
         EndRender();
     }
 
@@ -265,53 +267,93 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         }
     }
 
-    void RenderExternalAxisLabels(LogGrid grid) {
-        bool[] colNeedsExternal = new bool[grid.Cols];
-        bool[] rowNeedsExternal = new bool[grid.Rows];
+    void RenderLabelBorders(LogGrid grid, bool showCols, bool showRows) {
+        double borderThickness = 2 * _minLabelFontSize;
+        double screenWidth = Math.Max(_canvas.ActualWidth, 1);
+        double screenHeight = Math.Max(_canvas.ActualHeight, 1);
 
-        for (int row = 0; row < grid.Rows; row++) {
-            for (int col = 0; col < grid.Cols; col++) {
-                var dipRect = DipRect(grid.CellAt(row, col));
-                if (IsSmallCell(dipRect)) {
-                    colNeedsExternal[col] = true;
-                    rowNeedsExternal[row] = true;
-                }
+        if (showCols && HasSmallColumns(grid)) {
+            // Top + bottom border strips
+            UseRect(new Rect(0, 0, screenWidth, borderThickness), _labelBorderBrush, _labelBorderBrush, 0);
+            UseRect(new Rect(0, screenHeight - borderThickness, screenWidth, borderThickness), _labelBorderBrush, _labelBorderBrush, 0);
+            RenderBorderColumnLabels(grid, borderThickness, screenWidth);
+        }
+
+        if (showRows && HasSmallRows(grid)) {
+            // Left + right border strips
+            UseRect(new Rect(0, 0, borderThickness, screenHeight), _labelBorderBrush, _labelBorderBrush, 0);
+            UseRect(new Rect(screenWidth - borderThickness, 0, borderThickness, screenHeight), _labelBorderBrush, _labelBorderBrush, 0);
+            RenderBorderRowLabels(grid, borderThickness, screenHeight);
+        }
+    }
+
+    bool HasSmallColumns(LogGrid grid) {
+        for (int col = 0; col < grid.Cols; col++) {
+            if (IsNarrowColumn(DipRect(grid.CellAt(0, col)))) {
+                return true;
             }
         }
 
-        RenderExternalColumnHeaders(grid, colNeedsExternal);
-        RenderExternalRowHeaders(grid, rowNeedsExternal);
+        return false;
     }
 
-    void RenderExternalColumnHeaders(LogGrid grid, bool[] colNeedsExternal) {
-        var externalCols = Enumerable.Range(0, grid.Cols).Where(c => colNeedsExternal[c]).ToList();
+    bool HasSmallRows(LogGrid grid) {
+        for (int row = 0; row < grid.Rows; row++) {
+            if (IsShortRow(DipRect(grid.CellAt(row, 0)))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void RenderBorderColumnLabels(LogGrid grid, double borderThickness, double screenWidth) {
+        // Find columns too narrow to fit an inline label
+        var externalCols = new List<int>();
+        for (int col = 0; col < grid.Cols; col++) {
+            var dipRect = DipRect(grid.CellAt(0, col));
+            if (IsNarrowColumn(dipRect)) {
+                externalCols.Add(col);
+            }
+        }
+
         if (externalCols.Count == 0) {
             return;
         }
 
-        var gridTL = DipPoint(grid.ColEdges[0], grid.RowEdges[0]);
-        var gridBR = DipPoint(grid.ColEdges[grid.Cols], grid.RowEdges[grid.Rows]);
-        double gridTop = gridTL.Y;
-        double gridBottom = gridBR.Y;
-        double gridLeft = gridTL.X;
-        double gridRight = gridBR.X;
-        double gridWidth = gridRight - gridLeft;
-
         double fontSize = ExternalFontSize();
 
-        double maxLabelWidth = externalCols.Max(c => MeasureText(_colLabels.LabelFor(c), fontSize).Width);
-        double standardMargin = fontSize * 1.5;
-        var (fanOutDist, labelExtent) = GridRenderer.ComputeFanOut(externalCols.Count, maxLabelWidth, gridWidth, standardMargin);
+        // Compute ideal positions: spread labels symmetrically from grid center.
+        // Labels left of center are placed with right edge at center (shifted left),
+        // labels right of center are placed with left edge at center (shifted right).
+        var gridCenterDip = DipPoint(grid.ColEdges[grid.Cols / 2], grid.RowEdges[0]);
+        double gridCenterX = gridCenterDip.X;
 
-        double screenWidth = Math.Max(_canvas.ActualWidth, 1);
-        double labelExtentStart = (gridLeft + gridRight) / 2 - labelExtent / 2;
-        labelExtentStart = Math.Clamp(labelExtentStart, 0, Math.Max(0, screenWidth - labelExtent));
-        double labelSpacing = labelExtent / externalCols.Count;
+        var labelPositions = new double[externalCols.Count];
+        var labelWidths = new double[externalCols.Count];
+        for (int i = 0; i < externalCols.Count; i++) {
+            int col = externalCols[i];
+            labelWidths[i] = MeasureText(_colLabels.LabelFor(col), fontSize).Width;
+
+            var colTL = DipPoint(grid.ColEdges[col], grid.RowEdges[0]);
+            var colBR = DipPoint(grid.ColEdges[col + 1], grid.RowEdges[0]);
+            double colCenter = (colTL.X + colBR.X) / 2;
+
+            if (colCenter < gridCenterX) {
+                // Left of grid center: place label right-edge at gridCenter
+                labelPositions[i] = gridCenterX - labelWidths[i] / 2 - (gridCenterX - colCenter);
+            } else {
+                // Right of grid center: place label left-edge at gridCenter
+                labelPositions[i] = gridCenterX + labelWidths[i] / 2 + (colCenter - gridCenterX);
+            }
+        }
+
+        // Resolve overlaps: push labels apart where they'd collide
+        double center = gridCenterX;
+        ResolveOverlaps(labelPositions, labelWidths, borderThickness, screenWidth - borderThickness, center);
 
         double screenHeight = Math.Max(_canvas.ActualHeight, 1);
-        bool showAbove = gridTop >= fanOutDist;
-        bool showBelow = (screenHeight - gridBottom) >= fanOutDist;
-        if (!showAbove && !showBelow) { showAbove = true; showBelow = true; }
+        double lineDepth = _minLabelFontSize * 3.5;
 
         for (int i = 0; i < externalCols.Count; i++) {
             int col = externalCols[i];
@@ -319,54 +361,66 @@ public sealed class LogGridRenderer : ILogGridRenderer {
             var colTL = DipPoint(grid.ColEdges[col], grid.RowEdges[0]);
             var colBR = DipPoint(grid.ColEdges[col + 1], grid.RowEdges[0]);
             double anchorX = (colTL.X + colBR.X) / 2;
-            double labelCenterX = labelExtentStart + (i + 0.5) * labelSpacing;
+            double labelCenterX = labelPositions[i];
             var labelSize = MeasureText(label, fontSize);
 
-            if (showAbove) {
-                double labelY = gridTop - fanOutDist;
-                UseLabel(new Rect(labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, 1.0);
-                UseLine(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2);
-            }
+            // Top border: label centered vertically in the strip
+            double topLabelY = (borderThickness - labelSize.Height) / 2;
+            UseLabel(new Rect(labelCenterX - labelSize.Width / 2, topLabelY, labelSize.Width, labelSize.Height),
+                label, fontSize, _extLabelBrush, 1.0);
+            UseLine(anchorX, borderThickness + lineDepth, labelCenterX, topLabelY + labelSize.Height + 2);
 
-            if (showBelow) {
-                double labelY = gridBottom + fanOutDist - labelSize.Height;
-                UseLabel(new Rect(labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, 1.0);
-                UseLine(anchorX, gridBottom, labelCenterX, labelY - 2);
-            }
+            // Bottom border: label centered vertically in the strip
+            double bottomLabelY = screenHeight - borderThickness + (borderThickness - labelSize.Height) / 2;
+            UseLabel(new Rect(labelCenterX - labelSize.Width / 2, bottomLabelY, labelSize.Width, labelSize.Height),
+                label, fontSize, _extLabelBrush, 1.0);
+            UseLine(anchorX, screenHeight - borderThickness - lineDepth, labelCenterX, bottomLabelY - 2);
         }
     }
 
-    void RenderExternalRowHeaders(LogGrid grid, bool[] rowNeedsExternal) {
-        var externalRows = Enumerable.Range(0, grid.Rows).Where(r => rowNeedsExternal[r]).ToList();
+    void RenderBorderRowLabels(LogGrid grid, double borderThickness, double screenHeight) {
+        // Find rows too short to fit an inline label
+        var externalRows = new List<int>();
+        for (int row = 0; row < grid.Rows; row++) {
+            var dipRect = DipRect(grid.CellAt(row, 0));
+            if (IsShortRow(dipRect)) {
+                externalRows.Add(row);
+            }
+        }
+
         if (externalRows.Count == 0) {
             return;
         }
 
-        var gridTL = DipPoint(grid.ColEdges[0], grid.RowEdges[0]);
-        var gridBR = DipPoint(grid.ColEdges[grid.Cols], grid.RowEdges[grid.Rows]);
-        double gridLeft = gridTL.X;
-        double gridRight = gridBR.X;
-        double gridTop = gridTL.Y;
-        double gridBottom = gridBR.Y;
-        double gridHeight = gridBottom - gridTop;
-
         double fontSize = ExternalFontSize();
-
-        double maxLabelHeight = externalRows.Max(r => MeasureText(_rowLabels.LabelFor(r), fontSize).Height);
-        double standardMargin = fontSize * 1.5;
-        var (fanOutDist, labelExtent) = GridRenderer.ComputeFanOut(externalRows.Count, maxLabelHeight, gridHeight, standardMargin);
-
-        double screenHeight = Math.Max(_canvas.ActualHeight, 1);
-        double labelExtentStart = (gridTop + gridBottom) / 2 - labelExtent / 2;
-        labelExtentStart = Math.Clamp(labelExtentStart, 0, Math.Max(0, screenHeight - labelExtent));
-        double labelSpacing = labelExtent / externalRows.Count;
-
         double screenWidth = Math.Max(_canvas.ActualWidth, 1);
-        bool showLeft = gridLeft >= fanOutDist;
-        bool showRight = (screenWidth - gridRight) >= fanOutDist;
-        if (!showLeft && !showRight) { showLeft = true; showRight = true; }
+
+        // Compute ideal positions: spread labels symmetrically from grid center.
+        var gridCenterDip = DipPoint(grid.ColEdges[0], grid.RowEdges[grid.Rows / 2]);
+        double gridCenterY = gridCenterDip.Y;
+
+        var labelPositions = new double[externalRows.Count];
+        var labelHeights = new double[externalRows.Count];
+        for (int i = 0; i < externalRows.Count; i++) {
+            int row = externalRows[i];
+            labelHeights[i] = MeasureText(_rowLabels.LabelFor(row), fontSize).Height;
+
+            var rowTL = DipPoint(grid.ColEdges[0], grid.RowEdges[row]);
+            var rowBL = DipPoint(grid.ColEdges[0], grid.RowEdges[row + 1]);
+            double rowCenter = (rowTL.Y + rowBL.Y) / 2;
+
+            if (rowCenter < gridCenterY) {
+                labelPositions[i] = gridCenterY - labelHeights[i] / 2 - (gridCenterY - rowCenter);
+            } else {
+                labelPositions[i] = gridCenterY + labelHeights[i] / 2 + (rowCenter - gridCenterY);
+            }
+        }
+
+        // Resolve overlaps: push labels apart where they'd collide
+        double center = gridCenterY;
+        ResolveOverlaps(labelPositions, labelHeights, borderThickness, screenHeight - borderThickness, center);
+
+        double lineDepth = _minLabelFontSize * 3.5;
 
         for (int i = 0; i < externalRows.Count; i++) {
             int row = externalRows[i];
@@ -374,22 +428,75 @@ public sealed class LogGridRenderer : ILogGridRenderer {
             var rowTL = DipPoint(grid.ColEdges[0], grid.RowEdges[row]);
             var rowBL = DipPoint(grid.ColEdges[0], grid.RowEdges[row + 1]);
             double anchorY = (rowTL.Y + rowBL.Y) / 2;
-            double labelCenterY = labelExtentStart + (i + 0.5) * labelSpacing;
+            double labelCenterY = labelPositions[i];
             var labelSize = MeasureText(label, fontSize);
 
-            if (showLeft) {
-                double labelX = gridLeft - fanOutDist;
-                UseLabel(new Rect(labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, 1.0);
-                UseLine(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY);
+            // Left border: label centered horizontally in the strip
+            double leftLabelX = (borderThickness - labelSize.Width) / 2;
+            UseLabel(new Rect(leftLabelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
+                label, fontSize, _extLabelBrush, 1.0);
+            UseLine(borderThickness + lineDepth, anchorY, leftLabelX + labelSize.Width + 2, labelCenterY);
+
+            // Right border: label centered horizontally in the strip
+            double rightLabelX = screenWidth - borderThickness + (borderThickness - labelSize.Width) / 2;
+            UseLabel(new Rect(rightLabelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
+                label, fontSize, _extLabelBrush, 1.0);
+            UseLine(screenWidth - borderThickness - lineDepth, anchorY, rightLabelX - 2, labelCenterY);
+        }
+    }
+
+    /// <summary>
+    /// Resolves label overlap by iteratively pushing apart labels that are too close.
+    /// Labels start at their ideal positions (column/row centers) and only move
+    /// when adjacent labels would overlap. After resolving, the group is re-centered
+    /// around the anchor midpoint so connector lines have symmetric slopes.
+    /// Clamped to [min, max].
+    /// </summary>
+    static void ResolveOverlaps(double[] positions, double[] sizes, double min, double max, double anchorCenter) {
+        const double gap = 2.0; // minimum gap between labels
+        const int maxPasses = 10;
+
+        for (int pass = 0; pass < maxPasses; pass++) {
+            bool moved = false;
+
+            // Forward pass: push right/down
+            for (int i = 1; i < positions.Length; i++) {
+                double prevEnd = positions[i - 1] + sizes[i - 1] / 2 + gap;
+                double currStart = positions[i] - sizes[i] / 2;
+                if (currStart < prevEnd) {
+                    positions[i] = prevEnd + sizes[i] / 2;
+                    moved = true;
+                }
             }
 
-            if (showRight) {
-                double labelX = gridRight + fanOutDist - labelSize.Width;
-                UseLabel(new Rect(labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, 1.0);
-                UseLine(gridRight, anchorY, labelX - 2, labelCenterY);
+            // Backward pass: push left/up
+            for (int i = positions.Length - 2; i >= 0; i--) {
+                double nextStart = positions[i + 1] - sizes[i + 1] / 2 - gap;
+                double currEnd = positions[i] + sizes[i] / 2;
+                if (currEnd > nextStart) {
+                    positions[i] = nextStart - sizes[i] / 2;
+                    moved = true;
+                }
             }
+
+            if (!moved) {
+                break;
+            }
+        }
+
+        // Re-center the label group around the anchor midpoint for symmetric slopes
+        // Use visual extent (accounting for label widths) not just center positions
+        double labelLeft = positions[0] - sizes[0] / 2;
+        double labelRight = positions[^1] + sizes[^1] / 2;
+        double labelCenter = (labelLeft + labelRight) / 2;
+        double shift = anchorCenter - labelCenter;
+        for (int i = 0; i < positions.Length; i++) {
+            positions[i] += shift;
+        }
+
+        // Clamp to bounds
+        for (int i = 0; i < positions.Length; i++) {
+            positions[i] = Math.Clamp(positions[i], min + sizes[i] / 2, max - sizes[i] / 2);
         }
     }
 
@@ -538,6 +645,12 @@ public sealed class LogGridRenderer : ILogGridRenderer {
 
     bool IsSmallCell(Rect dipRect) =>
         dipRect.Height < _minLabelFontSize * 1.8 || dipRect.Width / 2 < _minLabelFontSize * 1.6;
+
+    bool IsNarrowColumn(Rect dipRect) =>
+        dipRect.Width / 2 < _minLabelFontSize * 1.6;
+
+    bool IsShortRow(Rect dipRect) =>
+        dipRect.Height < _minLabelFontSize * 1.8;
 
     double ComputeInlineFontSize(Rect dipRect) {
         double halfWidth = dipRect.Width / 2;

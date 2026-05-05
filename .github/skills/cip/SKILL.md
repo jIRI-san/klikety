@@ -17,13 +17,32 @@ context: fork
 2. Identify which subsystems are likely touched by this plan (from argument or prior chat context).
 3. Load the relevant design notes to ground the planning session.
 
-## Step 2: Locate or Create Plan File
+## Step 2: Locate or Create Plan Folder
 
-Scan `docs/implementation-plans/` for existing `*.md` files (exclude `archive/`):
+Scan `docs/implementation-plans/` for existing plan folders (exclude `archived/`). Each plan lives in its own folder:
 
-- **Argument matches an existing file slug** → load that file; enter *resume mode* (skip Step 3 if plan is already well-specified; otherwise re-interview for gaps).
-- **No argument and plans exist** → list them with a one-line status summary; ask the user which to work on (or "new").
-- **"new" or no existing plans** → ask for the plan name, derive a kebab-case slug, assign the next sequential number `NNN`, target file: `docs/implementation-plans/NNN-implementation-plan-<slug>.md`.
+```
+docs/implementation-plans/NNN-<slug>/
+  plan.md              ← the main plan document
+  evolution-log.md     ← DR round history (created in Step 6)
+  decisions/           ← extracted decision rationale (created as needed)
+    <topic>.md
+```
+
+- **Argument matches an existing folder slug** → load `plan.md` from that folder; enter *resume mode* (skip Step 3 if plan is already well-specified; otherwise re-interview for gaps).
+- **No argument and plan folders exist** → list them with a one-line status summary; ask the user which to work on (or "new").
+- **"new" or no existing plans** → ask for the plan name, derive a kebab-case slug, assign the next sequential number `NNN`, create folder: `docs/implementation-plans/NNN-<slug>/`. The plan file is `docs/implementation-plans/NNN-<slug>/plan.md`.
+
+### Legacy Single-File Migration
+
+If `docs/implementation-plans/` contains loose `.md` files (not inside a folder, excluding `archived/`), these are legacy plans from the old single-file format. Migrate before proceeding:
+
+1. For each loose `NNN-implementation-plan-<slug>.md`:
+   - Derive folder name: strip `implementation-plan-` prefix → `NNN-<slug>`
+   - Create folder: `docs/implementation-plans/NNN-<slug>/`
+   - Move the file into it as `plan.md`: `Move-Item <file> docs/implementation-plans/NNN-<slug>/plan.md`
+2. Stage and commit: `git commit -m "chore: migrate legacy plan files to folder structure"`
+3. Inform the user: "Migrated N legacy plan(s) to folder structure."
 
 ## Step 3: Interview User
 
@@ -82,6 +101,21 @@ Do not proceed to drafting until you have solid answers to all of the following.
 - Boundary conditions, race conditions, empty/null inputs, unusual user flows?
 - How should each corner case be handled — error, fallback, or explicit design choice?
 
+**Visual/spatial behaviour** (if the feature has UI or rendering)
+- What happens visually after each user interaction? Describe the spatial result, not just the logical state change.
+- Are there scaling, recentering, or layout-shift behaviours that only become obvious when seen? Specify them now.
+- List all geometric/layout constraints (e.g. "cells must be square", "grid must fit viewport", "labels must be readable at 1080p"). Verify constraint compatibility — can all constraints be satisfied simultaneously? If not, define priority order.
+- What are the visual acceptance criteria? ("User can read all labels at 1920×1080" > "labels have positive font size")
+
+**Simplicity mandate**
+- For each subsystem, what is the simplest possible implementation that satisfies the requirements?
+- Are there complex mechanisms being proposed where a simple one would suffice? (e.g. "all keys configurable in config" vs "QWERTY detection + layout fallback + hardcoded defaults")
+- Plan should mandate "try the simplest thing first" — complex solutions only after the simple approach demonstrably fails.
+
+**Discovery phases** (for features with emergent behaviour)
+- Does this feature involve interactions between multiple constraints where behaviour will only become clear during implementation? (e.g. visual layouts, physics, real-time feedback loops)
+- If yes, allocate explicit "discovery" steps where implementation reveals missing requirements — these steps have lighter acceptance criteria and expect iteration.
+
 **Performance**
 - Expected throughput, latency targets, or load concerns?
 
@@ -136,20 +170,59 @@ Guidelines:
 - **Format-from-start** — if the project uses a formatter (`.editorconfig`, `dotnet format`, Prettier, Black, rustfmt), include it in Phase 1 (scaffold) and mandate formatting validation at the end of each phase. A single late formatting commit touching dozens of files is noisy and hides real changes in git history.
 - **UI/rendering complexity estimation** — UI rendering steps (custom drawing, layout algorithms, responsive/adaptive design, animation) are consistently underestimated. When a step involves non-trivial visual output with edge cases (overflow, scaling, RTL, accessibility), size it at `L` and consider splitting into sub-steps: (a) core rendering, (b) edge-case layout, (c) responsive/scaling behavior, (d) tests.
 - **Feature completeness per phase** — each phase should produce a self-contained, testable increment. Do not split a feature across phases in a way that requires rework in a later phase (e.g. "Phase 3: basic list view" then "Phase 8: virtualized scrolling" forces a rewrite of the list component). Include the complete feature — including its known edge cases — in one phase, sized appropriately.
+- **Discovery steps** — for visual/spatial/emergent-behaviour steps, mark them as discovery steps: `[discovery]`. These steps have lighter acceptance criteria ("renders correctly at 1080p" rather than pixel-precise specs), expect 1–3 steering interventions from the user, and should be sized `L`. The plan acknowledges that exact behaviour will be refined during implementation.
+- **Simplest-first mandate** — steps must specify the simplest viable approach. Do not plan complex mechanisms (detection systems, multi-tier fallbacks, frame-gating) when a simpler approach could work. If a complex approach is truly needed, add a preceding spike step that demonstrates the simple approach is insufficient.
+- **Constraint compatibility analysis** — for steps involving multiple geometric, layout, or concurrent constraints, add an explicit sub-section listing all constraints and verifying they don't conflict. Constraints that are individually reasonable can be mutually incompatible (e.g. square cells + log scaling + axis layout = grid wraps into corner).
 - **Rollback** — for `@human` steps and steps with non-code side effects, record rollback instructions in the step's `Details` section.
 - Status markers: `[ ]` TODO · `[x]` DONE · `[~]` IN-PROGRESS
 
 ## Step 5: Save Plan
 
-- **Agent mode** (can write files): write the plan to `docs/implementation-plans/NNN-implementation-plan-<slug>.md`; update after each planning iteration.
+- **Agent mode** (can write files): write the plan to `docs/implementation-plans/NNN-<slug>/plan.md`; update after each planning iteration. Create the folder if it doesn't exist.
 - **Plan mode** (read-only): maintain the plan content in session memory at `/memories/session/plan.md`; at the end offer a handoff to agent mode to persist to disk.
 
-## Step 6: Design Review (Iterative)
+### Size Limits
 
-1. Invoke `@dr` passing the plan file path (or session memory content).
-2. Apply all agreed findings as changes to the plan; update the Decisions section.
-3. If `@dr` raised any **High** or **Critical** findings that required substantial plan changes, run `@dr` again on the updated plan.
-4. Repeat until no High/Critical findings remain, or the user explicitly approves proceeding.
+Track plan size after each save. Large plans cannot be fully loaded into agent context, force lossy summarization during implementation, and make DR rounds inefficient.
+
+- **Warn at 30KB (or ~600 lines)**: "Plan is getting large — consider extracting detailed decisions into separate files or splitting into sub-plans."
+- **Block at 50KB (or ~1000 lines)**: "Plan exceeds recommended size. Apply one or more of these mitigations before continuing:
+  1. **Extract decisions** — move multi-paragraph rationale to `decisions/<topic>.md` within the plan folder; reference with a one-liner in `plan.md`.
+  2. **Split into sub-plans** — one sub-plan per phase (`phase-N.md` in the plan folder), with `plan.md` as the root index.
+  3. **Trim implementation detail** — steps should be concise checklists, not prose."
+
+## Step 6: Design Review (Iterative, Max 3 Rounds)
+
+**Cap: 3 DR rounds by default.** Most real issues surface in rounds 1–3. Later rounds produce re-discoveries, contradictions between models, and increasingly theoretical edge cases that add bulk without value.
+
+### Evolution Log
+
+Create/update `evolution-log.md` in the plan folder (e.g. `docs/implementation-plans/NNN-<slug>/evolution-log.md`). After each DR round, append:
+- Round number
+- Issues found (brief)
+- Issues fixed
+- Issues deferred → "Known Plan Issues" section in the plan
+
+DR agents **must be given the evolution log as context** to prevent re-reporting fixed issues or contradicting prior deliberate decisions.
+
+### Simplicity Gate
+
+After each DR round, before applying findings, evaluate:
+- Has the plan grown more complex without proportional risk reduction?
+- Are findings adding edge-case guards for scenarios that are unlikely in practice?
+- Would a simpler approach satisfy the actual user requirement?
+
+Flag overengineering explicitly. Reject findings that optimize for theoretical completeness over practical sufficiency.
+
+### Procedure
+
+1. Invoke `@dr` passing the plan file path (or session memory content) **and** the evolution log.
+2. Apply agreed findings; update Decisions section. Append round summary to evolution log.
+3. If `@dr` raised **High** or **Critical** findings requiring substantial plan changes, run another round (up to 3 total).
+4. After round 3, if issues remain:
+   - Record them in a "Known Plan Issues" section at the bottom of the plan.
+   - Ask: **"3 DR rounds complete. Remaining issues recorded as Known Plan Issues. Continue reviewing or start implementation?"**
+   - Only continue past 3 if user explicitly requests more rounds.
 
 ## Step 7: Finish
 

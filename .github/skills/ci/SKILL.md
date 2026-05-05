@@ -13,11 +13,24 @@ context: fork
 
 ## Step 1: Select Plan
 
-Scan `docs/implementation-plans/` for `*.md` files (exclude `archive/`).
+Scan `docs/implementation-plans/` for plan folders (exclude `archived/`). Each plan is a folder containing `plan.md`.
 
-- **Argument given** → find the file whose name contains the argument slug; confirm with user.
-- **One plan found** → load it; confirm: "Working on: NNN — Plan Title. Correct?"
-- **Multiple plans found** → list them with a status summary (count of `[ ]`/`[~]`/`[x]` steps per plan); ask which to use.
+### Legacy Single-File Migration
+
+If `docs/implementation-plans/` contains loose `.md` files (not inside a folder, excluding `archived/`), migrate them first:
+
+1. For each loose `NNN-implementation-plan-<slug>.md`:
+   - Derive folder name: strip `implementation-plan-` prefix → `NNN-<slug>`
+   - Create folder: `docs/implementation-plans/NNN-<slug>/`
+   - Move the file into it as `plan.md`: `Move-Item <file> docs/implementation-plans/NNN-<slug>/plan.md`
+2. Stage and commit: `git commit -m "chore: migrate legacy plan files to folder structure"`
+3. Inform the user: "Migrated N legacy plan(s) to folder structure."
+
+### Selection
+
+- **Argument given** → find the folder whose name contains the argument slug; load its `plan.md`; confirm with user.
+- **One plan folder found** → load its `plan.md`; confirm: "Working on: NNN — Plan Title. Correct?"
+- **Multiple plan folders found** → list them with a status summary (count of `[ ]`/`[~]`/`[x]` steps per plan); ask which to use.
 
 ### Progress Summary
 
@@ -34,10 +47,11 @@ This gives the user orientation, especially when resuming across sessions.
 
 ## Step 2: Load Context
 
-1. Read and parse the selected plan file.
-2. Read `docs/design-notes/.design-notes.md` to get the index.
-3. Identify the subsystems touched by the next pending step.
-4. Load the relevant design notes for those subsystems.
+1. Read and parse the selected plan's `plan.md`.
+2. If the plan folder contains `evolution-log.md` or `decisions/*.md`, note them as available context for later steps.
+3. Read `docs/design-notes/.design-notes.md` to get the index.
+4. Identify the subsystems touched by the next pending step.
+5. Load the relevant design notes for those subsystems.
 
 ## Step 3: Branch Detection
 
@@ -55,7 +69,7 @@ Proceed directly to Step 4 using the current branch — skip all worktree creati
 #### If current branch is `main` or `master`
 1. Find the next `[ ]` step across all phases.
 2. Derive the worktree branch name: `feature/<plan-slug>-<phase-slug>-<step-N>`
-   - `plan-slug`: the `NNN-<name>` part of the plan filename (strip `implementation-plan-`)
+   - `plan-slug`: the folder name (e.g. `007-navigation-modes`)
    - `phase-slug`: kebab-case of the phase heading
    - `step-N`: step number (e.g. `step-1-1`)
 3. Determine the worktree root: sibling folder to the repo named `<repo-folder>.worktrees` — e.g. `c:\dev\qz` → `c:\dev\qz.worktrees`. Create it if it does not exist (`mkdir` / `New-Item -ItemType Directory`).
@@ -65,7 +79,7 @@ Proceed directly to Step 4 using the current branch — skip all worktree creati
 7. **Stop** — do NOT record the branch in the plan file here; that happens on first run inside the worktree.
 
 #### If current branch is a feature branch
-Check the plan file for a `<!-- worktree: <branch-name> -->` comment in the current or next pending phase:
+Check `plan.md` for a `<!-- worktree: <branch-name> -->` comment in the current or next pending phase:
 
 - **Comment absent** — this is the first `/ci` run in this worktree. Record it now: add `<!-- worktree: <current-branch> -->` on the line immediately after the phase heading. This comment is committed with the first step's changes as part of that step's commit.
 - **Comment present and matches current branch** → continue to Step 4.
@@ -81,8 +95,9 @@ Check the plan file for a `<!-- worktree: <branch-name> -->` comment in the curr
    - If no uncommitted changes exist, reset the step to `[ ]` and treat it as a fresh start.
 4. Update its status to `[~]` in the plan file.
 5. Determine the step's **role** — look for `@human` tag on the step line. If absent, the role is `@ai-agent`.
-6. Present the step to the user: **"Next: Step X.Y — [title] [role: @ai-agent|@human]. Scope: [brief description of what will change]. Proceed?"**
-7. Wait for confirmation before continuing.
+6. Determine if it's a **discovery step** — look for `[discovery]` tag. Discovery steps expect iterative steering from the user; acceptance criteria are softer.
+7. Present the step to the user: **"Next: Step X.Y — [title] [role: @ai-agent|@human]. Scope: [brief description of what will change]. Proceed?"**
+8. Wait for confirmation before continuing.
 
 ## Step 5: Implement
 
@@ -93,6 +108,8 @@ Implement the single confirmed step — not the full phase.
 - Follow patterns from the loaded design notes.
 - Make only the changes necessary for this step.
 - Do not refactor unrelated code.
+- **Tests must encode invariants, not snapshots.** Assert the meaningful property (e.g. "cells grow outward from center") not an incidental observation (e.g. "all center-row cells have height 42px"). If a test would break from a valid future change to an unrelated aspect, it's asserting the wrong thing.
+- **Try the simplest approach first.** If the plan specifies a complex solution but a simpler one might work, try the simple one. Only escalate to complexity when the simple approach demonstrably fails.
 
 ### `@human` steps
 
@@ -133,8 +150,9 @@ If build or tests fail: diagnose, fix, and re-run. Iterate until both pass.
 Invoke `@cr` scoped to the current branch changes (`cr branch`).
 
 - Print the **complete `@cr` output verbatim** — do not summarize or truncate.
-- Ask which findings to fix (by number, range, or "all").
-- Apply the selected fixes.
+- **Default to "fix all"** — if all findings are unambiguous bugs or improvements with no trade-offs, implement all without asking. Only prompt for selection when findings involve trade-offs, conflicting approaches, or optional style preferences.
+- If prompting: ask which findings to fix (by number, range, or "all").
+- Apply the fixes.
 - Re-run build and tests until both pass.
 
 ## Step 9: Update Design Notes
@@ -174,6 +192,8 @@ After committing, check if all steps **in the current phase** are `[x]`. If the 
    - **Fix** → implement the fix, re-run build/test/CR, commit, then re-run this crosscheck.
    - **Defer** → record it as a known gap in the Decisions section of the plan.
 
+6. **Phase-end full CR** — run `@cr` across the full `src/` folder (not just the branch diff). This catches cross-cutting structural debt that per-step reviews miss (coordinator leaks, hook safety, schema mismatches, etc.). Default to "fix all" for unambiguous findings. Commit fixes separately: `fix(<scope>): phase N CR findings`.
+
 If all steps in the plan are `[x]`, proceed to Step 12.
 
 If not all done, ask: **"Continue to the next step or stop here?"**
@@ -204,9 +224,9 @@ If complete, run a **plan-level crosscheck**:
 6. If any gaps exist, ask: **"Plan has unresolved gaps. Fix now, or archive with known gaps noted in Decisions?"**
 
 On archival:
-1. Edit the plan file title to append `[DONE]`: `# NNN: Plan Title [DONE]`
-2. Move the file to `docs/implementation-plans/archive/` using PowerShell (Move-Item handles the delete of the original):
-   `Move-Item docs/implementation-plans/<file>.md docs/implementation-plans/archive/<file>.md`
-3. Stage the move: `git add docs/implementation-plans/archive/<file>.md` and `git rm docs/implementation-plans/<file>.md`
+1. Edit the plan's `plan.md` title to append `[DONE]`: `# NNN: Plan Title [DONE]`
+2. Move the entire plan folder to `docs/implementation-plans/archived/` using PowerShell:
+   `Move-Item docs/implementation-plans/NNN-<slug> docs/implementation-plans/archived/NNN-<slug>`
+3. Stage the move: `git add docs/implementation-plans/archived/NNN-<slug>` and stage the removal of the original folder.
 4. Commit: `git commit -m "chore: archive completed plan NNN"`
 5. Tell the user: "Plan NNN is complete and archived."

@@ -237,6 +237,14 @@ public static class ConfigLoader {
             violations.Add($"LogGrid: logGridBaseSize must be between 2 and 50 (got {modes.LogGrid.LogGridBaseSize}).");
         }
 
+        // LogGrid key-policy: evaluate axis key counts and emit warning if applicable
+        if (modes.LogGrid.Enabled) {
+            var keyPolicy = LogGridKeyPolicy.Evaluate(config.HorizontalKeys, config.VerticalKeys);
+            if (keyPolicy.Warning is not null) {
+                violations.Add(keyPolicy.Warning);
+            }
+        }
+
         // Chord keys: collect and check mutual uniqueness
         var chordKeys = new Dictionary<VKey, string>();
         foreach (var (name, mc) in modeEntries) {

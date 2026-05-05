@@ -455,7 +455,8 @@ public class ConfigLoaderTests {
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true, "twoKey": true, "arrowKeys": true },
                 "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N", "horizontalKeys": ["G","H","J","K"], "verticalKeys": ["Y","U","I","O"] },
-                "logCrosshair": { "enabled": true, "twoKey": true, "chordKey": "M", "logBaseSize": 5, "horizontalKeys": ["G","H","J","K"], "verticalKeys": ["Y","U","I","O"] }
+                "logCrosshair": { "enabled": true, "twoKey": true, "chordKey": "M", "logBaseSize": 5, "horizontalKeys": ["G","H","J","K"], "verticalKeys": ["Y","U","I","O"] },
+                "logGrid": { "enabled": false }
             }
         }
         """;

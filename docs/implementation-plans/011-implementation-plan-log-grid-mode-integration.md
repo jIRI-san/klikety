@@ -51,7 +51,7 @@
 
 - [x] 1.2 Add LogGrid key-policy validation: mode-scoped helper computes effective axis keys during bootstrap and exposes cached effective keys/availability for session activation (`Take(10)` if >10, mark only LogGrid unavailable if <10); ensure no path traversal/injection concerns by constraining to in-memory key arrays only; emit one startup warning via existing violations/tray notification pipeline (no duplicate runtime warnings) without blocking other modes. (REQ-9, REQ-13, RISK-3) [after: 1.1] `M`
 
-- [ ] 1.3 Implement config migration v2->v3 in `ConfigMigrator`: add missing `modes.logGrid` block and per-mode `logGridBaseSize`, patch both the regular v2->v3 path and the legacy no-`modes` normalization branch, preserve user overrides, keep idempotent atomic write pattern, fail closed for `configVersion > 3`, and update migrator tests for mixed-shape and already-v3 inputs. (REQ-10, REQ-13, RISK-2) [after: 1.1] `M`
+- [x] 1.3 Implement config migration v2->v3 in `ConfigMigrator`: add missing `modes.logGrid` block and per-mode `logGridBaseSize`, patch both the regular v2->v3 path and the legacy no-`modes` normalization branch, preserve user overrides, keep idempotent atomic write pattern, fail closed for `configVersion > 3`, and update migrator tests for mixed-shape and already-v3 inputs. (REQ-10, REQ-13, RISK-2) [after: 1.1] `M`
 
 ## Phase 2: Runtime Integration (Session + Renderer Feedback + Wiring)
 <!-- worktree: (recorded by /ci when worktree is created) -->

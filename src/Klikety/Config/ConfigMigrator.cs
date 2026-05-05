@@ -20,7 +20,7 @@ public sealed class MigrationResult {
 /// a JsonDocument pre-pass. Performs atomic writes with .bak backup.
 /// </summary>
 public static class ConfigMigrator {
-    public const int CurrentConfigVersion = 2;
+    public const int CurrentConfigVersion = 3;
 
     private static readonly VKey[] Default8FirstKeys =
         [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
@@ -148,6 +148,31 @@ public static class ConfigMigrator {
                 changed = true;
             }
 
+            // v2 → v3: add logGrid mode if missing
+            if (version < 3) {
+                if (obj["modes"] is JsonObject modesForLogGrid && !modesForLogGrid.ContainsKey("logGrid")) {
+                    var v3ActionKeys = CollectActionKeys(obj);
+                    var v3ChordComma = VKey.OemComma;
+                    var v3LogGridEnabled = !v3ActionKeys.Contains(v3ChordComma);
+                    if (!v3LogGridEnabled) {
+                        v1Warnings.Add($"LogGrid chord key '{v3ChordComma}' conflicts with actionBindings; LogGrid mode auto-disabled.");
+                    }
+
+                    var v3LogGrid = new JsonObject {
+                        ["enabled"] = v3LogGridEnabled,
+                        ["chordKey"] = v3ChordComma.ToString(),
+                        ["arrowKeys"] = true,
+                        ["twoKey"] = true,
+                        ["logGridBaseSize"] = 10,
+                    };
+                    modesForLogGrid["logGrid"] = v3LogGrid;
+                    changed = true;
+                }
+
+                obj["configVersion"] = CurrentConfigVersion;
+                changed = true;
+            }
+
             if (changed) {
                 var writeError = AtomicWrite(path, obj);
                 if (writeError is not null) {
@@ -241,6 +266,22 @@ public static class ConfigMigrator {
         };
         modes["logCrosshair"] = logCrosshair;
 
+        // LogGrid mode
+        var chordComma = VKey.OemComma;
+        var logGridEnabled = !actionKeys.Contains(chordComma);
+        if (!logGridEnabled) {
+            warnings.Add($"LogGrid chord key '{chordComma}' conflicts with actionBindings; LogGrid mode auto-disabled.");
+        }
+
+        var logGrid = new JsonObject {
+            ["enabled"] = logGridEnabled,
+            ["chordKey"] = chordComma.ToString(),
+            ["arrowKeys"] = true,
+            ["twoKey"] = true,
+            ["logGridBaseSize"] = 10,
+        };
+        modes["logGrid"] = logGrid;
+
         // Post-migration normalization: ensure at least one mode enabled and exactly one default
         EnsureDefaultMode(modes, warnings);
 
@@ -312,7 +353,7 @@ public static class ConfigMigrator {
 
     private static void EnsureDefaultMode(JsonObject modes, List<string> warnings) {
         // Count enabled and default modes
-        var modeNames = new[] { "uniformGrid", "crosshair", "logCrosshair" };
+        var modeNames = new[] { "uniformGrid", "crosshair", "logCrosshair", "logGrid" };
         int enabledCount = 0;
         int defaultCount = 0;
         string? firstEnabled = null;

@@ -35,7 +35,7 @@ public class ConfigMigratorTests {
             var migrated = ReadJsonObject(path);
             Assert.True(migrated.ContainsKey("modes"));
             Assert.False(migrated.ContainsKey("navigationMode"));
-            Assert.Equal(2, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(3, migrated["configVersion"]!.GetValue<int>());
 
             var ug = migrated["modes"]!["uniformGrid"]!;
             Assert.True(ug["enabled"]!.GetValue<bool>());
@@ -168,11 +168,12 @@ public class ConfigMigratorTests {
     public void MigrateIfNeeded_AlreadyMigrated_NoMutation() {
         var json = """
         {
-            "configVersion": 2,
+            "configVersion": 3,
             "horizontalKeys": ["A","S","D","F"],
             "verticalKeys": ["W","E","R","T"],
             "modes": {
-                "uniformGrid": { "enabled": true, "default": true }
+                "uniformGrid": { "enabled": true, "default": true },
+                "logGrid": { "enabled": true, "twoKey": true, "chordKey": "OemComma", "logGridBaseSize": 10 }
             }
         }
         """;
@@ -307,6 +308,111 @@ public class ConfigMigratorTests {
             // UniformGrid should still be default
             Assert.True(migrated["modes"]!["uniformGrid"]!["default"]!.GetValue<bool>());
             Assert.True(migrated["modes"]!["uniformGrid"]!["enabled"]!.GetValue<bool>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V2ToV3_AddsLogGridBlock() {
+        var json = """
+        {
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","F","G","H","J","K","L","OemSemicolon"],
+            "verticalKeys": ["Q","W","E","R","T","Y","U","I","O","P"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
+                "crosshair": { "enabled": true, "twoKey": true, "chordKey": "N" },
+                "logCrosshair": { "enabled": true, "twoKey": true, "chordKey": "M" }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+            Assert.Null(result.BlockingError);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(3, migrated["configVersion"]!.GetValue<int>());
+
+            var logGrid = migrated["modes"]!["logGrid"]!;
+            Assert.True(logGrid["enabled"]!.GetValue<bool>());
+            Assert.Equal("OemComma", logGrid["chordKey"]!.GetValue<string>());
+            Assert.True(logGrid["twoKey"]!.GetValue<bool>());
+            Assert.True(logGrid["arrowKeys"]!.GetValue<bool>());
+            Assert.Equal(10, logGrid["logGridBaseSize"]!.GetValue<int>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V2ToV3_OemCommaConflict_DisablesLogGrid() {
+        var json = """
+        {
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "actionBindings": { "OemComma": "MiddleClick" },
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
+                "crosshair": { "enabled": false },
+                "logCrosshair": { "enabled": false }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+            Assert.Contains(result.Warnings, w => w.Contains("LogGrid") && w.Contains("auto-disabled"));
+
+            var migrated = ReadJsonObject(path);
+            Assert.False(migrated["modes"]!["logGrid"]!["enabled"]!.GetValue<bool>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V2ToV3_PreservesExistingLogGrid() {
+        var json = """
+        {
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","F","G","H","J","K","L","OemSemicolon"],
+            "verticalKeys": ["Q","W","E","R","T","Y","U","I","O","P"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
+                "logGrid": { "enabled": false, "chordKey": "OemComma", "twoKey": true, "logGridBaseSize": 15 }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            // User override preserved — still disabled with custom baseSize
+            Assert.False(migrated["modes"]!["logGrid"]!["enabled"]!.GetValue<bool>());
+            Assert.Equal(15, migrated["modes"]!["logGrid"]!["logGridBaseSize"]!.GetValue<int>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_LegacyShape_IncludesLogGrid() {
+        var json = """
+        {
+            "navigationMode": "both",
+            "horizontalKeys": ["A", "S", "D", "F"],
+            "verticalKeys": ["W", "E", "R", "T"]
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            var logGrid = migrated["modes"]!["logGrid"]!;
+            Assert.True(logGrid["enabled"]!.GetValue<bool>());
+            Assert.Equal("OemComma", logGrid["chordKey"]!.GetValue<string>());
+            Assert.Equal(10, logGrid["logGridBaseSize"]!.GetValue<int>());
         } finally { Cleanup(path); }
     }
 

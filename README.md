@@ -10,8 +10,9 @@ Also without touching the code. This paragraph is the only one I have written ma
 
 - **Unified 8×8 grid**: Full-screen grid with 8 columns (ASDFJKL;) and 8 rows (WERTYUIO). Press two keys to select any of 64 cells.
 - **Multi-level zoom**: Level 1 → Level 2 → Level 3 subgrids for pixel-precise targeting.
-- **Three navigation modes**: UniformGrid (two-key grid), Crosshair (axis-based), and LogCrosshair (logarithmic center-focused). Switch modes with chord keys while overlay is active.
+- **Four navigation modes**: UniformGrid (two-key grid), Crosshair (axis-based), LogCrosshair (logarithmic center-focused), and LogGrid (iterative log-scaled). Switch modes with chord keys while overlay is active.
 - **LogCrosshair mode**: Logarithmically-scaled grid centered on cursor. Recenters on every navigation. Cross-arm cells grow proportionally for label readability.
+- **LogGrid mode**: 10×10 log-scaled grid with iterative recentering. Two-key selection moves cursor and recomputes grid. Cells grow geometrically from center; sub-5px boundary cells collapse automatically. Explicit action dispatch (Space/X/C/V).
 - **Arrow key navigation**: Optional arrow-key cell movement with crosshair highlight. Enter zooms into a cell; action keys (Space) click directly.
 - **Auto-scaling labels**: Font sizes adapt to cell height (80% at L1, 90% at L2/L3). External labels with connector lines when cells get too small.
 - **Outlined text**: Two-layer stroke+fill rendering ensures label readability over any background.
@@ -70,6 +71,7 @@ First run extracts default config and theme files automatically.
 | `level3CellSizeThreshold` | int | `0` | Cell area (px²) above which level-3 subgrid activates. 0 = always active. |
 | `modes` | object | see below | Navigation mode config. Each mode has `enabled`, `default`, `chordKey`, `twoKey`, `arrowKeys`. |
 | `modes.logCrosshair.logBaseSize` | int | `20` | Base cell size (px) for LogCrosshair center cell. Range: 2–50. |
+| `modes.logGrid.logGridBaseSize` | int | `10` | Base cell size (px) for LogGrid center cells. Range: 2–50. |
 | `navigationMode` | string | `"both"` | Legacy field. Migrated to `modes.uniformGrid` on first load. |
 | `theme` | string | `"dark"` | Theme name or relative path to `.theme.json` |
 | `logLevel` | string | `"Warning"` | Log level: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None` |

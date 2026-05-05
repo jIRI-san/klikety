@@ -41,6 +41,7 @@ public sealed class GridRenderer : IGridRenderer {
     private readonly SolidColorBrush _subgridLabelBrush;
     private readonly SolidColorBrush _outlineBrush;
     private readonly SolidColorBrush _extLabelBrush;
+    private readonly SolidColorBrush _extRowLabelBrush;
     private readonly SolidColorBrush _connectorBrush;
     private readonly SolidColorBrush _bgGridBorderBrush;
     private readonly SolidColorBrush _rowBandBrush;
@@ -66,6 +67,7 @@ public sealed class GridRenderer : IGridRenderer {
         _subgridLabelBrush = BrushFromHex(theme.SubgridLabelColor);
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
         _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _extRowLabelBrush = BrushFromHex(theme.ExternalRowLabelColor);
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
         _bgGridBorderBrush = BrushFromHex(theme.CellBorderColor, 0.15);
         _rowBandBrush = BrushFromHex(theme.SubgridBorderColor, 0.12);
@@ -630,14 +632,14 @@ public sealed class GridRenderer : IGridRenderer {
 
             if (showLeft) {
                 double labelX = gridLeft - fanOutDist;
-                AddOutlinedText(cellLabel.Second, _typeface, fontSize, _extLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
+                AddOutlinedText(cellLabel.Second, _typeface, fontSize, _extRowLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
                     labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
                 _canvas.Children.Add(CreateConnector(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY, _connectorBrush));
             }
 
             if (showRight) {
                 double labelX = gridRight + fanOutDist - labelSize.Width;
-                AddOutlinedText(cellLabel.Second, _typeface, fontSize, _extLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
+                AddOutlinedText(cellLabel.Second, _typeface, fontSize, _extRowLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
                     labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
                 _canvas.Children.Add(CreateConnector(gridRight, anchorY, labelX - 2, labelCenterY, _connectorBrush));
             }

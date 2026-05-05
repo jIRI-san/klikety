@@ -7,14 +7,20 @@ globs:
   - src/Klikety/Navigation/CrosshairStateMachine.cs
   - src/Klikety/Navigation/LogCrosshairSession.cs
   - src/Klikety/Navigation/LogCrosshairStateMachine.cs
+  - src/Klikety/Navigation/LogGridSession.cs
+  - src/Klikety/Navigation/LogGridStateMachine.cs
   - src/Klikety/Navigation/CrossArrowNavigator.cs
   - src/Klikety/Navigation/UniformGridSession.cs
   - src/Klikety/Grid/CrosshairGridCalculator.cs
   - src/Klikety/Grid/LogGridCalculator.cs
+  - src/Klikety/Grid/LogScaleGridCalculator.cs
+  - src/Klikety/Grid/LogGrid.cs
   - src/Klikety/Grid/DynamicKeyReducer.cs
   - src/Klikety/Grid/AxisLabelGenerator.cs
+  - src/Klikety/Config/LogGridKeyPolicy.cs
   - src/Klikety/Overlay/CrosshairRenderer.cs
   - src/Klikety/Overlay/LogCrosshairRenderer.cs
+  - src/Klikety/Overlay/LogGridRenderer.cs
   - src/Klikety/Config/NavigationMode.cs
 ---
 
@@ -25,7 +31,7 @@ Four navigation modes, each implementing `IModeSession` with independent configu
 - **UniformGrid** — two-key grid scheme using `firstKeys`/`secondKeys`. L1→L2→L3 level stack.
 - **Crosshair** — cross-style axis key navigation with uniform grid cells. Supports L2 subgrid.
 - **LogCrosshair** — logarithmic-scaled cross grid centered on cursor. Supports L2 subgrid via `SubgridEntered` event and `UniformGridSession` level stack.
-- **LogGrid** — iterative two-key selection with log-scaled center cell and recentering. Explicit-action mode (Space/X/C/V always required). Arrow navigation moves selection without recentering; recenter on Enter (arrow-selected) or two-key selection.
+- **LogGrid** — iterative two-key selection with log-scaled grid and recentering. Explicit-action mode (Space/X/C/V always required). Arrow navigation moves selection without recentering; recenter on Enter (arrow-selected) or two-key selection. Grid cells shrink geometrically toward screen edges; sub-5px cells at the boundary are collapsed to zero-width, effectively removing keys from the outside inward as the cursor approaches the screen edge.
 
 ## `IModeSession` Interface
 
@@ -107,6 +113,33 @@ Result type: `LogCrosshairGrid` with `IsDegenerate(row, col)` method. Same struc
 **Session** (`LogCrosshairSession`): Wraps SM + renderer. Grid computed at `Activate()` using cursor origin as center point. **Recenters grid** on every navigation event (horiz key, vert key, arrow move, axis clear, subgrid exit) via `RecenterGrid(newCenter)` — recalculates the log grid centered on the new cursor position, calls `SM.UpdateGrid`, and re-renders. This ensures the logarithmic scale always reflects distance from the current cursor position.
 
 Supports L2 level stack via `CrosshairSession` with dynamically-reduced key sets. L2 session is created with null renderer (visual feedback handled by the crosshair renderer wired into the L2 session itself).
+
+## LogGrid Mode
+
+**Grid**: `LogScaleGridCalculator` produces an `N×M` grid (default 10×10) centered on the cursor position. Cell sizes grow geometrically from center outward, with independent growth ratios per half-axis (left/right and up/down each solve their own binary search). The cursor position becomes the shared edge between the two innermost cells on each axis.
+
+Algorithm (`LogScaleGridCalculator.Calculate`):
+1. Clamp center to screen bounds.
+2. For each axis, `ComputeAxisEdges` builds edge positions. Center = dividing edge. Each half-axis: solve `FindHalfRatio` via binary search to find ratio r ≥ 1 such that `baseSize · (1 + r + r² + … + r^(n-1)) = halfDistance`.
+3. Uniform fallback: when `halfDistance < n · baseSize`, returns r = −1 → uniform cell sizes.
+4. Outermost edges pinned to bounds (last-cell absorption). Intermediate edges clamped.
+5. **Cell collapsing** (`CollapseSmallCells`): After edge computation, scans from center outward on each half. When the first cell < 5px is found, all cells from that cell outward to the screen edge are collapsed to zero-width (edges set to the boundary value). This removes keys from the outside inward — e.g., on the left side: `asdfg` → `sdfg` → `dfg` → `fg` → `g`.
+
+Result type: `LogGrid` with `Cells`, `Cols`, `Rows`, `CenterPoint`, `ColEdges`, `RowEdges`.
+
+**State machine** (`LogGridStateMachine`): States: `Idle`, `AwaitInput`, `FirstKeySet`, `ArrowCellSet`, `PostTwoKeyRecenter`.
+
+- First key (horizontal): maps key index → column index via `_horizKeyMap`. Rejects columns with `Width < 5px` (collapsed cells). Sets state to `FirstKeySet`, fires `FirstKeySelected`.
+- Second key (vertical): maps key index → row index via `_vertKeyMap`. Only valid in `FirstKeySet`. Rejects rows with `Height < 5px`. Fires `CellSelected`, state → `PostTwoKeyRecenter`.
+- Arrow keys: accepted in `AwaitInput`, `ArrowCellSet`, or `PostTwoKeyRecenter`. Moves `_arrowRow`/`_arrowCol` ±1, but refuses to enter cells with width or height < 5px. Fires `ArrowMoved`.
+- Enter in `ArrowCellSet`: fires `ArrowRecenterRequested` → session recenters grid on that cell's center.
+- Escape: fires `Cancelled` from any state.
+- Action keys: fire `ActionRequested` with current `_actionPoint` from any state.
+- `UpdateGrid(LogGrid)`: replaces grid, resets to `AwaitInput` at grid center. Used after recentering.
+
+**Session** (`LogGridSession`): Wraps SM + renderer + `LogScaleGridCalculator`. Computes grid at `Activate()` and on every recenter. Two-key selection → recenter immediately. Arrow-selected Enter → recenter. Recenter: moves cursor to cell center, recomputes grid centered there, calls `SM.UpdateGrid`, re-renders.
+
+**Key policy** (`LogGridKeyPolicy`): Maps mode config horizontal/vertical key arrays to grid column/row indices.
 
 ## `AxisLabelGenerator`
 

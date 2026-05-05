@@ -132,8 +132,15 @@ public sealed class LogGridStateMachine {
             return;
         }
 
+        // Reject columns narrower than MinCellSize
+        var cell = _grid.CellAt(_grid.Rows / 2, colIndex);
+        if (cell.Bounds.Width < MinCellSize) {
+            InvalidKeyPressed?.Invoke();
+            return;
+        }
+
         _selectedCol = colIndex;
-        _actionPoint = CellCenter(_grid.CellAt(_grid.Rows / 2, colIndex));
+        _actionPoint = CellCenter(cell);
         CurrentState = State.FirstKeySet;
         FirstKeySelected?.Invoke(colIndex);
     }
@@ -154,6 +161,13 @@ public sealed class LogGridStateMachine {
         }
 
         var cell = _grid.CellAt(rowIndex, _selectedCol);
+
+        // Reject rows shorter than MinCellSize
+        if (cell.Bounds.Height < MinCellSize) {
+            InvalidKeyPressed?.Invoke();
+            return;
+        }
+
         _actionPoint = CellCenter(cell);
         CurrentState = State.PostTwoKeyRecenter;
         CellSelected?.Invoke(cell);
@@ -206,9 +220,15 @@ public sealed class LogGridStateMachine {
             return;
         }
 
+        // Skip over cells smaller than MinCellSize
+        var targetCell = _grid.CellAt(newRow, newCol);
+        if (targetCell.Bounds.Width < MinCellSize || targetCell.Bounds.Height < MinCellSize) {
+            return;
+        }
+
         _arrowRow = newRow;
         _arrowCol = newCol;
-        _actionPoint = CellCenter(_grid.CellAt(newRow, newCol));
+        _actionPoint = CellCenter(targetCell);
         CurrentState = State.ArrowCellSet;
         ArrowMoved?.Invoke(newRow, newCol);
     }
@@ -225,6 +245,8 @@ public sealed class LogGridStateMachine {
         _actionPoint = grid.CenterPoint;
         CurrentState = State.AwaitInput;
     }
+
+    const int MinCellSize = 5;
 
     static Point CellCenter(GridCell cell) =>
         new(cell.Bounds.X + cell.Bounds.Width / 2, cell.Bounds.Y + cell.Bounds.Height / 2);

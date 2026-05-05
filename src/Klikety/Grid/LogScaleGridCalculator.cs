@@ -47,6 +47,10 @@ public static class LogScaleGridCalculator {
         double[] colEdges = ComputeAxisEdges(cx, bounds.Left, bounds.Right, logBaseSize, cols);
         double[] rowEdges = ComputeAxisEdges(cy, bounds.Top, bounds.Bottom, logBaseSize, rows);
 
+        // Collapse cells smaller than MinCellSize into a single MinCellSize cell
+        CollapseSmallCells(colEdges, cols);
+        CollapseSmallCells(rowEdges, rows);
+
         var cells = new GridCell[cols * rows];
         for (int row = 0; row < rows; row++) {
             int y = (int)Math.Round(rowEdges[row]);
@@ -109,6 +113,65 @@ public static class LogScaleGridCalculator {
         }
 
         return edges;
+    }
+
+    const double MinCellSize = 5.0;
+
+    /// <summary>
+    /// Ensures all visible cells are at least <see cref="MinCellSize"/> wide/tall.
+    /// When a half-axis doesn't have enough space for all cells at MinCellSize,
+    /// outermost cells are collapsed to zero-width (removed) and the remaining
+    /// innermost cells are redistributed evenly. This removes keys from the
+    /// outside inward: on the left side, 'a' disappears first, then 's', etc.
+    /// </summary>
+    static void CollapseSmallCells(double[] edges, int cellCount) {
+        int cellsPerHalf = cellCount / 2;
+
+        // Left half: cells 0..cellsPerHalf-1. Cell 0 = outermost (screen edge).
+        {
+            double halfDist = edges[cellsPerHalf] - edges[0];
+            int maxCells = Math.Min(cellsPerHalf, (int)(halfDist / MinCellSize));
+
+            if (maxCells < cellsPerHalf) {
+                int collapseCount = cellsPerHalf - maxCells;
+                // Collapse outermost cells (0..collapseCount-1) to zero-width at screen edge
+                double boundary = edges[0];
+                for (int i = 1; i <= collapseCount; i++) {
+                    edges[i] = boundary;
+                }
+
+                // Redistribute remaining cells evenly
+                if (maxCells > 0) {
+                    double cellSize = halfDist / maxCells;
+                    for (int i = 1; i < maxCells; i++) {
+                        edges[collapseCount + i] = edges[0] + i * cellSize;
+                    }
+                }
+            }
+        }
+
+        // Right half: cells cellsPerHalf..cellCount-1. Last cell = outermost (screen edge).
+        {
+            double halfDist = edges[cellCount] - edges[cellsPerHalf];
+            int maxCells = Math.Min(cellsPerHalf, (int)(halfDist / MinCellSize));
+
+            if (maxCells < cellsPerHalf) {
+                int collapseCount = cellsPerHalf - maxCells;
+                // Collapse outermost cells to zero-width at screen edge
+                double boundary = edges[cellCount];
+                for (int i = cellCount - 1; i >= cellCount - collapseCount; i--) {
+                    edges[i] = boundary;
+                }
+
+                // Redistribute remaining cells evenly
+                if (maxCells > 0) {
+                    double cellSize = halfDist / maxCells;
+                    for (int i = 1; i < maxCells; i++) {
+                        edges[cellsPerHalf + i] = edges[cellsPerHalf] + i * cellSize;
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>

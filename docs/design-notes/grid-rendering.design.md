@@ -2,6 +2,7 @@
 description: Grid rendering — DIP-space computation, font auto-scaling, outlined text, external labels, and theme system.
 globs:
   - src/Klikety/Overlay/GridRenderer.cs
+  - src/Klikety/Overlay/LogGridRenderer.cs
   - src/Klikety/Overlay/OverlayWindow.xaml
   - src/Klikety/Overlay/OverlayWindow.xaml.cs
   - src/Klikety/Config/ThemeLoader.cs
@@ -103,12 +104,13 @@ When external labels are active, no internal cell labels are rendered — cells 
 - Column highlight fill at 30% opacity (vs 50% at L2) for better see-through.
 - Alternating row bands (12% opacity, every other row) provide cross-hair visual aid during column highlight.
 
-- Theme properties: `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness`.
+- Theme properties: `ExternalLabelColor` (column labels, default `#FFCC00`), `ExternalRowLabelColor` (row labels, default `#CCE066`), `ConnectorLineColor`, `ConnectorLineThickness`.
 - Config: `MinLabelFontSize` (default 14.0 DIP) controls both the external-label threshold and the font floor.
+- All renderers (GridRenderer, CrosshairRenderer, LogGridRenderer) use distinct brushes for column vs row external labels to differentiate axes visually.
 
 ## Theme System
 
-- `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color; connector line color + thickness; label outline color + thickness.
+- `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color (columns); external row label color (rows); connector line color + thickness; label outline color + thickness; small-cell background color + opacity.
 - `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; rooted/absolute paths rejected via `Path.IsPathRooted`; fall back to built-in dark on any error + tray notification.
 - Built-in `dark.theme.json` and `light.theme.json` shipped as embedded resources; extracted to `%APPDATA%\Klikety\themes\` on first run.
 
@@ -122,3 +124,22 @@ When external labels are active, no internal cell labels are rendered — cells 
 - **Border thickness**: `ScaledBorderThickness(Rect dipRect)` — `extent * 0.02 + theme.CellBorderThickness * 0.5`, clamped to `[1×, 4×]` of theme thickness. Scales with cell size for readability.
 - **Element pooling**: Rectangles and text paths reused across renders via index tracking (`_nextRect`, `_nextText`). Staleness detected via `Parent == null` after external canvas clear — pools reset on next render.
 - **Flash animation**: `FlashInvalidKey` stops any in-flight animation (`BeginAnimation(null)`) before starting a new one, preventing handler accumulation on rapid key spam.
+
+## LogGridRenderer
+
+`LogGridRenderer` renders the LogGrid mode overlay with element pooling (rectangles, outlined text paths, dashed connector lines).
+
+**Cell rendering** (`RenderCells`):
+- Skips cells with `Width <= 0` or `Height <= 0` (zero-width cells from collapse). Does NOT skip small-but-positive cells — those are the boundary cells absorbing collapsed edge cells.
+- `IsSmallCell`: cells where `Height < minLabelFontSize * 1.8` or `Width / 2 < minLabelFontSize * 1.6` — used for distinct background tinting.
+- Inline labels rendered inside cells large enough to fit them; small cells show background only.
+
+**External labels** (border column/row labels):
+- **Progressive reveal**: Grid render → column labels only. Column highlight → row labels appear. Cell highlight → both axes.
+- `RenderBorderColumnLabels`: Finds narrow columns (`IsNarrowColumn`), computes label positions at column centers, resolves overlaps via `ResolveOverlaps`, renders labels above/below the inner 4×4 cell area with dashed connector lines.
+- `RenderBorderRowLabels`: Same for short rows. Labels left/right of inner 4×4 area. Uses `_extRowLabelBrush` (distinct from column `_extLabelBrush`).
+- `ResolveOverlaps(positions, sizes, min, max, anchorCenter)`: iterative push-apart algorithm. Gap = `max(8.0, (max - min) * 0.01)`. Forward + backward passes up to 10 iterations. Re-centers group around anchor midpoint. Clamps to bounds.
+- Guide (connector) lines: dashed, end at cell center ±1 from grid center (not at grid edge).
+- Direction-aware: only renders on sides with sufficient room (above/below for columns, left/right for rows). Fallback: at least one side always renders.
+
+**Element pooling**: Same pattern as LogCrosshairRenderer — `_rectPool`, `_textPool`, `_linePool` with `_nextRect`/`_nextText`/`_nextLine` indices. `UseRect`, `UseLabel`, `UseLine` reuse existing elements. Staleness detection via `Parent == null`.

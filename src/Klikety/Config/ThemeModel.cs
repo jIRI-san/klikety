@@ -35,6 +35,7 @@ public sealed class ThemeModel {
 
     // External labels (when subgrid cells are too small for inline labels)
     public string ExternalLabelColor { get; init; } = "#FFCC00";
+    public string ExternalRowLabelColor { get; init; } = "#CCE066";
     public string ConnectorLineColor { get; init; } = "#FFCC00";
     public double ConnectorLineThickness { get; init; } = 1.0;
 

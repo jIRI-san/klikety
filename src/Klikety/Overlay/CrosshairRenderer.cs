@@ -39,6 +39,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     private readonly SolidColorBrush _crossBgBrush;
     private readonly SolidColorBrush _outlineBrush;
     private readonly SolidColorBrush _extLabelBrush;
+    private readonly SolidColorBrush _extRowLabelBrush;
     private readonly SolidColorBrush _connectorBrush;
     private readonly Typeface _typeface;
 
@@ -61,6 +62,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
         _crossBgBrush = BrushFromHex(theme.HighlightedColumnBackground, 0.25);
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
         _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _extRowLabelBrush = BrushFromHex(theme.ExternalRowLabelColor);
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
 
         var fontFamily = new FontFamily(theme.LabelFontFamily);
@@ -611,7 +613,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
 
             if (showLeft) {
                 double labelX = gridLeft - fanOutDist;
-                AddOutlinedText(label, _typeface, fontSize, _extLabelBrush, _outlineBrush,
+                AddOutlinedText(label, _typeface, fontSize, _extRowLabelBrush, _outlineBrush,
                     _theme.LabelOutlineThickness, 1.0,
                     labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
                 _canvas.Children.Add(CreateConnector(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY));
@@ -619,7 +621,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
 
             if (showRight) {
                 double labelX = gridRight + fanOutDist - labelSize.Width;
-                AddOutlinedText(label, _typeface, fontSize, _extLabelBrush, _outlineBrush,
+                AddOutlinedText(label, _typeface, fontSize, _extRowLabelBrush, _outlineBrush,
                     _theme.LabelOutlineThickness, 1.0,
                     labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
                 _canvas.Children.Add(CreateConnector(gridRight, anchorY, labelX - 2, labelCenterY));

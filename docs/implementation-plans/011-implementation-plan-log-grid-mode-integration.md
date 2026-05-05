@@ -56,7 +56,7 @@
 ## Phase 2: Runtime Integration (Session + Renderer Feedback + Wiring)
 <!-- worktree: (recorded by /ci when worktree is created) -->
 
-- [ ] 2.1 Extend LogGrid renderer API for runtime UX: update `ILogGridRenderer` contract, `LogGridRenderer` implementation, and `FakeLogGridRenderer` call recording to support first-key indicator rendering (large glyph) and quadrant-corner helper (`(-1,-1)->(1,1)`, `(1,-1)->(-1,1)`, `(-1,1)->(1,-1)`, `(1,1)->(-1,-1)`, center->bottom-right); keep pooled element usage and outlined text path for readability. (REQ-7, REQ-13, RISK-4) [after: 1.1] `L`
+- [x] 2.1 Extend LogGrid renderer API for runtime UX: update `ILogGridRenderer` contract, `LogGridRenderer` implementation, and `FakeLogGridRenderer` call recording to support first-key indicator rendering (large glyph) and quadrant-corner helper (`(-1,-1)->(1,1)`, `(1,-1)->(-1,1)`, `(-1,1)->(1,-1)`, `(1,1)->(-1,-1)`, center->bottom-right); keep pooled element usage and outlined text path for readability. (REQ-7, REQ-13, RISK-4) [after: 1.1] `L`
 
 - [ ] 2.2 Add `LogGridSession : IModeSession` with explicit state machine: `AwaitInput`, `FirstKeySet`, `ArrowCellSet`, `PostTwoKeyRecenter`; implement a closed transition table for every state × key class (first, second, arrow, Enter, Escape, action, invalid), including two-key recenter loop, arrow move-no-recenter, Enter on arrow recenter, Enter ignored in `PostTwoKeyRecenter`, Escape close+origin restore, action explicit dispatch, and mode-scoped key-policy warning/activation blocking for <10 keys; use allocation-light state updates (reuse grid arrays returned by calculator, avoid per-key temporary collections). (REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-9, REQ-13, RISK-1, RISK-3, RISK-5) [after: 1.2, 2.1] `L`
 

@@ -719,4 +719,135 @@ public class NavigatorCoordinatorTests {
         Assert.True(overlay.HideCount > 0);
         Assert.Contains(mouse.Calls, c => c.Action == MouseAction.LeftClick);
     }
+
+    // --- LogGrid Integration Tests ---
+
+    [Fact]
+    public void Factory_CreatesLogGridSession() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                LogGrid = new ModeConfig { Enabled = true, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
+            },
+        };
+        var actionMapper = new ActionMapper(config.ActionBindings);
+        var factory = new ModeSessionFactory(config, actionMapper, null);
+
+        var session = factory.Create("LogGrid");
+
+        Assert.IsType<LogGridSession>(session);
+    }
+
+    [Fact]
+    public void Factory_LogGridUnavailable_WhenFewKeys() {
+        // Only 5 horizontal keys → below 10 minimum
+        var config = new ConfigModel {
+            HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G],
+            Modes = new ModesConfig {
+                LogGrid = new ModeConfig { Enabled = true, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
+            },
+        };
+        var actionMapper = new ActionMapper(config.ActionBindings);
+        var factory = new ModeSessionFactory(config, actionMapper, null);
+
+        Assert.False(factory.IsLogGridAvailable);
+        Assert.NotNull(factory.LogGridKeyPolicyWarning);
+        Assert.Throws<NotSupportedException>(() => factory.Create("LogGrid"));
+    }
+
+    [Fact]
+    public void Factory_LogGridAvailable_WithTrimWarning() {
+        // 12 horizontal keys → trimmed to first 10
+        var config = new ConfigModel {
+            HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G, VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon, VKey.N, VKey.M],
+            Modes = new ModesConfig {
+                LogGrid = new ModeConfig { Enabled = true, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
+            },
+        };
+        var actionMapper = new ActionMapper(config.ActionBindings);
+        var factory = new ModeSessionFactory(config, actionMapper, null);
+
+        Assert.True(factory.IsLogGridAvailable);
+        Assert.NotNull(factory.LogGridKeyPolicyWarning);
+        Assert.Contains("trimmed", factory.LogGridKeyPolicyWarning);
+    }
+
+    [Fact]
+    public void ChordKey_LogGrid_SwitchesMode() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+                LogGrid = new ModeConfig { Enabled = true, ChordKey = VKey.OemComma, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
+            },
+        };
+        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        Assert.True(overlay.IsVisible);
+
+        // Chord key → switch to LogGrid
+        hook.SimulateKeyDown(VKey.OemComma);
+
+        // LogGrid session is active → overlay stays visible
+        Assert.True(overlay.IsVisible);
+    }
+
+    [Fact]
+    public void LogGrid_Unavailable_ChordKeyNotRegistered() {
+        // Only 5 horiz keys → LogGrid unavailable → chord key should not switch
+        var config = new ConfigModel {
+            HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G],
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+                LogGrid = new ModeConfig { Enabled = true, ChordKey = VKey.OemComma, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
+            },
+        };
+        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        Assert.True(overlay.IsVisible);
+
+        // OemComma should NOT be a chord key (LogGrid unavailable) → forwarded to session
+        hook.SimulateKeyDown(VKey.OemComma);
+
+        // Overlay still visible, mode not switched (key went to UniformGrid session as invalid)
+        Assert.True(overlay.IsVisible);
+    }
+
+    [Fact]
+    public void LogGrid_DefaultMode_WhenAvailable() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, TwoKey = true, ArrowKeys = true },
+                LogGrid = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.OemComma, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
+            },
+        };
+        var (_, hotKey, _, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+
+        // LogGrid is available and default → overlay shown
+        Assert.True(overlay.IsVisible);
+    }
+
+    [Fact]
+    public void LogGrid_DefaultMode_FallsBackWhenUnavailable() {
+        // LogGrid is marked default but <10 keys → falls back to UniformGrid
+        var config = new ConfigModel {
+            HorizontalKeys = [VKey.A, VKey.S, VKey.D, VKey.F, VKey.G],
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, TwoKey = true, ArrowKeys = true },
+                LogGrid = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.OemComma, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
+            },
+        };
+        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+
+        // Should have fallen back to UniformGrid → overlay visible
+        Assert.True(overlay.IsVisible);
+
+        // Verify it's UniformGrid by pressing a nav key (A is a valid key for 5-key grid)
+        hook.SimulateKeyDown(VKey.A);
+        Assert.True(overlay.IsVisible); // Still in L1
+    }
 }

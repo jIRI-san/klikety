@@ -320,8 +320,14 @@ public class LogScaleGridCalculatorTests {
         // Left half columns (0..4) should collectively be narrower than right half (5..9)
         int leftTotal = 0;
         int rightTotal = 0;
-        for (int col = 0; col < 5; col++) leftTotal += grid.CellAt(0, col).Bounds.Width;
-        for (int col = 5; col < 10; col++) rightTotal += grid.CellAt(0, col).Bounds.Width;
+        for (int col = 0; col < 5; col++) {
+            leftTotal += grid.CellAt(0, col).Bounds.Width;
+        }
+
+        for (int col = 5; col < 10; col++) {
+            rightTotal += grid.CellAt(0, col).Bounds.Width;
+        }
+
         Assert.True(leftTotal < rightTotal, $"Left {leftTotal} should be less than right {rightTotal}");
     }
 

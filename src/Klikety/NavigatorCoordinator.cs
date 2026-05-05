@@ -78,6 +78,11 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         if (_config.Modes.LogCrosshair is { Enabled: true, ChordKey: { } logChord }) {
             _chordKeyMap[logChord] = "LogCrosshair";
         }
+
+        if (_config.Modes.LogGrid is { Enabled: true, ChordKey: { } logGridChord }
+            && _sessionFactory.IsLogGridAvailable) {
+            _chordKeyMap[logGridChord] = "LogGrid";
+        }
     }
 
     private void OnHotKeyActivated(object? sender, EventArgs e) {
@@ -142,7 +147,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         // Identify the configured default mode
         string defaultMode;
-        if (modes.Crosshair is { Default: true, Enabled: true }) {
+        if (modes.LogGrid is { Default: true, Enabled: true } && _sessionFactory.IsLogGridAvailable) {
+            defaultMode = "LogGrid";
+        } else if (modes.Crosshair is { Default: true, Enabled: true }) {
             defaultMode = "Crosshair";
         } else if (modes.LogCrosshair is { Default: true, Enabled: true }) {
             defaultMode = "LogCrosshair";

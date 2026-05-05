@@ -13,17 +13,32 @@ public sealed class ModeSessionFactory {
     private readonly IGridRenderer? _gridRenderer;
     private readonly ICrosshairRenderer? _crosshairRenderer;
     private readonly ILogCrosshairRenderer? _logCrosshairRenderer;
+    private readonly ILogGridRenderer? _logGridRenderer;
+    private readonly LogGridKeyPolicyResult _logGridKeyPolicy;
 
     public ModeSessionFactory(
         ConfigModel config, ActionMapper actionMapper,
         IGridRenderer? gridRenderer, ICrosshairRenderer? crosshairRenderer = null,
-        ILogCrosshairRenderer? logCrosshairRenderer = null) {
+        ILogCrosshairRenderer? logCrosshairRenderer = null,
+        ILogGridRenderer? logGridRenderer = null) {
         _config = config;
         _actionMapper = actionMapper;
         _gridRenderer = gridRenderer;
         _crosshairRenderer = crosshairRenderer;
         _logCrosshairRenderer = logCrosshairRenderer;
+        _logGridRenderer = logGridRenderer;
+        _logGridKeyPolicy = LogGridKeyPolicy.Evaluate(config.HorizontalKeys, config.VerticalKeys);
     }
+
+    /// <summary>
+    /// Whether LogGrid mode is available (enough keys on both axes).
+    /// </summary>
+    public bool IsLogGridAvailable => _logGridKeyPolicy.IsAvailable;
+
+    /// <summary>
+    /// Warning from LogGrid key policy evaluation (trim or unavailability reason).
+    /// </summary>
+    public string? LogGridKeyPolicyWarning => _logGridKeyPolicy.Warning;
 
     /// <summary>
     /// Creates a session for the named mode.
@@ -32,6 +47,7 @@ public sealed class ModeSessionFactory {
         "UniformGrid" => CreateUniformGrid(),
         "Crosshair" => CreateCrosshair(),
         "LogCrosshair" => CreateLogCrosshair(),
+        "LogGrid" => CreateLogGrid(),
         _ => throw new ArgumentException($"Unknown mode: {modeName}", nameof(modeName)),
     };
 
@@ -65,5 +81,20 @@ public sealed class ModeSessionFactory {
             _actionMapper,
             mode,
             _logCrosshairRenderer);
+    }
+
+    private LogGridSession CreateLogGrid() {
+        if (!_logGridKeyPolicy.IsAvailable) {
+            throw new NotSupportedException(
+                _logGridKeyPolicy.Warning ?? "LogGrid mode is unavailable.");
+        }
+
+        var mode = _config.Modes.LogGrid;
+        return new LogGridSession(
+            _logGridKeyPolicy.EffectiveHorizontalKeys,
+            _logGridKeyPolicy.EffectiveVerticalKeys,
+            _actionMapper,
+            mode,
+            _logGridRenderer);
     }
 }

@@ -112,9 +112,23 @@ public partial class App : Application {
             logCrosshairRenderer = new LogCrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
         }
 
+        // Create log-grid renderer (only if mode is enabled)
+        LogGridRenderer? logGridRenderer = null;
+        var logGridMode = config.Modes.LogGrid;
+        if (logGridMode is { Enabled: true }) {
+            var horizLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
+            var vertLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
+            logGridRenderer = new LogGridRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels, config.MinLabelFontSize);
+        }
+
         // Create action mapper and session factory
         var actionMapper = new ActionMapper(config.ActionBindings);
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer, logCrosshairRenderer);
+        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer, logCrosshairRenderer, logGridRenderer);
+
+        // LogGrid key-policy warning (trim or unavailability)
+        if (sessionFactory.LogGridKeyPolicyWarning is { } logGridWarning) {
+            violations.Add(logGridWarning);
+        }
 
         // Create coordinator
         _coordinator = new NavigatorCoordinator(

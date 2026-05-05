@@ -102,4 +102,15 @@ public interface ILogGridRenderer {
     void HighlightCell(LogGrid grid, GridCell cell);
     void FlashInvalidKey();
     void ClearCanvas();
+
+    /// <summary>
+    /// Renders a large single-character indicator in the screen corner opposite
+    /// to the current grid center quadrant. Used for first-key feedback.
+    /// </summary>
+    void RenderFirstKeyIndicator(LogGrid grid, string label, System.Drawing.Rectangle screenBounds);
+
+    /// <summary>
+    /// Hides the first-key indicator (e.g. after second key or escape).
+    /// </summary>
+    void HideFirstKeyIndicator();
 }

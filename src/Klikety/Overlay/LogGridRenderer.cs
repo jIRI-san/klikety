@@ -144,6 +144,72 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         _textPool.Clear();
         _linePool.Clear();
         _flashRect = null;
+        _indicatorOutline = null;
+        _indicatorFill = null;
+    }
+
+    // --- First-key indicator ---
+
+    Path? _indicatorOutline;
+    Path? _indicatorFill;
+
+    public void RenderFirstKeyIndicator(LogGrid grid, string label, System.Drawing.Rectangle screenBounds) {
+        EnsureTransform();
+
+        double fontSize = Math.Max(48, _canvas.ActualHeight * 0.08);
+        var ft = new FormattedText(
+            label,
+            System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            _typeface, fontSize, _labelBrush,
+            VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
+
+        var indicatorSize = new System.Drawing.Size((int)(ft.Width + 20), (int)(ft.Height + 20));
+        var pos = QuadrantCornerHelper.GetIndicatorPosition(grid.CenterPoint, screenBounds, indicatorSize);
+
+        var dipPos = _transformFromDevice.Transform(new Point(pos.X, pos.Y));
+        var geometry = ft.BuildGeometry(new Point(0, 0));
+        var bounds = geometry.Bounds;
+
+        double offsetX = dipPos.X + 10 - bounds.X;
+        double offsetY = dipPos.Y + 10 - bounds.Y;
+
+        if (_indicatorOutline is null || _indicatorOutline.Parent is null) {
+            _indicatorOutline = new Path { IsHitTestVisible = false };
+            _indicatorFill = new Path { IsHitTestVisible = false };
+            _canvas.Children.Add(_indicatorOutline);
+            _canvas.Children.Add(_indicatorFill);
+        }
+
+        double outlineThick = Math.Max(_theme.LabelOutlineThickness * 3, fontSize * 0.1);
+
+        _indicatorOutline!.Data = geometry;
+        _indicatorOutline.Fill = Brushes.Transparent;
+        _indicatorOutline.Stroke = _outlineBrush;
+        _indicatorOutline.StrokeThickness = outlineThick;
+        _indicatorOutline.StrokeLineJoin = PenLineJoin.Round;
+        _indicatorOutline.Opacity = 0.9;
+        _indicatorOutline.Visibility = Visibility.Visible;
+        Canvas.SetLeft(_indicatorOutline, offsetX);
+        Canvas.SetTop(_indicatorOutline, offsetY);
+
+        _indicatorFill!.Data = geometry;
+        _indicatorFill.Fill = _labelBrush;
+        _indicatorFill.Stroke = null;
+        _indicatorFill.Opacity = 0.9;
+        _indicatorFill.Visibility = Visibility.Visible;
+        Canvas.SetLeft(_indicatorFill, offsetX);
+        Canvas.SetTop(_indicatorFill, offsetY);
+    }
+
+    public void HideFirstKeyIndicator() {
+        if (_indicatorOutline is not null) {
+            _indicatorOutline.Visibility = Visibility.Collapsed;
+        }
+
+        if (_indicatorFill is not null) {
+            _indicatorFill.Visibility = Visibility.Collapsed;
+        }
     }
 
     // --- Core rendering ---

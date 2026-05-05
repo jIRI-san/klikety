@@ -272,7 +272,8 @@ public sealed class FakeLogCrosshairRenderer : ILogCrosshairRenderer {
 
 public sealed class FakeLogGridRenderer : ILogGridRenderer {
     public record RenderCall(string Method, LogGrid? Grid = null,
-        int? Col = null, GridCell? Cell = null);
+        int? Col = null, GridCell? Cell = null, string? Label = null,
+        System.Drawing.Rectangle? ScreenBounds = null);
 
     public List<RenderCall> Calls { get; } = [];
 
@@ -292,4 +293,10 @@ public sealed class FakeLogGridRenderer : ILogGridRenderer {
 
     public void ClearCanvas()
         => Calls.Add(new("ClearCanvas"));
+
+    public void RenderFirstKeyIndicator(LogGrid grid, string label, System.Drawing.Rectangle screenBounds)
+        => Calls.Add(new("RenderFirstKeyIndicator", grid, Label: label, ScreenBounds: screenBounds));
+
+    public void HideFirstKeyIndicator()
+        => Calls.Add(new("HideFirstKeyIndicator"));
 }

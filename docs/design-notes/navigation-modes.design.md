@@ -20,11 +20,12 @@ globs:
 
 # Navigation Modes
 
-Three navigation modes, each implementing `IModeSession` with independent configuration via `ModeConfig`:
+Four navigation modes, each implementing `IModeSession` with independent configuration via `ModeConfig`:
 
 - **UniformGrid** — two-key grid scheme using `firstKeys`/`secondKeys`. L1→L2→L3 level stack.
 - **Crosshair** — cross-style axis key navigation with uniform grid cells. Supports L2 subgrid.
 - **LogCrosshair** — logarithmic-scaled cross grid centered on cursor. Supports L2 subgrid via `SubgridEntered` event and `UniformGridSession` level stack.
+- **LogGrid** — iterative two-key selection with log-scaled center cell and recentering. Explicit-action mode (Space/X/C/V always required). Arrow navigation moves selection without recentering; recenter on Enter (arrow-selected) or two-key selection.
 
 ## `IModeSession` Interface
 
@@ -117,13 +118,13 @@ Stateless helper for crosshair/log-crosshair grid arrow navigation. Free 2D move
 
 ## `ModeConfig`
 
-Per-mode settings: `Enabled`, `Default`, `ChordKey` (nullable — default mode has none), `ArrowKeys`, `TwoKey`, `LogBaseSize` (LogCrosshair only), `HorizontalKeys`/`VerticalKeys` (Crosshair/LogCrosshair axis keys, nullable — null means use defaults).
+Per-mode settings: `Enabled`, `Default`, `ChordKey` (nullable — default mode has none), `ArrowKeys`, `TwoKey`, `LogBaseSize` (LogCrosshair only), `LogGridBaseSize` (LogGrid only), `HorizontalKeys`/`VerticalKeys` (Crosshair/LogCrosshair axis keys, nullable — null means use defaults).
 
 Bool properties default to `false` and arrays to `null`. Usable defaults live in `ModesConfig` property initializers. The config loader (JsonDocument pre-pass) merges partial user overrides onto those defaults.
 
 ## `ModesConfig`
 
-Container with three named properties (`UniformGrid`, `Crosshair`, `LogCrosshair`), each a `ModeConfig` with appropriate defaults. Lives on `ConfigModel.Modes`.
+Container with four named properties (`UniformGrid`, `Crosshair`, `LogCrosshair`, `LogGrid`), each a `ModeConfig` with appropriate defaults. Lives on `ConfigModel.Modes`. LogGrid defaults: `Enabled=true`, `ChordKey=OemComma`, `ArrowKeys=true`, `TwoKey=true`, `LogGridBaseSize=10`.
 
 ## Multi-monitor Non-Goal
 

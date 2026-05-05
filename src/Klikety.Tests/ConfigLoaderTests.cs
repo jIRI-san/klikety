@@ -172,7 +172,8 @@ public class ConfigLoaderTests {
             "modes": {
                 "uniformGrid": { "enabled": false },
                 "crosshair": { "enabled": false },
-                "logCrosshair": { "enabled": false }
+                "logCrosshair": { "enabled": false },
+                "logGrid": { "enabled": false }
             }
         }
         """;
@@ -256,6 +257,72 @@ public class ConfigLoaderTests {
         try {
             var result = ConfigLoader.Load(path);
             Assert.Contains(result.Violations, v => v.Contains("logBaseSize") && v.Contains("between 2 and 50"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_LogGridBaseSizeBelowMinimum_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","F","G","H","J","K","L","OemSemicolon"],
+            "verticalKeys": ["Q","W","E","R","T","Y","U","I","O","P"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
+                "crosshair": { "enabled": false },
+                "logCrosshair": { "enabled": false },
+                "logGrid": { "enabled": true, "twoKey": true, "chordKey": "OemComma", "logGridBaseSize": 1 }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("logGridBaseSize") && v.Contains("between 2 and 50"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_LogGridBaseSizeAboveMaximum_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","F","G","H","J","K","L","OemSemicolon"],
+            "verticalKeys": ["Q","W","E","R","T","Y","U","I","O","P"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
+                "crosshair": { "enabled": false },
+                "logCrosshair": { "enabled": false },
+                "logGrid": { "enabled": true, "twoKey": true, "chordKey": "OemComma", "logGridBaseSize": 51 }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("logGridBaseSize") && v.Contains("between 2 and 50"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_LogGridWithoutTwoKey_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 2,
+            "horizontalKeys": ["A","S","D","F","G","H","J","K","L","OemSemicolon"],
+            "verticalKeys": ["Q","W","E","R","T","Y","U","I","O","P"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
+                "crosshair": { "enabled": false },
+                "logCrosshair": { "enabled": false },
+                "logGrid": { "enabled": true, "twoKey": false, "arrowKeys": true, "chordKey": "OemComma" }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("LogGrid") && v.Contains("require twoKey"));
         } finally { Cleanup(path); }
     }
 

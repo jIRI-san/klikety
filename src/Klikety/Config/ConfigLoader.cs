@@ -190,6 +190,7 @@ public static class ConfigLoader {
             ("UniformGrid", modes.UniformGrid),
             ("Crosshair", modes.Crosshair),
             ("LogCrosshair", modes.LogCrosshair),
+            ("LogGrid", modes.LogGrid),
         };
 
         // Structural: at least one enabled
@@ -213,14 +214,14 @@ public static class ConfigLoader {
         }
 
         // Every enabled mode must have twoKey || arrowKeys
-        // Crosshair/LogCrosshair additionally require twoKey
+        // Crosshair/LogCrosshair/LogGrid additionally require twoKey
         foreach (var (name, mc) in modeEntries) {
             if (!mc.Enabled) {
                 continue;
             }
 
-            if (name is "Crosshair" or "LogCrosshair" && !mc.TwoKey) {
-                violations.Add($"{name}: Crosshair/LogCrosshair modes require twoKey: true.");
+            if (name is "Crosshair" or "LogCrosshair" or "LogGrid" && !mc.TwoKey) {
+                violations.Add($"{name}: Crosshair/LogCrosshair/LogGrid modes require twoKey: true.");
             } else if (!mc.TwoKey && !mc.ArrowKeys) {
                 violations.Add($"{name}: enabled mode must have twoKey or arrowKeys (or both).");
             }
@@ -229,6 +230,11 @@ public static class ConfigLoader {
         // Mode-specific: logBaseSize ∈ [2, 50]
         if (modes.LogCrosshair.Enabled && (modes.LogCrosshair.LogBaseSize < 2 || modes.LogCrosshair.LogBaseSize > 50)) {
             violations.Add($"LogCrosshair: logBaseSize must be between 2 and 50 (got {modes.LogCrosshair.LogBaseSize}).");
+        }
+
+        // Mode-specific: logGridBaseSize ∈ [2, 50]
+        if (modes.LogGrid.Enabled && (modes.LogGrid.LogGridBaseSize < 2 || modes.LogGrid.LogGridBaseSize > 50)) {
+            violations.Add($"LogGrid: logGridBaseSize must be between 2 and 50 (got {modes.LogGrid.LogGridBaseSize}).");
         }
 
         // Chord keys: collect and check mutual uniqueness

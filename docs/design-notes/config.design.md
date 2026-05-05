@@ -17,7 +17,7 @@ globs:
 
 ## `ConfigVersion`
 
-Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = current (modes shape). Used by the migration pre-pass to detect old configs.
+Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added), `2` = current (shared axis keys at root). Version 3 will add LogGrid mode fields (pending step 1.3). Used by the migration pre-pass to detect old configs.
 
 ## Config Migration (`ConfigMigrator`)
 

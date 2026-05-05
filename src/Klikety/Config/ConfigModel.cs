@@ -25,6 +25,12 @@ public sealed class ModeConfig {
     /// Only meaningful for LogCrosshair mode. Default 10.
     /// </summary>
     public int LogBaseSize { get; init; } = 10;
+
+    /// <summary>
+    /// Base cell size in physical pixels for LogGrid center cell.
+    /// Only meaningful for LogGrid mode. Default 10.
+    /// </summary>
+    public int LogGridBaseSize { get; init; } = 10;
 }
 
 /// <summary>
@@ -48,6 +54,13 @@ public sealed class ModesConfig {
     public ModeConfig LogCrosshair { get; init; } = new() {
         Enabled = true,
         ChordKey = VKey.M,
+        ArrowKeys = true,
+        TwoKey = true,
+    };
+
+    public ModeConfig LogGrid { get; init; } = new() {
+        Enabled = true,
+        ChordKey = VKey.OemComma,
         ArrowKeys = true,
         TwoKey = true,
     };

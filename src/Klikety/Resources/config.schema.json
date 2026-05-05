@@ -112,7 +112,7 @@
     },
     "modes": {
       "type": "object",
-      "description": "Navigation modes. Each mode can be independently enabled/disabled. Exactly one must be default. N and M are default chord keys — do not use in action bindings.",
+      "description": "Navigation modes. Each mode can be independently enabled/disabled. Exactly one must be default. N, M, and OemComma are default chord keys — do not use in action bindings.",
       "properties": {
         "uniformGrid": {
           "$ref": "#/$defs/modeConfig",
@@ -130,6 +130,19 @@
               "type": "integer",
               "description": "Base cell size in physical pixels for the center cell.",
               "default": 20,
+              "minimum": 2,
+              "maximum": 50
+            }
+          }
+        },
+        "logGrid": {
+          "allOf": [{ "$ref": "#/$defs/modeConfig" }],
+          "description": "Logarithmic grid mode. Iterative two-key selection with log-scaled center cell and recentering.",
+          "properties": {
+            "logGridBaseSize": {
+              "type": "integer",
+              "description": "Base cell size in physical pixels for the LogGrid center cell.",
+              "default": 10,
               "minimum": 2,
               "maximum": 50
             }

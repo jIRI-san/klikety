@@ -40,8 +40,9 @@
 | RISK-3 | Cross-arm cell height expansion complicates bounding box calculation | Low | Medium | Use actual DIP rects of cells on center row/col (already account for expansion); test with varied logBaseSize values | 2.1, 2.2, 3.1 |
 
 ## Phase 1: Renderer Infrastructure
+<!-- worktree: feature/012-logcrosshair-external-labels-renderer-infrastructure-step-1-1 -->
 
-- [ ] 1.1 Add `minLabelFontSize` to `LogCrosshairRenderer` constructor and wire in `App.xaml.cs` (REQ-2) `S`
+- [x] 1.1 Add `minLabelFontSize` to `LogCrosshairRenderer` constructor and wire in `App.xaml.cs` (REQ-2) `S`
   - Constructor signature: `(Canvas, ThemeModel, AxisLabelGenerator, AxisLabelGenerator, double minLabelFontSize)`
   - Store as `readonly double _minLabelFontSize`
   - `App.xaml.cs`: pass `config.MinLabelFontSize` as last arg to `new LogCrosshairRenderer(...)` (line ~112)

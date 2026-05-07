@@ -400,6 +400,15 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         return fontSize;
     }
 
+    internal static bool IsSmallCell(Rect dipRect, double minLabelFontSize) =>
+        dipRect.Height < minLabelFontSize * 1.8 || dipRect.Width / 2 < minLabelFontSize * 1.6;
+
+    internal static bool IsNarrowColumn(Rect dipRect, double minLabelFontSize) =>
+        dipRect.Width / 2 < minLabelFontSize * 1.6;
+
+    internal static bool IsShortRow(Rect dipRect, double minLabelFontSize) =>
+        dipRect.Height < minLabelFontSize * 1.8;
+
     static SolidColorBrush BrushFromHex(string hex, double opacity = 1.0) {
         try {
             var color = (Color)ColorConverter.ConvertFromString(hex);

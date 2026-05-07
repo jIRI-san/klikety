@@ -99,13 +99,18 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
                 if (onCross) {
                     UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
-                    UseCrossLabel(dipRect, row, col, grid, _labelBrush);
+                    bool isCenter = row == grid.CenterRow && col == grid.CenterCol;
+                    if (isCenter || !IsSmallCell(dipRect, _minLabelFontSize)) {
+                        UseCrossLabel(dipRect, row, col, grid, _labelBrush);
+                    }
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
             }
         }
 
+        RenderExternalColumnLabels(grid);
+        RenderExternalRowLabels(grid);
         EndRender();
     }
 
@@ -122,22 +127,26 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
                 var dipRect = DipRect(grid.CellAt(row, c));
                 bool onCross = grid.IsOnCross(row, c);
                 bool isHighlightCol = c == col;
+                bool isCenter = row == grid.CenterRow && c == grid.CenterCol;
+                bool skipInline = !isCenter && IsSmallCell(dipRect, _minLabelFontSize);
 
                 if (isHighlightCol && row == grid.CenterRow) {
                     UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
-                    UseCrossLabel(dipRect, row, c, grid, _labelBrush);
+                    if (!skipInline) UseCrossLabel(dipRect, row, c, grid, _labelBrush);
                 } else if (isHighlightCol && onCross) {
                     UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
-                    UseCrossLabel(dipRect, row, c, grid, _labelBrush);
+                    if (!skipInline) UseCrossLabel(dipRect, row, c, grid, _labelBrush);
                 } else if (onCross) {
                     UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
-                    UseCrossLabel(dipRect, row, c, grid, _labelBrush, 0.4);
+                    if (!skipInline) UseCrossLabel(dipRect, row, c, grid, _labelBrush, 0.4);
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
             }
         }
 
+        RenderExternalColumnLabels(grid, highlightCol: col, defaultOpacity: 0.4, highlightOpacity: 1.0);
+        RenderExternalRowLabels(grid);
         EndRender();
     }
 
@@ -154,22 +163,26 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
                 var dipRect = DipRect(grid.CellAt(r, col));
                 bool onCross = grid.IsOnCross(r, col);
                 bool isHighlightRow = r == row;
+                bool isCenter = r == grid.CenterRow && col == grid.CenterCol;
+                bool skipInline = !isCenter && IsSmallCell(dipRect, _minLabelFontSize);
 
                 if (isHighlightRow && col == grid.CenterCol) {
                     UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
-                    UseCrossLabel(dipRect, r, col, grid, _labelBrush);
+                    if (!skipInline) UseCrossLabel(dipRect, r, col, grid, _labelBrush);
                 } else if (isHighlightRow && onCross) {
                     UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
-                    UseCrossLabel(dipRect, r, col, grid, _labelBrush);
+                    if (!skipInline) UseCrossLabel(dipRect, r, col, grid, _labelBrush);
                 } else if (onCross) {
                     UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
-                    UseCrossLabel(dipRect, r, col, grid, _labelBrush, 0.4);
+                    if (!skipInline) UseCrossLabel(dipRect, r, col, grid, _labelBrush, 0.4);
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
             }
         }
 
+        RenderExternalColumnLabels(grid);
+        RenderExternalRowLabels(grid, highlightRow: row, defaultOpacity: 0.4, highlightOpacity: 1.0);
         EndRender();
     }
 
@@ -187,22 +200,26 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
                 bool onCross = grid.IsOnCross(r, c);
                 bool isTarget = r == cell.Row && c == cell.Col;
                 bool onTargetCross = r == cell.Row || c == cell.Col;
+                bool isCenter = r == grid.CenterRow && c == grid.CenterCol;
+                bool skipInline = !isCenter && IsSmallCell(dipRect, _minLabelFontSize);
 
                 if (isTarget) {
                     UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
-                    UseCrossLabel(dipRect, r, c, grid, _labelBrush);
+                    if (!skipInline) UseCrossLabel(dipRect, r, c, grid, _labelBrush);
                 } else if (onTargetCross && onCross) {
                     UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
-                    UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.6);
+                    if (!skipInline) UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.6);
                 } else if (onCross) {
                     UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
-                    UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.3);
+                    if (!skipInline) UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.3);
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
             }
         }
 
+        RenderExternalColumnLabels(grid, highlightCol: cell.Col, defaultOpacity: 0.3, highlightOpacity: 1.0);
+        RenderExternalRowLabels(grid, highlightRow: cell.Row, defaultOpacity: 0.3, highlightOpacity: 1.0);
         EndRender();
     }
 

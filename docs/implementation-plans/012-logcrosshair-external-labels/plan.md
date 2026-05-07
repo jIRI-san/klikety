@@ -63,7 +63,7 @@
   - Update `BeginRender`: reset `_nextLine`; add `_linePool.Clear()` to the existing staleness branch (alongside `_rectPool.Clear()` and `_textPool.Clear()`)
   - Update `EndRender`: collapse unused lines via `_linePool[i].Visibility = Visibility.Collapsed` for `i` in `[_nextLine .. _linePool.Count)` — same pattern as rect/text pools
 
-- [ ] 1.4 Make `LogGridRenderer.ResolveOverlaps` `internal static` (REQ-6) `S`
+- [x] 1.4 Make `LogGridRenderer.ResolveOverlaps` `internal static` (REQ-6) `S`
   - Change `static void ResolveOverlaps(...)` → `internal static void ResolveOverlaps(...)` in `LogGridRenderer.cs`
   - Zero functional change; purely visibility widening
 

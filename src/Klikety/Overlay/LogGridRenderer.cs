@@ -492,7 +492,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     /// around the anchor midpoint so connector lines have symmetric slopes.
     /// Clamped to [min, max].
     /// </summary>
-    static void ResolveOverlaps(double[] positions, double[] sizes, double min, double max, double anchorCenter) {
+    internal static void ResolveOverlaps(double[] positions, double[] sizes, double min, double max, double anchorCenter) {
         double gap = Math.Max(8.0, (max - min) * 0.01); // minimum gap between labels
         const int maxPasses = 10;
 

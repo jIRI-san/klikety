@@ -104,7 +104,7 @@
 
 ## Phase 3: Tests & Documentation
 
-- [ ] 3.1 Unit tests for threshold detection and layout helpers (REQ-1, REQ-2, RISK-3) [after: 2.3] `M`
+- [x] 3.1 Unit tests for threshold detection and layout helpers (REQ-1, REQ-2, RISK-3) [after: 2.3] `M`
   - `IsSmallCell` / `IsNarrowColumn` / `IsShortRow` at boundary values (at threshold, just above, just below) — callable as `internal static` with `minLabelFontSize` parameter
   - `ExternalFontSize` uses `minLabelFontSize` floor
   - `ResolveOverlaps` callable from `LogGridRenderer` (existing tests cover correctness; verify `internal` visibility works from test project)

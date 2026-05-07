@@ -95,7 +95,7 @@
   - Dashed connector line from each label to row center at the arm edge (bboxLeft for left labels, bboxRight for right labels), with `opacity` matching its label
   - Use `_extRowLabelBrush` for label text; `ExternalFontSize()` for font size; render via `UseExternalLabel`
 
-- [ ] 2.3 Integrate external labels into all render methods (REQ-1, REQ-10, REQ-11, REQ-12) [after: 2.1, 2.2] `M`
+- [x] 2.3 Integrate external labels into all render methods (REQ-1, REQ-10, REQ-11, REQ-12) [after: 2.1, 2.2] `M`
   - **RenderCross**: in the cell loop, skip `UseCrossLabel` for small cross cells (but always render center bullet inline). After the cell loop, call `RenderExternalColumnLabels(grid)` + `RenderExternalRowLabels(grid)` before `EndRender()`.
   - **HighlightColumn(grid, col)**: skip inline for small cells. Call `RenderExternalColumnLabels(grid, highlightCol: col, defaultOpacity: 0.4, highlightOpacity: 1.0)` + `RenderExternalRowLabels(grid)` (all rows at default 1.0).
   - **HighlightRow(grid, row)**: skip inline for small cells. Call `RenderExternalRowLabels(grid, highlightRow: row, defaultOpacity: 0.4, highlightOpacity: 1.0)` + `RenderExternalColumnLabels(grid)` (all cols at default 1.0).

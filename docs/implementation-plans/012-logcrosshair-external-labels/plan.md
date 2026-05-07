@@ -112,6 +112,6 @@
   - Test opacity parameter resolution: verify `highlightCol`/`highlightRow` parameters produce correct per-label opacity values for each render state (RenderCross, HighlightColumn, HighlightRow, HighlightCell)
   - Test center-cell exclusion: verify CenterRow/CenterCol cells are never included in the external label scan
 
-- [ ] 3.2 Update design notes (REQ-1) [after: 2.3] `S`
+- [x] 3.2 Update design notes (REQ-1) [after: 2.3] `S`
   - `grid-rendering.design.md`: add LogCrosshairRenderer external labels subsection covering threshold, adaptive placement, overlap resolution, connector lines, pooling
   - `navigation-modes.design.md`: note external label support in LogCrosshair mode section

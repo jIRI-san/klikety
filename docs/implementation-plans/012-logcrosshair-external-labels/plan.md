@@ -47,7 +47,7 @@
   - Store as `readonly double _minLabelFontSize`
   - `App.xaml.cs`: pass `config.MinLabelFontSize` as last arg to `new LogCrosshairRenderer(...)` (line ~112)
 
-- [ ] 1.2 Add small-cell detection methods to `LogCrosshairRenderer` (REQ-2) `S`
+- [x] 1.2 Add small-cell detection methods to `LogCrosshairRenderer` (REQ-2) `S`
   - `internal static bool IsSmallCell(Rect dipRect, double minLabelFontSize)` → `dipRect.Height < minLabelFontSize * 1.8 || dipRect.Width / 2 < minLabelFontSize * 1.6`
   - `internal static bool IsNarrowColumn(Rect dipRect, double minLabelFontSize)` → `dipRect.Width / 2 < minLabelFontSize * 1.6`
   - `internal static bool IsShortRow(Rect dipRect, double minLabelFontSize)` → `dipRect.Height < minLabelFontSize * 1.8`

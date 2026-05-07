@@ -45,6 +45,16 @@ Next pending:   Step C.D — title
 
 This gives the user orientation, especially when resuming across sessions.
 
+### Execution Mode
+
+After showing the progress summary, ask:
+
+**"Approve each step, or autopilot?"**
+- **Approve** — stop after each step for review before proceeding (current default behavior).
+- **Autopilot** — implement all remaining steps as independently as possible with minimal user input. Skip per-step confirmations (Step 4 "Proceed?", Step 10 "Ready to commit?", Step 11 "Continue or stop?"). Still run build, tests, acceptance criteria validation, and code review — but auto-fix unambiguous CR findings and auto-commit without asking. Only stop for: `@human` steps, ambiguous CR trade-offs, failing tests that can't be auto-fixed, or blocking dependency issues. The user reviews everything at the end.
+
+Remember the chosen mode for the rest of the session.
+
 ## Step 2: Load Context
 
 1. Read and parse the selected plan's `plan.md`.
@@ -97,7 +107,7 @@ Check `plan.md` for a `<!-- worktree: <branch-name> -->` comment in the current 
 5. Determine the step's **role** — look for `@human` tag on the step line. If absent, the role is `@ai-agent`.
 6. Determine if it's a **discovery step** — look for `[discovery]` tag. Discovery steps expect iterative steering from the user; acceptance criteria are softer.
 7. Present the step to the user: **"Next: Step X.Y — [title] [role: @ai-agent|@human]. Scope: [brief description of what will change]. Proceed?"**
-8. Wait for confirmation before continuing.
+8. **Approve mode** — wait for confirmation before continuing. **Autopilot mode** — print the step info and proceed immediately (no confirmation needed for `@ai-agent` steps; still wait for `@human` steps).
 
 ## Step 5: Implement
 
@@ -164,11 +174,11 @@ Run `/udn` to update any design notes affected by this step's changes.
 
 ## Step 10: Commit
 
-Ask: **"Ready to commit? (yes / no)"**
+**Approve mode** — ask: **"Ready to commit? (yes / no)"** and wait for explicit "yes" before proceeding.
 
-Wait for explicit "yes" before proceeding.
+**Autopilot mode** — commit immediately without asking.
 
-On approval:
+On commit:
 1. Stage only the files touched in this step: `git add <file1> <file2> ...` (never `git add -A`)
 2. Commit: `git commit -m "feat(<scope>): <step title> [plan-NNN step X.Y]"`
    - `scope`: the primary subsystem changed (e.g. `scheduling`, `orchestration`)
@@ -196,10 +206,10 @@ After committing, check if all steps **in the current phase** are `[x]`. If the 
 
 If all steps in the plan are `[x]`, proceed to Step 12.
 
-If not all done, ask: **"Continue to the next step or stop here?"**
+If not all done:
 
-- **Continue** → loop back to Step 4.
-- **Stop** → summarize progress (steps done, steps remaining) and exit.
+- **Approve mode** — ask: **"Continue to the next step or stop here?"** Continue → loop back to Step 4. Stop → summarize progress and exit.
+- **Autopilot mode** — loop back to Step 4 immediately.
 
 ## Step 12: Plan Completion
 

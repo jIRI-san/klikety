@@ -1,4 +1,4 @@
-# 012: External Labels for Small Cells in LogCrosshair Mode
+# 012: External Labels for Small Cells in LogCrosshair Mode [DONE]
 
 ## Decisions
 

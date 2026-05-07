@@ -487,8 +487,8 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
             outline.Visibility = Visibility.Visible;
             fill.Visibility = Visibility.Visible;
         } else {
-            outline = new Path();
-            fill = new Path();
+            outline = new Path { IsHitTestVisible = false };
+            fill = new Path { IsHitTestVisible = false };
             _canvas.Children.Add(outline);
             _canvas.Children.Add(fill);
             _textPool.Add((outline, fill));

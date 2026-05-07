@@ -344,7 +344,12 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
             line = _linePool[_nextLine];
             line.Visibility = Visibility.Visible;
         } else {
-            line = new Line { IsHitTestVisible = false };
+            line = new Line {
+                Stroke = _connectorBrush,
+                StrokeThickness = _theme.ConnectorLineThickness,
+                StrokeDashArray = [2, 2],
+                IsHitTestVisible = false,
+            };
             _canvas.Children.Add(line);
             _linePool.Add(line);
         }
@@ -353,9 +358,6 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         line.Y1 = y1;
         line.X2 = x2;
         line.Y2 = y2;
-        line.Stroke = _connectorBrush;
-        line.StrokeThickness = _theme.ConnectorLineThickness;
-        line.StrokeDashArray = [2, 2];
         line.Opacity = opacity;
         _nextLine++;
     }
@@ -376,8 +378,8 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
             outline.Visibility = Visibility.Visible;
             fill.Visibility = Visibility.Visible;
         } else {
-            outline = new Path();
-            fill = new Path();
+            outline = new Path { IsHitTestVisible = false };
+            fill = new Path { IsHitTestVisible = false };
             _canvas.Children.Add(outline);
             _canvas.Children.Add(fill);
             _textPool.Add((outline, fill));

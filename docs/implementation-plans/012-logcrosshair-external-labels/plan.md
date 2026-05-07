@@ -53,7 +53,7 @@
   - `internal static bool IsShortRow(Rect dipRect, double minLabelFontSize)` → `dipRect.Height < minLabelFontSize * 1.8`
   - `internal static` with parameter for testability (same pattern as `ComputeGradualFontSize`)
 
-- [ ] 1.3 Add line pool, MeasureText, external label brushes, ExternalFontSize (REQ-8, REQ-9) `S`
+- [x] 1.3 Add line pool, MeasureText, external label brushes, ExternalFontSize (REQ-8, REQ-9) `S`
   - `readonly List<Line> _linePool = []` + `int _nextLine`
   - `void UseLine(double x1, double y1, double x2, double y2, double opacity = 1.0)` — pooled dashed line using `_connectorBrush` + `_theme.ConnectorLineThickness`, `StrokeDashArray = [2, 2]`, sets `line.Opacity = opacity`
   - `void UseExternalLabel(Rect area, string text, double fontSize, Brush foreground, double opacity)` — outlined text at arbitrary position (not cell-centered). Same two-layer Path rendering as `UseCrossLabel` but positioned at `area.X/Y` directly. Uses existing text pool.

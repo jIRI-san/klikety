@@ -69,7 +69,7 @@
 
 ## Phase 2: External Label Rendering
 
-- [ ] 2.1 Implement `RenderExternalColumnLabels` for narrow columns on horizontal arm (REQ-1, REQ-3, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-3) [after: 1.3, 1.4] [discovery] `M`
+- [x] 2.1 Implement `RenderExternalColumnLabels` for narrow columns on horizontal arm (REQ-1, REQ-3, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-3) [after: 1.3, 1.4] [discovery] `M`
   - Method: `void RenderExternalColumnLabels(LogCrosshairGrid grid, int highlightCol = -1, double defaultOpacity = 1.0, double highlightOpacity = 1.0)` — `highlightCol` = column to highlight (-1 = none); other cols use `defaultOpacity`; highlighted col uses `highlightOpacity`
   - Scan center row for narrow columns: skip degenerate cells, skip zero-width cells, **skip CenterCol** (center bullet always inline)
   - Label text via `GetCrossLabel(grid.CenterRow, col, grid)` — reuses existing center-skip index formula

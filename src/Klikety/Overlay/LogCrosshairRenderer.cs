@@ -206,6 +206,85 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         EndRender();
     }
 
+    void RenderExternalColumnLabels(LogCrosshairGrid grid, int highlightCol = -1,
+        double defaultOpacity = 1.0, double highlightOpacity = 1.0) {
+        // Scan center row for narrow columns (skip degenerate, zero-width, and CenterCol)
+        var externalCols = new List<int>();
+        for (int col = 0; col < grid.Cols; col++) {
+            if (col == grid.CenterCol) continue;
+            if (grid.IsDegenerate(grid.CenterRow, col)) continue;
+            var dipRect = DipRect(grid.CellAt(grid.CenterRow, col));
+            if (dipRect.Width <= 0) continue;
+            if (IsNarrowColumn(dipRect, _minLabelFontSize)) {
+                externalCols.Add(col);
+            }
+        }
+
+        if (externalCols.Count == 0) return;
+
+        double fontSize = ExternalFontSize();
+
+        // Compute bounding box (top/bottom) of narrow cells on center row
+        double bboxTop = double.MaxValue;
+        double bboxBottom = double.MinValue;
+        foreach (int col in externalCols) {
+            var dipRect = DipRect(grid.CellAt(grid.CenterRow, col));
+            bboxTop = Math.Min(bboxTop, dipRect.Y);
+            bboxBottom = Math.Max(bboxBottom, dipRect.Y + dipRect.Height);
+        }
+
+        // Compute label positions (x = column center) and sizes
+        var labelPositions = new double[externalCols.Count];
+        var labelWidths = new double[externalCols.Count];
+        for (int i = 0; i < externalCols.Count; i++) {
+            int col = externalCols[i];
+            string? label = GetCrossLabel(grid.CenterRow, col, grid);
+            labelWidths[i] = label is not null ? MeasureText(label, fontSize).Width : 0;
+            var dipRect = DipRect(grid.CellAt(grid.CenterRow, col));
+            labelPositions[i] = dipRect.X + dipRect.Width / 2;
+        }
+
+        // Resolve overlaps using anchor center (grid center column x)
+        var centerDip = DipRect(grid.CellAt(grid.CenterRow, grid.CenterCol));
+        double anchorCenterX = centerDip.X + centerDip.Width / 2;
+        double screenWidth = Math.Max(_canvas.ActualWidth, 1);
+        LogGridRenderer.ResolveOverlaps(labelPositions, labelWidths, 0, screenWidth, anchorCenterX);
+
+        double labelHeight = MeasureText("X", fontSize).Height;
+        double labelMargin = fontSize * 0.5;
+
+        // Screen-edge check (after resolution): determine which sides have room
+        bool showAbove = bboxTop >= labelHeight + labelMargin * 2;
+        bool showBelow = (_canvas.ActualHeight - bboxBottom) >= labelHeight + labelMargin * 2;
+        if (!showAbove && !showBelow) { showAbove = true; } // fallback: at least one side
+
+        for (int i = 0; i < externalCols.Count; i++) {
+            int col = externalCols[i];
+            string? label = GetCrossLabel(grid.CenterRow, col, grid);
+            if (label is null) continue;
+
+            double opacity = col == highlightCol ? highlightOpacity : defaultOpacity;
+            var dipRect = DipRect(grid.CellAt(grid.CenterRow, col));
+            double anchorX = dipRect.X + dipRect.Width / 2;
+            double labelCenterX = labelPositions[i];
+            var labelSize = MeasureText(label, fontSize);
+
+            if (showAbove) {
+                double topLabelY = bboxTop - labelMargin - labelSize.Height;
+                UseExternalLabel(new Rect(labelCenterX - labelSize.Width / 2, topLabelY, labelSize.Width, labelSize.Height),
+                    label, fontSize, _extLabelBrush, opacity);
+                UseLine(anchorX, bboxTop, labelCenterX, topLabelY + labelSize.Height + 2, opacity);
+            }
+
+            if (showBelow) {
+                double bottomLabelY = bboxBottom + labelMargin;
+                UseExternalLabel(new Rect(labelCenterX - labelSize.Width / 2, bottomLabelY, labelSize.Width, labelSize.Height),
+                    label, fontSize, _extLabelBrush, opacity);
+                UseLine(anchorX, bboxBottom, labelCenterX, bottomLabelY - 2, opacity);
+            }
+        }
+    }
+
     public void FlashInvalidKey() {
         if (_flashRect is null || _flashRect.Parent is null) {
             _flashRect = new Rectangle {

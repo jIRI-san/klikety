@@ -82,7 +82,7 @@
   - Dashed connector line from each label to column center at the arm edge (bboxTop for above labels, bboxBottom for below labels), with `opacity` matching its label
   - Use `_extLabelBrush` for label text; `ExternalFontSize()` for font size; render via `UseExternalLabel`
 
-- [ ] 2.2 Implement `RenderExternalRowLabels` for short rows on vertical arm (REQ-1, REQ-4, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-3) [after: 1.3, 1.4] [discovery] `M`
+- [x] 2.2 Implement `RenderExternalRowLabels` for short rows on vertical arm (REQ-1, REQ-4, REQ-5, REQ-6, REQ-7, RISK-1, RISK-2, RISK-3) [after: 1.3, 1.4] [discovery] `M`
   - Method: `void RenderExternalRowLabels(LogCrosshairGrid grid, int highlightRow = -1, double defaultOpacity = 1.0, double highlightOpacity = 1.0)` — `highlightRow` = row to highlight (-1 = none); other rows use `defaultOpacity`; highlighted row uses `highlightOpacity`
   - Scan center column for short rows: skip degenerate cells, skip zero-height cells, **skip CenterRow** (center bullet always inline)
   - Label text via `GetCrossLabel(row, grid.CenterCol, grid)` — reuses existing center-skip index formula

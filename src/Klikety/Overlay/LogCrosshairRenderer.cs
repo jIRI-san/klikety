@@ -22,6 +22,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     readonly ThemeModel _theme;
     readonly AxisLabelGenerator _horizLabels;
     readonly AxisLabelGenerator _vertLabels;
+    readonly double _minLabelFontSize;
 
     Matrix _transformFromDevice = Matrix.Identity;
     bool _transformInitialized;
@@ -48,11 +49,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
     public LogCrosshairRenderer(
         Canvas canvas, ThemeModel theme,
-        AxisLabelGenerator horizLabels, AxisLabelGenerator vertLabels) {
+        AxisLabelGenerator horizLabels, AxisLabelGenerator vertLabels,
+        double minLabelFontSize) {
         _canvas = canvas;
         _theme = theme;
         _horizLabels = horizLabels;
         _vertLabels = vertLabels;
+        _minLabelFontSize = minLabelFontSize;
 
         _cellBorderBrush = BrushFromHex(theme.CellBorderColor);
         _cellBgBrush = BrushFromHex(theme.CellBackgroundColor, theme.CellBackgroundOpacity);

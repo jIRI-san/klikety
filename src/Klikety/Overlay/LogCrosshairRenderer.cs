@@ -36,13 +36,18 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     readonly SolidColorBrush _highlightBorder;
     readonly SolidColorBrush _crossBgBrush;
     readonly SolidColorBrush _outlineBrush;
+    readonly SolidColorBrush _extLabelBrush;
+    readonly SolidColorBrush _extRowLabelBrush;
+    readonly SolidColorBrush _connectorBrush;
     readonly Typeface _typeface;
 
     // Element pools — reused across renders to reduce GC pressure
     readonly List<Rectangle> _rectPool = [];
     readonly List<(Path Outline, Path Fill)> _textPool = [];
+    readonly List<Line> _linePool = [];
     int _nextRect;
     int _nextText;
+    int _nextLine;
 
     // Pooled flash overlay (single instance, reused)
     Rectangle? _flashRect;
@@ -65,6 +70,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         _highlightBorder = BrushFromHex(theme.HighlightedColumnBorderColor);
         _crossBgBrush = BrushFromHex(theme.HighlightedColumnBackground, 0.25);
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
+        _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _extRowLabelBrush = BrushFromHex(theme.ExternalRowLabelColor);
+        _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
 
         var fontFamily = new FontFamily(theme.LabelFontFamily);
         var fontWeight = ParseFontWeight(theme.LabelFontWeight);
@@ -233,11 +241,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     void BeginRender() {
         _nextRect = 0;
         _nextText = 0;
+        _nextLine = 0;
 
         // Detect external canvas clear (all pooled elements removed)
         if (_rectPool.Count > 0 && _rectPool[0].Parent is null) {
             _rectPool.Clear();
             _textPool.Clear();
+            _linePool.Clear();
         }
     }
 
@@ -248,6 +258,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         for (int i = _nextText; i < _textPool.Count; i++) {
             _textPool[i].Outline.Visibility = Visibility.Collapsed;
             _textPool[i].Fill.Visibility = Visibility.Collapsed;
+        }
+        for (int i = _nextLine; i < _linePool.Count; i++) {
+            _linePool[i].Visibility = Visibility.Collapsed;
         }
     }
 
@@ -324,6 +337,83 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
         _nextText++;
     }
+
+    void UseLine(double x1, double y1, double x2, double y2, double opacity = 1.0) {
+        Line line;
+        if (_nextLine < _linePool.Count) {
+            line = _linePool[_nextLine];
+            line.Visibility = Visibility.Visible;
+        } else {
+            line = new Line { IsHitTestVisible = false };
+            _canvas.Children.Add(line);
+            _linePool.Add(line);
+        }
+
+        line.X1 = x1;
+        line.Y1 = y1;
+        line.X2 = x2;
+        line.Y2 = y2;
+        line.Stroke = _connectorBrush;
+        line.StrokeThickness = _theme.ConnectorLineThickness;
+        line.StrokeDashArray = [2, 2];
+        line.Opacity = opacity;
+        _nextLine++;
+    }
+
+    void UseExternalLabel(Rect area, string text, double fontSize, Brush foreground, double opacity) {
+        var ft = new FormattedText(text, System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight, _typeface, fontSize, foreground,
+            VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
+        var geometry = ft.BuildGeometry(new System.Windows.Point(0, 0));
+        var bounds = geometry.Bounds;
+
+        double offsetX = area.X - bounds.X;
+        double offsetY = area.Y - bounds.Y;
+
+        Path outline, fill;
+        if (_nextText < _textPool.Count) {
+            (outline, fill) = _textPool[_nextText];
+            outline.Visibility = Visibility.Visible;
+            fill.Visibility = Visibility.Visible;
+        } else {
+            outline = new Path();
+            fill = new Path();
+            _canvas.Children.Add(outline);
+            _canvas.Children.Add(fill);
+            _textPool.Add((outline, fill));
+        }
+
+        outline.Data = geometry;
+        outline.Fill = Brushes.Transparent;
+        outline.Stroke = _outlineBrush;
+        outline.StrokeThickness = Math.Max(_theme.LabelOutlineThickness * 2, fontSize * 0.08);
+        outline.StrokeLineJoin = PenLineJoin.Round;
+        outline.Opacity = opacity;
+        Canvas.SetLeft(outline, offsetX);
+        Canvas.SetTop(outline, offsetY);
+
+        fill.Data = geometry;
+        fill.Fill = foreground;
+        fill.Stroke = null;
+        fill.Opacity = opacity;
+        Canvas.SetLeft(fill, offsetX);
+        Canvas.SetTop(fill, offsetY);
+
+        _nextText++;
+    }
+
+    Size MeasureText(string text, double fontSize) {
+        var ft = new FormattedText(
+            text,
+            System.Globalization.CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            _typeface, fontSize, Brushes.Black,
+            VisualTreeHelper.GetDpi(_canvas).PixelsPerDip);
+        return new Size(ft.Width, ft.Height);
+    }
+
+    double ExternalFontSize() =>
+        Math.Max(_minLabelFontSize, _theme.LabelFontSize * 0.85);
 
     // --- Helpers ---
 

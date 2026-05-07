@@ -202,7 +202,11 @@ After committing, check if all steps **in the current phase** are `[x]`. If the 
    - **Fix** → implement the fix, re-run build/test/CR, commit, then re-run this crosscheck.
    - **Defer** → record it as a known gap in the Decisions section of the plan.
 
-6. **Phase-end full CR** — run `@cr` across the full `src/` folder (not just the branch diff). This catches cross-cutting structural debt that per-step reviews miss (coordinator leaks, hook safety, schema mismatches, etc.). Default to "fix all" for unambiguous findings. Commit fixes separately: `fix(<scope>): phase N CR findings`.
+6. **Phase-end CR** — scope the review to files changed in this phase plus their first-level dependencies (direct callers/callees) to validate architectural soundness without reviewing the entire codebase.
+   1. Run `git diff <phase-start-commit>..HEAD --name-only` to get the list of changed files.
+   2. For each changed `.cs` file, identify its first-level dependencies: files it references (`using`/calls into) and files that reference it (direct callers). Include these in the review scope.
+   3. Run `@cr` on the combined file list (changed files + first-level dependencies).
+   4. Default to "fix all" for unambiguous findings. Commit fixes separately: `fix(<scope>): phase N CR findings`.
 
 If all steps in the plan are `[x]`, proceed to Step 12.
 

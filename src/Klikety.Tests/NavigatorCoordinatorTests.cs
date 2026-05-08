@@ -850,4 +850,26 @@ public class NavigatorCoordinatorTests {
         hook.SimulateKeyDown(VKey.A);
         Assert.True(overlay.IsVisible); // Still in L1
     }
+
+    [Fact]
+    public void MoveOnly_DeactivatesOverlay_NoClick() {
+        var config = new ConfigModel {
+            ActionBindings = new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase) {
+                { "B", MouseAction.MoveOnly },
+            },
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.B);
+
+        Assert.False(overlay.IsVisible);
+        var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
+        Assert.Equal(MouseAction.MoveOnly, actionCall.Action);
+    }
 }

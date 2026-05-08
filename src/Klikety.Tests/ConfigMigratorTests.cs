@@ -417,6 +417,109 @@ public class ConfigMigratorTests {
         } finally { Cleanup(path); }
     }
 
+    [Fact]
+    public void MigrateIfNeeded_V3ToV4_AddsScrollHotKeys() {
+        var json = """
+        {
+            "configVersion": 3,
+            "horizontalKeys": ["A","S","D","F","G","H","J","K","L","OemSemicolon"],
+            "verticalKeys": ["Q","W","E","R","T","Y","U","I","O","P"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
+                "logGrid": { "enabled": true, "twoKey": true, "chordKey": "OemComma", "logGridBaseSize": 10 }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+            Assert.Null(result.BlockingError);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+
+            var scroll = migrated["scrollHotkeys"]!;
+            Assert.False(scroll["enabled"]!.GetValue<bool>());
+            Assert.Equal("Prior", scroll["scrollUpKey"]!["key"]!.GetValue<string>());
+            Assert.Equal("Next", scroll["scrollDownKey"]!["key"]!.GetValue<string>());
+            Assert.Equal(3, scroll["scrollAmount"]!.GetValue<int>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V4Config_NoMutation() {
+        var json = """
+        {
+            "configVersion": 4,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "scrollHotkeys": { "enabled": true, "scrollAmount": 5 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var originalContent = File.ReadAllText(path);
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.False(result.WasMigrated);
+
+            Assert.Equal(originalContent, File.ReadAllText(path));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V3WithExistingScrollHotKeys_PreservesUserValues() {
+        var json = """
+        {
+            "configVersion": 3,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "scrollHotkeys": { "enabled": true, "scrollAmount": 10 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            // User's existing scrollHotkeys preserved (not overwritten with defaults)
+            Assert.True(migrated["scrollHotkeys"]!["enabled"]!.GetValue<bool>());
+            Assert.Equal(10, migrated["scrollHotkeys"]!["scrollAmount"]!.GetValue<int>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V3ToV4_PreservesUnknownFields() {
+        var json = """
+        {
+            "configVersion": 3,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "customUserField": "preserved"
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal("preserved", migrated["customUserField"]!.GetValue<string>());
+        } finally { Cleanup(path); }
+    }
+
     private static string WriteTempFile(string content) {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(path, content);

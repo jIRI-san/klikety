@@ -626,6 +626,47 @@ public class ConfigLoaderTests {
         } finally { Cleanup(path); }
     }
 
+    [Fact]
+    public void Load_ScrollHotKeysSection_Deserializes() {
+        var json = """
+        {
+            "configVersion": 3,
+            "scrollHotkeys": {
+                "enabled": true,
+                "scrollUpKey": { "modifiers": "Control, Alt", "key": "Prior" },
+                "scrollDownKey": { "modifiers": "Control, Alt", "key": "Next" },
+                "scrollAmount": 5
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.True(result.Config.ScrollHotKeys.Enabled);
+            Assert.Equal(HotKeyModifiers.Control | HotKeyModifiers.Alt, result.Config.ScrollHotKeys.ScrollUpKey.Modifiers);
+            Assert.Equal(Input.VKey.Prior, result.Config.ScrollHotKeys.ScrollUpKey.Key);
+            Assert.Equal(Input.VKey.Next, result.Config.ScrollHotKeys.ScrollDownKey.Key);
+            Assert.Equal(5, result.Config.ScrollHotKeys.ScrollAmount);
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Load_MissingScrollHotKeys_UsesDefaults() {
+        var json = """
+        {
+            "configVersion": 3
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.False(result.Config.ScrollHotKeys.Enabled);
+            Assert.Equal(3, result.Config.ScrollHotKeys.ScrollAmount);
+            Assert.Equal(Input.VKey.Prior, result.Config.ScrollHotKeys.ScrollUpKey.Key);
+            Assert.Equal(Input.VKey.Next, result.Config.ScrollHotKeys.ScrollDownKey.Key);
+        } finally { Cleanup(path); }
+    }
+
     private static string WriteTempFile(string content) {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(path, content);

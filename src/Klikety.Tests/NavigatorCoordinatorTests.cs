@@ -924,4 +924,205 @@ public class NavigatorCoordinatorTests {
         var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
         Assert.Equal(ActionModifiers.None, actionCall.Modifiers);
     }
+
+    // --- Drag-and-drop tests ---
+
+    private static ConfigModel DragConfig() => new() {
+        ActionBindings = new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase) {
+            { "Z", MouseAction.DragDrop },
+            { "V", MouseAction.RightClick },
+            { "B", MouseAction.MoveOnly },
+        },
+        Modes = new ModesConfig {
+            UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+        },
+    };
+
+    [Fact]
+    public void DragDrop_StartsPhase_ResetsOverlay_ShowsStatusText() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        // Navigate to start point
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        // Press drag action key
+        hook.SimulateKey(VKey.Z);
+
+        // Overlay should still be visible (drag mode active)
+        Assert.True(overlay.IsVisible);
+        // Status text should be shown
+        Assert.Equal("Select drag target", overlay.StatusText);
+        // No SendAction or SendDrag calls yet
+        Assert.DoesNotContain(mouse.Calls, c => c.Action is not null);
+        Assert.Empty(mouse.DragCalls);
+    }
+
+    [Fact]
+    public void DragDrop_SecondAction_LeftClick_SendsDrag() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, _, modifierDetector) = CreateCoordinator(configOverride: config);
+        modifierDetector.Modifiers = ActionModifiers.None;
+
+        hotKey.SimulateActivation();
+        // Navigate to start point
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        // Start drag
+        hook.SimulateKey(VKey.Z);
+
+        // Navigate to end point
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        // Complete drag with left-click
+        hook.SimulateKey(VKey.Space);
+
+        // Overlay should be closed
+        Assert.False(overlay.IsVisible);
+        // SendDrag should have been called
+        var drag = Assert.Single(mouse.DragCalls);
+        Assert.Equal(MouseAction.LeftClick, drag.Button);
+        Assert.Equal(ActionModifiers.None, drag.Modifiers);
+    }
+
+    [Fact]
+    public void DragDrop_SecondAction_RightClick_SendsRightDrag() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, _, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.V);
+
+        var drag = Assert.Single(mouse.DragCalls);
+        Assert.Equal(MouseAction.RightClick, drag.Button);
+    }
+
+    [Fact]
+    public void DragDrop_SecondAction_WithModifiers_PassesModifiers() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, _, _, _, modifierDetector) = CreateCoordinator(configOverride: config);
+        modifierDetector.Modifiers = ActionModifiers.Shift | ActionModifiers.Ctrl;
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.Space);
+
+        var drag = Assert.Single(mouse.DragCalls);
+        Assert.Equal(ActionModifiers.Shift | ActionModifiers.Ctrl, drag.Modifiers);
+    }
+
+    [Fact]
+    public void DragDrop_Escape_AbortsDrag_RestoresCursorToOrigin() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator(configOverride: config);
+        // Origin is the cursor position at hotkey activation
+        platform.Cursor.Position = new Point(100, 200);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        // Escape during drag phase
+        hook.SimulateKey(VKey.Escape);
+
+        Assert.False(overlay.IsVisible);
+        Assert.Empty(mouse.DragCalls);
+        // Cursor should be restored to origin (100, 200)
+        var moveCall = mouse.Calls.Last(c => c.Action is null);
+        Assert.Equal(new Point(100, 200), moveCall.Point);
+    }
+
+    [Fact]
+    public void DragDrop_MoveOnlyInDragMode_Ignored() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        // Press MoveOnly during drag phase
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.B);
+
+        // Overlay should still be visible (action was rejected)
+        Assert.True(overlay.IsVisible);
+        Assert.Empty(mouse.DragCalls);
+    }
+
+    [Fact]
+    public void DragDrop_DragDropInDragMode_Ignored() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        // Press DragDrop again during drag phase
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.Z);
+
+        // Overlay should still be visible (action was rejected, not restarted)
+        Assert.True(overlay.IsVisible);
+        Assert.Empty(mouse.DragCalls);
+    }
+
+    [Fact]
+    public void DragDrop_FocusLoss_AbortsDrag_RestoresCursor() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator(configOverride: config);
+        platform.Cursor.Position = new Point(300, 400);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        // Focus loss during drag phase
+        overlay.SimulateFocusLoss();
+
+        Assert.False(overlay.IsVisible);
+        Assert.Empty(mouse.DragCalls);
+        // Cursor restored to origin
+        var moveCall = mouse.Calls.Last(c => c.Action is null);
+        Assert.Equal(new Point(300, 400), moveCall.Point);
+    }
+
+    [Fact]
+    public void DragDrop_StatusTextClearedOnCompletion() {
+        var config = DragConfig();
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        Assert.Equal("Select drag target", overlay.StatusText);
+
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.Space);
+
+        // Status text should be cleared
+        Assert.Null(overlay.StatusText);
+    }
 }

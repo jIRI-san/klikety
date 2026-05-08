@@ -20,7 +20,7 @@ public sealed class MigrationResult {
 /// a JsonDocument pre-pass. Performs atomic writes with .bak backup.
 /// </summary>
 public static class ConfigMigrator {
-    public const int CurrentConfigVersion = 3;
+    public const int CurrentConfigVersion = 4;
 
     private static readonly VKey[] Default8FirstKeys =
         [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
@@ -178,6 +178,17 @@ public static class ConfigMigrator {
                 changed = true;
             }
 
+            // v3 → v4: add scrollHotkeys section if missing
+            if (version < 4) {
+                if (!obj.ContainsKey("scrollHotkeys")) {
+                    obj["scrollHotkeys"] = CreateDefaultScrollHotKeys();
+                    changed = true;
+                }
+
+                obj["configVersion"] = CurrentConfigVersion;
+                changed = true;
+            }
+
             if (changed) {
                 var writeError = AtomicWrite(path, obj);
                 if (writeError is not null) {
@@ -293,6 +304,11 @@ public static class ConfigMigrator {
         obj["modes"] = modes;
         obj["configVersion"] = CurrentConfigVersion;
 
+        // Add scrollHotkeys section (disabled by default)
+        if (!obj.ContainsKey("scrollHotkeys")) {
+            obj["scrollHotkeys"] = CreateDefaultScrollHotKeys();
+        }
+
         // Remove legacy navigationMode
         obj.Remove("navigationMode");
 
@@ -306,6 +322,19 @@ public static class ConfigMigrator {
             Warnings = warnings,
         };
     }
+
+    private static JsonObject CreateDefaultScrollHotKeys() => new() {
+        ["enabled"] = false,
+        ["scrollUpKey"] = new JsonObject {
+            ["modifiers"] = "Control, Alt",
+            ["key"] = "Prior",
+        },
+        ["scrollDownKey"] = new JsonObject {
+            ["modifiers"] = "Control, Alt",
+            ["key"] = "Next",
+        },
+        ["scrollAmount"] = 3,
+    };
 
     private static (bool TwoKey, bool ArrowKeys) ParseLegacyNavMode(string? mode) => mode?.ToLowerInvariant() switch {
         "twokey" => (true, false),

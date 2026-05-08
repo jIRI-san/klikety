@@ -43,7 +43,7 @@ public class Win32SmokeTests {
 
     [Fact]
     public void MouseActionService_MoveTo_DoesNotThrow() {
-        var service = new MouseActionService();
+        var service = new MouseActionService(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         var pos = NativeMethods.GetCursorPosition();
         // Move to current position (no visible effect, just verify no exception)
         service.MoveTo(pos);

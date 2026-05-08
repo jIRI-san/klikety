@@ -159,6 +159,24 @@
         0.5,
         0.7
       ]
+    },
+    "statusTextFillColor": {
+      "type": "string",
+      "description": "Fill color for status text (e.g. drag target selection banner).",
+      "default": "#FFFFFF",
+      "examples": ["#FFFFFF"]
+    },
+    "statusTextOutlineColor": {
+      "type": "string",
+      "description": "Outline color for status text.",
+      "default": "#000000",
+      "examples": ["#000000"]
+    },
+    "statusTextBackgroundColor": {
+      "type": "string",
+      "description": "Background color for status text banner.",
+      "default": "#333333",
+      "examples": ["#333333"]
     }
   },
   "additionalProperties": false

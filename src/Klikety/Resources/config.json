@@ -14,11 +14,13 @@
 
   // Maps VKey names to mouse actions.
   // Space → LeftClick is always the implicit default even if omitted.
-  // Available actions: LeftClick, RightClick, MiddleClick, DoubleClick.
+  // Available actions: LeftClick, RightClick, MiddleClick, DoubleClick, MoveOnly, DragDrop.
   "actionBindings": {
     "X": "DoubleClick",
     "C": "MiddleClick",
-    "V": "RightClick"
+    "V": "RightClick",
+    "B": "MoveOnly",
+    "Z": "DragDrop"
   },
 
   // VKey lists for axis navigation. Shared by all modes.
@@ -96,7 +98,22 @@
   },
 
   // Config format version. Do not change manually.
-  "configVersion": 3,
+  "configVersion": 4,
+
+  // Global scroll hotkeys. Send mouse wheel events at current cursor position.
+  // Disabled by default. Keys: Ctrl+Alt+PageUp (up), Ctrl+Alt+PageDown (down).
+  "scrollHotkeys": {
+    "enabled": false,
+    "scrollUpKey": {
+      "modifiers": "Control, Alt",
+      "key": "Prior"
+    },
+    "scrollDownKey": {
+      "modifiers": "Control, Alt",
+      "key": "Next"
+    },
+    "scrollAmount": 3
+  },
 
   // Theme: bare name (resolves to themes/<name>.theme.json) or relative path.
   // Built-in themes: "dark", "light".

@@ -185,6 +185,9 @@ public static class ConfigLoader {
         // === Mode validation ===
         ValidateModes(config, violations, actionKeys, hotkeyVKeys);
 
+        // === Scroll hotkey validation ===
+        ValidateScrollHotKeys(config, violations, actionKeys, allNavKeys, hotkeyVKeys);
+
         return violations;
     }
 
@@ -298,6 +301,58 @@ public static class ConfigLoader {
         foreach (var vk in config.VerticalKeys) {
             if (chordKeys.ContainsKey(vk)) {
                 violations.Add($"VerticalKey '{vk}' conflicts with chord key.");
+            }
+        }
+    }
+
+    private static void ValidateScrollHotKeys(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> navKeys, HashSet<VKey> hotkeyVKeys) {
+        var scroll = config.ScrollHotKeys;
+        if (!scroll.Enabled) {
+            return;
+        }
+
+        // scrollAmount range
+        if (scroll.ScrollAmount < 1 || scroll.ScrollAmount > 100) {
+            violations.Add($"scrollAmount must be between 1 and 100 (got {scroll.ScrollAmount}).");
+        }
+
+        // Duplicate up/down key
+        if (scroll.ScrollUpKey.Key == scroll.ScrollDownKey.Key &&
+            scroll.ScrollUpKey.Modifiers == scroll.ScrollDownKey.Modifiers) {
+            violations.Add("Scroll up and scroll down hotkeys must be different.");
+        }
+
+        // Collect chord keys for conflict checking
+        var chordKeys = new HashSet<VKey>();
+        var modes = config.Modes;
+        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid }) {
+            if (mc is { Enabled: true, ChordKey: { } chord }) {
+                chordKeys.Add(chord);
+            }
+        }
+
+        // Validate each scroll key
+        foreach (var (label, hkc) in new[] { ("scrollUpKey", scroll.ScrollUpKey), ("scrollDownKey", scroll.ScrollDownKey) }) {
+            var key = hkc.Key;
+
+            if (ReservedKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' is reserved.");
+            }
+
+            if (actionKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with an action binding.");
+            }
+
+            if (chordKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with a chord key.");
+            }
+
+            if (navKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with a navigation key.");
+            }
+
+            if (hotkeyVKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with hotkey.");
             }
         }
     }

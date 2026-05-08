@@ -24,6 +24,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private readonly ILogger _logger;
     private readonly ModeSessionFactory _sessionFactory;
     private readonly IPlatformServices _platform;
+    private readonly IModifierDetector _modifierDetector;
 
     /// <summary>Debounce timeout duration.</summary>
     private static readonly TimeSpan DebounceTimeout = TimeSpan.FromMilliseconds(500);
@@ -37,6 +38,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private bool _nonQwertyWarningShown;
     private Point _origin;
     private Rectangle _screenBounds;
+    private bool _dragMode;
+    private Point _dragStartPoint;
 
     // Debounce state
     private readonly HashSet<VKey> _debounceKeys = [];
@@ -52,6 +55,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         IOverlayWindow overlayWindow,
         ModeSessionFactory sessionFactory,
         IPlatformServices platform,
+        IModifierDetector modifierDetector,
         ConfigModel config,
         ILogger logger) {
         _hotKeyService = hotKeyService;
@@ -60,6 +64,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _overlayWindow = overlayWindow;
         _sessionFactory = sessionFactory;
         _platform = platform;
+        _modifierDetector = modifierDetector;
         _config = config;
         _logger = logger;
 
@@ -332,12 +337,79 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             return;
         }
 
+        // Drag phase 2: completing a drag
+        if (_dragMode) {
+            // Invalid actions during drag
+            if (action is MouseAction.MoveOnly or MouseAction.DragDrop) {
+                LogDragInvalidAction(action);
+                return;
+            }
+
+            var modifiers = _modifierDetector.GetCurrentModifiers();
+            _overlayWindow.ClearStatusText();
+            _dragMode = false;
+            DeactivateOverlay();
+            _mouseService.SendDrag(_dragStartPoint, point, action, modifiers);
+            return;
+        }
+
+        // Drag phase 1: starting a drag
+        if (action == MouseAction.DragDrop) {
+            _dragStartPoint = point;
+            _dragMode = true;
+            ResetOverlayForDrag();
+            return;
+        }
+
+        var actionModifiers = action == MouseAction.MoveOnly
+            ? ActionModifiers.None
+            : _modifierDetector.GetCurrentModifiers();
+
         DeactivateOverlay();
-        _mouseService.SendAction(point, action);
+        _mouseService.SendAction(point, action, actionModifiers);
+    }
+
+    private void ResetOverlayForDrag() {
+        // Unsubscribe and deactivate current session
+        if (_activeSession is not null) {
+            _activeSession.ActionRequested -= OnSessionActionRequested;
+            _activeSession.Cancelled -= OnSessionCancelled;
+            _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
+            _activeSession.Deactivate();
+            _activeSession = null;
+        }
+
+        _overlayWindow.ClearCanvas();
+        _modeLocked = false;
+
+        // Create and activate new default-mode session
+        var defaultModeName = GetDefaultModeName();
+        try {
+            var session = _sessionFactory.Create(defaultModeName);
+
+            session.ActionRequested += OnSessionActionRequested;
+            session.Cancelled += OnSessionCancelled;
+            session.CursorMoveRequested += OnSessionCursorMoveRequested;
+
+            _activeSession = session;
+            session.Activate(_screenBounds, _dragStartPoint);
+
+            _overlayWindow.ShowStatusText("Select drag target");
+        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
+            LogModeSwitchFailed(defaultModeName, ex.Message);
+            _dragMode = false;
+            _overlayWindow.ClearStatusText();
+            DeactivateOverlay();
+        }
     }
 
     private void OnSessionCancelled() {
         LogCancelled();
+        if (_dragMode) {
+            _dragMode = false;
+            _overlayWindow.ClearStatusText();
+            _mouseService.MoveTo(_origin);
+        }
         DeactivateOverlay();
     }
 
@@ -372,9 +444,16 @@ public sealed partial class NavigatorCoordinator : IDisposable {
                 _activeSession = null;
             }
 
+            // Drag-mode cleanup: restore cursor to origin on focus-loss or unexpected deactivation
+            if (_dragMode) {
+                _mouseService.MoveTo(_origin);
+                _dragMode = false;
+            }
+
             _modeLocked = false;
 
             _overlayWindow.ClearCanvas();
+            _overlayWindow.ClearStatusText();
             _overlayWindow.Hide();
         } finally {
             _deactivating = false;
@@ -413,6 +492,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Action point ({X}, {Y}) out of screen bounds — suppressed")]
     private partial void LogActionOutOfBounds(int x, int y);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Drag mode: invalid action {Action} — ignored")]
+    private partial void LogDragInvalidAction(MouseAction action);
 
     public void Dispose() {
         _hotKeyService.Activated -= OnHotKeyActivated;

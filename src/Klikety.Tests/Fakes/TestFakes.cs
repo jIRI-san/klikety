@@ -125,15 +125,30 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
 }
 
 public sealed class FakeMouseActionService : IMouseActionService {
-    public List<(Point Point, MouseAction? Action)> Calls { get; } = [];
+    public List<(Point Point, MouseAction? Action, ActionModifiers Modifiers)> Calls { get; } = [];
+    public List<int> ScrollCalls { get; } = [];
+    public List<(Point Start, Point End, MouseAction Button, ActionModifiers Modifiers)> DragCalls { get; } = [];
 
     public void MoveTo(Point physicalPoint) {
-        Calls.Add((physicalPoint, null));
+        Calls.Add((physicalPoint, null, ActionModifiers.None));
     }
 
-    public void SendAction(Point physicalPoint, MouseAction action) {
-        Calls.Add((physicalPoint, action));
+    public void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None) {
+        Calls.Add((physicalPoint, action, modifiers));
     }
+
+    public void SendScroll(int wheelDelta) {
+        ScrollCalls.Add(wheelDelta);
+    }
+
+    public void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {
+        DragCalls.Add((start, end, button, modifiers));
+    }
+}
+
+public sealed class FakeModifierDetector : IModifierDetector {
+    public ActionModifiers Modifiers { get; set; } = ActionModifiers.None;
+    public ActionModifiers GetCurrentModifiers() => Modifiers;
 }
 
 public sealed class FakeOverlayWindow : IOverlayWindow {
@@ -161,6 +176,19 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     }
 
     public int ClearCanvasCount { get; private set; }
+    public string? StatusText { get; private set; }
+    public int ShowStatusTextCount { get; private set; }
+    public int ClearStatusTextCount { get; private set; }
+
+    public void ShowStatusText(string text) {
+        StatusText = text;
+        ShowStatusTextCount++;
+    }
+
+    public void ClearStatusText() {
+        StatusText = null;
+        ClearStatusTextCount++;
+    }
 
     public void SimulateFocusLoss() {
         FocusLost?.Invoke(this, EventArgs.Empty);

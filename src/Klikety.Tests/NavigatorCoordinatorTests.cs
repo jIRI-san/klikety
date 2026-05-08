@@ -13,7 +13,8 @@ namespace Klikety.Tests;
 
 public class NavigatorCoordinatorTests {
     private static (NavigatorCoordinator Coordinator, FakeHotKeyService HotKey, FakeKeyboardHookService Hook,
-        FakeMouseActionService Mouse, FakeOverlayWindow Overlay, FakeGridRenderer Renderer, FakePlatformServices Platform) CreateCoordinator(
+        FakeMouseActionService Mouse, FakeOverlayWindow Overlay, FakeGridRenderer Renderer, FakePlatformServices Platform,
+        FakeModifierDetector ModifierDetector) CreateCoordinator(
         NavigationMode mode = NavigationMode.Both, ConfigModel? configOverride = null) {
         var modeConfig = new ModeConfig {
             Enabled = true,
@@ -32,17 +33,18 @@ public class NavigatorCoordinatorTests {
         var renderer = new FakeGridRenderer();
         var sessionFactory = new ModeSessionFactory(config, actionMapper, renderer);
         var platform = new FakePlatformServices();
+        var modifierDetector = new FakeModifierDetector();
 
         var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sessionFactory, platform, config,
+            hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
             NullLogger.Instance);
 
-        return (coordinator, hotKey, hook, mouse, overlay, renderer, platform);
+        return (coordinator, hotKey, hook, mouse, overlay, renderer, platform, modifierDetector);
     }
 
     [Fact]
     public void HookFailure_OverlayClosedImmediately() {
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator();
         hook.ShouldFailOnEnable = true;
 
         hotKey.SimulateActivation();
@@ -53,7 +55,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void FocusLoss_DeactivatesOverlay() {
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         Assert.True(overlay.IsVisible);
@@ -65,7 +67,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void FullL1Navigation_ActionDispatched() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         Assert.True(overlay.IsVisible);
@@ -80,7 +82,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void EscapeAtL1_RestoresCursor() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.Escape);
@@ -91,7 +93,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void InvalidKey_NoTransition() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.Z);
@@ -102,7 +104,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void ArrowNavigation_ThenEnter_EntersCell() {
-        var (_, hotKey, hook, mouse, overlay, renderer, _) = CreateCoordinator(NavigationMode.Both);
+        var (_, hotKey, hook, mouse, overlay, renderer, _, _) = CreateCoordinator(NavigationMode.Both);
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.Right);
@@ -114,7 +116,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void TwoKeyMode_ArrowsIgnored() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator(NavigationMode.TwoKey);
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(NavigationMode.TwoKey);
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.Right);
@@ -126,7 +128,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void FirstKey_CallsHighlightColumn() {
-        var (_, hotKey, hook, _, _, renderer, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, _, renderer, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.A);
@@ -136,7 +138,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void CellEntered_RendersSubgridOverGrid() {
-        var (_, hotKey, hook, _, _, renderer, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, _, renderer, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.A);
@@ -147,7 +149,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void L2ColumnHighlighted_UsesHighlightColumnOverGrid() {
-        var (_, hotKey, hook, _, _, renderer, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, _, renderer, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.A);
@@ -159,7 +161,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void EscapeFromL2_CallsRenderGrid() {
-        var (_, hotKey, hook, _, _, renderer, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, _, renderer, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.A);
@@ -174,7 +176,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void EscapeFromL2AwaitAction_CallsRenderGrid() {
-        var (_, hotKey, hook, _, _, renderer, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, _, renderer, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.A);
@@ -190,7 +192,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void DeactivateOverlay_CallsClearCanvas() {
-        var (_, hotKey, hook, _, overlay, renderer, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, renderer, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.Escape);
@@ -201,7 +203,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void NoNavAction_SendsActionAtOrigin() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator(NavigationMode.Both);
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(NavigationMode.Both);
 
         hotKey.SimulateActivation();
         // Release trigger key (Space) — clears debounce
@@ -217,7 +219,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void EscapeFromL1AwaitAction_RestoresCursorToOrigin() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator(NavigationMode.Both);
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(NavigationMode.Both);
 
         hotKey.SimulateActivation();
         // Enter L1 cell — moves cursor to L1 cell center
@@ -235,7 +237,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void EscapeFromL2_RestoresCursorToOrigin() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator(NavigationMode.Both);
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(NavigationMode.Both);
 
         hotKey.SimulateActivation();
         // Enter L1 cell
@@ -256,7 +258,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void Debounce_TriggerKeySuppressedUntilReleased() {
-        var (_, hotKey, hook, mouse, overlay, _, platform) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         // Space is in debounce set (trigger key added unconditionally)
@@ -269,7 +271,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void Debounce_ModifierKeySuppressedWhenHeld() {
-        var (_, hotKey, hook, mouse, overlay, _, platform) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator();
 
         // Simulate Alt held at activation time
         platform.KeyState.SetKeyDown(VKey.LMenu);
@@ -283,7 +285,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void Debounce_KeyUpRemovesFromDebounceSet() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         // Release Space → removed from debounce
@@ -297,7 +299,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void Debounce_DifferentKeyRemovesTrigger() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         // First keydown for a DIFFERENT key removes trigger key from debounce
@@ -313,7 +315,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void Debounce_TimerReconciles() {
-        var (_, hotKey, hook, mouse, overlay, _, platform) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator();
 
         platform.KeyState.SetKeyDown(VKey.LMenu);
         hotKey.SimulateActivation();
@@ -342,7 +344,7 @@ public class NavigatorCoordinatorTests {
                 },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
         Assert.True(overlay.IsVisible);
@@ -362,7 +364,7 @@ public class NavigatorCoordinatorTests {
                 Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
         // Press a nav key first to lock the mode
@@ -383,7 +385,7 @@ public class NavigatorCoordinatorTests {
                 Crosshair = new ModeConfig { Enabled = false, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
         // N is not a chord key (Crosshair disabled) → goes to session as invalid key
@@ -402,7 +404,7 @@ public class NavigatorCoordinatorTests {
                 Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
         // Press arrow key → locks mode
@@ -417,7 +419,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void CursorOutsidePrimary_ActivationSuppressed() {
-        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, _, platform, _) = CreateCoordinator();
 
         // Put cursor outside the primary screen bounds
         platform.Screen.Bounds = new Rectangle(0, 0, 1920, 1080);
@@ -433,7 +435,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void ActionOutOfBounds_Suppressed() {
-        var (_, hotKey, hook, mouse, overlay, _, platform) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator();
 
         // Normal activation
         platform.Screen.Bounds = new Rectangle(0, 0, 100, 100);
@@ -458,7 +460,7 @@ public class NavigatorCoordinatorTests {
                 UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
             },
         };
-        var (_, hotKey, hook, mouse, overlay, _, platform) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator(configOverride: config);
 
         // Set small bounds so that computed grid points can exceed them
         platform.Screen.Bounds = new Rectangle(0, 0, 1920, 1080);
@@ -482,7 +484,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void ReentrantActivation_Ignored() {
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         Assert.Equal(1, overlay.ShowCount);
@@ -502,7 +504,7 @@ public class NavigatorCoordinatorTests {
                 Crosshair = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
             },
         };
-        var (_, hotKey, hook, _, overlay, renderer, platform) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, renderer, platform, _) = CreateCoordinator(configOverride: config);
 
         // Set non-QWERTY layout (e.g., German QWERTZ)
         platform.KeyboardLayout.Qwerty = false;
@@ -515,7 +517,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void QwertyLayout_DefaultUniformGrid_NoFallback() {
-        var (_, hotKey, hook, _, overlay, renderer, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, renderer, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         Assert.True(overlay.IsVisible);
@@ -532,7 +534,7 @@ public class NavigatorCoordinatorTests {
                 LogCrosshair = new ModeConfig { Enabled = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true, LogBaseSize = 0 },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
         // Chord to LogCrosshair → ArgumentOutOfRangeException (logBaseSize < 1) → DeactivateOverlay
@@ -550,7 +552,7 @@ public class NavigatorCoordinatorTests {
                 LogCrosshair = new ModeConfig { Enabled = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true, LogBaseSize = 0 },
             },
         };
-        var (_, hotKey, hook, _, overlay, renderer, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, renderer, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
         Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
@@ -564,7 +566,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void FocusLoss_DuringSwitchMode_StillDeactivates() {
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         // Focus loss always deactivates regardless of internal state
@@ -576,7 +578,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void Debounce_MultipleModifiers_AllSuppressed() {
-        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, _, platform, _) = CreateCoordinator();
 
         // Hold both Alt and Space at activation time
         platform.KeyState.SetKeyDown(VKey.LMenu);
@@ -592,7 +594,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void Debounce_KeyUpThenDown_SecondDownProcessed() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         // Release space
@@ -609,7 +611,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void DebounceTimer_ReconcilesClearedKeys() {
-        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, _, platform, _) = CreateCoordinator();
 
         platform.KeyState.SetKeyDown(VKey.LMenu);
         hotKey.SimulateActivation();
@@ -625,7 +627,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void DeactivateOverlay_ClearsDebounceTimer() {
-        var (coordinator, hotKey, hook, _, _, _, platform) = CreateCoordinator();
+        var (coordinator, hotKey, hook, _, _, _, platform, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         var timer = platform.Timers.LastCreated;
@@ -637,7 +639,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void ActionKey_WhileHookDisabled_NoEffect() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         // Manually deactivate via focus loss
@@ -658,7 +660,7 @@ public class NavigatorCoordinatorTests {
                 Crosshair = new ModeConfig { Enabled = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
             },
         };
-        var (_, hotKey, hook, _, overlay, renderer, platform) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, renderer, platform, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
 
@@ -681,7 +683,7 @@ public class NavigatorCoordinatorTests {
                 LogCrosshair = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.M, TwoKey = true, ArrowKeys = true, LogBaseSize = 0 },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, platform, _) = CreateCoordinator(configOverride: config);
 
         // QWERTY = true so it doesn't fall back — will try to Activate LogCrosshair → throws (logBaseSize < 2)
         platform.KeyboardLayout.Qwerty = true;
@@ -693,7 +695,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void MultiMonitor_CursorOnSecondary_NoOverlay() {
-        var (_, hotKey, hook, _, overlay, _, platform) = CreateCoordinator();
+        var (_, hotKey, hook, _, overlay, _, platform, _) = CreateCoordinator();
 
         platform.Screen.Bounds = new Rectangle(0, 0, 1920, 1080);
         platform.Cursor.Position = new Point(3000, 500); // Outside primary
@@ -706,7 +708,7 @@ public class NavigatorCoordinatorTests {
 
     [Fact]
     public void ClickThroughSafety_HideBeforeSendAction() {
-        var (_, hotKey, hook, mouse, overlay, _, _) = CreateCoordinator();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator();
 
         hotKey.SimulateActivation();
         hook.SimulateKeyDown(VKey.A);
@@ -779,7 +781,7 @@ public class NavigatorCoordinatorTests {
                 LogGrid = new ModeConfig { Enabled = true, ChordKey = VKey.OemComma, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
         Assert.True(overlay.IsVisible);
@@ -801,7 +803,7 @@ public class NavigatorCoordinatorTests {
                 LogGrid = new ModeConfig { Enabled = true, ChordKey = VKey.OemComma, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
         Assert.True(overlay.IsVisible);
@@ -821,7 +823,7 @@ public class NavigatorCoordinatorTests {
                 LogGrid = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.OemComma, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
             },
         };
-        var (_, hotKey, _, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, _, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
 
@@ -839,7 +841,7 @@ public class NavigatorCoordinatorTests {
                 LogGrid = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.OemComma, TwoKey = true, ArrowKeys = true, LogGridBaseSize = 10 },
             },
         };
-        var (_, hotKey, hook, _, overlay, _, _) = CreateCoordinator(configOverride: config);
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
 
         hotKey.SimulateActivation();
 
@@ -849,5 +851,302 @@ public class NavigatorCoordinatorTests {
         // Verify it's UniformGrid by pressing a nav key (A is a valid key for 5-key grid)
         hook.SimulateKeyDown(VKey.A);
         Assert.True(overlay.IsVisible); // Still in L1
+    }
+
+    [Fact]
+    public void MoveOnly_DeactivatesOverlay_NoClick() {
+        var config = new ConfigModel {
+            ActionBindings = new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase) {
+                { "B", MouseAction.MoveOnly },
+            },
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.B);
+
+        Assert.False(overlay.IsVisible);
+        var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
+        Assert.Equal(MouseAction.MoveOnly, actionCall.Action);
+    }
+
+    [Fact]
+    public void Modifiers_CapturedAndPassedToSendAction() {
+        var (_, hotKey, hook, mouse, _, _, _, modifierDetector) = CreateCoordinator();
+        modifierDetector.Modifiers = ActionModifiers.Shift | ActionModifiers.Ctrl;
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Space);
+
+        var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
+        Assert.Equal(ActionModifiers.Shift | ActionModifiers.Ctrl, actionCall.Modifiers);
+    }
+
+    [Fact]
+    public void MoveOnly_IgnoresModifiers() {
+        var config = new ConfigModel {
+            ActionBindings = new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase) {
+                { "B", MouseAction.MoveOnly },
+            },
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (_, hotKey, hook, mouse, _, _, _, modifierDetector) = CreateCoordinator(configOverride: config);
+        modifierDetector.Modifiers = ActionModifiers.Shift;
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.B);
+
+        var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
+        Assert.Equal(ActionModifiers.None, actionCall.Modifiers);
+    }
+
+    [Fact]
+    public void NoModifiers_PassesNoneToSendAction() {
+        var (_, hotKey, hook, mouse, _, _, _, modifierDetector) = CreateCoordinator();
+        modifierDetector.Modifiers = ActionModifiers.None;
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Space);
+
+        var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
+        Assert.Equal(ActionModifiers.None, actionCall.Modifiers);
+    }
+
+    // --- Drag-and-drop tests ---
+
+    private static ConfigModel DragConfig() => new() {
+        ActionBindings = new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase) {
+            { "Z", MouseAction.DragDrop },
+            { "V", MouseAction.RightClick },
+            { "B", MouseAction.MoveOnly },
+        },
+        Modes = new ModesConfig {
+            UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+        },
+    };
+
+    [Fact]
+    public void DragDrop_StartsPhase_ResetsOverlay_ShowsStatusText() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        // Navigate to start point
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        // Press drag action key
+        hook.SimulateKey(VKey.Z);
+
+        // Overlay should still be visible (drag mode active)
+        Assert.True(overlay.IsVisible);
+        // Status text should be shown
+        Assert.Equal("Select drag target", overlay.StatusText);
+        // No SendAction or SendDrag calls yet
+        Assert.DoesNotContain(mouse.Calls, c => c.Action is not null);
+        Assert.Empty(mouse.DragCalls);
+    }
+
+    [Fact]
+    public void DragDrop_SecondAction_LeftClick_SendsDrag() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, _, modifierDetector) = CreateCoordinator(configOverride: config);
+        modifierDetector.Modifiers = ActionModifiers.None;
+
+        hotKey.SimulateActivation();
+        // Navigate to start point
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        // Start drag
+        hook.SimulateKey(VKey.Z);
+
+        // Navigate to end point
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        // Complete drag with left-click
+        hook.SimulateKey(VKey.Space);
+
+        // Overlay should be closed
+        Assert.False(overlay.IsVisible);
+        // SendDrag should have been called
+        var drag = Assert.Single(mouse.DragCalls);
+        Assert.Equal(MouseAction.LeftClick, drag.Button);
+        Assert.Equal(ActionModifiers.None, drag.Modifiers);
+    }
+
+    [Fact]
+    public void DragDrop_SecondAction_RightClick_SendsRightDrag() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, _, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.V);
+
+        var drag = Assert.Single(mouse.DragCalls);
+        Assert.Equal(MouseAction.RightClick, drag.Button);
+    }
+
+    [Fact]
+    public void DragDrop_SecondAction_WithModifiers_PassesModifiers() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, _, _, _, modifierDetector) = CreateCoordinator(configOverride: config);
+        modifierDetector.Modifiers = ActionModifiers.Shift | ActionModifiers.Ctrl;
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.Space);
+
+        var drag = Assert.Single(mouse.DragCalls);
+        Assert.Equal(ActionModifiers.Shift | ActionModifiers.Ctrl, drag.Modifiers);
+    }
+
+    [Fact]
+    public void DragDrop_Escape_AbortsDrag_RestoresCursorToOrigin() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator(configOverride: config);
+        // Origin is the cursor position at hotkey activation
+        platform.Cursor.Position = new Point(100, 200);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        // Escape during drag phase
+        hook.SimulateKey(VKey.Escape);
+
+        Assert.False(overlay.IsVisible);
+        Assert.Empty(mouse.DragCalls);
+        // Cursor should be restored to origin (100, 200)
+        var moveCall = mouse.Calls.Last(c => c.Action is null);
+        Assert.Equal(new Point(100, 200), moveCall.Point);
+    }
+
+    [Fact]
+    public void DragDrop_MoveOnlyInDragMode_Ignored() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        // Press MoveOnly during drag phase
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.B);
+
+        // Overlay should still be visible (action was rejected)
+        Assert.True(overlay.IsVisible);
+        Assert.Empty(mouse.DragCalls);
+    }
+
+    [Fact]
+    public void DragDrop_DragDropInDragMode_Ignored() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        // Press DragDrop again during drag phase
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.Z);
+
+        // Overlay should still be visible (action was rejected, not restarted)
+        Assert.True(overlay.IsVisible);
+        Assert.Empty(mouse.DragCalls);
+    }
+
+    [Fact]
+    public void DragDrop_FocusLoss_AbortsDrag_RestoresCursor() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator(configOverride: config);
+        platform.Cursor.Position = new Point(300, 400);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        // Focus loss during drag phase
+        overlay.SimulateFocusLoss();
+
+        Assert.False(overlay.IsVisible);
+        Assert.Empty(mouse.DragCalls);
+        // Cursor restored to origin
+        var moveCall = mouse.Calls.Last(c => c.Action is null);
+        Assert.Equal(new Point(300, 400), moveCall.Point);
+    }
+
+    [Fact]
+    public void DragDrop_StatusTextClearedOnCompletion() {
+        var config = DragConfig();
+        var (_, hotKey, hook, _, overlay, _, _, _) = CreateCoordinator(configOverride: config);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        Assert.Equal("Select drag target", overlay.StatusText);
+
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.Space);
+
+        // Status text should be cleared
+        Assert.Null(overlay.StatusText);
+    }
+
+    [Fact]
+    public void DragDrop_Completion_NoIntermediateMoveTo_Origin() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator(configOverride: config);
+        platform.Cursor.Position = new Point(500, 500);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.Space);
+
+        Assert.False(overlay.IsVisible);
+        // No MoveTo(origin) should occur during drag completion —
+        // DeactivateOverlay must not restore cursor when drag completes.
+        var moveToOrigin = mouse.Calls.Where(c => c.Action is null && c.Point == new Point(500, 500));
+        // The only MoveTo(origin) allowed is the initial cursor positioning, not a post-deactivate restore
+        Assert.DoesNotContain(mouse.Calls, c => c.Action is null && c.Point == new Point(500, 500)
+            && mouse.Calls.IndexOf(c) > mouse.Calls.FindIndex(x => x.Action is null && x.Point != new Point(500, 500)));
     }
 }

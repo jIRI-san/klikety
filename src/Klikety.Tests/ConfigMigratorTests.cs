@@ -35,7 +35,7 @@ public class ConfigMigratorTests {
             var migrated = ReadJsonObject(path);
             Assert.True(migrated.ContainsKey("modes"));
             Assert.False(migrated.ContainsKey("navigationMode"));
-            Assert.Equal(3, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
 
             var ug = migrated["modes"]!["uniformGrid"]!;
             Assert.True(ug["enabled"]!.GetValue<bool>());
@@ -168,13 +168,14 @@ public class ConfigMigratorTests {
     public void MigrateIfNeeded_AlreadyMigrated_NoMutation() {
         var json = """
         {
-            "configVersion": 3,
+            "configVersion": 4,
             "horizontalKeys": ["A","S","D","F"],
             "verticalKeys": ["W","E","R","T"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true },
                 "logGrid": { "enabled": true, "twoKey": true, "chordKey": "OemComma", "logGridBaseSize": 10 }
-            }
+            },
+            "scrollHotkeys": { "enabled": false }
         }
         """;
         var path = WriteTempFile(json);
@@ -332,7 +333,7 @@ public class ConfigMigratorTests {
             Assert.Null(result.BlockingError);
 
             var migrated = ReadJsonObject(path);
-            Assert.Equal(3, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
 
             var logGrid = migrated["modes"]!["logGrid"]!;
             Assert.True(logGrid["enabled"]!.GetValue<bool>());
@@ -413,6 +414,109 @@ public class ConfigMigratorTests {
             Assert.True(logGrid["enabled"]!.GetValue<bool>());
             Assert.Equal("OemComma", logGrid["chordKey"]!.GetValue<string>());
             Assert.Equal(10, logGrid["logGridBaseSize"]!.GetValue<int>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V3ToV4_AddsScrollHotKeys() {
+        var json = """
+        {
+            "configVersion": 3,
+            "horizontalKeys": ["A","S","D","F","G","H","J","K","L","OemSemicolon"],
+            "verticalKeys": ["Q","W","E","R","T","Y","U","I","O","P"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true, "twoKey": true },
+                "logGrid": { "enabled": true, "twoKey": true, "chordKey": "OemComma", "logGridBaseSize": 10 }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+            Assert.Null(result.BlockingError);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+
+            var scroll = migrated["scrollHotkeys"]!;
+            Assert.False(scroll["enabled"]!.GetValue<bool>());
+            Assert.Equal("Prior", scroll["scrollUpKey"]!["key"]!.GetValue<string>());
+            Assert.Equal("Next", scroll["scrollDownKey"]!["key"]!.GetValue<string>());
+            Assert.Equal(3, scroll["scrollAmount"]!.GetValue<int>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V4Config_NoMutation() {
+        var json = """
+        {
+            "configVersion": 4,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "scrollHotkeys": { "enabled": true, "scrollAmount": 5 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var originalContent = File.ReadAllText(path);
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.False(result.WasMigrated);
+
+            Assert.Equal(originalContent, File.ReadAllText(path));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V3WithExistingScrollHotKeys_PreservesUserValues() {
+        var json = """
+        {
+            "configVersion": 3,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "scrollHotkeys": { "enabled": true, "scrollAmount": 10 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            // User's existing scrollHotkeys preserved (not overwritten with defaults)
+            Assert.True(migrated["scrollHotkeys"]!["enabled"]!.GetValue<bool>());
+            Assert.Equal(10, migrated["scrollHotkeys"]!["scrollAmount"]!.GetValue<int>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V3ToV4_PreservesUnknownFields() {
+        var json = """
+        {
+            "configVersion": 3,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "customUserField": "preserved"
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal("preserved", migrated["customUserField"]!.GetValue<string>());
         } finally { Cleanup(path); }
     }
 

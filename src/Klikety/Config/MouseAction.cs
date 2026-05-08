@@ -8,4 +8,6 @@ public enum MouseAction {
     RightClick,
     MiddleClick,
     DoubleClick,
+    MoveOnly,
+    DragDrop,
 }

@@ -17,6 +17,8 @@ namespace Klikety;
 public partial class App : Application {
     private TaskbarIcon? _trayIcon;
     private HotKeyService? _hotKeyService;
+    private ScrollHotKeyService? _scrollHotKeyService;
+    private bool _scrollHotKeysConfigEnabled;
     private NavigatorCoordinator? _coordinator;
 #if DEBUG
     private HotKeyService? _debugHotKeyService;
@@ -84,10 +86,11 @@ public partial class App : Application {
 
         // Create services
         var hookService = new KeyboardHookService();
-        var mouseService = new MouseActionService();
+        var mouseService = new MouseActionService(logger);
 
         // Create overlay window
         var overlayWindow = new OverlayWindow();
+        overlayWindow.SetTheme(theme);
 
         // Create label generator
         var resolver = new Win32KeyLabelResolver();
@@ -138,6 +141,7 @@ public partial class App : Application {
             overlayWindow,
             sessionFactory,
             PlatformServices.Instance,
+            new ModifierDetector(),
             config,
             logger);
 
@@ -146,6 +150,15 @@ public partial class App : Application {
         if (!_hotKeyService.Register(config.HotKey)) {
             LogHotkeyRegistrationFailed(logger, config.HotKey.Modifiers, config.HotKey.Key);
             violations.Add($"Failed to register global hotkey {config.HotKey.Modifiers}+{config.HotKey.Key}.");
+        }
+
+        // Scroll hotkeys
+        _scrollHotKeyService?.Dispose();
+        _scrollHotKeyService = new ScrollHotKeyService(config.ScrollHotKeys, mouseService, logger);
+        _scrollHotKeysConfigEnabled = config.ScrollHotKeys.Enabled;
+        if (_scrollHotKeysConfigEnabled) {
+            var scrollFailures = _scrollHotKeyService.Register();
+            violations.AddRange(scrollFailures);
         }
 
 #if DEBUG
@@ -242,6 +255,26 @@ public partial class App : Application {
         };
         contextMenu.Items.Add(startupItem);
 
+        // Scroll Keys toggle (visible when scroll hotkeys are enabled in config)
+        if (_scrollHotKeyService is not null && _scrollHotKeysConfigEnabled) {
+            var scrollItem = new System.Windows.Controls.MenuItem {
+                Header = _scrollHotKeyService.IsRegistered ? "Pause Scroll Keys" : "Resume Scroll Keys",
+            };
+            scrollItem.Click += (_, _) => {
+                if (_scrollHotKeyService.IsRegistered) {
+                    _scrollHotKeyService.Unregister();
+                    scrollItem.Header = "Resume Scroll Keys";
+                } else {
+                    var failures = _scrollHotKeyService.Register();
+                    if (failures.Count > 0) {
+                        _trayIcon?.ShowNotification("Klikety", string.Join("\n", failures));
+                    }
+                    scrollItem.Header = "Pause Scroll Keys";
+                }
+            };
+            contextMenu.Items.Add(scrollItem);
+        }
+
         contextMenu.Items.Add(new System.Windows.Controls.Separator());
 
         // Quit
@@ -249,6 +282,7 @@ public partial class App : Application {
         quitItem.Click += (_, _) => {
             _coordinator?.Dispose();
             _hotKeyService?.Dispose();
+            _scrollHotKeyService?.Dispose();
             _trayIcon?.Dispose();
             _loggerFactory?.Dispose();
             Shutdown();

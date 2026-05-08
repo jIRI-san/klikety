@@ -32,7 +32,25 @@ public interface IKeyboardHookService : IDisposable {
 /// </summary>
 public interface IMouseActionService {
     void MoveTo(System.Drawing.Point physicalPoint);
-    void SendAction(System.Drawing.Point physicalPoint, MouseAction action);
+    void SendAction(System.Drawing.Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);
+    void SendScroll(int wheelDelta);
+    void SendDrag(System.Drawing.Point start, System.Drawing.Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None);
+}
+
+/// <summary>
+/// Abstracts reading physical modifier key state (Shift, Ctrl, Alt) at action time.
+/// </summary>
+public interface IModifierDetector {
+    ActionModifiers GetCurrentModifiers();
+}
+
+/// <summary>
+/// Abstracts global scroll hotkey registration and dispatch.
+/// </summary>
+public interface IScrollHotKeyService : IDisposable {
+    bool IsRegistered { get; }
+    List<string> Register();
+    void Unregister();
 }
 
 /// <summary>
@@ -44,6 +62,8 @@ public interface IOverlayWindow {
     void Hide();
     void Close();
     void ClearCanvas();
+    void ShowStatusText(string text);
+    void ClearStatusText();
     bool IsVisible { get; }
 }
 

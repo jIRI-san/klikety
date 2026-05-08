@@ -42,4 +42,9 @@ public sealed class ThemeModel {
     // LogGrid small-cell tint (cells below external-label threshold)
     public string SmallCellBackgroundColor { get; init; } = "#1A4A7A";
     public double SmallCellBackgroundOpacity { get; init; } = 0.5;
+
+    // Status text (drag target selection banner)
+    public string StatusTextFillColor { get; init; } = "#FFFFFF";
+    public string StatusTextOutlineColor { get; init; } = "#000000";
+    public string StatusTextBackgroundColor { get; init; } = "#333333";
 }

@@ -16,10 +16,13 @@ Also without touching the code. This paragraph is the only one I have written ma
 - **Arrow key navigation**: Optional arrow-key cell movement with crosshair highlight. Enter zooms into a cell; action keys (Space) click directly.
 - **Auto-scaling labels**: Font sizes adapt to cell height (80% at L1, 90% at L2/L3). External labels with connector lines when cells get too small.
 - **Outlined text**: Two-layer stroke+fill rendering ensures label readability over any background.
-- **Configurable actions**: Space = left click (default). Bind any key to right-click, double-click, middle-click, or drag.
+- **Configurable actions**: Space = left click (default). Bind any key to right-click, double-click, middle-click, move-only (cursor move without click), or drag-and-drop.
+- **Modifier-aware clicks**: Hold Shift, Ctrl, or Alt while pressing an action key to send modified clicks (Shift+click, Ctrl+click, etc.).
+- **Drag-and-drop**: Two-point drag flow — navigate to start, press drag key, navigate to end, press action key. Supports left/right/middle drag with modifiers.
+- **Global scroll hotkeys**: Optional global hotkeys for mouse wheel scrolling at cursor position (default: Ctrl+Alt+PageUp/PageDown). Configurable keys and scroll amount.
 - **Keyboard layout aware**: Labels auto-adapt to QWERTY, DVORAK, Colemak, or any layout via Win32 `ToUnicodeEx`.
 - **Theme support**: Built-in dark and light themes. Create custom `.theme.json` files.
-- **System tray**: Runs in the tray with About, Open Config, Reset Configuration, Start with Windows, and Quit.
+- **System tray**: Runs in the tray with About, Open Config, Reset Configuration, Start with Windows, Pause/Resume Scroll Keys, and Quit.
 - **JSONC config**: Comments allowed in `config.json`. Schema-validated with `config.schema.json`.
 - **Debug logging**: All keystrokes and state transitions logged to `%APPDATA%\Klikety\logs\`.
 
@@ -67,7 +70,11 @@ First run extracts default config and theme files automatically.
 | `hotKey.key` | string (VKey) | `"Space"` | Trigger key (any VKey name) |
 | `firstKeys` | VKey[] | `["A","S","D","F","J","K","L","OemSemicolon"]` | Column selection keys (8 keys = 8 columns) |
 | `secondKeys` | VKey[] | `["W","E","R","T","Y","U","I","O"]` | Row selection keys (8 keys = 8 rows) |
-| `actionBindings` | object | `{}` | Map VKey names to actions: `LeftClick`, `RightClick`, `DoubleClick`, `MiddleClick`, `DragStart`, `DragEnd` |
+| `actionBindings` | object | `{}` | Map VKey names to actions: `LeftClick`, `RightClick`, `DoubleClick`, `MiddleClick`, `MoveOnly`, `DragDrop` |
+| `scrollHotkeys.enabled` | bool | `false` | Enable global scroll hotkeys |
+| `scrollHotkeys.scrollUpKey` | HotKeyConfig | Ctrl+Alt+PageUp | Scroll up hotkey |
+| `scrollHotkeys.scrollDownKey` | HotKeyConfig | Ctrl+Alt+PageDown | Scroll down hotkey |
+| `scrollHotkeys.scrollAmount` | int | `3` | Wheel ticks per hotkey press (1–100) |
 | `level3CellSizeThreshold` | int | `0` | Cell area (px²) above which level-3 subgrid activates. 0 = always active. |
 | `modes` | object | see below | Navigation mode config. Each mode has `enabled`, `default`, `chordKey`, `twoKey`, `arrowKeys`. |
 | `modes.logCrosshair.logBaseSize` | int | `20` | Base cell size (px) for LogCrosshair center cell. Range: 2–50. |
@@ -85,11 +92,11 @@ First run extracts default config and theme files automatically.
 {
     "actionBindings": {
         "Space": "LeftClick",     // default, can be omitted
-        "X": "RightClick",
-        "C": "DoubleClick",
-        "V": "MiddleClick",
-        "Z": "DragStart",
-        "B": "DragEnd"
+        "X": "DoubleClick",
+        "C": "MiddleClick",
+        "V": "RightClick",
+        "B": "MoveOnly",         // move cursor without clicking
+        "Z": "DragDrop"          // two-point drag-and-drop
     }
 }
 ```

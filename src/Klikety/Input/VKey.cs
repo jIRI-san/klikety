@@ -17,6 +17,8 @@ public enum VKey {
     Capital = 0x14, // Caps Lock
     Escape = 0x1B,
     Space = 0x20,
+    Prior = 0x21, // Page Up
+    Next = 0x22, // Page Down
 
     // Arrow keys (always reserved — may not appear in firstKeys/secondKeys/ActionBindings)
     Left = 0x25,

@@ -56,30 +56,30 @@
 | RISK-7 | Status text destroyed by `ClearCanvas` during mode switch in drag phase | Medium | Medium | Status text rendered in separate XAML layer outside main Canvas; `ClearCanvas` only clears the Canvas children | 4.4 |
 
 ## Phase 1: Move-Only Action
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 1.1 Extend `MouseAction` enum and `ActionMapper` (REQ-1, REQ-15) `S`
+- [x] 1.1 Extend `MouseAction` enum and `ActionMapper` (REQ-1, REQ-15) `S`
   - Add `MoveOnly = 4` to `MouseAction` enum in `Config/MouseAction.cs`
   - `ActionMapper` requires no changes — it already maps any `MouseAction` value from config
   - Update embedded `Resources/config.json` comment: available actions list includes `MoveOnly`
 
-- [ ] 1.2 Handle `MoveOnly` in `MouseActionService.SendAction` (REQ-1) `S`
+- [x] 1.2 Handle `MoveOnly` in `MouseActionService.SendAction` (REQ-1) `S`
   - After `MoveTo(physicalPoint)`, if `action == MouseAction.MoveOnly`, return early — no click inputs sent
   - Pattern: `if (action == MouseAction.MoveOnly) return;` immediately after `MoveTo`
 
-- [ ] 1.3 Add default binding in embedded config (REQ-1, REQ-15) `S`
+- [x] 1.3 Add default binding in embedded config (REQ-1, REQ-15) `S`
   - Add `"B": "MoveOnly"` to `actionBindings` in `Resources/config.json`
   - Update `Resources/config.schema.json` — add `MoveOnly` to the `MouseAction` enum definition
 
-- [ ] 1.4 Unit tests for move-only action (REQ-1) `S`
+- [x] 1.4 Unit tests for move-only action (REQ-1) `S`
   - `ActionMapper` test: `"B"` maps to `MouseAction.MoveOnly`
   - `NavigatorCoordinatorTests`: verify `MoveOnly` action calls `MoveTo` but no `SendAction` click — wait, `SendAction` is the single entry point. Test that `SendAction(point, MoveOnly)` results in cursor move without click. Use `IMouseActionService` fake to verify.
   - Coordinator test: `OnSessionActionRequested` with `MoveOnly` calls `DeactivateOverlay` then `SendAction`; verify no error
 
 ## Phase 2: Modifier-Aware Actions
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 2.1 Add `ActionModifiers` enum and `IModifierDetector` interface (REQ-2, REQ-3) [after: 1.2] `S`
+- [x] 2.1 Add `ActionModifiers` enum and `IModifierDetector` interface (REQ-2, REQ-3) [after: 1.2] `S`
   - New file `Config/ActionModifiers.cs`:
     ```csharp
     [Flags]
@@ -116,7 +116,7 @@
   - New fake `Klikety.Tests/Fakes/FakeModifierDetector.cs`: returns configurable `ActionModifiers` value
   - Inject `IModifierDetector` into `NavigatorCoordinator` constructor
 
-- [ ] 2.2 Update `IMouseActionService.SendAction` signature (REQ-2) [after: 2.1] `S`
+- [x] 2.2 Update `IMouseActionService.SendAction` signature (REQ-2) [after: 2.1] `S`
   - Change: `void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);`
   - Update `MouseActionService.SendAction` implementation: when `modifiers != None`, prepend `KEYDOWN` inputs for each active modifier flag before the click, and append `KEYUP` inputs after
   - Guard `DragDrop` and `MoveOnly` in the action switch: both return after `MoveTo` — no click inputs sent. `DragDrop` should never reach `SendAction` in normal flow, but defensive guard prevents garbage mouse events.
@@ -125,7 +125,7 @@
   - Extend `INPUT` struct to hold `KEYBDINPUT` via explicit layout or union pattern
   - Validate `SendInput` return count; on partial send, issue compensating `KEYUP` for any modifiers sent down, log warning via `ILogger` (RISK-6)
 
-- [ ] 2.3 Wire modifier capture in coordinator (REQ-2, REQ-3, REQ-16, RISK-3, RISK-5) [after: 2.2] `M`
+- [x] 2.3 Wire modifier capture in coordinator (REQ-2, REQ-3, REQ-16, RISK-3, RISK-5) [after: 2.2] `M`
   - Inject `IModifierDetector` into `NavigatorCoordinator` constructor (alongside existing services)
   - In `NavigatorCoordinator.OnSessionActionRequested`:
     ```csharp
@@ -137,10 +137,10 @@
   - Create `ModifierDetector` instance in `App.xaml.cs` and pass to coordinator constructor
   - Update `IMouseActionService` fake in tests to accept and record `ActionModifiers` parameter
 
-- [ ] 2.4 Update `IModeSession.ActionRequested` event — no change needed (REQ-16) `S`
+- [x] 2.4 Update `IModeSession.ActionRequested` event — no change needed (REQ-16) `S`
   - Sessions fire `ActionRequested(Point, MouseAction)` — unchanged. Modifier detection is a coordinator concern, not a session concern. Verify no session changes needed.
 
-- [ ] 2.5 Unit tests for modifier-aware actions (REQ-2, REQ-3, REQ-16) `M`
+- [x] 2.5 Unit tests for modifier-aware actions (REQ-2, REQ-3, REQ-16) `M`
   - `FakeModifierDetector` tests: configure fake to return `Shift | Ctrl`; verify coordinator passes those modifiers through to `IMouseActionService` fake
   - `MouseActionService` tests (smoke tests): verify `SendAction` with `Shift` modifier sends 4 inputs (KEYDOWN, LEFTDOWN, LEFTUP, KEYUP); with `Shift | Ctrl` sends 6 inputs; with `None` sends 2 (unchanged behavior)
   - `NavigatorCoordinator` tests: inject `FakeModifierDetector` returning `Shift`; fire action; verify `IMouseActionService` fake received `Shift`
@@ -148,9 +148,9 @@
   - Test `DragDrop` reaching `SendAction`: returns after `MoveTo` (defensive guard)
 
 ## Phase 3: Global Scroll Hotkeys
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 3.1 Add `Prior`/`Next` to VKey enum and config model (REQ-13, REQ-5) `S`
+- [x] 3.1 Add `Prior`/`Next` to VKey enum and config model (REQ-13, REQ-5) `S`
   - `VKey.Prior = 0x21` (PageUp), `VKey.Next = 0x22` (PageDown) in `Input/VKey.cs`
   - New class `Config/ScrollHotKeyConfig.cs`:
     ```csharp
@@ -169,13 +169,13 @@
     ```
   - Add `ScrollHotKeys` property to `ConfigModel`: `[JsonPropertyName("scrollHotkeys")] public ScrollHotKeyConfig ScrollHotKeys { get; init; } = new();`
 
-- [ ] 3.2 Add `SendScroll` to `IMouseActionService` (REQ-4) [after: 3.1] `S`
+- [x] 3.2 Add `SendScroll` to `IMouseActionService` (REQ-4) [after: 3.1] `S`
   - Interface: `void SendScroll(int wheelDelta);`
   - Implementation: `SendInput` with `MOUSEEVENTF_WHEEL = 0x0800`, `mouseData = wheelDelta`
   - `wheelDelta` = `WHEEL_DELTA (120) * scrollAmount` (positive = up, negative = down)
   - No cursor move — wheel event fires at current cursor position
 
-- [ ] 3.3 Create `ScrollHotKeyService` (REQ-4, REQ-5, RISK-2) [after: 3.2] `M`
+- [x] 3.3 Create `ScrollHotKeyService` (REQ-4, REQ-5, RISK-2) [after: 3.2] `M`
   - New interface `Services/IScrollHotKeyService.cs`: `Register`, `Unregister`, `Dispose`, `bool IsRegistered`
   - New file `Services/ScrollHotKeyService.cs`
   - Creates its own `HwndSource` (separate from `HotKeyService`) for `WM_HOTKEY` messages
@@ -187,44 +187,44 @@
   - `IDisposable` — unregisters and disposes HwndSource
   - Testability: logic tested via `IScrollHotKeyService` fake; Win32 `RegisterHotKey` assertions scoped to smoke tests only
 
-- [ ] 3.4 Wire `ScrollHotKeyService` in `App.xaml.cs` (REQ-4, REQ-5) [after: 3.3] `S`
+- [x] 3.4 Wire `ScrollHotKeyService` in `App.xaml.cs` (REQ-4, REQ-5) [after: 3.3] `S`
   - Create `ScrollHotKeyService` after config load, before coordinator
   - If `config.ScrollHotKeys.Enabled`: call `Register()`; surface failures via tray notification
   - Dispose on app shutdown alongside `HotKeyService`
 
-- [ ] 3.5 Tray menu pause/resume toggle (REQ-6) [after: 3.4] `M`
+- [x] 3.5 Tray menu pause/resume toggle (REQ-6) [after: 3.4] `M`
   - Add "Pause Scroll Keys" / "Resume Scroll Keys" menu item to tray context menu
   - Visible only when `config.ScrollHotKeys.Enabled == true`
   - Toggle calls `_scrollService.Unregister()` / `_scrollService.Register()`
   - Menu item text updates to reflect current state; checkmark when active
 
-- [ ] 3.6 Update embedded config and schema (REQ-5) [after: 3.1] `S`
+- [x] 3.6 Update embedded config and schema (REQ-5) [after: 3.1] `S`
   - Add `scrollHotkeys` section (camelCase) to `Resources/config.json` with `enabled: false` and defaults
   - Update `Resources/config.schema.json` with `scrollHotkeys` object schema
 
-- [ ] 3.8 Scroll config validation (REQ-5) [after: 3.4] `S`
+- [x] 3.8 Scroll config validation (REQ-5) [after: 3.4] `S`
   - In `ConfigLoader` validation pass:
     - `scrollAmount` must be ≥ 1 and ≤ 100; clamp or surface violation via tray notification
     - Scroll up/down keys checked against reserved keys (Escape, arrows, Return), action keys, chord keys, and navigation keys
     - Duplicate up/down key rejection
     - Violations collected and surfaced via startup tray notification (same pattern as existing validation)
 
-- [ ] 3.7 Unit tests for scroll hotkeys (REQ-4, REQ-5, REQ-13) [after: 3.3] `M`
+- [x] 3.7 Unit tests for scroll hotkeys (REQ-4, REQ-5, REQ-13) [after: 3.3] `M`
   - Config deserialization test: verify `scrollHotkeys` JSON property round-trips correctly with `[JsonPropertyName]`
   - Config validation tests: `scrollAmount` < 1 → violation; `scrollAmount` > 100 → violation; scroll key conflicting with action key → violation
   - Scroll dispatch logic tests (via `IScrollHotKeyService` fake): verify correct delta sign routing
   - `MouseActionService.SendScroll` tests scoped to smoke tests (Win32 `SendInput`)
 
 ## Phase 4: Drag-and-Drop
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 4.1 Add `DragDrop` to `MouseAction` enum (REQ-7, REQ-15) [after: 1.1] `S`
+- [x] 4.1 Add `DragDrop` to `MouseAction` enum (REQ-7, REQ-15) [after: 1.1] `S`
   - Add `DragDrop = 5` to `MouseAction` enum
   - Update embedded config comment listing available actions
   - Add `"Z": "DragDrop"` to default `actionBindings` in `Resources/config.json`
   - Update `Resources/config.schema.json` — add `DragDrop` to enum
 
-- [ ] 4.2 Add drag-mode state and overlay reset to coordinator (REQ-7, REQ-10, REQ-11, REQ-14, RISK-4) [after: 2.3, 4.1] `L`
+- [x] 4.2 Add drag-mode state and overlay reset to coordinator (REQ-7, REQ-10, REQ-11, REQ-14, RISK-4) [after: 2.3, 4.1] `L`
   - New coordinator fields: `Point _dragStartPoint`, `bool _dragMode`
   - In `OnSessionActionRequested`, when `action == MouseAction.DragDrop` **and `!_dragMode`**:
     - Store `_dragStartPoint = point`
@@ -251,7 +251,7 @@
   - In `DeactivateOverlay`: if `_dragMode` was true, restore cursor to `_origin` first; reset `_dragMode = false`, `_overlayWindow.ClearStatusText()`
   - Mode switching during drag phase: after `SwitchMode` calls `ClearCanvas`, status text survives (separate layer); no re-show needed
 
-- [ ] 4.3 Add `SendDrag` to `IMouseActionService` (REQ-7, REQ-8, REQ-9, RISK-1, RISK-3) [after: 2.2] `M`
+- [x] 4.3 Add `SendDrag` to `IMouseActionService` (REQ-7, REQ-8, REQ-9, RISK-1, RISK-3) [after: 2.2] `M`
   - Interface: `void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None);`
   - Implementation in `MouseActionService`:
     1. Compute normalized coordinates for start and end points
@@ -267,7 +267,7 @@
   - `MoveOnly` and `DragDrop` should never reach `SendDrag` (coordinator rejects them); defensive guard returns without action if they do
   - Validate `SendInput` return count; on partial send, issue compensating `KEYUP` and `BUTTONUP` events; log warning (RISK-6)
 
-- [ ] 4.4 Add `ShowStatusText` / `ClearStatusText` to overlay (REQ-10, RISK-7) [after: 4.2] `M`
+- [x] 4.4 Add `ShowStatusText` / `ClearStatusText` to overlay (REQ-10, RISK-7) [after: 4.2] `M`
   - Interface `IOverlayWindow`: add `void ShowStatusText(string text)` and `void ClearStatusText()`
   - Implementation in `OverlayWindow`:
     - Add a `Grid` overlay element in XAML **above** the main `Canvas` — status text lives in this separate layer, unaffected by `ClearCanvas()` which only clears Canvas children
@@ -279,7 +279,7 @@
     - `ClearCanvas`: does **not** touch status layer
   - Update `IOverlayWindow` fake in tests
 
-- [ ] 4.5 Unit tests for drag-and-drop (REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-14) `L`
+- [x] 4.5 Unit tests for drag-and-drop (REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-14) `L`
   - Coordinator tests:
     - `DragDrop` action stores start point, resets overlay, sets drag mode
     - Second action (e.g. `LeftClick`) in drag mode calls `SendDrag` with start/end points and modifiers
@@ -293,9 +293,9 @@
   - Overlay tests: `ShowStatusText` creates element; `ClearStatusText` removes it; `ClearCanvas` also clears status text
 
 ## Phase 5: Config Migration
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 5.1 Migrate config v3 → v4 (REQ-12) [after: 3.1, 4.1] `M`
+- [x] 5.1 Migrate config v3 → v4 (REQ-12) [after: 3.1, 4.1] `M`
   - In `ConfigMigrator.MigrateIfNeeded`:
     - Detect `configVersion == 3` (or missing `scrollHotkeys`)
     - Add `scrollHotkeys` node (camelCase) with defaults: `{ "enabled": false, "scrollUpKey": { "modifiers": "Control, Alt", "key": "Prior" }, "scrollDownKey": { "modifiers": "Control, Alt", "key": "Next" }, "scrollAmount": 3 }`
@@ -304,7 +304,7 @@
   - Atomic write via existing temp-file + `.bak` pattern
   - Idempotent: already-v4 configs produce no mutations
 
-- [ ] 5.2 Config migration tests (REQ-12) [after: 5.1] `S`
+- [x] 5.2 Config migration tests (REQ-12) [after: 5.1] `S`
   - v3 config → migrates to v4 with `scrollHotKeys` defaults
   - v4 config → no mutation
   - v3 config with existing `scrollHotKeys` (manual addition) → preserved, version bumped

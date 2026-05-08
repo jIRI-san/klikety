@@ -125,7 +125,7 @@
   - Extend `INPUT` struct to hold `KEYBDINPUT` via explicit layout or union pattern
   - Validate `SendInput` return count; on partial send, issue compensating `KEYUP` for any modifiers sent down, log warning via `ILogger` (RISK-6)
 
-- [~] 2.3 Wire modifier capture in coordinator (REQ-2, REQ-3, REQ-16, RISK-3, RISK-5) [after: 2.2] `M`
+- [x] 2.3 Wire modifier capture in coordinator (REQ-2, REQ-3, REQ-16, RISK-3, RISK-5) [after: 2.2] `M`
   - Inject `IModifierDetector` into `NavigatorCoordinator` constructor (alongside existing services)
   - In `NavigatorCoordinator.OnSessionActionRequested`:
     ```csharp
@@ -137,7 +137,7 @@
   - Create `ModifierDetector` instance in `App.xaml.cs` and pass to coordinator constructor
   - Update `IMouseActionService` fake in tests to accept and record `ActionModifiers` parameter
 
-- [ ] 2.4 Update `IModeSession.ActionRequested` event — no change needed (REQ-16) `S`
+- [~] 2.4 Update `IModeSession.ActionRequested` event — no change needed (REQ-16) `S`
   - Sessions fire `ActionRequested(Point, MouseAction)` — unchanged. Modifier detection is a coordinator concern, not a session concern. Verify no session changes needed.
 
 - [ ] 2.5 Unit tests for modifier-aware actions (REQ-2, REQ-3, REQ-16) `M`

@@ -4,6 +4,8 @@ using System.Windows.Threading;
 
 using Klikety.Input;
 
+using Microsoft.Extensions.Logging;
+
 namespace Klikety.Services;
 
 /// <summary>
@@ -11,7 +13,7 @@ namespace Klikety.Services;
 /// Hook callback does minimal work — reads VKey, calls CallNextHookEx,
 /// then dispatches to UI thread via Dispatcher.InvokeAsync.
 /// </summary>
-public sealed class KeyboardHookService : IKeyboardHookService {
+public sealed partial class KeyboardHookService : IKeyboardHookService {
     private const int WH_KEYBOARD_LL = 13;
     private const int WM_KEYDOWN = 0x0100;
     private const int WM_SYSKEYDOWN = 0x0104;
@@ -37,12 +39,14 @@ public sealed class KeyboardHookService : IKeyboardHookService {
     private nint _hookId;
     private LowLevelKeyboardProc? _hookProc; // prevent GC
     private readonly Dispatcher _dispatcher;
+    private readonly ILogger? _logger;
     private int _generation; // incremented on Enable/Disable to discard stale events
 
     public event EventHandler<KeyHookEventArgs>? KeyEvent;
 
-    public KeyboardHookService() {
+    public KeyboardHookService(ILogger? logger = null) {
         _dispatcher = Dispatcher.CurrentDispatcher;
+        _logger = logger;
     }
 
     public bool Enable() {
@@ -55,7 +59,13 @@ public sealed class KeyboardHookService : IKeyboardHookService {
         using var module = process.MainModule!;
         _hookId = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, GetModuleHandle(module.ModuleName), 0);
 
-        return _hookId != 0;
+        if (_hookId != 0) {
+            if (_logger is not null) LogHookEnabled(_logger);
+            return true;
+        }
+
+        if (_logger is not null) LogHookEnableFailed(_logger);
+        return false;
     }
 
     public void Disable() {
@@ -64,6 +74,7 @@ public sealed class KeyboardHookService : IKeyboardHookService {
             if (UnhookWindowsHookEx(_hookId)) {
                 _hookId = 0;
                 _hookProc = null;
+                if (_logger is not null) LogHookDisabled(_logger);
             }
         }
     }
@@ -94,4 +105,13 @@ public sealed class KeyboardHookService : IKeyboardHookService {
             Disable();
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Keyboard hook enabled")]
+    private static partial void LogHookEnabled(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Keyboard hook enable failed")]
+    private static partial void LogHookEnableFailed(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Keyboard hook disabled")]
+    private static partial void LogHookDisabled(ILogger logger);
 }

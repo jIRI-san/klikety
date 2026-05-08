@@ -100,7 +100,7 @@
   - `KeyPressEntry` record: `string Label, long TimestampTicks`.
   - **Privacy (REQ-18)**: No logging of label values. `ToString()` override on `KeyPressEntry` returns `"[KeyPressEntry]"` (prevents accidental structured-log inclusion).
 
-- [ ] 1.4 Unit tests for `KeyPressProcessor` (REQ-5, REQ-6, REQ-7, REQ-15, RISK-5, RISK-7) [after: 1.3] `M`
+- [x] 1.4 Unit tests for `KeyPressProcessor` (REQ-5, REQ-6, REQ-7, REQ-15, RISK-5, RISK-7) [after: 1.3] `M`
   - Test file: `Klikety.Tests/KeyPressProcessorTests.cs`.
   - Inject `FakeKeyLabelResolver` (returns predictable label for each VKey) and `FakeTimeProvider`.
   - Cases: plain letter, modifier+letter combo, modifier-only ignored, special key labels, repeat detection within/outside window, multi-modifier combo ("Ctrl+Shift+A"), L/R modifier deduplication, unknown VKey fallback, stale modifier reconciliation (fake `GetAsyncKeyState` returns key-up), reset clears state.

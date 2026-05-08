@@ -36,6 +36,13 @@ public interface IMouseActionService {
 }
 
 /// <summary>
+/// Abstracts reading physical modifier key state (Shift, Ctrl, Alt) at action time.
+/// </summary>
+public interface IModifierDetector {
+    ActionModifiers GetCurrentModifiers();
+}
+
+/// <summary>
 /// Abstracts the overlay window for testability.
 /// </summary>
 public interface IOverlayWindow {

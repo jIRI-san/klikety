@@ -138,6 +138,7 @@ public partial class App : Application {
             overlayWindow,
             sessionFactory,
             PlatformServices.Instance,
+            new ModifierDetector(),
             config,
             logger);
 

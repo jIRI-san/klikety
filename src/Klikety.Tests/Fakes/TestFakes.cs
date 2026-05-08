@@ -136,6 +136,11 @@ public sealed class FakeMouseActionService : IMouseActionService {
     }
 }
 
+public sealed class FakeModifierDetector : IModifierDetector {
+    public ActionModifiers Modifiers { get; set; } = ActionModifiers.None;
+    public ActionModifiers GetCurrentModifiers() => Modifiers;
+}
+
 public sealed class FakeOverlayWindow : IOverlayWindow {
     public event EventHandler? FocusLost;
     public bool IsVisible { get; private set; }

@@ -24,6 +24,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private readonly ILogger _logger;
     private readonly ModeSessionFactory _sessionFactory;
     private readonly IPlatformServices _platform;
+    private readonly IModifierDetector _modifierDetector;
 
     /// <summary>Debounce timeout duration.</summary>
     private static readonly TimeSpan DebounceTimeout = TimeSpan.FromMilliseconds(500);
@@ -52,6 +53,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         IOverlayWindow overlayWindow,
         ModeSessionFactory sessionFactory,
         IPlatformServices platform,
+        IModifierDetector modifierDetector,
         ConfigModel config,
         ILogger logger) {
         _hotKeyService = hotKeyService;
@@ -60,6 +62,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _overlayWindow = overlayWindow;
         _sessionFactory = sessionFactory;
         _platform = platform;
+        _modifierDetector = modifierDetector;
         _config = config;
         _logger = logger;
 

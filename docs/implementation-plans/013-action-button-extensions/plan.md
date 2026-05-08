@@ -77,9 +77,9 @@
   - Coordinator test: `OnSessionActionRequested` with `MoveOnly` calls `DeactivateOverlay` then `SendAction`; verify no error
 
 ## Phase 2: Modifier-Aware Actions
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 2.1 Add `ActionModifiers` enum and `IModifierDetector` interface (REQ-2, REQ-3) [after: 1.2] `S`
+- [x] 2.1 Add `ActionModifiers` enum and `IModifierDetector` interface (REQ-2, REQ-3) [after: 1.2] `S`
   - New file `Config/ActionModifiers.cs`:
     ```csharp
     [Flags]
@@ -116,7 +116,7 @@
   - New fake `Klikety.Tests/Fakes/FakeModifierDetector.cs`: returns configurable `ActionModifiers` value
   - Inject `IModifierDetector` into `NavigatorCoordinator` constructor
 
-- [ ] 2.2 Update `IMouseActionService.SendAction` signature (REQ-2) [after: 2.1] `S`
+- [~] 2.2 Update `IMouseActionService.SendAction` signature (REQ-2) [after: 2.1] `S`
   - Change: `void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);`
   - Update `MouseActionService.SendAction` implementation: when `modifiers != None`, prepend `KEYDOWN` inputs for each active modifier flag before the click, and append `KEYUP` inputs after
   - Guard `DragDrop` and `MoveOnly` in the action switch: both return after `MoveTo` — no click inputs sent. `DragDrop` should never reach `SendAction` in normal flow, but defensive guard prevents garbage mouse events.

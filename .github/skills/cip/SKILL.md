@@ -9,7 +9,7 @@ context: fork
 
 # Create Implementation Plan
 
-> **Goal:** produce a plan concrete and precise enough that each step can be executed with minimal ambiguity. Resolve all uncertainties during the interview — either decide them now or document them as explicit risks with mitigations. If an answer is vague, dig deeper. If a design choice is open, resolve it now. The plan should read as a clear checklist, not a wishlist.
+> **Goal:** produce a plan concrete and precise enough that each step can be executed with minimal ambiguity. Eliminate uncertainty during the interview — don't defer it to implementation. If an answer is vague, dig deeper. If a design choice is open, resolve it now. The plan should read as a clear checklist, not a wishlist.
 
 ## Step 1: Load Context
 
@@ -29,13 +29,9 @@ docs/implementation-plans/NNN-<slug>/
     <topic>.md
 ```
 
-| Argument | Plan folders exist? | Action |
-|---|---|---|
-| Matches existing folder slug | — | Load `plan.md` from that folder; enter *resume mode* (skip Step 3 if well-specified; otherwise re-interview for gaps). |
-| "new" | — | Ask for plan name, derive kebab-case slug, assign next sequential `NNN`, create folder + `plan.md`. |
-| None | Yes | List folders with one-line status summary; ask which to work on (or "new"). |
-| None | No | Treat as "new" — ask for plan name. |
-| Provided but no match | — | Error: "No plan matching `<argument>`. Available plans: [list]. Use an exact slug or 'new'." |
+- **Argument matches an existing folder slug** → load `plan.md` from that folder; enter *resume mode* (skip Step 3 if plan is already well-specified; otherwise re-interview for gaps).
+- **No argument and plan folders exist** → list them with a one-line status summary; ask the user which to work on (or "new").
+- **"new" or no existing plans** → ask for the plan name, derive a kebab-case slug, assign the next sequential number `NNN`, create folder: `docs/implementation-plans/NNN-<slug>/`. The plan file is `docs/implementation-plans/NNN-<slug>/plan.md`.
 
 ### Legacy Single-File Migration
 
@@ -157,43 +153,28 @@ Once all areas are covered, present a structured summary back to the user and as
 
 Build the plan document using the template at [./assets/plan-template.md](./assets/plan-template.md).
 
-Guidelines grouped by category:
-
-### Structure
-
+Guidelines:
 - **Decisions** — record key choices made during the interview (e.g. "Use feature flag X to gate rollout").
-- **Requirements table** — one row per requirement, ID format `REQ-N`. Corner cases become requirements too. Each must have acceptance criteria and list every addressing step.
-- **Phases** — group related steps logically (e.g. "Phase 1: Data layer", "Phase 2: API").
-- **Steps** — each step line references all related IDs: `(REQ-1, REQ-3, RISK-2)`. No implementation prose.
-- **Roles** — tag `@ai-agent` (default) or `@human`. For `@human` steps, add a `Details` sub-section with actionable guidance.
-- **Estimation** — T-shirt size per step: `S` (< 30 min), `M` (30 min–2 h), `L` (2 h+).
-- **Dependencies** — `[after: X.Y]` suffix. Steps without it can run in parallel.
-- **Risks** — one row per risk, ID format `RISK-N`. Steps must cross-reference `RISK-N` IDs.
-- **Cross-reference integrity** — every `REQ-N` and `RISK-N` must appear in at least one step; every step must reference at least one `REQ-N`. Remove orphaned IDs.
+- **Requirements table** — one row per requirement, ID format `REQ-N`. Corner cases identified during the interview become requirements too (e.g. `REQ-7 Handle empty grid when monitor is disconnected`). Each requirement must have at least one acceptance criterion in the `Acceptance Criteria` column. The `Phases/Steps` column must list every step that addresses this requirement.
+- **Phases** — group related steps logically (e.g. "Phase 1: Data layer", "Phase 2: API", "Phase 3: Tests").
+- **Steps** — each step line references all related IDs in parentheses: `(REQ-1, REQ-3, RISK-2)`. No implementation prose. Keep it scannable for human review.
+- **Roles** — each step is tagged `@ai-agent` or `@human`. Default is `@ai-agent`; only annotate `@human` explicitly. For `@human` steps, add a `Details` sub-section under the step with actionable guidance (portal navigation, CLI commands, manual verification instructions, etc.).
+- **Estimation** — each step gets a T-shirt size: `S`, `M`, or `L`.
+- **Dependencies** — for each step, note which earlier steps it depends on using `[after: X.Y]` suffix. Steps with no dependency annotation (or `[after: none]`) can start immediately and run in parallel with other independent steps.
+- **Risks** — populate the Risks table from the interview. One row per risk, ID format `RISK-N`. The `Steps` column must list every step affected by or mitigating this risk. Steps that relate to a risk must also reference the `RISK-N` ID in their parentheses.
+- **Cross-reference integrity** — every `REQ-N` must appear in at least one step; every `RISK-N` must appear in at least one step; every step must reference at least one `REQ-N`. If any ID is orphaned (not linked to a step), either add a step or remove the ID.
+- **Implementation specificity** — steps should name the exact pattern to use, not just what to build. Bad: "Add logging to service". Good: "Add source-generated log methods to OrderService (partial class); 5 Information + 2 Warning + 1 Error level, all with structured parameters". Bad: "Load config from file". Good: "Deserialize config via cached static serializer options; return `(Config, string? ParseError)` tuple to surface parse failures". The step should be precise enough that two different agents would produce near-identical code.
+- **Zero-warning mandate** — if the project targets zero build warnings, every step producing code must specify the analyzer-clean pattern inline (e.g. discarding unused return values, using source-generated logging, matching the project's preferred type usage). Do not defer warning cleanup to a later step.
+- **Security by design** — if a step processes external input (file paths, user config, API payloads, uploaded files), specify the validation inline: path traversal checks, input sanitization, schema validation, try-catch fallbacks. Do not defer security hardening to code review.
+- **Architecture lock-in** — core architectural decisions (data model shape, communication patterns, rendering approach, storage strategy, API contracts) must be resolved and recorded in Decisions before drafting steps. Leaving these open leads to multi-plan rewrites. If the user is uncertain, push for a decision or record it as a High-impact risk with a spike step. Changing architecture mid-plan is the #1 cause of rework.
+- **Format-from-start** — if the project uses a formatter (`.editorconfig`, `dotnet format`, Prettier, Black, rustfmt), include it in Phase 1 (scaffold) and mandate formatting validation at the end of each phase. A single late formatting commit touching dozens of files is noisy and hides real changes in git history.
+- **UI/rendering complexity estimation** — UI rendering steps (custom drawing, layout algorithms, responsive/adaptive design, animation) are consistently underestimated. When a step involves non-trivial visual output with edge cases (overflow, scaling, RTL, accessibility), size it at `L` and consider splitting into sub-steps: (a) core rendering, (b) edge-case layout, (c) responsive/scaling behavior, (d) tests.
+- **Feature completeness per phase** — each phase should produce a self-contained, testable increment. Do not split a feature across phases in a way that requires rework in a later phase (e.g. "Phase 3: basic list view" then "Phase 8: virtualized scrolling" forces a rewrite of the list component). Include the complete feature — including its known edge cases — in one phase, sized appropriately.
+- **Discovery steps** — for visual/spatial/emergent-behaviour steps, mark them as discovery steps: `[discovery]`. These steps have lighter acceptance criteria ("renders correctly at 1080p" rather than pixel-precise specs), expect 1–3 steering interventions from the user, and should be sized `L`. The plan acknowledges that exact behaviour will be refined during implementation.
+- **Simplest-first mandate** — steps must specify the simplest viable approach. Do not plan complex mechanisms (detection systems, multi-tier fallbacks, frame-gating) when a simpler approach could work. If a complex approach is truly needed, add a preceding spike step that demonstrates the simple approach is insufficient.
+- **Constraint compatibility analysis** — for steps involving multiple geometric, layout, or concurrent constraints, add an explicit sub-section listing all constraints and verifying they don't conflict. Constraints that are individually reasonable can be mutually incompatible (e.g. square cells + log scaling + axis layout = grid wraps into corner).
+- **Rollback** — for `@human` steps and steps with non-code side effects, record rollback instructions in the step's `Details` section.
 - Status markers: `[ ]` TODO · `[x]` DONE · `[~]` IN-PROGRESS
-
-### Implementation quality
-
-- **Implementation specificity** — steps name the exact pattern, not just what to build. Bad: "Add logging to service". Good: "Add source-generated log methods to OrderService (partial class); 5 Information + 2 Warning + 1 Error level, all with structured parameters". Precise enough that two agents produce near-identical code.
-- **Zero-warning mandate** — every code step specifies analyzer-clean patterns inline. Do not defer warning cleanup.
-- **Format-from-start** — include formatter in Phase 1; mandate formatting validation at each phase end.
-- **Simplest-first mandate** — specify the simplest viable approach. Add a spike step before complex mechanisms.
-- **Architecture lock-in** — resolve core architectural decisions before drafting steps. Record in Decisions. Changing architecture mid-plan is the #1 cause of rework.
-
-### Security
-
-- **Security by design** — if a step processes external input, specify validation inline: path traversal checks, input sanitization, schema validation, try-catch fallbacks. Do not defer to code review.
-
-### UI / rendering
-
-- **UI/rendering complexity estimation** — size non-trivial visual steps at `L`; consider splitting into sub-steps: (a) core rendering, (b) edge-case layout, (c) responsive/scaling, (d) tests.
-- **Discovery steps** — mark visual/spatial/emergent-behaviour steps `[discovery]`. Lighter acceptance criteria, expect 1–3 steering interventions, size `L`.
-- **Constraint compatibility analysis** — list all geometric/layout/concurrent constraints and verify they don't conflict.
-
-### Phasing & rollback
-
-- **Feature completeness per phase** — each phase produces a self-contained, testable increment. Don't split features in a way that forces rework later.
-- **Rollback** — for `@human` steps and steps with non-code side effects, record rollback instructions in the `Details` section.
 
 ## Step 5: Save Plan
 

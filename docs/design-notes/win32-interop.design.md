@@ -15,8 +15,9 @@ All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookServ
 ```csharp
 interface IHotKeyService   { event EventHandler Activated; bool Register(HotKeyConfig); void Unregister(); }
 interface IKeyboardHookService { event EventHandler<VKey> KeyPressed; bool Enable(); void Disable(); }
-interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); }
+interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); void SendScroll(int wheelDelta); }
 interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
+interface IScrollHotKeyService { List<string> Register(); void Unregister(); bool IsRegistered; }
 ```
 
 ## `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)`
@@ -40,6 +41,16 @@ interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 - `INPUT` struct uses nested union pattern (`INPUT` → `INPUT_UNION`) for correct x64 alignment. The runtime handles padding between `type` and the union.
 - Partial `SendInput` sends trigger compensating `KEYUP` events to prevent stuck modifiers.
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
+- `SendScroll`: sends `MOUSEEVENTF_WHEEL` at current cursor position. `mouseData` = `WHEEL_DELTA (120) × scrollAmount`. Positive = up, negative = down. No cursor move.
+
+## `IScrollHotKeyService` — `RegisterHotKey`
+
+- Separate from `IHotKeyService`; owns its own `HwndSource` and hotkey IDs (`0x2000`, `0x2001`).
+- Registers two hotkeys: scroll up (default Ctrl+Alt+PageUp) and scroll down (default Ctrl+Alt+PageDown).
+- On `WM_HOTKEY`: dispatches to `IMouseActionService.SendScroll(+delta)` or `SendScroll(-delta)` based on hotkey ID.
+- `Register()` returns list of failure descriptions (for tray notification). `Unregister()` / `Dispose()` clean up.
+- Disabled by default in config (`scrollHotkeys.enabled: false`). Tray menu "Pause/Resume Scroll Keys" toggle calls `Unregister()`/`Register()` without config change.
+- Config validation: `scrollAmount` ∈ [1, 100]; scroll keys checked against reserved/action/chord/navigation keys; duplicate up/down rejection.
 
 ## `IModifierDetector` — `GetAsyncKeyState`
 

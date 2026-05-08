@@ -148,9 +148,9 @@
   - Test `DragDrop` reaching `SendAction`: returns after `MoveTo` (defensive guard)
 
 ## Phase 3: Global Scroll Hotkeys
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 3.1 Add `Prior`/`Next` to VKey enum and config model (REQ-13, REQ-5) `S`
+- [x] 3.1 Add `Prior`/`Next` to VKey enum and config model (REQ-13, REQ-5) `S`
   - `VKey.Prior = 0x21` (PageUp), `VKey.Next = 0x22` (PageDown) in `Input/VKey.cs`
   - New class `Config/ScrollHotKeyConfig.cs`:
     ```csharp
@@ -169,13 +169,13 @@
     ```
   - Add `ScrollHotKeys` property to `ConfigModel`: `[JsonPropertyName("scrollHotkeys")] public ScrollHotKeyConfig ScrollHotKeys { get; init; } = new();`
 
-- [ ] 3.2 Add `SendScroll` to `IMouseActionService` (REQ-4) [after: 3.1] `S`
+- [x] 3.2 Add `SendScroll` to `IMouseActionService` (REQ-4) [after: 3.1] `S`
   - Interface: `void SendScroll(int wheelDelta);`
   - Implementation: `SendInput` with `MOUSEEVENTF_WHEEL = 0x0800`, `mouseData = wheelDelta`
   - `wheelDelta` = `WHEEL_DELTA (120) * scrollAmount` (positive = up, negative = down)
   - No cursor move — wheel event fires at current cursor position
 
-- [ ] 3.3 Create `ScrollHotKeyService` (REQ-4, REQ-5, RISK-2) [after: 3.2] `M`
+- [x] 3.3 Create `ScrollHotKeyService` (REQ-4, REQ-5, RISK-2) [after: 3.2] `M`
   - New interface `Services/IScrollHotKeyService.cs`: `Register`, `Unregister`, `Dispose`, `bool IsRegistered`
   - New file `Services/ScrollHotKeyService.cs`
   - Creates its own `HwndSource` (separate from `HotKeyService`) for `WM_HOTKEY` messages
@@ -187,29 +187,29 @@
   - `IDisposable` — unregisters and disposes HwndSource
   - Testability: logic tested via `IScrollHotKeyService` fake; Win32 `RegisterHotKey` assertions scoped to smoke tests only
 
-- [ ] 3.4 Wire `ScrollHotKeyService` in `App.xaml.cs` (REQ-4, REQ-5) [after: 3.3] `S`
+- [x] 3.4 Wire `ScrollHotKeyService` in `App.xaml.cs` (REQ-4, REQ-5) [after: 3.3] `S`
   - Create `ScrollHotKeyService` after config load, before coordinator
   - If `config.ScrollHotKeys.Enabled`: call `Register()`; surface failures via tray notification
   - Dispose on app shutdown alongside `HotKeyService`
 
-- [ ] 3.5 Tray menu pause/resume toggle (REQ-6) [after: 3.4] `M`
+- [x] 3.5 Tray menu pause/resume toggle (REQ-6) [after: 3.4] `M`
   - Add "Pause Scroll Keys" / "Resume Scroll Keys" menu item to tray context menu
   - Visible only when `config.ScrollHotKeys.Enabled == true`
   - Toggle calls `_scrollService.Unregister()` / `_scrollService.Register()`
   - Menu item text updates to reflect current state; checkmark when active
 
-- [ ] 3.6 Update embedded config and schema (REQ-5) [after: 3.1] `S`
+- [x] 3.6 Update embedded config and schema (REQ-5) [after: 3.1] `S`
   - Add `scrollHotkeys` section (camelCase) to `Resources/config.json` with `enabled: false` and defaults
   - Update `Resources/config.schema.json` with `scrollHotkeys` object schema
 
-- [ ] 3.8 Scroll config validation (REQ-5) [after: 3.4] `S`
+- [x] 3.8 Scroll config validation (REQ-5) [after: 3.4] `S`
   - In `ConfigLoader` validation pass:
     - `scrollAmount` must be ≥ 1 and ≤ 100; clamp or surface violation via tray notification
     - Scroll up/down keys checked against reserved keys (Escape, arrows, Return), action keys, chord keys, and navigation keys
     - Duplicate up/down key rejection
     - Violations collected and surfaced via startup tray notification (same pattern as existing validation)
 
-- [ ] 3.7 Unit tests for scroll hotkeys (REQ-4, REQ-5, REQ-13) [after: 3.3] `M`
+- [x] 3.7 Unit tests for scroll hotkeys (REQ-4, REQ-5, REQ-13) [after: 3.3] `M`
   - Config deserialization test: verify `scrollHotkeys` JSON property round-trips correctly with `[JsonPropertyName]`
   - Config validation tests: `scrollAmount` < 1 → violation; `scrollAmount` > 100 → violation; scroll key conflicting with action key → violation
   - Scroll dispatch logic tests (via `IScrollHotKeyService` fake): verify correct delta sign routing

@@ -121,5 +121,20 @@
 
   // Minimum label font size in DIP. When subgrid cells are too small for labels
   // at this size, labels render outside the grid with connector lines.
-  "minLabelFontSize": 14.0
+  "minLabelFontSize": 14.0,
+
+  // Key press visualization HUD. Visual settings only — feature is toggled
+  // at runtime via tray menu "Show Key Presses" (always off after restart).
+  "keyPressVisualization": {
+    "fontSize": 36.0,
+    "fontColor": "#FFCC00",
+    "outlineColor": "#000000",
+    "outlineThickness": 2.0,
+    "corner": "BottomRight",
+    "fadeTimeoutMs": 3000,
+    "fadeDurationMs": 500,
+    "maxVisibleKeys": 3,
+    "margin": 20.0,
+    "repeatWindowMs": 150
+  }
 }

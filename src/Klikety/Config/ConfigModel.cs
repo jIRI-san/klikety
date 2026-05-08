@@ -106,6 +106,23 @@ public sealed class ScrollHotKeyConfig {
 }
 
 /// <summary>
+/// Visual settings for the key press visualization HUD.
+/// No enable/disable property — activation is runtime-only via tray menu.
+/// </summary>
+public sealed class KeyPressVisualizationConfig {
+    public double FontSize { get; init; } = 36.0;
+    public string FontColor { get; init; } = "#FFCC00";
+    public string OutlineColor { get; init; } = "#000000";
+    public double OutlineThickness { get; init; } = 2.0;
+    public string Corner { get; init; } = "BottomRight";
+    public int FadeTimeoutMs { get; init; } = 3000;
+    public int FadeDurationMs { get; init; } = 500;
+    public int MaxVisibleKeys { get; init; } = 3;
+    public double Margin { get; init; } = 20.0;
+    public int RepeatWindowMs { get; init; } = 150;
+}
+
+/// <summary>
 /// Root configuration model. Deserialized from %APPDATA%\Klikety\config.json (JSONC).
 /// All properties have defaults so missing fields are handled gracefully.
 /// </summary>
@@ -178,4 +195,6 @@ public sealed class ConfigModel {
 
     [System.Text.Json.Serialization.JsonPropertyName("scrollHotkeys")]
     public ScrollHotKeyConfig ScrollHotKeys { get; init; } = new();
+
+    public KeyPressVisualizationConfig KeyPressVisualization { get; init; } = new();
 }

@@ -252,6 +252,26 @@ public partial class App : Application {
         };
         contextMenu.Items.Add(startupItem);
 
+        // Scroll Keys toggle (visible only when scroll hotkeys are enabled in config)
+        if (_scrollHotKeyService is not null && _scrollHotKeyService.IsRegistered) {
+            var scrollItem = new System.Windows.Controls.MenuItem {
+                Header = "Pause Scroll Keys",
+            };
+            scrollItem.Click += (_, _) => {
+                if (_scrollHotKeyService.IsRegistered) {
+                    _scrollHotKeyService.Unregister();
+                    scrollItem.Header = "Resume Scroll Keys";
+                } else {
+                    var failures = _scrollHotKeyService.Register();
+                    if (failures.Count > 0) {
+                        _trayIcon?.ShowNotification("Klikety", string.Join("\n", failures));
+                    }
+                    scrollItem.Header = "Pause Scroll Keys";
+                }
+            };
+            contextMenu.Items.Add(scrollItem);
+        }
+
         contextMenu.Items.Add(new System.Windows.Controls.Separator());
 
         // Quit

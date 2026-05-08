@@ -14,7 +14,7 @@
 
   // Maps VKey names to mouse actions.
   // Space → LeftClick is always the implicit default even if omitted.
-  // Available actions: LeftClick, RightClick, MiddleClick, DoubleClick.
+  // Available actions: LeftClick, RightClick, MiddleClick, DoubleClick, MoveOnly.
   "actionBindings": {
     "X": "DoubleClick",
     "C": "MiddleClick",

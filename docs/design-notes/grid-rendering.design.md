@@ -2,6 +2,7 @@
 description: Grid rendering — DIP-space computation, font auto-scaling, outlined text, external labels, and theme system.
 globs:
   - src/Klikety/Overlay/GridRenderer.cs
+  - src/Klikety/Overlay/LogCrosshairRenderer.cs
   - src/Klikety/Overlay/LogGridRenderer.cs
   - src/Klikety/Overlay/OverlayWindow.xaml
   - src/Klikety/Overlay/OverlayWindow.xaml.cs
@@ -104,9 +105,9 @@ When external labels are active, no internal cell labels are rendered — cells 
 - Column highlight fill at 30% opacity (vs 50% at L2) for better see-through.
 - Alternating row bands (12% opacity, every other row) provide cross-hair visual aid during column highlight.
 
-- Theme properties: `ExternalLabelColor` (column labels, default `#FFCC00`), `ExternalRowLabelColor` (row labels, default `#CCE066`), `ConnectorLineColor`, `ConnectorLineThickness`.
+- Theme properties: `ExternalColLabelColor` (column labels, default `#FFCC00`), `ExternalRowLabelColor` (row labels, default `#66CCFF`), `ConnectorLineColor`, `ConnectorLineThickness`.
 - Config: `MinLabelFontSize` (default 14.0 DIP) controls both the external-label threshold and the font floor.
-- All renderers (GridRenderer, CrosshairRenderer, LogGridRenderer) use distinct brushes for column vs row external labels to differentiate axes visually.
+- All renderers (GridRenderer, CrosshairRenderer, LogGridRenderer, LogCrosshairRenderer) use distinct brushes for column vs row external labels to differentiate axes visually.
 
 ## Theme System
 
@@ -122,8 +123,15 @@ When external labels are active, no internal cell labels are rendered — cells 
 
 - **Font sizing**: `ComputeGradualFontSize(Rect dipRect, double baseFontSize)` — font size = `cellExtent * 0.7` (where `cellExtent = min(width, height)`), minimum 1.0. Log grid cells encode distance from center via size, so larger cells naturally get bigger labels.
 - **Border thickness**: `ScaledBorderThickness(Rect dipRect)` — `extent * 0.02 + theme.CellBorderThickness * 0.5`, clamped to `[1×, 4×]` of theme thickness. Scales with cell size for readability.
-- **Element pooling**: Rectangles and text paths reused across renders via index tracking (`_nextRect`, `_nextText`). Staleness detected via `Parent == null` after external canvas clear — pools reset on next render.
+- **Element pooling**: Rectangles, text paths, and dashed connector lines reused across renders via index tracking (`_nextRect`, `_nextText`, `_nextLine`). Staleness detected via `Parent == null` after external canvas clear — pools reset on next render.
 - **Flash animation**: `FlashInvalidKey` stops any in-flight animation (`BeginAnimation(null)`) before starting a new one, preventing handler accumulation on rapid key spam.
+- **External labels**: When cross-arm cells are too small for inline labels, external labels render outside the small-cell zone with dashed connector lines. Same threshold as LogGridRenderer: `IsSmallCell(dipRect, minLabelFontSize)` checks `height < minLabelFontSize * 1.8` or `halfWidth < minLabelFontSize * 1.6`. Additional axis-specific checks: `IsNarrowColumn` (width only), `IsShortRow` (height only).
+  - `RenderExternalColumnLabels`: scans center row for narrow columns (skips CenterCol — center bullet always inline). Computes bounding box of narrow cells, places labels above/below with overlap resolution via `LogGridRenderer.ResolveOverlaps`. Screen-edge-aware: skips side with insufficient room, fallback renders at least one side.
+  - `RenderExternalRowLabels`: scans center column for short rows (skips CenterRow). Labels placed left/right of bounding box, same overlap resolution and screen-edge checks.
+  - Opacity per render state mirrors inline label opacity: `RenderCross` all 1.0; `HighlightColumn` highlighted col 1.0, others 0.4, all rows 1.0; `HighlightRow` highlighted row 1.0, others 0.4, all cols 1.0; `HighlightCell` target axis 1.0, others 0.3. Connector line opacity matches its label.
+  - Both axes rendered simultaneously in all render states.
+  - Uses `_extLabelBrush` (column labels), `_extRowLabelBrush` (row labels), `_connectorBrush` from theme.
+  - `ExternalFontSize()` = `max(minLabelFontSize, theme.LabelFontSize * 0.85)` — same formula as LogGridRenderer.
 
 ## LogGridRenderer
 

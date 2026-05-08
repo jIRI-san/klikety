@@ -446,7 +446,7 @@ When external labels are active, no internal cell labels are rendered — cells 
 - Column highlight fill at 30% opacity (vs 50% at L2) for better see-through.
 - Alternating row bands (12% opacity, every other row) provide cross-hair visual aid during column highlight.
 
-- Theme properties: `ExternalLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness`.
+- Theme properties: `ExternalColLabelColor`, `ConnectorLineColor`, `ConnectorLineThickness`.
 - Config: `MinLabelFontSize` (default 14.0 DIP) controls both the external-label threshold and the font floor.
 
 ## Config

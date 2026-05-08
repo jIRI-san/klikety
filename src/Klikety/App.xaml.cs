@@ -109,7 +109,7 @@ public partial class App : Application {
         if (logCrosshairMode is { Enabled: true }) {
             var horizLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
             var vertLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
-            logCrosshairRenderer = new LogCrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels);
+            logCrosshairRenderer = new LogCrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels, config.MinLabelFontSize);
         }
 
         // Create log-grid renderer (only if mode is enabled)

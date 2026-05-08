@@ -35,7 +35,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     readonly SolidColorBrush _smallCellBgBrush;
     readonly SolidColorBrush _labelBrush;
     readonly SolidColorBrush _outlineBrush;
-    readonly SolidColorBrush _extLabelBrush;
+    readonly SolidColorBrush _extColLabelBrush;
     readonly SolidColorBrush _extRowLabelBrush;
     readonly SolidColorBrush _connectorBrush;
     readonly SolidColorBrush _labelBorderBrush;
@@ -70,7 +70,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         _smallCellBgBrush = BrushFromHex(theme.SmallCellBackgroundColor, theme.SmallCellBackgroundOpacity);
         _labelBrush = BrushFromHex(theme.LabelColor);
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
-        _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _extColLabelBrush = BrushFromHex(theme.ExternalColLabelColor);
         _extRowLabelBrush = BrushFromHex(theme.ExternalRowLabelColor);
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
         _labelBorderBrush = BrushFromHex("#0A1A3A", 0.85);
@@ -101,7 +101,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         BeginRender();
         EnsureTransform();
         RenderCells(grid, highlightCol: col, highlightCell: null);
-        RenderLabelBorders(grid, showCols: false, showRows: true);
+        RenderLabelBorders(grid, showCols: false, showRows: true, anchorCol: col);
         EndRender();
     }
 
@@ -109,7 +109,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         BeginRender();
         EnsureTransform();
         RenderCells(grid, highlightCol: -1, highlightCell: cell);
-        RenderLabelBorders(grid, showCols: true, showRows: true);
+        RenderLabelBorders(grid, showCols: true, showRows: true, anchorCol: cell.Col);
         EndRender();
     }
 
@@ -274,7 +274,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         }
     }
 
-    void RenderLabelBorders(LogGrid grid, bool showCols, bool showRows) {
+    void RenderLabelBorders(LogGrid grid, bool showCols, bool showRows, int anchorCol = -1) {
         double borderThickness = 2 * _minLabelFontSize;
         double screenWidth = Math.Max(_canvas.ActualWidth, 1);
         double screenHeight = Math.Max(_canvas.ActualHeight, 1);
@@ -284,7 +284,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         }
 
         if (showRows && HasSmallRows(grid)) {
-            RenderBorderRowLabels(grid, borderThickness, screenHeight);
+            RenderBorderRowLabels(grid, borderThickness, screenHeight, anchorCol);
         }
     }
 
@@ -384,20 +384,20 @@ public sealed class LogGridRenderer : ILogGridRenderer {
             if (showAbove) {
                 double topLabelY = clusterTop - labelMargin - labelSize.Height;
                 UseLabel(new Rect(labelCenterX - labelSize.Width / 2, topLabelY, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, 1.0);
-                UseLine(anchorX, guideYAbove, labelCenterX, topLabelY + labelSize.Height + 2);
+                    label, fontSize, _extColLabelBrush, 1.0);
+                UseLine(anchorX, guideYAbove, labelCenterX, topLabelY + labelSize.Height + 2, _extColLabelBrush);
             }
 
             if (showBelow) {
                 double bottomLabelY = clusterBottom + labelMargin;
                 UseLabel(new Rect(labelCenterX - labelSize.Width / 2, bottomLabelY, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, 1.0);
-                UseLine(anchorX, guideYBelow, labelCenterX, bottomLabelY - 2);
+                    label, fontSize, _extColLabelBrush, 1.0);
+                UseLine(anchorX, guideYBelow, labelCenterX, bottomLabelY - 2, _extColLabelBrush);
             }
         }
     }
 
-    void RenderBorderRowLabels(LogGrid grid, double borderThickness, double screenHeight) {
+    void RenderBorderRowLabels(LogGrid grid, double borderThickness, double screenHeight, int anchorCol = -1) {
         // Find rows too short to fit an inline label (skip zero-height collapsed cells)
         var externalRows = new List<int>();
         for (int row = 0; row < grid.Rows; row++) {
@@ -418,16 +418,31 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         double fontSize = ExternalFontSize();
         double screenWidth = Math.Max(_canvas.ActualWidth, 1);
 
-        // The inner 4×4 cells around center. Labels render just outside that area
-        // horizontally (left/right of the inner columns).
-        int halfCols = grid.Cols / 2;
-        int halfRows = grid.Rows / 2;
-        int innerLeft = Math.Max(0, halfCols - 2);
-        int innerRight = Math.Min(grid.Cols, halfCols + 2);
-        var innerLeftDip = DipPoint(grid.ColEdges[innerLeft], grid.RowEdges[0]);
-        var innerRightDip = DipPoint(grid.ColEdges[innerRight], grid.RowEdges[0]);
-        double clusterLeft = innerLeftDip.X;
-        double clusterRight = innerRightDip.X;
+        // When an anchor column is specified, position labels around that column;
+        // otherwise use the inner 4×4 cluster around center.
+        double clusterLeft;
+        double clusterRight;
+        double guideXLeft;
+        double guideXRight;
+
+        if (anchorCol >= 0 && anchorCol < grid.Cols) {
+            var colLeftDip = DipPoint(grid.ColEdges[anchorCol], grid.RowEdges[0]);
+            var colRightDip = DipPoint(grid.ColEdges[anchorCol + 1], grid.RowEdges[0]);
+            clusterLeft = colLeftDip.X;
+            clusterRight = colRightDip.X;
+            guideXLeft = (clusterLeft + clusterRight) / 2;
+            guideXRight = guideXLeft;
+        } else {
+            int halfCols = grid.Cols / 2;
+            int innerLeft = Math.Max(0, halfCols - 2);
+            int innerRight = Math.Min(grid.Cols, halfCols + 2);
+            var innerLeftDip = DipPoint(grid.ColEdges[innerLeft], grid.RowEdges[0]);
+            var innerRightDip = DipPoint(grid.ColEdges[innerRight], grid.RowEdges[0]);
+            clusterLeft = innerLeftDip.X;
+            clusterRight = innerRightDip.X;
+            guideXLeft = (DipPoint(grid.ColEdges[Math.Max(0, halfCols - 1)], 0).X + DipPoint(grid.ColEdges[halfCols], 0).X) / 2;
+            guideXRight = (DipPoint(grid.ColEdges[halfCols], 0).X + DipPoint(grid.ColEdges[Math.Min(grid.Cols, halfCols + 1)], 0).X) / 2;
+        }
 
         // Compute ideal positions: spread labels symmetrically from grid center.
         var gridCenterDip = DipPoint(grid.ColEdges[0], grid.RowEdges[grid.Rows / 2]);
@@ -451,10 +466,6 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         double labelWidth = MeasureText("W", fontSize).Width;
         double labelMargin = fontSize * 0.5;
 
-        // Guide lines end at cell center of col halfCols-1 (left) / halfCols (right)
-        double guideXLeft = (DipPoint(grid.ColEdges[Math.Max(0, halfCols - 1)], 0).X + DipPoint(grid.ColEdges[halfCols], 0).X) / 2;
-        double guideXRight = (DipPoint(grid.ColEdges[halfCols], 0).X + DipPoint(grid.ColEdges[Math.Min(grid.Cols, halfCols + 1)], 0).X) / 2;
-
         // Determine which sides have room
         bool showLeft = clusterLeft >= labelWidth + labelMargin * 2;
         bool showRight = (screenWidth - clusterRight) >= labelWidth + labelMargin * 2;
@@ -473,14 +484,14 @@ public sealed class LogGridRenderer : ILogGridRenderer {
                 double leftLabelX = clusterLeft - labelMargin - labelSize.Width;
                 UseLabel(new Rect(leftLabelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
                     label, fontSize, _extRowLabelBrush, 1.0);
-                UseLine(guideXLeft, anchorY, leftLabelX + labelSize.Width + 2, labelCenterY);
+                UseLine(guideXLeft, anchorY, leftLabelX + labelSize.Width + 2, labelCenterY, _extRowLabelBrush);
             }
 
             if (showRight) {
                 double rightLabelX = clusterRight + labelMargin;
                 UseLabel(new Rect(rightLabelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
                     label, fontSize, _extRowLabelBrush, 1.0);
-                UseLine(guideXRight, anchorY, rightLabelX - 2, labelCenterY);
+                UseLine(guideXRight, anchorY, rightLabelX - 2, labelCenterY, _extRowLabelBrush);
             }
         }
     }
@@ -492,7 +503,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     /// around the anchor midpoint so connector lines have symmetric slopes.
     /// Clamped to [min, max].
     /// </summary>
-    static void ResolveOverlaps(double[] positions, double[] sizes, double min, double max, double anchorCenter) {
+    internal static void ResolveOverlaps(double[] positions, double[] sizes, double min, double max, double anchorCenter) {
         double gap = Math.Max(8.0, (max - min) * 0.01); // minimum gap between labels
         const int maxPasses = 10;
 
@@ -659,14 +670,13 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         _nextText++;
     }
 
-    void UseLine(double x1, double y1, double x2, double y2) {
+    void UseLine(double x1, double y1, double x2, double y2, Brush stroke) {
         Line line;
         if (_nextLine < _linePool.Count) {
             line = _linePool[_nextLine];
             line.Visibility = Visibility.Visible;
         } else {
             line = new Line {
-                Stroke = _connectorBrush,
                 StrokeThickness = _theme.ConnectorLineThickness,
                 StrokeDashArray = [2, 2],
                 IsHitTestVisible = false,
@@ -675,6 +685,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
             _linePool.Add(line);
         }
 
+        line.Stroke = stroke;
         line.X1 = x1;
         line.Y1 = y1;
         line.X2 = x2;

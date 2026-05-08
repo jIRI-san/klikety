@@ -98,7 +98,7 @@ public static class ThemeLoader {
         ValidateColor(theme.HighlightedColumnBorderColor, nameof(theme.HighlightedColumnBorderColor), invalid);
         ValidateColor(theme.SubgridBorderColor, nameof(theme.SubgridBorderColor), invalid);
         ValidateColor(theme.SubgridLabelColor, nameof(theme.SubgridLabelColor), invalid);
-        ValidateColor(theme.ExternalLabelColor, nameof(theme.ExternalLabelColor), invalid);
+        ValidateColor(theme.ExternalColLabelColor, nameof(theme.ExternalColLabelColor), invalid);
         ValidateColor(theme.ExternalRowLabelColor, nameof(theme.ExternalRowLabelColor), invalid);
         ValidateColor(theme.ConnectorLineColor, nameof(theme.ConnectorLineColor), invalid);
         ValidateColor(theme.SmallCellBackgroundColor, nameof(theme.SmallCellBackgroundColor), invalid);

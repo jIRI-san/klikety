@@ -32,7 +32,8 @@
   "subgridLabelColor": "#00CCFF",   // Cyan labels for subgrid
 
   // External labels (when cells too small for inline labels)
-  "externalLabelColor": "#FFCC00",  // Gold external labels
+  "externalColLabelColor": "#FFCC00", // Gold external column labels
+  "externalRowLabelColor": "#66CCFF", // Blue row external labels
   "connectorLineColor": "#FFCC00",  // Gold connector lines
   "connectorLineThickness": 1.0, // 1px connector lines
   // LogGrid small-cell tint

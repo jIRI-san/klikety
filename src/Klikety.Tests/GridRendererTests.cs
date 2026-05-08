@@ -93,3 +93,67 @@ public class LogCrosshairRendererFontTests {
         Assert.Equal(140.0, result, precision: 5); // 200 * 0.7 = 140
     }
 }
+
+public class LogCrosshairRendererSmallCellTests {
+    [Theory]
+    [InlineData(20.0, 100.0, 10.0, false)]  // height ok, width ok → not small
+    [InlineData(13.9, 100.0, 10.0, true)]   // height 13.9 < 10 * 1.4 = 14 → small
+    [InlineData(14.0, 100.0, 10.0, false)]  // height 14.0 = threshold → not small
+    [InlineData(20.0, 23.9, 10.0, true)]    // halfWidth 11.95 < 10 * 1.2 = 12 → small
+    [InlineData(20.0, 24.0, 10.0, false)]   // halfWidth 12.0 = threshold → not small
+    [InlineData(0.0, 100.0, 10.0, true)]    // zero height → small
+    [InlineData(20.0, 0.0, 10.0, true)]     // zero width → small
+    public void IsSmallCell_ThresholdBehavior(double height, double width, double minFontSize, bool expected) {
+        var dipRect = new Rect(0, 0, width, height);
+        Assert.Equal(expected, LogCrosshairRenderer.IsSmallCell(dipRect, minFontSize));
+    }
+
+    [Theory]
+    [InlineData(23.9, 10.0, true)]   // halfWidth 11.95 < 10 * 1.2 = 12 → narrow
+    [InlineData(24.0, 10.0, false)]  // halfWidth 12.0 = threshold → not narrow
+    [InlineData(25.0, 10.0, false)]  // halfWidth 12.5 > threshold → not narrow
+    [InlineData(0.0, 10.0, true)]    // zero width → narrow
+    [InlineData(9.5, 4.0, true)]     // halfWidth 4.75 < 4 * 1.2 = 4.8 → narrow
+    [InlineData(9.6, 4.0, false)]    // halfWidth 4.8 = threshold → not narrow
+    public void IsNarrowColumn_ThresholdBehavior(double width, double minFontSize, bool expected) {
+        var dipRect = new Rect(0, 0, width, 100);
+        Assert.Equal(expected, LogCrosshairRenderer.IsNarrowColumn(dipRect, minFontSize));
+    }
+
+    [Theory]
+    [InlineData(13.9, 10.0, true)]   // 13.9 < 10 * 1.4 = 14 → short
+    [InlineData(14.0, 10.0, false)]  // 14.0 = threshold → not short
+    [InlineData(15.0, 10.0, false)]  // above threshold → not short
+    [InlineData(0.0, 10.0, true)]    // zero height → short
+    [InlineData(5.5, 4.0, true)]     // 5.5 < 4 * 1.4 = 5.6 → short
+    [InlineData(5.6, 4.0, false)]    // 5.6 = threshold → not short
+    public void IsShortRow_ThresholdBehavior(double height, double minFontSize, bool expected) {
+        var dipRect = new Rect(0, 0, 100, height);
+        Assert.Equal(expected, LogCrosshairRenderer.IsShortRow(dipRect, minFontSize));
+    }
+
+    [Fact]
+    public void IsSmallCell_BothDimensionsSmall_ReportsSmall() {
+        // Both height and width below threshold
+        var dipRect = new Rect(0, 0, 10, 10);
+        Assert.True(LogCrosshairRenderer.IsSmallCell(dipRect, 10.0));
+    }
+
+    [Fact]
+    public void IsSmallCell_OnlyHeightSmall_ReportsSmall() {
+        // Height below threshold, width ok
+        var dipRect = new Rect(0, 0, 100, 5);
+        Assert.True(LogCrosshairRenderer.IsSmallCell(dipRect, 10.0));
+        Assert.False(LogCrosshairRenderer.IsNarrowColumn(dipRect, 10.0));
+        Assert.True(LogCrosshairRenderer.IsShortRow(dipRect, 10.0));
+    }
+
+    [Fact]
+    public void IsSmallCell_OnlyWidthSmall_ReportsSmall() {
+        // Width below threshold, height ok
+        var dipRect = new Rect(0, 0, 10, 100);
+        Assert.True(LogCrosshairRenderer.IsSmallCell(dipRect, 10.0));
+        Assert.True(LogCrosshairRenderer.IsNarrowColumn(dipRect, 10.0));
+        Assert.False(LogCrosshairRenderer.IsShortRow(dipRect, 10.0));
+    }
+}

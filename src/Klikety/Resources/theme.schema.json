@@ -98,19 +98,19 @@
       "default": "#00CCFF",
       "examples": ["#00CCFF", "#00AAEE"]
     },
-    "externalLabelColor": {
+    "externalColLabelColor": {
       "type": "string",
-      "description": "Label color for external column labels when subgrid cells are too small for inline labels.",
+      "description": "Label color for external column labels when cells are too small for inline labels.",
       "default": "#FFCC00",
       "examples": ["#FFCC00", "#CC8800"]
     },
     "externalRowLabelColor": {
       "type": "string",
       "description": "Label color for external row labels. Distinct from column labels for axis differentiation.",
-      "default": "#CCE066",
+      "default": "#66CCFF",
       "examples": [
-        "#CCE066",
-        "#99CC33"
+        "#66CCFF",
+        "#3388CC"
       ]
     },
     "connectorLineColor": {

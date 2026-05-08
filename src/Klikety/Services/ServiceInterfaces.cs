@@ -32,7 +32,7 @@ public interface IKeyboardHookService : IDisposable {
 /// </summary>
 public interface IMouseActionService {
     void MoveTo(System.Drawing.Point physicalPoint);
-    void SendAction(System.Drawing.Point physicalPoint, MouseAction action);
+    void SendAction(System.Drawing.Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);
 }
 
 /// <summary>

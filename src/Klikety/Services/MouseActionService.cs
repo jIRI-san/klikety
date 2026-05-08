@@ -4,6 +4,8 @@ using System.Runtime.InteropServices;
 using Klikety.Config;
 using Klikety.Interop;
 
+using Microsoft.Extensions.Logging;
+
 namespace Klikety.Services;
 
 /// <summary>
@@ -12,6 +14,7 @@ namespace Klikety.Services;
 /// </summary>
 public sealed class MouseActionService : IMouseActionService {
     private const uint INPUT_MOUSE = 0;
+    private const uint INPUT_KEYBOARD = 1;
     private const uint MOUSEEVENTF_MOVE = 0x0001;
     private const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
     private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
@@ -20,6 +23,12 @@ public sealed class MouseActionService : IMouseActionService {
     private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
     private const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
     private const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
+    private const uint KEYEVENTF_KEYUP = 0x0002;
+    private const ushort VK_SHIFT = 0x10;
+    private const ushort VK_CONTROL = 0x11;
+    private const ushort VK_MENU = 0x12;
+
+    private readonly ILogger _logger;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MOUSEINPUT {
@@ -32,13 +41,27 @@ public sealed class MouseActionService : IMouseActionService {
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    private struct KEYBDINPUT {
+        public ushort wVk;
+        public ushort wScan;
+        public uint dwFlags;
+        public uint time;
+        public nint dwExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
     private struct INPUT {
-        public uint type;
-        public MOUSEINPUT mi;
+        [FieldOffset(0)] public uint type;
+        [FieldOffset(4)] public MOUSEINPUT mi;
+        [FieldOffset(4)] public KEYBDINPUT ki;
     }
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+    public MouseActionService(ILogger logger) {
+        _logger = logger;
+    }
 
     public void MoveTo(Point physicalPoint) {
         var bounds = NativeMethods.GetPrimaryScreenBounds();
@@ -59,7 +82,7 @@ public sealed class MouseActionService : IMouseActionService {
         _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
     }
 
-    public void SendAction(Point physicalPoint, MouseAction action) {
+    public void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None) {
         MoveTo(physicalPoint);
 
         if (action == MouseAction.MoveOnly) {
@@ -73,17 +96,56 @@ public sealed class MouseActionService : IMouseActionService {
             _ => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
         };
 
-        var clickInputs = new INPUT[]
-        {
-            new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = downFlag } },
-            new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = upFlag } },
-        };
+        if (modifiers == ActionModifiers.None) {
+            var clickInputs = new INPUT[] {
+                new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = downFlag } },
+                new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = upFlag } },
+            };
 
-        _ = SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
+            _ = SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
+        } else {
+            var modKeyDowns = BuildModifierInputs(modifiers, keyUp: false);
+            var modKeyUps = BuildModifierInputs(modifiers, keyUp: true);
+
+            var inputs = new List<INPUT>(modKeyDowns.Length + 2 + modKeyUps.Length);
+            inputs.AddRange(modKeyDowns);
+            inputs.Add(new INPUT { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = downFlag } });
+            inputs.Add(new INPUT { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = upFlag } });
+            inputs.AddRange(modKeyUps);
+
+            var inputArray = inputs.ToArray();
+            var sent = SendInput((uint)inputArray.Length, inputArray, Marshal.SizeOf<INPUT>());
+            if (sent < inputArray.Length) {
+                // Compensating KEYUP for any modifiers that were sent down
+                _logger.LogWarning("SendInput partial send: {Sent}/{Total}. Issuing compensating KEYUP.", sent, inputArray.Length);
+                _ = SendInput((uint)modKeyUps.Length, modKeyUps, Marshal.SizeOf<INPUT>());
+            }
+        }
 
         // Double-click: send a second click pair
         if (action == MouseAction.DoubleClick) {
+            var clickInputs = new INPUT[] {
+                new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = downFlag } },
+                new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = upFlag } },
+            };
             _ = SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
         }
+    }
+
+    private static INPUT[] BuildModifierInputs(ActionModifiers modifiers, bool keyUp) {
+        var inputs = new List<INPUT>(3);
+        uint flags = keyUp ? KEYEVENTF_KEYUP : 0;
+
+        if (modifiers.HasFlag(ActionModifiers.Shift)) {
+            inputs.Add(new INPUT { type = INPUT_KEYBOARD, ki = new KEYBDINPUT { wVk = VK_SHIFT, dwFlags = flags } });
+        }
+        if (modifiers.HasFlag(ActionModifiers.Ctrl)) {
+            inputs.Add(new INPUT { type = INPUT_KEYBOARD, ki = new KEYBDINPUT { wVk = VK_CONTROL, dwFlags = flags } });
+        }
+        if (modifiers.HasFlag(ActionModifiers.Alt)) {
+            inputs.Add(new INPUT { type = INPUT_KEYBOARD, ki = new KEYBDINPUT { wVk = VK_MENU, dwFlags = flags } });
+        }
+
+        return [.. inputs];
     }
 }

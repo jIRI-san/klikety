@@ -84,7 +84,7 @@ public partial class App : Application {
 
         // Create services
         var hookService = new KeyboardHookService();
-        var mouseService = new MouseActionService();
+        var mouseService = new MouseActionService(logger);
 
         // Create overlay window
         var overlayWindow = new OverlayWindow();

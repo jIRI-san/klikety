@@ -50,21 +50,8 @@ This gives the user orientation, especially when resuming across sessions.
 After showing the progress summary, ask:
 
 **"Approve each step, or autopilot?"**
-- **Approve** — stop after each step for review before proceeding (default).
-- **Autopilot** — run all remaining steps with minimal user input. Specifics:
-
-  | Action | Autopilot behavior |
-  |---|---|
-  | Step 4 "Proceed?" | Skip — proceed immediately for `@ai-agent` steps |
-  | Step 10 "Ready to commit?" | Skip — commit immediately |
-  | Step 11 "Continue or stop?" | Skip — loop to next step |
-  | Build & tests (Steps 6) | Run normally |
-  | Acceptance criteria (Step 7) | Validate normally |
-  | Code review (Step 8) | Run normally; auto-fix unambiguous findings |
-  | `@human` steps | **Stop** — always wait for user |
-  | Ambiguous CR trade-offs | **Stop** — ask user to choose |
-  | Unfixable test failures | **Stop** — ask user for guidance |
-  | Blocking dependency issues | **Stop** — inform user |
+- **Approve** — stop after each step for review before proceeding (current default behavior).
+- **Autopilot** — implement all remaining steps as independently as possible with minimal user input. Skip per-step confirmations (Step 4 "Proceed?", Step 10 "Ready to commit?", Step 11 "Continue or stop?"). Still run build, tests, acceptance criteria validation, and code review — but auto-fix unambiguous CR findings and auto-commit without asking. Only stop for: `@human` steps, ambiguous CR trade-offs, failing tests that can't be auto-fixed, or blocking dependency issues. The user reviews everything at the end.
 
 Remember the chosen mode for the rest of the session.
 
@@ -81,32 +68,32 @@ Remember the chosen mode for the rest of the session.
 Run `git branch --show-current`.
 
 Ask the user: **"Create a new worktree for this work, or use the current branch `<current-branch>`?"**
+- Option A: **New worktree** (default for `main`/`master`)
+- Option B: **Use current branch** (for one-off or ad-hoc work; skips branch name validation)
 
-| Current branch | User choice | Action |
-|---|---|---|
-| Any | **Use current branch** | Proceed to Step 4. No worktree creation, no `<!-- worktree: ... -->` comment. |
-| `main` / `master` | **New worktree** | See "Create worktree from main" below. |
-| Feature branch | **New worktree** | N/A — already on a feature branch. See "Feature branch worktree tracking" below. |
+### Option B: Use current branch
+Proceed directly to Step 4 using the current branch — skip all worktree creation and branch-name matching. No `<!-- worktree: ... -->` comment is recorded.
 
-### Create worktree from main
+### Option A: New worktree
 
+#### If current branch is `main` or `master`
 1. Find the next `[ ]` step across all phases.
-2. Derive branch name: `feature/<plan-slug>-<phase-slug>-<step-N>` (e.g. `feature/007-navigation-modes-core-setup-step-1-1`).
-3. Worktree root: sibling folder `<repo-folder>.worktrees` (e.g. `c:\dev\qz` → `c:\dev\qz.worktrees`). Create if absent.
+2. Derive the worktree branch name: `feature/<plan-slug>-<phase-slug>-<step-N>`
+   - `plan-slug`: the folder name (e.g. `007-navigation-modes`)
+   - `phase-slug`: kebab-case of the phase heading
+   - `step-N`: step number (e.g. `step-1-1`)
+3. Determine the worktree root: sibling folder to the repo named `<repo-folder>.worktrees` — e.g. `c:\dev\qz` → `c:\dev\qz.worktrees`. Create it if it does not exist (`mkdir` / `New-Item -ItemType Directory`).
 4. Run: `git worktree add <worktree-root>/<branch-name> -b <branch-name>`
-5. Run: `code <worktree-root>/<branch-name>`
-6. Tell user: "Worktree created. Run `/ci` in the new window."
-7. **Stop** — branch is recorded in plan on first `/ci` run inside the worktree.
+5. Run: `code <worktree-root>/<branch-name>` to open a new VS Code instance in the worktree.
+6. Tell the user: "Worktree created at `<worktree-root>/<branch-name>`. New VS Code window opened. Run `/ci` there to continue."
+7. **Stop** — do NOT record the branch in the plan file here; that happens on first run inside the worktree.
 
-### Feature branch worktree tracking
+#### If current branch is a feature branch
+Check `plan.md` for a `<!-- worktree: <branch-name> -->` comment in the current or next pending phase:
 
-When on a feature branch, check `plan.md` for `<!-- worktree: <branch-name> -->` in the current/next phase:
-
-| State | Action |
-|---|---|
-| Comment absent | First run — add `<!-- worktree: <current-branch> -->` after the phase heading. Committed with first step. |
-| Comment matches current branch | Continue to Step 4. |
-| Comment does not match | Warn: "Branch mismatch: `<current>` vs `<recorded>`. Proceed? (yes/no)" |
+- **Comment absent** — this is the first `/ci` run in this worktree. Record it now: add `<!-- worktree: <current-branch> -->` on the line immediately after the phase heading. This comment is committed with the first step's changes as part of that step's commit.
+- **Comment present and matches current branch** → continue to Step 4.
+- **Comment present but does not match** → warn: "Current branch `<current>` does not match plan branch `<recorded>`. Proceed anyway? (yes / no)"
 
 ## Step 4: Identify Next Step
 

@@ -171,6 +171,12 @@ public sealed partial class MouseActionService : IMouseActionService {
             return;
         }
 
+        // Run on a background thread to avoid blocking the WPF dispatcher
+        // with Thread.Sleep delays needed for drag threshold detection.
+        Task.Run(() => SendDragCore(start, end, button, modifiers));
+    }
+
+    private void SendDragCore(Point start, Point end, MouseAction button, ActionModifiers modifiers) {
         var (downFlag, upFlag) = button switch {
             MouseAction.RightClick => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
             MouseAction.MiddleClick => (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
@@ -204,8 +210,10 @@ public sealed partial class MouseActionService : IMouseActionService {
         // (SM_CXDRAG/SM_CYDRAG, typically 4px). Without this, the app may treat
         // the button-down as a click rather than a drag initiation.
         Thread.Sleep(100);
-        int nudgeX = sx + (ex > sx ? 1 : -1) * (65535 / 500); // ~3-4px nudge toward end
-        int nudgeY = sy + (ey > sy ? 1 : -1) * (65535 / 500);
+        int nudgeDx = ex - sx;
+        int nudgeDy = ey - sy;
+        int nudgeX = sx + (nudgeDx != 0 ? Math.Sign(nudgeDx) : 0) * (65535 / 500); // ~3-4px nudge toward end
+        int nudgeY = sy + (nudgeDy != 0 ? Math.Sign(nudgeDy) : 0) * (65535 / 500);
         _ = SendInput(1, [MakeMoveInput(nudgeX, nudgeY)], Marshal.SizeOf<INPUT>());
 
         Thread.Sleep(50);

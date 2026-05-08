@@ -7,12 +7,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Klikety.Services;
 
-public interface IScrollHotKeyService : IDisposable {
-    bool IsRegistered { get; }
-    List<string> Register();
-    void Unregister();
-}
-
 public sealed partial class ScrollHotKeyService : IScrollHotKeyService {
     private const int WM_HOTKEY = 0x0312;
     private const int ScrollUpId = 0x2000;

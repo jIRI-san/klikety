@@ -770,6 +770,26 @@ public class ConfigLoaderTests {
         } finally { Cleanup(path); }
     }
 
+    [Fact]
+    public void Validate_ScrollKeyConflictsWithHotkey_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 4,
+            "hotKey": { "modifiers": "Alt", "key": "Prior" },
+            "scrollHotkeys": {
+                "enabled": true,
+                "scrollUpKey": { "modifiers": "Control, Alt", "key": "Prior" },
+                "scrollDownKey": { "modifiers": "Control, Alt", "key": "Next" }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("scrollUpKey") && v.Contains("hotkey"));
+        } finally { Cleanup(path); }
+    }
+
     private static string WriteTempFile(string content) {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(path, content);

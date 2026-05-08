@@ -186,7 +186,7 @@ public static class ConfigLoader {
         ValidateModes(config, violations, actionKeys, hotkeyVKeys);
 
         // === Scroll hotkey validation ===
-        ValidateScrollHotKeys(config, violations, actionKeys, allNavKeys);
+        ValidateScrollHotKeys(config, violations, actionKeys, allNavKeys, hotkeyVKeys);
 
         return violations;
     }
@@ -305,7 +305,7 @@ public static class ConfigLoader {
         }
     }
 
-    private static void ValidateScrollHotKeys(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> navKeys) {
+    private static void ValidateScrollHotKeys(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> navKeys, HashSet<VKey> hotkeyVKeys) {
         var scroll = config.ScrollHotKeys;
         if (!scroll.Enabled) {
             return;
@@ -349,6 +349,10 @@ public static class ConfigLoader {
 
             if (navKeys.Contains(key)) {
                 violations.Add($"{label}: key '{key}' conflicts with a navigation key.");
+            }
+
+            if (hotkeyVKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with hotkey.");
             }
         }
     }

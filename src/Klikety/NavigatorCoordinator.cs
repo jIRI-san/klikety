@@ -347,6 +347,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
             var modifiers = _modifierDetector.GetCurrentModifiers();
             _overlayWindow.ClearStatusText();
+            _dragMode = false;
             DeactivateOverlay();
             _mouseService.SendDrag(_dragStartPoint, point, action, modifiers);
             return;

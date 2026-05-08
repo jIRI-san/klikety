@@ -1125,4 +1125,28 @@ public class NavigatorCoordinatorTests {
         // Status text should be cleared
         Assert.Null(overlay.StatusText);
     }
+
+    [Fact]
+    public void DragDrop_Completion_NoIntermediateMoveTo_Origin() {
+        var config = DragConfig();
+        var (_, hotKey, hook, mouse, overlay, _, platform, _) = CreateCoordinator(configOverride: config);
+        platform.Cursor.Position = new Point(500, 500);
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Z);
+
+        hook.SimulateKey(VKey.S);
+        hook.SimulateKey(VKey.E);
+        hook.SimulateKey(VKey.Space);
+
+        Assert.False(overlay.IsVisible);
+        // No MoveTo(origin) should occur during drag completion —
+        // DeactivateOverlay must not restore cursor when drag completes.
+        var moveToOrigin = mouse.Calls.Where(c => c.Action is null && c.Point == new Point(500, 500));
+        // The only MoveTo(origin) allowed is the initial cursor positioning, not a post-deactivate restore
+        Assert.DoesNotContain(mouse.Calls, c => c.Action is null && c.Point == new Point(500, 500)
+            && mouse.Calls.IndexOf(c) > mouse.Calls.FindIndex(x => x.Action is null && x.Point != new Point(500, 500)));
+    }
 }

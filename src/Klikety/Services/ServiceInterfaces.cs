@@ -45,6 +45,15 @@ public interface IModifierDetector {
 }
 
 /// <summary>
+/// Abstracts global scroll hotkey registration and dispatch.
+/// </summary>
+public interface IScrollHotKeyService : IDisposable {
+    bool IsRegistered { get; }
+    List<string> Register();
+    void Unregister();
+}
+
+/// <summary>
 /// Abstracts the overlay window for testability.
 /// </summary>
 public interface IOverlayWindow {

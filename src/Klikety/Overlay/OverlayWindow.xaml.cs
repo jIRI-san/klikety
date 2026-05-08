@@ -69,15 +69,9 @@ public partial class OverlayWindow : Window, IOverlayWindow {
     void IOverlayWindow.ShowStatusText(string text) {
         StatusCanvas.Children.Clear();
 
-        var fillBrush = _theme is not null
-            ? new SolidColorBrush((Color)ColorConverter.ConvertFromString(_theme.StatusTextFillColor))
-            : Brushes.White;
-        var outlineBrush = _theme is not null
-            ? new SolidColorBrush((Color)ColorConverter.ConvertFromString(_theme.StatusTextOutlineColor))
-            : Brushes.Black;
-        var bgBrush = _theme is not null
-            ? new SolidColorBrush((Color)ColorConverter.ConvertFromString(_theme.StatusTextBackgroundColor))
-            : new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33));
+        var fillBrush = TryParseBrush(_theme?.StatusTextFillColor, Brushes.White);
+        var outlineBrush = TryParseBrush(_theme?.StatusTextOutlineColor, Brushes.Black);
+        var bgBrush = TryParseBrush(_theme?.StatusTextBackgroundColor, new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33)));
 
         double fontSize = 28;
         var typeface = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
@@ -135,6 +129,18 @@ public partial class OverlayWindow : Window, IOverlayWindow {
 
     void IOverlayWindow.ClearStatusText() {
         StatusCanvas.Children.Clear();
+    }
+
+    private static SolidColorBrush TryParseBrush(string? colorString, SolidColorBrush fallback) {
+        if (colorString is null) {
+            return fallback;
+        }
+
+        try {
+            return new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorString));
+        } catch (FormatException) {
+            return fallback;
+        }
     }
 
     /// <summary>

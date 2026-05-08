@@ -18,6 +18,7 @@ public partial class App : Application {
     private TaskbarIcon? _trayIcon;
     private HotKeyService? _hotKeyService;
     private ScrollHotKeyService? _scrollHotKeyService;
+    private bool _scrollHotKeysConfigEnabled;
     private NavigatorCoordinator? _coordinator;
 #if DEBUG
     private HotKeyService? _debugHotKeyService;
@@ -154,7 +155,8 @@ public partial class App : Application {
         // Scroll hotkeys
         _scrollHotKeyService?.Dispose();
         _scrollHotKeyService = new ScrollHotKeyService(config.ScrollHotKeys, mouseService, logger);
-        if (config.ScrollHotKeys.Enabled) {
+        _scrollHotKeysConfigEnabled = config.ScrollHotKeys.Enabled;
+        if (_scrollHotKeysConfigEnabled) {
             var scrollFailures = _scrollHotKeyService.Register();
             violations.AddRange(scrollFailures);
         }
@@ -253,10 +255,10 @@ public partial class App : Application {
         };
         contextMenu.Items.Add(startupItem);
 
-        // Scroll Keys toggle (visible only when scroll hotkeys are enabled in config)
-        if (_scrollHotKeyService is not null && _scrollHotKeyService.IsRegistered) {
+        // Scroll Keys toggle (visible when scroll hotkeys are enabled in config)
+        if (_scrollHotKeyService is not null && _scrollHotKeysConfigEnabled) {
             var scrollItem = new System.Windows.Controls.MenuItem {
-                Header = "Pause Scroll Keys",
+                Header = _scrollHotKeyService.IsRegistered ? "Pause Scroll Keys" : "Resume Scroll Keys",
             };
             scrollItem.Click += (_, _) => {
                 if (_scrollHotKeyService.IsRegistered) {

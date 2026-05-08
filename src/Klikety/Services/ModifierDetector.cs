@@ -7,13 +7,13 @@ namespace Klikety.Services;
 /// <summary>
 /// Production implementation that reads physical modifier key state via GetAsyncKeyState.
 /// </summary>
-public sealed class ModifierDetector : IModifierDetector {
+public sealed partial class ModifierDetector : IModifierDetector {
     private const int VK_SHIFT = 0x10;
     private const int VK_CONTROL = 0x11;
     private const int VK_MENU = 0x12;
 
-    [DllImport("user32.dll")]
-    private static extern short GetAsyncKeyState(int vKey);
+    [LibraryImport("user32.dll")]
+    private static partial short GetAsyncKeyState(int vKey);
 
     public ActionModifiers GetCurrentModifiers() {
         var mods = ActionModifiers.None;

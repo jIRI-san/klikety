@@ -139,7 +139,7 @@
     - Fallback: if `GetForegroundWindow` returns `IntPtr.Zero`, use primary monitor.
   - New P/Invoke declarations in `Interop/NativeMethods.cs`: add `MonitorFromWindow` (new — doesn't exist yet), `GetForegroundWindow` (add if not present). Follow `GetPrimaryScreenBounds()` helper pattern.
 
-- [ ] 2.5 Unit tests for `KeyPressDisplayManager` (REQ-2, REQ-7, REQ-8, REQ-3) [after: 2.2] `S`
+- [x] 2.5 Unit tests for `KeyPressDisplayManager` (REQ-2, REQ-7, REQ-8, REQ-3) [after: 2.2] `S`
   - Test file: `Klikety.Tests/KeyPressDisplayManagerTests.cs`.
   - Inject `FakeMonitorService` (returns fixed DIP rect), `FakeTimeProvider`.
   - Cases: add key adds to collection, max visible keys enforced (overflow eviction), repeat increments count, idle timer triggers fade start, new key cancels fade, positioning calculates correct corner.

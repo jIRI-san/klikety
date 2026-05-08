@@ -33,6 +33,7 @@ public interface IKeyboardHookService : IDisposable {
 public interface IMouseActionService {
     void MoveTo(System.Drawing.Point physicalPoint);
     void SendAction(System.Drawing.Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);
+    void SendScroll(int wheelDelta);
 }
 
 /// <summary>

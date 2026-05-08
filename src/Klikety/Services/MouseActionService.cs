@@ -23,6 +23,7 @@ public sealed partial class MouseActionService : IMouseActionService {
     private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
     private const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
     private const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
+    private const uint MOUSEEVENTF_WHEEL = 0x0800;
     private const uint KEYEVENTF_KEYUP = 0x0002;
     private const ushort VK_SHIFT = 0x10;
     private const ushort VK_CONTROL = 0x11;
@@ -159,4 +160,16 @@ public sealed partial class MouseActionService : IMouseActionService {
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "SendInput partial send: {Sent}/{Total}. Issuing compensating KEYUP.")]
     private partial void LogPartialSend(uint sent, int total);
+
+    public void SendScroll(int wheelDelta) {
+        var input = new INPUT {
+            type = INPUT_MOUSE,
+            union = new INPUT_UNION { mi = new MOUSEINPUT {
+                mouseData = unchecked((uint)wheelDelta),
+                dwFlags = MOUSEEVENTF_WHEEL,
+            } },
+        };
+
+        _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+    }
 }

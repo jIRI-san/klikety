@@ -50,10 +50,15 @@ public sealed partial class MouseActionService : IMouseActionService {
     }
 
     [StructLayout(LayoutKind.Explicit)]
+    private struct INPUT_UNION {
+        [FieldOffset(0)] public MOUSEINPUT mi;
+        [FieldOffset(0)] public KEYBDINPUT ki;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     private struct INPUT {
-        [FieldOffset(0)] public uint type;
-        [FieldOffset(4)] public MOUSEINPUT mi;
-        [FieldOffset(4)] public KEYBDINPUT ki;
+        public uint type;
+        public INPUT_UNION union;
     }
 
     [DllImport("user32.dll", SetLastError = true)]
@@ -72,11 +77,11 @@ public sealed partial class MouseActionService : IMouseActionService {
 
         var input = new INPUT {
             type = INPUT_MOUSE,
-            mi = new MOUSEINPUT {
+            union = new INPUT_UNION { mi = new MOUSEINPUT {
                 dx = normalizedX,
                 dy = normalizedY,
                 dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
-            },
+            } },
         };
 
         _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
@@ -96,54 +101,57 @@ public sealed partial class MouseActionService : IMouseActionService {
             _ => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
         };
 
-        if (modifiers == ActionModifiers.None) {
-            var clickInputs = new INPUT[] {
-                new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = downFlag } },
-                new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = upFlag } },
-            };
+        int clickCount = action == MouseAction.DoubleClick ? 2 : 1;
 
+        if (modifiers == ActionModifiers.None) {
+            var clickInputs = new INPUT[clickCount * 2];
+            for (int i = 0; i < clickCount; i++) {
+                clickInputs[i * 2] = MakeMouseInput(downFlag);
+                clickInputs[i * 2 + 1] = MakeMouseInput(upFlag);
+            }
             _ = SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
         } else {
+            // Modifiers held physically are already active — skip synthetic injection for those.
+            // We inject all requested modifiers to guarantee the target app sees them,
+            // since the overlay just closed and key state may be ambiguous.
             var modKeyDowns = BuildModifierInputs(modifiers, keyUp: false);
             var modKeyUps = BuildModifierInputs(modifiers, keyUp: true);
 
-            var inputs = new List<INPUT>(modKeyDowns.Length + 2 + modKeyUps.Length);
+            var inputs = new List<INPUT>(modKeyDowns.Length + clickCount * 2 + modKeyUps.Length);
             inputs.AddRange(modKeyDowns);
-            inputs.Add(new INPUT { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = downFlag } });
-            inputs.Add(new INPUT { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = upFlag } });
+            for (int i = 0; i < clickCount; i++) {
+                inputs.Add(MakeMouseInput(downFlag));
+                inputs.Add(MakeMouseInput(upFlag));
+            }
             inputs.AddRange(modKeyUps);
 
             var inputArray = inputs.ToArray();
             var sent = SendInput((uint)inputArray.Length, inputArray, Marshal.SizeOf<INPUT>());
             if (sent < inputArray.Length) {
-                // Compensating KEYUP for any modifiers that were sent down
+                // Compensating KEYUP for any modifiers — extra key-ups for already-up keys are harmless
                 LogPartialSend(sent, inputArray.Length);
                 _ = SendInput((uint)modKeyUps.Length, modKeyUps, Marshal.SizeOf<INPUT>());
             }
         }
-
-        // Double-click: send a second click pair
-        if (action == MouseAction.DoubleClick) {
-            var clickInputs = new INPUT[] {
-                new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = downFlag } },
-                new() { type = INPUT_MOUSE, mi = new MOUSEINPUT { dwFlags = upFlag } },
-            };
-            _ = SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
-        }
     }
+
+    private static INPUT MakeMouseInput(uint dwFlags) => new() {
+        type = INPUT_MOUSE,
+        union = new INPUT_UNION { mi = new MOUSEINPUT { dwFlags = dwFlags } },
+    };
 
     private static INPUT[] BuildModifierInputs(ActionModifiers modifiers, bool keyUp) {
         var inputs = new List<INPUT>(3);
         uint flags = keyUp ? KEYEVENTF_KEYUP : 0;
 
         if (modifiers.HasFlag(ActionModifiers.Shift)) {
-            inputs.Add(new INPUT { type = INPUT_KEYBOARD, ki = new KEYBDINPUT { wVk = VK_SHIFT, dwFlags = flags } });
+            inputs.Add(new INPUT { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_SHIFT, dwFlags = flags } } });
         }
         if (modifiers.HasFlag(ActionModifiers.Ctrl)) {
-            inputs.Add(new INPUT { type = INPUT_KEYBOARD, ki = new KEYBDINPUT { wVk = VK_CONTROL, dwFlags = flags } });
+            inputs.Add(new INPUT { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_CONTROL, dwFlags = flags } } });
         }
         if (modifiers.HasFlag(ActionModifiers.Alt)) {
-            inputs.Add(new INPUT { type = INPUT_KEYBOARD, ki = new KEYBDINPUT { wVk = VK_MENU, dwFlags = flags } });
+            inputs.Add(new INPUT { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_MENU, dwFlags = flags } } });
         }
 
         return [.. inputs];

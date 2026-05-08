@@ -15,7 +15,8 @@ All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookServ
 ```csharp
 interface IHotKeyService   { event EventHandler Activated; bool Register(HotKeyConfig); void Unregister(); }
 interface IKeyboardHookService { event EventHandler<VKey> KeyPressed; bool Enable(); void Disable(); }
-interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action); }
+interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); }
+interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 ```
 
 ## `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)`
@@ -35,8 +36,18 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 ## `IMouseActionService` — `SendInput`
 
 - `MoveTo`: normalizes physical-pixel coords to 0–65535 range using primary screen bounds, then sends `MOUSEINPUT` with `MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE`. Guards against zero-dimension screens with `Math.Max(bounds.Width - 1, 1)` divisor.
-- `SendAction`: calls `MoveTo` first, then sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. `MoveOnly` action returns after `MoveTo` — no click inputs sent. Double-click = two left-click pairs in sequence.
+- `SendAction`: calls `MoveTo` first, then sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. `MoveOnly` action returns after `MoveTo` — no click inputs sent. Double-click = two left-click pairs in sequence. When `modifiers != None`, wraps all click pairs in `KEYDOWN`/`KEYUP` for Shift/Ctrl/Alt via a single `SendInput` call.
+- `INPUT` struct uses nested union pattern (`INPUT` → `INPUT_UNION`) for correct x64 alignment. The runtime handles padding between `type` and the union.
+- Partial `SendInput` sends trigger compensating `KEYUP` events to prevent stuck modifiers.
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
+
+## `IModifierDetector` — `GetAsyncKeyState`
+
+- `ActionModifiers` is a `[Flags]` enum: `None = 0, Shift = 1, Ctrl = 2, Alt = 4`. Separate from `HotKeyModifiers`.
+- `ModifierDetector.GetCurrentModifiers()` reads physical key state via `GetAsyncKeyState(VK_SHIFT/VK_CONTROL/VK_MENU)` at action dispatch time.
+- Called in `NavigatorCoordinator.OnSessionActionRequested` — modifier detection is a coordinator concern, not a session concern.
+- `MoveOnly` action always passes `ActionModifiers.None` (modifiers irrelevant for cursor-only move).
+- `GetAsyncKeyState` returns 0 during secure desktop (UAC, lock screen) — harmless fallback to no modifiers.
 
 ## `NativeMethods.GetPrimaryScreenBounds()` — `GetMonitorInfoW`
 

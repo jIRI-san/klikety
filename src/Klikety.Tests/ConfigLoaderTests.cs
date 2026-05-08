@@ -667,6 +667,109 @@ public class ConfigLoaderTests {
         } finally { Cleanup(path); }
     }
 
+    [Fact]
+    public void Validate_ScrollAmountBelowMin_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 3,
+            "scrollHotkeys": { "enabled": true, "scrollAmount": 0 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("scrollAmount") && v.Contains("between 1 and 100"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_ScrollAmountAboveMax_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 3,
+            "scrollHotkeys": { "enabled": true, "scrollAmount": 101 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("scrollAmount") && v.Contains("between 1 and 100"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_DuplicateScrollKeys_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 3,
+            "scrollHotkeys": {
+                "enabled": true,
+                "scrollUpKey": { "modifiers": "Control, Alt", "key": "Prior" },
+                "scrollDownKey": { "modifiers": "Control, Alt", "key": "Prior" }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("Scroll up and scroll down") && v.Contains("different"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_ScrollKeyConflictsWithAction_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 3,
+            "actionBindings": { "Prior": "RightClick" },
+            "scrollHotkeys": {
+                "enabled": true,
+                "scrollUpKey": { "modifiers": "Control, Alt", "key": "Prior" },
+                "scrollDownKey": { "modifiers": "Control, Alt", "key": "Next" }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("scrollUpKey") && v.Contains("action"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_ScrollKeyConflictsWithNavigation_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 3,
+            "scrollHotkeys": {
+                "enabled": true,
+                "scrollUpKey": { "modifiers": "Control, Alt", "key": "A" },
+                "scrollDownKey": { "modifiers": "Control, Alt", "key": "Next" }
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("scrollUpKey") && v.Contains("navigation"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_ScrollDisabled_SkipsValidation() {
+        var json = """
+        {
+            "configVersion": 3,
+            "scrollHotkeys": { "enabled": false, "scrollAmount": 0 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.DoesNotContain(result.Violations, v => v.Contains("scrollAmount"));
+        } finally { Cleanup(path); }
+    }
+
     private static string WriteTempFile(string content) {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(path, content);

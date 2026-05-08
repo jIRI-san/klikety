@@ -71,7 +71,7 @@
   - Add `"B": "MoveOnly"` to `actionBindings` in `Resources/config.json`
   - Update `Resources/config.schema.json` — add `MoveOnly` to the `MouseAction` enum definition
 
-- [ ] 1.4 Unit tests for move-only action (REQ-1) `S`
+- [x] 1.4 Unit tests for move-only action (REQ-1) `S`
   - `ActionMapper` test: `"B"` maps to `MouseAction.MoveOnly`
   - `NavigatorCoordinatorTests`: verify `MoveOnly` action calls `MoveTo` but no `SendAction` click — wait, `SendAction` is the single entry point. Test that `SendAction(point, MoveOnly)` results in cursor move without click. Use `IMouseActionService` fake to verify.
   - Coordinator test: `OnSessionActionRequested` with `MoveOnly` calls `DeactivateOverlay` then `SendAction`; verify no error

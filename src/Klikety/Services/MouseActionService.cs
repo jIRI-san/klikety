@@ -70,22 +70,27 @@ public sealed partial class MouseActionService : IMouseActionService {
     }
 
     public void MoveTo(Point physicalPoint) {
-        var bounds = NativeMethods.GetPrimaryScreenBounds();
-        int divisorX = Math.Max(bounds.Width - 1, 1);
-        int divisorY = Math.Max(bounds.Height - 1, 1);
-        int normalizedX = (int)((physicalPoint.X - bounds.X) * 65535.0 / divisorX);
-        int normalizedY = (int)((physicalPoint.Y - bounds.Y) * 65535.0 / divisorY);
+        var (nx, ny) = NormalizePoint(physicalPoint);
 
         var input = new INPUT {
             type = INPUT_MOUSE,
             union = new INPUT_UNION { mi = new MOUSEINPUT {
-                dx = normalizedX,
-                dy = normalizedY,
+                dx = nx,
+                dy = ny,
                 dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
             } },
         };
 
         _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+    }
+
+    private static (int X, int Y) NormalizePoint(Point physicalPoint) {
+        var bounds = NativeMethods.GetPrimaryScreenBounds();
+        int divisorX = Math.Max(bounds.Width - 1, 1);
+        int divisorY = Math.Max(bounds.Height - 1, 1);
+        int normalizedX = (int)((physicalPoint.X - bounds.X) * 65535.0 / divisorX);
+        int normalizedY = (int)((physicalPoint.Y - bounds.Y) * 65535.0 / divisorY);
+        return (normalizedX, normalizedY);
     }
 
     public void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None) {
@@ -160,6 +165,53 @@ public sealed partial class MouseActionService : IMouseActionService {
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "SendInput partial send: {Sent}/{Total}. Issuing compensating KEYUP.")]
     private partial void LogPartialSend(uint sent, int total);
+
+    public void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {
+        if (button is MouseAction.MoveOnly or MouseAction.DragDrop) {
+            return;
+        }
+
+        var (downFlag, upFlag) = button switch {
+            MouseAction.RightClick => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
+            MouseAction.MiddleClick => (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
+            _ => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+        };
+
+        var (sx, sy) = NormalizePoint(start);
+        var (ex, ey) = NormalizePoint(end);
+
+        var modKeyDowns = BuildModifierInputs(modifiers, keyUp: false);
+        var modKeyUps = BuildModifierInputs(modifiers, keyUp: true);
+
+        // Build: [mod-downs] + move-to-start + button-down + move-to-end + button-up + [mod-ups]
+        var inputs = new List<INPUT>(modKeyDowns.Length + 4 + modKeyUps.Length);
+        inputs.AddRange(modKeyDowns);
+        inputs.Add(MakeMoveInput(sx, sy));
+        inputs.Add(MakeMouseInput(downFlag));
+        inputs.Add(MakeMoveInput(ex, ey));
+        inputs.Add(MakeMouseInput(upFlag));
+        inputs.AddRange(modKeyUps);
+
+        var inputArray = inputs.ToArray();
+        var sent = SendInput((uint)inputArray.Length, inputArray, Marshal.SizeOf<INPUT>());
+        if (sent < inputArray.Length) {
+            LogPartialSend(sent, inputArray.Length);
+            // Compensating: release button and modifiers
+            var compensate = new List<INPUT>(1 + modKeyUps.Length);
+            compensate.Add(MakeMouseInput(upFlag));
+            compensate.AddRange(modKeyUps);
+            _ = SendInput((uint)compensate.Count, [.. compensate], Marshal.SizeOf<INPUT>());
+        }
+    }
+
+    private static INPUT MakeMoveInput(int nx, int ny) => new() {
+        type = INPUT_MOUSE,
+        union = new INPUT_UNION { mi = new MOUSEINPUT {
+            dx = nx,
+            dy = ny,
+            dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+        } },
+    };
 
     public void SendScroll(int wheelDelta) {
         var input = new INPUT {

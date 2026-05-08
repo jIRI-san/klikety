@@ -369,6 +369,22 @@ public static class ConfigLoader {
             violations.Add($"keyPressVisualization.fontSize must be > 0 (got {kpv.FontSize}).");
         }
 
+        if (kpv.OutlineThickness < 0) {
+            violations.Add($"keyPressVisualization.outlineThickness must be >= 0 (got {kpv.OutlineThickness}).");
+        }
+
+        if (kpv.Margin < 0) {
+            violations.Add($"keyPressVisualization.margin must be >= 0 (got {kpv.Margin}).");
+        }
+
+        if (!IsValidHexColor(kpv.FontColor)) {
+            violations.Add($"keyPressVisualization.fontColor is not a valid hex color (got '{kpv.FontColor}').");
+        }
+
+        if (!IsValidHexColor(kpv.OutlineColor)) {
+            violations.Add($"keyPressVisualization.outlineColor is not a valid hex color (got '{kpv.OutlineColor}').");
+        }
+
         if (kpv.FadeTimeoutMs < 0) {
             violations.Add($"keyPressVisualization.fadeTimeoutMs must be >= 0 (got {kpv.FadeTimeoutMs}).");
         }
@@ -388,5 +404,10 @@ public static class ConfigLoader {
         if (kpv.RepeatWindowMs < 50 || kpv.RepeatWindowMs > 1000) {
             violations.Add($"keyPressVisualization.repeatWindowMs must be between 50 and 1000 (got {kpv.RepeatWindowMs}).");
         }
+    }
+
+    private static bool IsValidHexColor(string color) {
+        if (string.IsNullOrEmpty(color) || color[0] != '#') return false;
+        return color.Length is 7 or 9 && color[1..].All(c => char.IsAsciiHexDigit(c));
     }
 }

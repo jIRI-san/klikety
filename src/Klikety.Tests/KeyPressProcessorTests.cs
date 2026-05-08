@@ -1,3 +1,4 @@
+using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Services;
 using Klikety.Tests.Fakes;
@@ -228,5 +229,25 @@ public sealed class KeyPressProcessorTests {
         var entry = new KeyPressEntry("SensitiveData", 0);
 
         Assert.Equal("[KeyPressEntry]", entry.ToString());
+    }
+
+    [Fact]
+    public void RebuildCache_UsesNewResolver() {
+        // Initial resolver returns uppercase VKey names
+        var entry1 = _processor.ProcessKeyDown(VKey.A);
+        Assert.Equal("A", entry1!.Label);
+
+        // Rebuild with a different resolver
+        var customResolver = new CustomLabelResolver("x");
+        _processor.RebuildCache(customResolver);
+
+        var entry2 = _processor.ProcessKeyDown(VKey.A);
+        Assert.Equal("x", entry2!.Label);
+    }
+
+    private sealed class CustomLabelResolver : IKeyLabelResolver {
+        private readonly string _label;
+        public CustomLabelResolver(string label) => _label = label;
+        public string Resolve(VKey key) => _label;
     }
 }

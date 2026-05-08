@@ -81,7 +81,7 @@
   - Validate: `FontSize` > 0, `FadeTimeoutMs` >= 0, `FadeDurationMs` > 0, `MaxVisibleKeys` in [1..10], `Corner` is one of four valid values, `RepeatWindowMs` in [50..1000]. Violations added to startup tray notification list.
   - Update embedded `config.json` with `keyPressVisualization` section and defaults. Update `config.schema.json`.
 
-- [ ] 1.3 Add `KeyPressProcessor` — key event → display entry logic (REQ-5, REQ-6, REQ-7, REQ-15, REQ-18, RISK-5, RISK-7) `M`
+- [x] 1.3 Add `KeyPressProcessor` — key event → display entry logic (REQ-5, REQ-6, REQ-7, REQ-15, REQ-18, RISK-5, RISK-7) `M`
   - New class `Services/KeyPressProcessor.cs`. Testable, no WPF dependencies.
   - Constructor takes `IKeyLabelResolver` (existing interface) and `TimeProvider` (System.TimeProvider from .NET 8+) for testability.
   - **Label cache** (RISK-5 mitigation): On construction (or explicit `RebuildCache()`), builds `Dictionary<VKey, string>` using `IKeyLabelResolver.GetDisplayChar(vkey)` for all VKeys 0–254. Special keys override from static dictionary: "Return"→"Enter", "Back"→"⌫", "Tab"→"Tab", "Escape"→"Esc", "Left"→"←", "Right"→"→", "Up"→"↑", "Down"→"↓", "Space"→"Space", F1–F24→"F1"–"F24", "Delete"→"Del", "Insert"→"Ins", "Home", "End", "Prior"→"PgUp", "Next"→"PgDn", "PrintScreen"→"PrtSc", "Capital"→"Caps". Cache never calls `ToUnicode` during live key processing.

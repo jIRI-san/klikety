@@ -87,6 +87,25 @@ public sealed class HotKeyConfig {
 }
 
 /// <summary>
+/// Scroll hotkey configuration: enable/disable, key bindings, and scroll amount.
+/// </summary>
+public sealed class ScrollHotKeyConfig {
+    public bool Enabled { get; init; }
+
+    public HotKeyConfig ScrollUpKey { get; init; } = new() {
+        Modifiers = HotKeyModifiers.Control | HotKeyModifiers.Alt,
+        Key = VKey.Prior,
+    };
+
+    public HotKeyConfig ScrollDownKey { get; init; } = new() {
+        Modifiers = HotKeyModifiers.Control | HotKeyModifiers.Alt,
+        Key = VKey.Next,
+    };
+
+    public int ScrollAmount { get; init; } = 3;
+}
+
+/// <summary>
 /// Root configuration model. Deserialized from %APPDATA%\Klikety\config.json (JSONC).
 /// All properties have defaults so missing fields are handled gracefully.
 /// </summary>
@@ -156,4 +175,7 @@ public sealed class ConfigModel {
     /// labels at this size, labels render outside the grid with connector lines.
     /// </summary>
     public double MinLabelFontSize { get; init; } = 14.0;
+
+    [System.Text.Json.Serialization.JsonPropertyName("scrollHotkeys")]
+    public ScrollHotKeyConfig ScrollHotKeys { get; init; } = new();
 }

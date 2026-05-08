@@ -98,7 +98,7 @@
   },
 
   // Config format version. Do not change manually.
-  "configVersion": 3,
+  "configVersion": 4,
 
   // Global scroll hotkeys. Send mouse wheel events at current cursor position.
   // Disabled by default. Keys: Ctrl+Alt+PageUp (up), Ctrl+Alt+PageDown (down).

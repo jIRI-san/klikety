@@ -35,7 +35,7 @@ public class ConfigMigratorTests {
             var migrated = ReadJsonObject(path);
             Assert.True(migrated.ContainsKey("modes"));
             Assert.False(migrated.ContainsKey("navigationMode"));
-            Assert.Equal(3, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
 
             var ug = migrated["modes"]!["uniformGrid"]!;
             Assert.True(ug["enabled"]!.GetValue<bool>());
@@ -168,13 +168,14 @@ public class ConfigMigratorTests {
     public void MigrateIfNeeded_AlreadyMigrated_NoMutation() {
         var json = """
         {
-            "configVersion": 3,
+            "configVersion": 4,
             "horizontalKeys": ["A","S","D","F"],
             "verticalKeys": ["W","E","R","T"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true },
                 "logGrid": { "enabled": true, "twoKey": true, "chordKey": "OemComma", "logGridBaseSize": 10 }
-            }
+            },
+            "scrollHotkeys": { "enabled": false }
         }
         """;
         var path = WriteTempFile(json);
@@ -332,7 +333,7 @@ public class ConfigMigratorTests {
             Assert.Null(result.BlockingError);
 
             var migrated = ReadJsonObject(path);
-            Assert.Equal(3, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
 
             var logGrid = migrated["modes"]!["logGrid"]!;
             Assert.True(logGrid["enabled"]!.GetValue<bool>());

@@ -176,6 +176,19 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     }
 
     public int ClearCanvasCount { get; private set; }
+    public string? StatusText { get; private set; }
+    public int ShowStatusTextCount { get; private set; }
+    public int ClearStatusTextCount { get; private set; }
+
+    public void ShowStatusText(string text) {
+        StatusText = text;
+        ShowStatusTextCount++;
+    }
+
+    public void ClearStatusText() {
+        StatusText = null;
+        ClearStatusTextCount++;
+    }
 
     public void SimulateFocusLoss() {
         FocusLost?.Invoke(this, EventArgs.Empty);

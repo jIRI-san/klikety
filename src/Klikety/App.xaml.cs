@@ -89,6 +89,7 @@ public partial class App : Application {
 
         // Create overlay window
         var overlayWindow = new OverlayWindow();
+        overlayWindow.SetTheme(theme);
 
         // Create label generator
         var resolver = new Win32KeyLabelResolver();

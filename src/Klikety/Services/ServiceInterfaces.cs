@@ -53,6 +53,8 @@ public interface IOverlayWindow {
     void Hide();
     void Close();
     void ClearCanvas();
+    void ShowStatusText(string text);
+    void ClearStatusText();
     bool IsVisible { get; }
 }
 

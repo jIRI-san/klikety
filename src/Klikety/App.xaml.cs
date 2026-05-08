@@ -17,6 +17,7 @@ namespace Klikety;
 public partial class App : Application {
     private TaskbarIcon? _trayIcon;
     private HotKeyService? _hotKeyService;
+    private ScrollHotKeyService? _scrollHotKeyService;
     private NavigatorCoordinator? _coordinator;
 #if DEBUG
     private HotKeyService? _debugHotKeyService;
@@ -149,6 +150,14 @@ public partial class App : Application {
             violations.Add($"Failed to register global hotkey {config.HotKey.Modifiers}+{config.HotKey.Key}.");
         }
 
+        // Scroll hotkeys
+        _scrollHotKeyService?.Dispose();
+        _scrollHotKeyService = new ScrollHotKeyService(config.ScrollHotKeys, mouseService, logger);
+        if (config.ScrollHotKeys.Enabled) {
+            var scrollFailures = _scrollHotKeyService.Register();
+            violations.AddRange(scrollFailures);
+        }
+
 #if DEBUG
         SetupDebugLogGridSession(config, theme, resolver);
 #endif
@@ -250,6 +259,7 @@ public partial class App : Application {
         quitItem.Click += (_, _) => {
             _coordinator?.Dispose();
             _hotKeyService?.Dispose();
+            _scrollHotKeyService?.Dispose();
             _trayIcon?.Dispose();
             _loggerFactory?.Dispose();
             Shutdown();

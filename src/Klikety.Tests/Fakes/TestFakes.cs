@@ -332,3 +332,20 @@ public sealed class FakeLogGridRenderer : ILogGridRenderer {
     public void HideFirstKeyIndicator()
         => Calls.Add(new("HideFirstKeyIndicator"));
 }
+
+/// <summary>
+/// Fake TimeProvider for testing KeyPressProcessor. Timestamp advances manually.
+/// </summary>
+public sealed class FakeTimeProvider : TimeProvider {
+    private long _timestamp;
+
+    public override long TimestampFrequency => 1000; // 1 tick = 1ms for simplicity
+
+    public override long GetTimestamp() => _timestamp;
+
+    public void Advance(TimeSpan duration) {
+        _timestamp += (long)(duration.TotalMilliseconds * TimestampFrequency / 1000);
+    }
+
+    public void SetTimestamp(long ticks) => _timestamp = ticks;
+}

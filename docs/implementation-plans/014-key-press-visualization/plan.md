@@ -116,7 +116,7 @@
     - Content: `ItemsControl` bound to `ObservableCollection<KeyPressDisplayItem>`. ItemTemplate: custom `ContentPresenter` with code-behind that renders path-based outlined text via `FormattedText.BuildGeometry()` + two-layer `Path` (matching `GridRenderer.AddOutlinedText` pattern).
   - `KeyPressDisplayItem` class (implements `INotifyPropertyChanged`): `Label` (string), `Opacity` (double, notify), `RepeatCount` (int, notify). Display text: `Label` when count=1, `$"{Label} ×{RepeatCount}"` when count>1.
 
-- [ ] 2.2 Implement `KeyPressDisplayManager` — manages display items, positioning, config (REQ-2, REQ-8, REQ-10, REQ-17) [after: 2.1, 1.3] `M`
+- [x] 2.2 Implement `KeyPressDisplayManager` — manages display items, positioning, config (REQ-2, REQ-8, REQ-10, REQ-17) [after: 2.1, 1.3] `M`
   - New class `Services/KeyPressDisplayManager.cs`.
   - Constructor takes `KeyPressVisualizationConfig`, `KeyPressProcessor`, `KeyPressWindow`, `IMonitorService` (new interface for testability).
   - Owns `ObservableCollection<KeyPressDisplayItem>`.

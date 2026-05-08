@@ -874,4 +874,54 @@ public class NavigatorCoordinatorTests {
         var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
         Assert.Equal(MouseAction.MoveOnly, actionCall.Action);
     }
+
+    [Fact]
+    public void Modifiers_CapturedAndPassedToSendAction() {
+        var (_, hotKey, hook, mouse, _, _, _, modifierDetector) = CreateCoordinator();
+        modifierDetector.Modifiers = ActionModifiers.Shift | ActionModifiers.Ctrl;
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Space);
+
+        var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
+        Assert.Equal(ActionModifiers.Shift | ActionModifiers.Ctrl, actionCall.Modifiers);
+    }
+
+    [Fact]
+    public void MoveOnly_IgnoresModifiers() {
+        var config = new ConfigModel {
+            ActionBindings = new Dictionary<string, MouseAction>(StringComparer.OrdinalIgnoreCase) {
+                { "B", MouseAction.MoveOnly },
+            },
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (_, hotKey, hook, mouse, _, _, _, modifierDetector) = CreateCoordinator(configOverride: config);
+        modifierDetector.Modifiers = ActionModifiers.Shift;
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.B);
+
+        var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
+        Assert.Equal(ActionModifiers.None, actionCall.Modifiers);
+    }
+
+    [Fact]
+    public void NoModifiers_PassesNoneToSendAction() {
+        var (_, hotKey, hook, mouse, _, _, _, modifierDetector) = CreateCoordinator();
+        modifierDetector.Modifiers = ActionModifiers.None;
+
+        hotKey.SimulateActivation();
+        hook.SimulateKey(VKey.A);
+        hook.SimulateKey(VKey.W);
+        hook.SimulateKey(VKey.Space);
+
+        var actionCall = Assert.Single(mouse.Calls, c => c.Action is not null);
+        Assert.Equal(ActionModifiers.None, actionCall.Modifiers);
+    }
 }

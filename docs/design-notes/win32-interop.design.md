@@ -15,7 +15,7 @@ All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookServ
 ```csharp
 interface IHotKeyService   { event EventHandler Activated; bool Register(HotKeyConfig); void Unregister(); }
 interface IKeyboardHookService { event EventHandler<VKey> KeyPressed; bool Enable(); void Disable(); }
-interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); void SendScroll(int wheelDelta); }
+interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); void SendScroll(int wheelDelta); void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None); }
 interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 interface IScrollHotKeyService { List<string> Register(); void Unregister(); bool IsRegistered; }
 ```
@@ -40,6 +40,7 @@ interface IScrollHotKeyService { List<string> Register(); void Unregister(); boo
 - `SendAction`: calls `MoveTo` first, then sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. `MoveOnly` action returns after `MoveTo` — no click inputs sent. Double-click = two left-click pairs in sequence. When `modifiers != None`, wraps all click pairs in `KEYDOWN`/`KEYUP` for Shift/Ctrl/Alt via a single `SendInput` call.
 - `INPUT` struct uses nested union pattern (`INPUT` → `INPUT_UNION`) for correct x64 alignment. The runtime handles padding between `type` and the union.
 - Partial `SendInput` sends trigger compensating `KEYUP` events to prevent stuck modifiers.
+- `SendDrag`: single `SendInput` call with move-to-start + button-down + move-to-end + button-up, plus modifier KEYDOWN/KEYUP bracket. Button mapping: `LeftClick`/`DoubleClick` → left, `RightClick` → right, `MiddleClick` → middle. `MoveOnly`/`DragDrop` defensively rejected (return without action).
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
 - `SendScroll`: sends `MOUSEEVENTF_WHEEL` at current cursor position. `mouseData` = `WHEEL_DELTA (120) × scrollAmount`. Positive = up, negative = down. No cursor move.
 

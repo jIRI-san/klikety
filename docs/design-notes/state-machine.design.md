@@ -93,6 +93,17 @@ All action dispatch methods (`TryHandleActionKey`, `HandleNavFirstKey`, `HandleA
 - `ColumnUnhighlighted(int level)` — Escape; coordinator re-renders full grid (L1) or subgrid
 - `InvalidKeyPressed()` — unrecognized key at any await state
 
+## Drag-and-Drop Mode
+
+Coordinator manages drag state via `_dragMode` bool and `_dragStartPoint` field. Flow:
+
+1. **Start**: `DragDrop` action key pressed (and `!_dragMode`) → store `_dragStartPoint = point`, set `_dragMode = true`, call `ResetOverlayForDrag()`.
+2. **ResetOverlayForDrag**: unsubscribe old session → deactivate → `ClearCanvas` → create new default-mode session → activate at `_dragStartPoint` → `ShowStatusText("Select drag target")`. Mode switching (chord keys) allowed during drag phase.
+3. **Complete**: second action key pressed in drag mode → action matrix determines button (LeftClick/DoubleClick → left, RightClick → right, MiddleClick → middle). MoveOnly/DragDrop → invalid (ignored with log). Calls `ClearStatusText`, `DeactivateOverlay`, `SendDrag(start, end, button, modifiers)`, clears `_dragMode`.
+4. **Cancel**: Escape or focus loss during drag → `_dragMode = false`, clear status text, restore cursor to `_origin` (overlay-open position, not `_dragStartPoint`), `DeactivateOverlay`.
+
+Status text lives in a separate XAML layer (`StatusCanvas`) above the main `RootCanvas`. `ClearCanvas` clears only `RootCanvas` — status text survives mode switches.
+
 ### NavigationMode
 
 - `TwoKey` — only two-key grid scheme active; arrow VKeys and `VK_RETURN` ignored

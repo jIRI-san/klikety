@@ -28,6 +28,8 @@ Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added)
 - Key set migration: preserves user's original `firstKeys`/`secondKeys` (no silent 8→10 expansion). Crosshair/LogCrosshair get 10-key defaults.
 - Conflict handling: N/M chord keys conflicting with `actionBindings` → auto-disable mode. New 10-key axis keys conflicting with `actionBindings` → fall back to legacy key set.
 - Post-migration normalization: at least one enabled mode, exactly one default.
+- v2→v3: adds `logGrid` mode block if missing. Chord key (OemComma) conflict → auto-disable.
+- v3→v4: adds `scrollHotkeys` section with disabled defaults if missing. Preserves existing user-added `scrollHotkeys`.
 - Atomic write: random temp file (`Path.GetRandomFileName()`) → `.bak` backup → rename. Write errors return `BlockingError`.
 - `configVersion` > known → fail-closed with blocking error.
 - Mixed shape (`modes` + `navigationMode`) → `modes` wins.

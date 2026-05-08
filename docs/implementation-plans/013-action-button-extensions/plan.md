@@ -216,15 +216,15 @@
   - `MouseActionService.SendScroll` tests scoped to smoke tests (Win32 `SendInput`)
 
 ## Phase 4: Drag-and-Drop
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 4.1 Add `DragDrop` to `MouseAction` enum (REQ-7, REQ-15) [after: 1.1] `S`
+- [x] 4.1 Add `DragDrop` to `MouseAction` enum (REQ-7, REQ-15) [after: 1.1] `S`
   - Add `DragDrop = 5` to `MouseAction` enum
   - Update embedded config comment listing available actions
   - Add `"Z": "DragDrop"` to default `actionBindings` in `Resources/config.json`
   - Update `Resources/config.schema.json` — add `DragDrop` to enum
 
-- [ ] 4.2 Add drag-mode state and overlay reset to coordinator (REQ-7, REQ-10, REQ-11, REQ-14, RISK-4) [after: 2.3, 4.1] `L`
+- [x] 4.2 Add drag-mode state and overlay reset to coordinator (REQ-7, REQ-10, REQ-11, REQ-14, RISK-4) [after: 2.3, 4.1] `L`
   - New coordinator fields: `Point _dragStartPoint`, `bool _dragMode`
   - In `OnSessionActionRequested`, when `action == MouseAction.DragDrop` **and `!_dragMode`**:
     - Store `_dragStartPoint = point`
@@ -251,7 +251,7 @@
   - In `DeactivateOverlay`: if `_dragMode` was true, restore cursor to `_origin` first; reset `_dragMode = false`, `_overlayWindow.ClearStatusText()`
   - Mode switching during drag phase: after `SwitchMode` calls `ClearCanvas`, status text survives (separate layer); no re-show needed
 
-- [ ] 4.3 Add `SendDrag` to `IMouseActionService` (REQ-7, REQ-8, REQ-9, RISK-1, RISK-3) [after: 2.2] `M`
+- [x] 4.3 Add `SendDrag` to `IMouseActionService` (REQ-7, REQ-8, REQ-9, RISK-1, RISK-3) [after: 2.2] `M`
   - Interface: `void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None);`
   - Implementation in `MouseActionService`:
     1. Compute normalized coordinates for start and end points
@@ -267,7 +267,7 @@
   - `MoveOnly` and `DragDrop` should never reach `SendDrag` (coordinator rejects them); defensive guard returns without action if they do
   - Validate `SendInput` return count; on partial send, issue compensating `KEYUP` and `BUTTONUP` events; log warning (RISK-6)
 
-- [ ] 4.4 Add `ShowStatusText` / `ClearStatusText` to overlay (REQ-10, RISK-7) [after: 4.2] `M`
+- [x] 4.4 Add `ShowStatusText` / `ClearStatusText` to overlay (REQ-10, RISK-7) [after: 4.2] `M`
   - Interface `IOverlayWindow`: add `void ShowStatusText(string text)` and `void ClearStatusText()`
   - Implementation in `OverlayWindow`:
     - Add a `Grid` overlay element in XAML **above** the main `Canvas` — status text lives in this separate layer, unaffected by `ClearCanvas()` which only clears Canvas children
@@ -279,7 +279,7 @@
     - `ClearCanvas`: does **not** touch status layer
   - Update `IOverlayWindow` fake in tests
 
-- [ ] 4.5 Unit tests for drag-and-drop (REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-14) `L`
+- [x] 4.5 Unit tests for drag-and-drop (REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-14) `L`
   - Coordinator tests:
     - `DragDrop` action stores start point, resets overlay, sets drag mode
     - Second action (e.g. `LeftClick`) in drag mode calls `SendDrag` with start/end points and modifiers
@@ -293,9 +293,9 @@
   - Overlay tests: `ShowStatusText` creates element; `ClearStatusText` removes it; `ClearCanvas` also clears status text
 
 ## Phase 5: Config Migration
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 5.1 Migrate config v3 → v4 (REQ-12) [after: 3.1, 4.1] `M`
+- [x] 5.1 Migrate config v3 → v4 (REQ-12) [after: 3.1, 4.1] `M`
   - In `ConfigMigrator.MigrateIfNeeded`:
     - Detect `configVersion == 3` (or missing `scrollHotkeys`)
     - Add `scrollHotkeys` node (camelCase) with defaults: `{ "enabled": false, "scrollUpKey": { "modifiers": "Control, Alt", "key": "Prior" }, "scrollDownKey": { "modifiers": "Control, Alt", "key": "Next" }, "scrollAmount": 3 }`
@@ -304,7 +304,7 @@
   - Atomic write via existing temp-file + `.bak` pattern
   - Idempotent: already-v4 configs produce no mutations
 
-- [ ] 5.2 Config migration tests (REQ-12) [after: 5.1] `S`
+- [x] 5.2 Config migration tests (REQ-12) [after: 5.1] `S`
   - v3 config → migrates to v4 with `scrollHotKeys` defaults
   - v4 config → no mutation
   - v3 config with existing `scrollHotKeys` (manual addition) → preserved, version bumped

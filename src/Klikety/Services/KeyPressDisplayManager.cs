@@ -80,32 +80,40 @@ public sealed class KeyPressDisplayManager : IDisposable {
         _items.Clear();
     }
 
+    /// <summary>
+    /// Calculates window position for a given corner, work area, and window size.
+    /// Exposed as internal static for unit testing.
+    /// </summary>
+    internal static (double Left, double Top) CalculatePosition(
+        string corner, Rect workArea, double windowWidth, double windowHeight, double margin) {
+        double left, top;
+        switch (corner.ToUpperInvariant()) {
+            case "TOPLEFT":
+                left = workArea.Left + margin;
+                top = workArea.Top + margin;
+                break;
+            case "TOPRIGHT":
+                left = workArea.Right - windowWidth - margin;
+                top = workArea.Top + margin;
+                break;
+            case "BOTTOMLEFT":
+                left = workArea.Left + margin;
+                top = workArea.Bottom - windowHeight - margin;
+                break;
+            default: // BottomRight
+                left = workArea.Right - windowWidth - margin;
+                top = workArea.Bottom - windowHeight - margin;
+                break;
+        }
+        return (left, top);
+    }
+
     private void PositionWindow(Rect workArea) {
-        // SizeToContent means we need to measure first
         _window.UpdateLayout();
         var windowWidth = _window.ActualWidth > 0 ? _window.ActualWidth : 200;
         var windowHeight = _window.ActualHeight > 0 ? _window.ActualHeight : 100;
 
-        double left, top;
-        switch (_config.Corner.ToUpperInvariant()) {
-            case "TOPLEFT":
-                left = workArea.Left + _config.Margin;
-                top = workArea.Top + _config.Margin;
-                break;
-            case "TOPRIGHT":
-                left = workArea.Right - windowWidth - _config.Margin;
-                top = workArea.Top + _config.Margin;
-                break;
-            case "BOTTOMLEFT":
-                left = workArea.Left + _config.Margin;
-                top = workArea.Bottom - windowHeight - _config.Margin;
-                break;
-            default: // BottomRight
-                left = workArea.Right - windowWidth - _config.Margin;
-                top = workArea.Bottom - windowHeight - _config.Margin;
-                break;
-        }
-
+        var (left, top) = CalculatePosition(_config.Corner, workArea, windowWidth, windowHeight, _config.Margin);
         _window.Left = left;
         _window.Top = top;
     }

@@ -61,7 +61,7 @@
   - Add `ILogger<KeyboardHookService>` injection to `KeyboardHookService` constructor. Log at Debug: "Key press hook enabled"/"disabled"/"enable failed". Do not log captured key values (RISK-6, REQ-18).
   - Fires on both key-down and key-up (modifier tracking needs up events) — existing `KeyHookEventArgs` already carries `IsDown`.
 
-- [ ] 1.2 Add `KeyPressVisualizationConfig` model and wire into `ConfigModel` / `ConfigLoader` (REQ-13, REQ-10, REQ-17) `S`
+- [x] 1.2 Add `KeyPressVisualizationConfig` model and wire into `ConfigModel` / `ConfigLoader` (REQ-13, REQ-10, REQ-17) `S`
   - New `sealed class` in `Config/ConfigModel.cs`:
     ```csharp
     public sealed class KeyPressVisualizationConfig {

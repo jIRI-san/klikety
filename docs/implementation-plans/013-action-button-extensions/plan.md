@@ -116,7 +116,7 @@
   - New fake `Klikety.Tests/Fakes/FakeModifierDetector.cs`: returns configurable `ActionModifiers` value
   - Inject `IModifierDetector` into `NavigatorCoordinator` constructor
 
-- [~] 2.2 Update `IMouseActionService.SendAction` signature (REQ-2) [after: 2.1] `S`
+- [x] 2.2 Update `IMouseActionService.SendAction` signature (REQ-2) [after: 2.1] `S`
   - Change: `void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);`
   - Update `MouseActionService.SendAction` implementation: when `modifiers != None`, prepend `KEYDOWN` inputs for each active modifier flag before the click, and append `KEYUP` inputs after
   - Guard `DragDrop` and `MoveOnly` in the action switch: both return after `MoveTo` — no click inputs sent. `DragDrop` should never reach `SendAction` in normal flow, but defensive guard prevents garbage mouse events.
@@ -125,7 +125,7 @@
   - Extend `INPUT` struct to hold `KEYBDINPUT` via explicit layout or union pattern
   - Validate `SendInput` return count; on partial send, issue compensating `KEYUP` for any modifiers sent down, log warning via `ILogger` (RISK-6)
 
-- [ ] 2.3 Wire modifier capture in coordinator (REQ-2, REQ-3, REQ-16, RISK-3, RISK-5) [after: 2.2] `M`
+- [~] 2.3 Wire modifier capture in coordinator (REQ-2, REQ-3, REQ-16, RISK-3, RISK-5) [after: 2.2] `M`
   - Inject `IModifierDetector` into `NavigatorCoordinator` constructor (alongside existing services)
   - In `NavigatorCoordinator.OnSessionActionRequested`:
     ```csharp

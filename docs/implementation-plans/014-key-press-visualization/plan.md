@@ -106,9 +106,9 @@
   - Cases: plain letter, modifier+letter combo, modifier-only ignored, special key labels, repeat detection within/outside window, multi-modifier combo ("Ctrl+Shift+A"), L/R modifier deduplication, unknown VKey fallback, stale modifier reconciliation (fake `GetAsyncKeyState` returns key-up), reset clears state.
 
 ## Phase 2: HUD Window & Rendering
-<!-- worktree: -->
+<!-- worktree: feature/014-core-key-processing-step-1-1 -->
 
-- [ ] 2.1 Create `KeyPressWindow` — always-on-top, transparent, click-through, non-activating WPF window (REQ-2, REQ-14, REQ-16) [after: 1.2] `M`
+- [x] 2.1 Create `KeyPressWindow` — always-on-top, transparent, click-through, non-activating WPF window (REQ-2, REQ-14, REQ-16) [after: 1.2] `M`
   - New XAML window `Overlay/KeyPressWindow.xaml`:
     - `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, `ShowInTaskbar=False`, `Background=Transparent`, `ShowActivated="False"`, `Focusable="False"`.
     - In `OnSourceInitialized`: `SetWindowLongPtr(hwnd, GWL_EXSTYLE, existing | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)`. Use `SetWindowLongPtr` (not `SetWindowLong`) for 64-bit compatibility.

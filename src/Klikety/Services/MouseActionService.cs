@@ -183,20 +183,43 @@ public sealed partial class MouseActionService : IMouseActionService {
         var modKeyDowns = BuildModifierInputs(modifiers, keyUp: false);
         var modKeyUps = BuildModifierInputs(modifiers, keyUp: true);
 
-        // Build: [mod-downs] + move-to-start + button-down + move-to-end + button-up + [mod-ups]
-        var inputs = new List<INPUT>(modKeyDowns.Length + 4 + modKeyUps.Length);
-        inputs.AddRange(modKeyDowns);
-        inputs.Add(MakeMoveInput(sx, sy));
-        inputs.Add(MakeMouseInput(downFlag));
-        inputs.Add(MakeMoveInput(ex, ey));
-        inputs.Add(MakeMouseInput(upFlag));
-        inputs.AddRange(modKeyUps);
+        // Phase 1: [mod-downs] + move-to-start + button-down
+        var phase1 = new List<INPUT>(modKeyDowns.Length + 2);
+        phase1.AddRange(modKeyDowns);
+        phase1.Add(MakeMoveInput(sx, sy));
+        phase1.Add(MakeMouseInput(downFlag));
 
-        var inputArray = inputs.ToArray();
-        var sent = SendInput((uint)inputArray.Length, inputArray, Marshal.SizeOf<INPUT>());
-        if (sent < inputArray.Length) {
-            LogPartialSend(sent, inputArray.Length);
-            // Compensating: release button and modifiers
+        var p1Array = phase1.ToArray();
+        var sent1 = SendInput((uint)p1Array.Length, p1Array, Marshal.SizeOf<INPUT>());
+        if (sent1 < p1Array.Length) {
+            LogPartialSend(sent1, p1Array.Length);
+            var compensate = new List<INPUT>(1 + modKeyUps.Length);
+            compensate.Add(MakeMouseInput(upFlag));
+            compensate.AddRange(modKeyUps);
+            _ = SendInput((uint)compensate.Count, [.. compensate], Marshal.SizeOf<INPUT>());
+            return;
+        }
+
+        // Phase 2: small intermediate move to cross the OS drag threshold
+        // (SM_CXDRAG/SM_CYDRAG, typically 4px). Without this, the app may treat
+        // the button-down as a click rather than a drag initiation.
+        Thread.Sleep(100);
+        int nudgeX = sx + (ex > sx ? 1 : -1) * (65535 / 500); // ~3-4px nudge toward end
+        int nudgeY = sy + (ey > sy ? 1 : -1) * (65535 / 500);
+        _ = SendInput(1, [MakeMoveInput(nudgeX, nudgeY)], Marshal.SizeOf<INPUT>());
+
+        Thread.Sleep(50);
+
+        // Phase 3: move-to-end + button-up + [mod-ups]
+        var phase3 = new List<INPUT>(2 + modKeyUps.Length);
+        phase3.Add(MakeMoveInput(ex, ey));
+        phase3.Add(MakeMouseInput(upFlag));
+        phase3.AddRange(modKeyUps);
+
+        var p3Array = phase3.ToArray();
+        var sent3 = SendInput((uint)p3Array.Length, p3Array, Marshal.SizeOf<INPUT>());
+        if (sent3 < p3Array.Length) {
+            LogPartialSend(sent3, p3Array.Length);
             var compensate = new List<INPUT>(1 + modKeyUps.Length);
             compensate.Add(MakeMouseInput(upFlag));
             compensate.AddRange(modKeyUps);

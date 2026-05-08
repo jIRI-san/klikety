@@ -335,8 +335,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             return;
         }
 
+        var modifiers = action == MouseAction.MoveOnly
+            ? ActionModifiers.None
+            : _modifierDetector.GetCurrentModifiers();
+
         DeactivateOverlay();
-        _mouseService.SendAction(point, action);
+        _mouseService.SendAction(point, action, modifiers);
     }
 
     private void OnSessionCancelled() {

@@ -12,7 +12,7 @@ namespace Klikety.Services;
 /// Moves the mouse cursor and sends click actions via Win32 SendInput.
 /// All coordinates are physical pixels; normalized to 0–65535 range for MOUSEEVENTF_ABSOLUTE.
 /// </summary>
-public sealed class MouseActionService : IMouseActionService {
+public sealed partial class MouseActionService : IMouseActionService {
     private const uint INPUT_MOUSE = 0;
     private const uint INPUT_KEYBOARD = 1;
     private const uint MOUSEEVENTF_MOVE = 0x0001;
@@ -117,7 +117,7 @@ public sealed class MouseActionService : IMouseActionService {
             var sent = SendInput((uint)inputArray.Length, inputArray, Marshal.SizeOf<INPUT>());
             if (sent < inputArray.Length) {
                 // Compensating KEYUP for any modifiers that were sent down
-                _logger.LogWarning("SendInput partial send: {Sent}/{Total}. Issuing compensating KEYUP.", sent, inputArray.Length);
+                LogPartialSend(sent, inputArray.Length);
                 _ = SendInput((uint)modKeyUps.Length, modKeyUps, Marshal.SizeOf<INPUT>());
             }
         }
@@ -148,4 +148,7 @@ public sealed class MouseActionService : IMouseActionService {
 
         return [.. inputs];
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "SendInput partial send: {Sent}/{Total}. Issuing compensating KEYUP.")]
+    private partial void LogPartialSend(uint sent, int total);
 }

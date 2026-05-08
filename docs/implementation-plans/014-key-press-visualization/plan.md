@@ -124,7 +124,7 @@
   - `UpdateWindowPosition()`: queries `IMonitorService.GetActiveMonitorWorkArea()` → returns `Rect` in DIPs. Positions window in configured corner with margin.
   - Applies font size, colors from config to window resources.
 
-- [ ] 2.3 Implement timer-based fade (REQ-3, REQ-4, RISK-4) [after: 2.2] `M`
+- [x] 2.3 Implement timer-based fade (REQ-3, REQ-4, RISK-4) [after: 2.2] `M`
   - Single `DispatcherTimer` at ~16ms interval (60fps tick) for fade animation. Only running while items are fading.
   - Idle `DispatcherTimer` (`FadeTimeoutMs`). On tick: mark all current items as "fading", start fade timer.
   - Fade logic per tick: decrement each fading item's `Opacity` by `1.0 / (FadeDurationMs / 16.0)`. Stagger: oldest item starts at tick 0, each subsequent delayed by `FadeDurationMs / maxVisibleKeys` ticks.

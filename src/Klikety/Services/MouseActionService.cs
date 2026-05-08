@@ -62,6 +62,8 @@ public sealed class MouseActionService : IMouseActionService {
     public void SendAction(Point physicalPoint, MouseAction action) {
         MoveTo(physicalPoint);
 
+        if (action == MouseAction.MoveOnly) return;
+
         var (downFlag, upFlag) = action switch {
             MouseAction.LeftClick or MouseAction.DoubleClick => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
             MouseAction.RightClick => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),

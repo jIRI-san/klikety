@@ -152,7 +152,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         }
 
         RenderExternalColumnLabels(grid, highlightCol: col, defaultOpacity: 0.4, highlightOpacity: 1.0);
-        RenderExternalRowLabels(grid);
+        RenderExternalRowLabels(grid, anchorCol: col);
         EndRender();
     }
 
@@ -237,7 +237,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         }
 
         RenderExternalColumnLabels(grid, highlightCol: cell.Col, defaultOpacity: 0.3, highlightOpacity: 1.0);
-        RenderExternalRowLabels(grid, highlightRow: cell.Row, defaultOpacity: 0.3, highlightOpacity: 1.0);
+        RenderExternalRowLabels(grid, highlightRow: cell.Row, defaultOpacity: 0.3, highlightOpacity: 1.0, anchorCol: cell.Col);
         EndRender();
     }
 
@@ -334,19 +334,20 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     }
 
     void RenderExternalRowLabels(LogCrosshairGrid grid, int highlightRow = -1,
-        double defaultOpacity = 1.0, double highlightOpacity = 1.0) {
-        // Scan center column for short rows (skip degenerate, zero-height, and CenterRow)
+        double defaultOpacity = 1.0, double highlightOpacity = 1.0, int anchorCol = -1) {
+        int col = anchorCol >= 0 ? anchorCol : grid.CenterCol;
+        // Scan anchor column for short rows (skip degenerate, zero-height, and CenterRow)
         var externalRows = new List<int>();
         for (int row = 0; row < grid.Rows; row++) {
             if (row == grid.CenterRow) {
                 continue;
             }
 
-            if (grid.IsDegenerate(row, grid.CenterCol)) {
+            if (grid.IsDegenerate(row, col)) {
                 continue;
             }
 
-            var dipRect = DipRect(grid.CellAt(row, grid.CenterCol));
+            var dipRect = DipRect(grid.CellAt(row, col));
             if (dipRect.Height <= 0) {
                 continue;
             }
@@ -362,11 +363,11 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
         double fontSize = ExternalFontSize();
 
-        // Compute bounding box (left/right) of short cells on center column
+        // Compute bounding box (left/right) of short cells on anchor column
         double bboxLeft = double.MaxValue;
         double bboxRight = double.MinValue;
         foreach (int row in externalRows) {
-            var dipRect = DipRect(grid.CellAt(row, grid.CenterCol));
+            var dipRect = DipRect(grid.CellAt(row, col));
             bboxLeft = Math.Min(bboxLeft, dipRect.X);
             bboxRight = Math.Max(bboxRight, dipRect.X + dipRect.Width);
         }
@@ -376,14 +377,14 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         var labelHeights = new double[externalRows.Count];
         for (int i = 0; i < externalRows.Count; i++) {
             int row = externalRows[i];
-            string? label = GetCrossLabel(row, grid.CenterCol, grid);
+            string? label = GetCrossLabel(row, col, grid);
             labelHeights[i] = label is not null ? MeasureText(label, fontSize).Height : 0;
-            var dipRect = DipRect(grid.CellAt(row, grid.CenterCol));
+            var dipRect = DipRect(grid.CellAt(row, col));
             labelPositions[i] = dipRect.Y + dipRect.Height / 2;
         }
 
         // Resolve overlaps using anchor center (grid center row y)
-        var centerDip = DipRect(grid.CellAt(grid.CenterRow, grid.CenterCol));
+        var centerDip = DipRect(grid.CellAt(grid.CenterRow, col));
         double anchorCenterY = centerDip.Y + centerDip.Height / 2;
         double screenHeight = Math.Max(_canvas.ActualHeight, 1);
         LogGridRenderer.ResolveOverlaps(labelPositions, labelHeights, 0, screenHeight, anchorCenterY);
@@ -399,13 +400,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
         for (int i = 0; i < externalRows.Count; i++) {
             int row = externalRows[i];
-            string? label = GetCrossLabel(row, grid.CenterCol, grid);
+            string? label = GetCrossLabel(row, col, grid);
             if (label is null) {
                 continue;
             }
 
             double opacity = row == highlightRow ? highlightOpacity : defaultOpacity;
-            var dipRect = DipRect(grid.CellAt(row, grid.CenterCol));
+            var dipRect = DipRect(grid.CellAt(row, col));
             double anchorY = dipRect.Y + dipRect.Height / 2;
             double labelCenterY = labelPositions[i];
             var labelSize = MeasureText(label, fontSize);

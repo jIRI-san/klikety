@@ -101,7 +101,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         BeginRender();
         EnsureTransform();
         RenderCells(grid, highlightCol: col, highlightCell: null);
-        RenderLabelBorders(grid, showCols: false, showRows: true);
+        RenderLabelBorders(grid, showCols: false, showRows: true, anchorCol: col);
         EndRender();
     }
 
@@ -109,7 +109,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         BeginRender();
         EnsureTransform();
         RenderCells(grid, highlightCol: -1, highlightCell: cell);
-        RenderLabelBorders(grid, showCols: true, showRows: true);
+        RenderLabelBorders(grid, showCols: true, showRows: true, anchorCol: cell.Col);
         EndRender();
     }
 
@@ -274,7 +274,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         }
     }
 
-    void RenderLabelBorders(LogGrid grid, bool showCols, bool showRows) {
+    void RenderLabelBorders(LogGrid grid, bool showCols, bool showRows, int anchorCol = -1) {
         double borderThickness = 2 * _minLabelFontSize;
         double screenWidth = Math.Max(_canvas.ActualWidth, 1);
         double screenHeight = Math.Max(_canvas.ActualHeight, 1);
@@ -284,7 +284,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         }
 
         if (showRows && HasSmallRows(grid)) {
-            RenderBorderRowLabels(grid, borderThickness, screenHeight);
+            RenderBorderRowLabels(grid, borderThickness, screenHeight, anchorCol);
         }
     }
 
@@ -397,7 +397,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         }
     }
 
-    void RenderBorderRowLabels(LogGrid grid, double borderThickness, double screenHeight) {
+    void RenderBorderRowLabels(LogGrid grid, double borderThickness, double screenHeight, int anchorCol = -1) {
         // Find rows too short to fit an inline label (skip zero-height collapsed cells)
         var externalRows = new List<int>();
         for (int row = 0; row < grid.Rows; row++) {
@@ -418,16 +418,31 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         double fontSize = ExternalFontSize();
         double screenWidth = Math.Max(_canvas.ActualWidth, 1);
 
-        // The inner 4×4 cells around center. Labels render just outside that area
-        // horizontally (left/right of the inner columns).
-        int halfCols = grid.Cols / 2;
-        int halfRows = grid.Rows / 2;
-        int innerLeft = Math.Max(0, halfCols - 2);
-        int innerRight = Math.Min(grid.Cols, halfCols + 2);
-        var innerLeftDip = DipPoint(grid.ColEdges[innerLeft], grid.RowEdges[0]);
-        var innerRightDip = DipPoint(grid.ColEdges[innerRight], grid.RowEdges[0]);
-        double clusterLeft = innerLeftDip.X;
-        double clusterRight = innerRightDip.X;
+        // When an anchor column is specified, position labels around that column;
+        // otherwise use the inner 4×4 cluster around center.
+        double clusterLeft;
+        double clusterRight;
+        double guideXLeft;
+        double guideXRight;
+
+        if (anchorCol >= 0 && anchorCol < grid.Cols) {
+            var colLeftDip = DipPoint(grid.ColEdges[anchorCol], grid.RowEdges[0]);
+            var colRightDip = DipPoint(grid.ColEdges[anchorCol + 1], grid.RowEdges[0]);
+            clusterLeft = colLeftDip.X;
+            clusterRight = colRightDip.X;
+            guideXLeft = (clusterLeft + clusterRight) / 2;
+            guideXRight = guideXLeft;
+        } else {
+            int halfCols = grid.Cols / 2;
+            int innerLeft = Math.Max(0, halfCols - 2);
+            int innerRight = Math.Min(grid.Cols, halfCols + 2);
+            var innerLeftDip = DipPoint(grid.ColEdges[innerLeft], grid.RowEdges[0]);
+            var innerRightDip = DipPoint(grid.ColEdges[innerRight], grid.RowEdges[0]);
+            clusterLeft = innerLeftDip.X;
+            clusterRight = innerRightDip.X;
+            guideXLeft = (DipPoint(grid.ColEdges[Math.Max(0, halfCols - 1)], 0).X + DipPoint(grid.ColEdges[halfCols], 0).X) / 2;
+            guideXRight = (DipPoint(grid.ColEdges[halfCols], 0).X + DipPoint(grid.ColEdges[Math.Min(grid.Cols, halfCols + 1)], 0).X) / 2;
+        }
 
         // Compute ideal positions: spread labels symmetrically from grid center.
         var gridCenterDip = DipPoint(grid.ColEdges[0], grid.RowEdges[grid.Rows / 2]);
@@ -450,10 +465,6 @@ public sealed class LogGridRenderer : ILogGridRenderer {
 
         double labelWidth = MeasureText("W", fontSize).Width;
         double labelMargin = fontSize * 0.5;
-
-        // Guide lines end at cell center of col halfCols-1 (left) / halfCols (right)
-        double guideXLeft = (DipPoint(grid.ColEdges[Math.Max(0, halfCols - 1)], 0).X + DipPoint(grid.ColEdges[halfCols], 0).X) / 2;
-        double guideXRight = (DipPoint(grid.ColEdges[halfCols], 0).X + DipPoint(grid.ColEdges[Math.Min(grid.Cols, halfCols + 1)], 0).X) / 2;
 
         // Determine which sides have room
         bool showLeft = clusterLeft >= labelWidth + labelMargin * 2;

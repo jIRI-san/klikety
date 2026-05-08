@@ -54,9 +54,9 @@
 | RISK-8 | Activation failure (hook Enable() returns false) leaves partial state | Low | Medium | Activation transaction: create→enable→show; on any failure dispose all partial resources, tray notification, leave toggle unchecked. | 3.1 |
 
 ## Phase 1: Core Key Processing
-<!-- worktree: -->
+<!-- worktree: feature/014-core-key-processing-step-1-1 -->
 
-- [ ] 1.1 Create second `KeyboardHookService` instance for key press capture (REQ-1, RISK-1, RISK-2) `S`
+- [x] 1.1 Create second `KeyboardHookService` instance for key press capture (REQ-1, RISK-1, RISK-2) `S`
   - No new interface — reuse existing `IKeyboardHookService` / `KeyboardHookService`. The feature creates a second instance referenced as `_keyPressHook` in `App.xaml.cs`.
   - Add `ILogger<KeyboardHookService>` injection to `KeyboardHookService` constructor. Log at Debug: "Key press hook enabled"/"disabled"/"enable failed". Do not log captured key values (RISK-6, REQ-18).
   - Fires on both key-down and key-up (modifier tracking needs up events) — existing `KeyHookEventArgs` already carries `IsDown`.

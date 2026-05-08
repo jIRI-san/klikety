@@ -35,7 +35,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     readonly SolidColorBrush _smallCellBgBrush;
     readonly SolidColorBrush _labelBrush;
     readonly SolidColorBrush _outlineBrush;
-    readonly SolidColorBrush _extLabelBrush;
+    readonly SolidColorBrush _extColLabelBrush;
     readonly SolidColorBrush _extRowLabelBrush;
     readonly SolidColorBrush _connectorBrush;
     readonly SolidColorBrush _labelBorderBrush;
@@ -70,7 +70,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         _smallCellBgBrush = BrushFromHex(theme.SmallCellBackgroundColor, theme.SmallCellBackgroundOpacity);
         _labelBrush = BrushFromHex(theme.LabelColor);
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
-        _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _extColLabelBrush = BrushFromHex(theme.ExternalColLabelColor);
         _extRowLabelBrush = BrushFromHex(theme.ExternalRowLabelColor);
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
         _labelBorderBrush = BrushFromHex("#0A1A3A", 0.85);
@@ -384,14 +384,14 @@ public sealed class LogGridRenderer : ILogGridRenderer {
             if (showAbove) {
                 double topLabelY = clusterTop - labelMargin - labelSize.Height;
                 UseLabel(new Rect(labelCenterX - labelSize.Width / 2, topLabelY, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, 1.0);
+                    label, fontSize, _extColLabelBrush, 1.0);
                 UseLine(anchorX, guideYAbove, labelCenterX, topLabelY + labelSize.Height + 2);
             }
 
             if (showBelow) {
                 double bottomLabelY = clusterBottom + labelMargin;
                 UseLabel(new Rect(labelCenterX - labelSize.Width / 2, bottomLabelY, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, 1.0);
+                    label, fontSize, _extColLabelBrush, 1.0);
                 UseLine(anchorX, guideYBelow, labelCenterX, bottomLabelY - 2);
             }
         }

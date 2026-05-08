@@ -38,7 +38,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     private readonly SolidColorBrush _highlightBorder;
     private readonly SolidColorBrush _crossBgBrush;
     private readonly SolidColorBrush _outlineBrush;
-    private readonly SolidColorBrush _extLabelBrush;
+    private readonly SolidColorBrush _extColLabelBrush;
     private readonly SolidColorBrush _extRowLabelBrush;
     private readonly SolidColorBrush _connectorBrush;
     private readonly Typeface _typeface;
@@ -61,7 +61,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
         _highlightBorder = BrushFromHex(theme.HighlightedColumnBorderColor);
         _crossBgBrush = BrushFromHex(theme.HighlightedColumnBackground, 0.25);
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
-        _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _extColLabelBrush = BrushFromHex(theme.ExternalColLabelColor);
         _extRowLabelBrush = BrushFromHex(theme.ExternalRowLabelColor);
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
 
@@ -547,7 +547,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
 
             if (showAbove) {
                 double labelY = gridTop - fanOutDist;
-                AddOutlinedText(label, _typeface, fontSize, _extLabelBrush, _outlineBrush,
+                AddOutlinedText(label, _typeface, fontSize, _extColLabelBrush, _outlineBrush,
                     _theme.LabelOutlineThickness, 1.0,
                     labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
                 _canvas.Children.Add(CreateConnector(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2));
@@ -555,7 +555,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
 
             if (showBelow) {
                 double labelY = gridBottom + fanOutDist - labelSize.Height;
-                AddOutlinedText(label, _typeface, fontSize, _extLabelBrush, _outlineBrush,
+                AddOutlinedText(label, _typeface, fontSize, _extColLabelBrush, _outlineBrush,
                     _theme.LabelOutlineThickness, 1.0,
                     labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
                 _canvas.Children.Add(CreateConnector(anchorX, gridBottom, labelCenterX, labelY - 2));

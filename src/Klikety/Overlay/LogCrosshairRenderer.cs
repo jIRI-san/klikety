@@ -36,7 +36,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     readonly SolidColorBrush _highlightBorder;
     readonly SolidColorBrush _crossBgBrush;
     readonly SolidColorBrush _outlineBrush;
-    readonly SolidColorBrush _extLabelBrush;
+    readonly SolidColorBrush _extColLabelBrush;
     readonly SolidColorBrush _extRowLabelBrush;
     readonly SolidColorBrush _connectorBrush;
     readonly Typeface _typeface;
@@ -70,7 +70,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         _highlightBorder = BrushFromHex(theme.HighlightedColumnBorderColor);
         _crossBgBrush = BrushFromHex(theme.HighlightedColumnBackground, 0.25);
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
-        _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _extColLabelBrush = BrushFromHex(theme.ExternalColLabelColor);
         _extRowLabelBrush = BrushFromHex(theme.ExternalRowLabelColor);
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
 
@@ -270,9 +270,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         double labelHeight = MeasureText("X", fontSize).Height;
         double labelMargin = fontSize * 0.5;
 
-        // Screen-edge check (after resolution): determine which sides have room
+        // Single-side rendering: prefer top, fall back to bottom if insufficient room
         bool showAbove = bboxTop >= labelHeight + labelMargin * 2;
-        bool showBelow = (_canvas.ActualHeight - bboxBottom) >= labelHeight + labelMargin * 2;
+        bool showBelow = !showAbove && (_canvas.ActualHeight - bboxBottom) >= labelHeight + labelMargin * 2;
         if (!showAbove && !showBelow) { showAbove = true; } // fallback: at least one side
 
         for (int i = 0; i < externalCols.Count; i++) {
@@ -289,14 +289,14 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
             if (showAbove) {
                 double topLabelY = bboxTop - labelMargin - labelSize.Height;
                 UseExternalLabel(new Rect(labelCenterX - labelSize.Width / 2, topLabelY, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, opacity);
+                    label, fontSize, _extColLabelBrush, opacity);
                 UseLine(anchorX, bboxTop, labelCenterX, topLabelY + labelSize.Height + 2, opacity);
             }
 
             if (showBelow) {
                 double bottomLabelY = bboxBottom + labelMargin;
                 UseExternalLabel(new Rect(labelCenterX - labelSize.Width / 2, bottomLabelY, labelSize.Width, labelSize.Height),
-                    label, fontSize, _extLabelBrush, opacity);
+                    label, fontSize, _extColLabelBrush, opacity);
                 UseLine(anchorX, bboxBottom, labelCenterX, bottomLabelY - 2, opacity);
             }
         }
@@ -349,10 +349,10 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         double labelWidth = MeasureText("W", fontSize).Width;
         double labelMargin = fontSize * 0.5;
 
-        // Screen-edge check (after resolution): determine which sides have room
-        bool showLeft = bboxLeft >= labelWidth + labelMargin * 2;
+        // Single-side rendering: prefer right, fall back to left if insufficient room
         bool showRight = (_canvas.ActualWidth - bboxRight) >= labelWidth + labelMargin * 2;
-        if (!showLeft && !showRight) { showLeft = true; } // fallback: at least one side
+        bool showLeft = !showRight && bboxLeft >= labelWidth + labelMargin * 2;
+        if (!showLeft && !showRight) { showRight = true; } // fallback: at least one side
 
         for (int i = 0; i < externalRows.Count; i++) {
             int row = externalRows[i];

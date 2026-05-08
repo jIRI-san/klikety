@@ -40,7 +40,7 @@ public sealed class GridRenderer : IGridRenderer {
     private readonly SolidColorBrush _subgridBorderBrush;
     private readonly SolidColorBrush _subgridLabelBrush;
     private readonly SolidColorBrush _outlineBrush;
-    private readonly SolidColorBrush _extLabelBrush;
+    private readonly SolidColorBrush _extColLabelBrush;
     private readonly SolidColorBrush _extRowLabelBrush;
     private readonly SolidColorBrush _connectorBrush;
     private readonly SolidColorBrush _bgGridBorderBrush;
@@ -71,7 +71,7 @@ public sealed class GridRenderer : IGridRenderer {
         _subgridBorderBrush = BrushFromHex(theme.SubgridBorderColor);
         _subgridLabelBrush = BrushFromHex(theme.SubgridLabelColor);
         _outlineBrush = BrushFromHex(theme.LabelOutlineColor);
-        _extLabelBrush = BrushFromHex(theme.ExternalLabelColor);
+        _extColLabelBrush = BrushFromHex(theme.ExternalColLabelColor);
         _extRowLabelBrush = BrushFromHex(theme.ExternalRowLabelColor);
         _connectorBrush = BrushFromHex(theme.ConnectorLineColor);
         _bgGridBorderBrush = BrushFromHex(theme.CellBorderColor, 0.15);
@@ -577,14 +577,14 @@ public sealed class GridRenderer : IGridRenderer {
 
             if (showAbove) {
                 double labelY = gridTop - fanOutDist;
-                AddOutlinedText(cellLabel.First, _typeface, fontSize, _extLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
+                AddOutlinedText(cellLabel.First, _typeface, fontSize, _extColLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
                     labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
                 _canvas.Children.Add(CreateConnector(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2, _connectorBrush));
             }
 
             if (showBelow) {
                 double labelY = gridBottom + fanOutDist - labelSize.Height;
-                AddOutlinedText(cellLabel.First, _typeface, fontSize, _extLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
+                AddOutlinedText(cellLabel.First, _typeface, fontSize, _extColLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
                     labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
                 _canvas.Children.Add(CreateConnector(anchorX, gridBottom, labelCenterX, labelY - 2, _connectorBrush));
             }

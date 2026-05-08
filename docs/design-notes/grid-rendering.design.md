@@ -105,7 +105,7 @@ When external labels are active, no internal cell labels are rendered — cells 
 - Column highlight fill at 30% opacity (vs 50% at L2) for better see-through.
 - Alternating row bands (12% opacity, every other row) provide cross-hair visual aid during column highlight.
 
-- Theme properties: `ExternalLabelColor` (column labels, default `#FFCC00`), `ExternalRowLabelColor` (row labels, default `#CCE066`), `ConnectorLineColor`, `ConnectorLineThickness`.
+- Theme properties: `ExternalColLabelColor` (column labels, default `#FFCC00`), `ExternalRowLabelColor` (row labels, default `#66CCFF`), `ConnectorLineColor`, `ConnectorLineThickness`.
 - Config: `MinLabelFontSize` (default 14.0 DIP) controls both the external-label threshold and the font floor.
 - All renderers (GridRenderer, CrosshairRenderer, LogGridRenderer, LogCrosshairRenderer) use distinct brushes for column vs row external labels to differentiate axes visually.
 

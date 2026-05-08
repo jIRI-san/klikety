@@ -56,9 +56,9 @@
 | RISK-7 | Status text destroyed by `ClearCanvas` during mode switch in drag phase | Medium | Medium | Status text rendered in separate XAML layer outside main Canvas; `ClearCanvas` only clears the Canvas children | 4.4 |
 
 ## Phase 1: Move-Only Action
-<!-- worktree: -->
+<!-- worktree: feature/013-move-only-step-1-1 -->
 
-- [ ] 1.1 Extend `MouseAction` enum and `ActionMapper` (REQ-1, REQ-15) `S`
+- [x] 1.1 Extend `MouseAction` enum and `ActionMapper` (REQ-1, REQ-15) `S`
   - Add `MoveOnly = 4` to `MouseAction` enum in `Config/MouseAction.cs`
   - `ActionMapper` requires no changes — it already maps any `MouseAction` value from config
   - Update embedded `Resources/config.json` comment: available actions list includes `MoveOnly`

@@ -131,7 +131,7 @@
   - When item `Opacity` <= 0: remove from collection.
   - New key press: cancel fade (stop fade timer, restore all items to opacity 1.0), reset idle timer.
 
-- [ ] 2.4 Implement monitor-follow via `IMonitorService` (REQ-9, RISK-3) [after: 2.2] `M`
+- [x] 2.4 Implement monitor-follow via `IMonitorService` (REQ-9, RISK-3) [after: 2.2] `M`
   - New interface `Services/IMonitorService.cs`: `Rect GetActiveMonitorWorkArea()` — returns work area in DIPs.
   - Implementation `Services/MonitorService.cs`:
     - `GetForegroundWindow()` → `MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY)` → `GetMonitorInfo` → `rcWork` (physical pixels).

@@ -137,10 +137,10 @@
   - Create `ModifierDetector` instance in `App.xaml.cs` and pass to coordinator constructor
   - Update `IMouseActionService` fake in tests to accept and record `ActionModifiers` parameter
 
-- [~] 2.4 Update `IModeSession.ActionRequested` event — no change needed (REQ-16) `S`
+- [x] 2.4 Update `IModeSession.ActionRequested` event — no change needed (REQ-16) `S`
   - Sessions fire `ActionRequested(Point, MouseAction)` — unchanged. Modifier detection is a coordinator concern, not a session concern. Verify no session changes needed.
 
-- [ ] 2.5 Unit tests for modifier-aware actions (REQ-2, REQ-3, REQ-16) `M`
+- [x] 2.5 Unit tests for modifier-aware actions (REQ-2, REQ-3, REQ-16) `M`
   - `FakeModifierDetector` tests: configure fake to return `Shift | Ctrl`; verify coordinator passes those modifiers through to `IMouseActionService` fake
   - `MouseActionService` tests (smoke tests): verify `SendAction` with `Shift` modifier sends 4 inputs (KEYDOWN, LEFTDOWN, LEFTUP, KEYUP); with `Shift | Ctrl` sends 6 inputs; with `None` sends 2 (unchanged behavior)
   - `NavigatorCoordinator` tests: inject `FakeModifierDetector` returning `Shift`; fire action; verify `IMouseActionService` fake received `Shift`

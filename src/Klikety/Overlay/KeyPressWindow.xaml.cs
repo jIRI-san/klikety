@@ -1,13 +1,13 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
 using Klikety.Config;
+using Klikety.Interop;
 
 namespace Klikety.Overlay;
 
@@ -16,23 +16,14 @@ namespace Klikety.Overlay;
 /// that displays recent key presses with outlined text.
 /// </summary>
 public partial class KeyPressWindow : Window {
-    private const int GWL_EXSTYLE = -20;
-    private const int WS_EX_TRANSPARENT = 0x00000020;
-    private const int WS_EX_TOOLWINDOW = 0x00000080;
-    private const int WS_EX_NOACTIVATE = 0x08000000;
-
-    [DllImport("user32.dll")]
-    private static extern nint GetWindowLongPtr(nint hWnd, int nIndex);
-
-    [DllImport("user32.dll")]
-    private static extern nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
-
     private readonly ObservableCollection<KeyPressDisplayItem> _items;
+    private readonly Dictionary<KeyPressDisplayItem, PropertyChangedEventHandler> _handlers = [];
     private readonly Typeface _typeface;
-    private Brush _fillBrush;
-    private Brush _outlineBrush;
-    private double _fontSize;
-    private double _outlineThickness;
+    private readonly Brush _fillBrush;
+    private readonly Brush _outlineBrush;
+    private readonly double _fontSize;
+    private readonly double _outlineThickness;
+    private bool _isSourceInitialized;
 
     public KeyPressWindow(KeyPressVisualizationConfig config) {
         InitializeComponent();
@@ -44,7 +35,6 @@ public partial class KeyPressWindow : Window {
         _fillBrush = ParseBrush(config.FontColor, Brushes.Yellow);
         _outlineBrush = ParseBrush(config.OutlineColor, Brushes.Black);
 
-        ItemsHost.ItemsSource = _items;
         _items.CollectionChanged += (_, _) => RebuildVisuals();
     }
 
@@ -52,14 +42,23 @@ public partial class KeyPressWindow : Window {
 
     protected override void OnSourceInitialized(EventArgs e) {
         base.OnSourceInitialized(e);
+        _isSourceInitialized = true;
 
         var hwnd = new WindowInteropHelper(this).Handle;
-        var existing = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
-        SetWindowLongPtr(hwnd, GWL_EXSTYLE,
-            existing | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
+        NativeMethods.SetClickThroughExStyle(hwnd);
+
+        RebuildVisuals();
     }
 
     private void RebuildVisuals() {
+        if (!_isSourceInitialized) return;
+
+        // Unsubscribe previous handlers
+        foreach (var (item, handler) in _handlers) {
+            item.PropertyChanged -= handler;
+        }
+        _handlers.Clear();
+
         ItemsHost.Items.Clear();
 
         foreach (var item in _items) {
@@ -69,8 +68,10 @@ public partial class KeyPressWindow : Window {
     }
 
     private System.Windows.Controls.Grid CreateOutlinedTextElement(KeyPressDisplayItem item) {
-        var displayText = item.RepeatCount > 1 ? $"{item.Label} ×{item.RepeatCount}" : item.Label;
-        var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var displayText = item.RepeatCount > 1 ? $"{item.Label} \u00d7{item.RepeatCount}" : item.Label;
+        var dpi = PresentationSource.FromVisual(this) is PresentationSource src
+            ? src.CompositionTarget.TransformToDevice.M11
+            : 1.0;
 
         var ft = new FormattedText(displayText, CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight, _typeface, _fontSize, _fillBrush, dpi);
@@ -97,8 +98,7 @@ public partial class KeyPressWindow : Window {
         grid.Children.Add(outline);
         grid.Children.Add(fill);
 
-        // Subscribe to property changes for live opacity/repeat updates
-        item.PropertyChanged += (_, args) => {
+        PropertyChangedEventHandler handler = (_, args) => {
             if (args.PropertyName is nameof(KeyPressDisplayItem.Opacity)) {
                 outline.Opacity = item.Opacity;
                 fill.Opacity = item.Opacity;
@@ -106,6 +106,8 @@ public partial class KeyPressWindow : Window {
                 RebuildVisuals();
             }
         };
+        item.PropertyChanged += handler;
+        _handlers[item] = handler;
 
         return grid;
     }

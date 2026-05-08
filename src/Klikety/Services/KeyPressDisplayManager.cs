@@ -21,6 +21,7 @@ public sealed class KeyPressDisplayManager : IDisposable {
     private readonly DispatcherTimer _fadeTimer;
     private KeyPressEntry? _lastEntry;
     private bool _isFading;
+    private int _fadeTick;
 
     public KeyPressDisplayManager(
         KeyPressVisualizationConfig config,
@@ -78,6 +79,9 @@ public sealed class KeyPressDisplayManager : IDisposable {
         _idleTimer.Stop();
         _fadeTimer.Stop();
         _items.Clear();
+        _lastEntry = null;
+        _isFading = false;
+        _fadeTick = 0;
     }
 
     /// <summary>
@@ -127,19 +131,25 @@ public sealed class KeyPressDisplayManager : IDisposable {
         _idleTimer.Stop();
         if (_items.Count > 0) {
             _isFading = true;
+            _fadeTick = 0;
             _fadeTimer.Start();
         }
     }
 
     private void OnFadeTimerTick(object? sender, EventArgs e) {
+        _fadeTick++;
         double decrement = 1.0 / (_config.FadeDurationMs / 16.0);
-        // Stagger: oldest fades first
-        double staggerDelay = _config.FadeDurationMs / (double)_config.MaxVisibleKeys / 16.0;
+        // Stagger: oldest item fades first, each subsequent item starts later
+        int staggerTicks = Math.Max(1, (int)(_config.FadeDurationMs / (double)_config.MaxVisibleKeys / 16.0));
         bool allDone = true;
 
         for (int i = 0; i < _items.Count; i++) {
-            // Each item starts fading after i * staggerDelay ticks worth of decrements
             var item = _items[i];
+            // Item i starts fading after i * staggerTicks
+            if (_fadeTick <= i * staggerTicks) {
+                allDone = false;
+                continue;
+            }
             if (item.Opacity > 0) {
                 item.Opacity = Math.Max(0, item.Opacity - decrement);
                 if (item.Opacity > 0) allDone = false;
@@ -162,6 +172,7 @@ public sealed class KeyPressDisplayManager : IDisposable {
     private void CancelFade() {
         _fadeTimer.Stop();
         _isFading = false;
+        _fadeTick = 0;
         foreach (var item in _items) {
             item.Opacity = 1.0;
         }

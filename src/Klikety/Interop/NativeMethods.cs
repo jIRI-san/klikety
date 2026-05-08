@@ -32,6 +32,9 @@ internal static partial class NativeMethods {
     [LibraryImport("user32.dll")]
     private static partial nint MonitorFromPoint(POINT pt, uint dwFlags);
 
+    [LibraryImport("user32.dll")]
+    private static partial nint MonitorFromWindow(nint hwnd, uint dwFlags);
+
     [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
@@ -123,5 +126,26 @@ internal static partial class NativeMethods {
             return Point.Empty;
         }
         return new Point(pt.X, pt.Y);
+    }
+
+    /// <summary>
+    /// Returns the work area (physical pixels) of the monitor containing the foreground window.
+    /// Falls back to primary monitor if foreground window is unavailable.
+    /// </summary>
+    public static Rectangle GetForegroundMonitorWorkArea() {
+        var hwnd = GetForegroundWindow();
+        nint hMon;
+        if (hwnd != 0) {
+            hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+        } else {
+            hMon = MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
+        }
+
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(hMon, ref info)) {
+            return new Rectangle(0, 0, 1920, 1080);
+        }
+        var rc = info.rcWork;
+        return new Rectangle(rc.Left, rc.Top, rc.Right - rc.Left, rc.Bottom - rc.Top);
     }
 }

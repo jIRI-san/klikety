@@ -67,7 +67,7 @@
   - After `MoveTo(physicalPoint)`, if `action == MouseAction.MoveOnly`, return early — no click inputs sent
   - Pattern: `if (action == MouseAction.MoveOnly) return;` immediately after `MoveTo`
 
-- [~] 1.3 Add default binding in embedded config (REQ-1, REQ-15) `S`
+- [x] 1.3 Add default binding in embedded config (REQ-1, REQ-15) `S`
   - Add `"B": "MoveOnly"` to `actionBindings` in `Resources/config.json`
   - Update `Resources/config.schema.json` — add `MoveOnly` to the `MouseAction` enum definition
 

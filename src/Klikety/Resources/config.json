@@ -18,7 +18,8 @@
   "actionBindings": {
     "X": "DoubleClick",
     "C": "MiddleClick",
-    "V": "RightClick"
+    "V": "RightClick",
+    "B": "MoveOnly"
   },
 
   // VKey lists for axis navigation. Shared by all modes.

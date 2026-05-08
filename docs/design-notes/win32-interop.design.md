@@ -35,7 +35,7 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 ## `IMouseActionService` — `SendInput`
 
 - `MoveTo`: normalizes physical-pixel coords to 0–65535 range using primary screen bounds, then sends `MOUSEINPUT` with `MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE`. Guards against zero-dimension screens with `Math.Max(bounds.Width - 1, 1)` divisor.
-- `SendAction`: sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. Double-click = two left-click pairs in sequence.
+- `SendAction`: calls `MoveTo` first, then sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. `MoveOnly` action returns after `MoveTo` — no click inputs sent. Double-click = two left-click pairs in sequence.
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
 
 ## `NativeMethods.GetPrimaryScreenBounds()` — `GetMonitorInfoW`

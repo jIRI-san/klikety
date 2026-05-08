@@ -24,6 +24,7 @@
           "default": "Space",
           "enum": [
             "Back", "Tab", "Return", "Shift", "Control", "Menu", "Pause", "Capital", "Escape", "Space",
+            "Prior", "Next",
             "Left", "Up", "Right", "Down",
             "LShift", "RShift", "LControl", "RControl", "LMenu", "RMenu", "LWin", "RWin",
             "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9",
@@ -180,9 +181,51 @@
       "default": 14.0,
       "minimum": 4,
       "examples": [10, 14, 16]
+    },
+    "scrollHotkeys": {
+      "type": "object",
+      "description": "Global scroll hotkeys. Send mouse wheel events at current cursor position. Disabled by default.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable global scroll hotkeys.",
+          "default": false
+        },
+        "scrollUpKey": {
+          "$ref": "#/$defs/hotKeyConfig",
+          "description": "Hotkey for scrolling up. Default: Ctrl+Alt+PageUp."
+        },
+        "scrollDownKey": {
+          "$ref": "#/$defs/hotKeyConfig",
+          "description": "Hotkey for scrolling down. Default: Ctrl+Alt+PageDown."
+        },
+        "scrollAmount": {
+          "type": "integer",
+          "description": "Number of wheel notches per hotkey press. Each notch = WHEEL_DELTA (120).",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "additionalProperties": false
     }
   },
   "$defs": {
+    "hotKeyConfig": {
+      "type": "object",
+      "description": "A hotkey: modifier combination + trigger key.",
+      "properties": {
+        "modifiers": {
+          "type": "string",
+          "description": "Modifier key combination. Comma-separated flags: Alt, Control, Shift, Win."
+        },
+        "key": {
+          "type": "string",
+          "description": "The trigger VKey name (physical key code, layout-independent)."
+        }
+      },
+      "additionalProperties": false
+    },
     "modeConfig": {
       "type": "object",
       "properties": {

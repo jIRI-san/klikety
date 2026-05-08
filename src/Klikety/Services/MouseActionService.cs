@@ -91,7 +91,7 @@ public sealed partial class MouseActionService : IMouseActionService {
     public void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None) {
         MoveTo(physicalPoint);
 
-        if (action == MouseAction.MoveOnly) {
+        if (action is MouseAction.MoveOnly or MouseAction.DragDrop) {
             return;
         }
 

@@ -14,12 +14,13 @@
 
   // Maps VKey names to mouse actions.
   // Space → LeftClick is always the implicit default even if omitted.
-  // Available actions: LeftClick, RightClick, MiddleClick, DoubleClick, MoveOnly.
+  // Available actions: LeftClick, RightClick, MiddleClick, DoubleClick, MoveOnly, DragDrop.
   "actionBindings": {
     "X": "DoubleClick",
     "C": "MiddleClick",
     "V": "RightClick",
-    "B": "MoveOnly"
+    "B": "MoveOnly",
+    "Z": "DragDrop"
   },
 
   // VKey lists for axis navigation. Shared by all modes.

@@ -43,7 +43,7 @@
       "description": "Maps VKey names to mouse actions. Space → LeftClick is always the implicit default even if omitted.",
       "additionalProperties": {
         "type": "string",
-        "enum": ["LeftClick", "RightClick", "MiddleClick", "DoubleClick", "MoveOnly"]
+        "enum": ["LeftClick", "RightClick", "MiddleClick", "DoubleClick", "MoveOnly", "DragDrop"]
       },
       "examples": [
         { "Space": "LeftClick", "OemSemicolon": "RightClick", "OemQuotes": "DoubleClick" }

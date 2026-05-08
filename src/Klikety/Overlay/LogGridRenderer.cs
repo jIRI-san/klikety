@@ -385,14 +385,14 @@ public sealed class LogGridRenderer : ILogGridRenderer {
                 double topLabelY = clusterTop - labelMargin - labelSize.Height;
                 UseLabel(new Rect(labelCenterX - labelSize.Width / 2, topLabelY, labelSize.Width, labelSize.Height),
                     label, fontSize, _extColLabelBrush, 1.0);
-                UseLine(anchorX, guideYAbove, labelCenterX, topLabelY + labelSize.Height + 2);
+                UseLine(anchorX, guideYAbove, labelCenterX, topLabelY + labelSize.Height + 2, _extColLabelBrush);
             }
 
             if (showBelow) {
                 double bottomLabelY = clusterBottom + labelMargin;
                 UseLabel(new Rect(labelCenterX - labelSize.Width / 2, bottomLabelY, labelSize.Width, labelSize.Height),
                     label, fontSize, _extColLabelBrush, 1.0);
-                UseLine(anchorX, guideYBelow, labelCenterX, bottomLabelY - 2);
+                UseLine(anchorX, guideYBelow, labelCenterX, bottomLabelY - 2, _extColLabelBrush);
             }
         }
     }
@@ -473,14 +473,14 @@ public sealed class LogGridRenderer : ILogGridRenderer {
                 double leftLabelX = clusterLeft - labelMargin - labelSize.Width;
                 UseLabel(new Rect(leftLabelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
                     label, fontSize, _extRowLabelBrush, 1.0);
-                UseLine(guideXLeft, anchorY, leftLabelX + labelSize.Width + 2, labelCenterY);
+                UseLine(guideXLeft, anchorY, leftLabelX + labelSize.Width + 2, labelCenterY, _extRowLabelBrush);
             }
 
             if (showRight) {
                 double rightLabelX = clusterRight + labelMargin;
                 UseLabel(new Rect(rightLabelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
                     label, fontSize, _extRowLabelBrush, 1.0);
-                UseLine(guideXRight, anchorY, rightLabelX - 2, labelCenterY);
+                UseLine(guideXRight, anchorY, rightLabelX - 2, labelCenterY, _extRowLabelBrush);
             }
         }
     }
@@ -659,14 +659,13 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         _nextText++;
     }
 
-    void UseLine(double x1, double y1, double x2, double y2) {
+    void UseLine(double x1, double y1, double x2, double y2, Brush stroke) {
         Line line;
         if (_nextLine < _linePool.Count) {
             line = _linePool[_nextLine];
             line.Visibility = Visibility.Visible;
         } else {
             line = new Line {
-                Stroke = _connectorBrush,
                 StrokeThickness = _theme.ConnectorLineThickness,
                 StrokeDashArray = [2, 2],
                 IsHitTestVisible = false,
@@ -675,6 +674,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
             _linePool.Add(line);
         }
 
+        line.Stroke = stroke;
         line.X1 = x1;
         line.Y1 = y1;
         line.X2 = x2;

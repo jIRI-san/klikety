@@ -579,14 +579,14 @@ public sealed class GridRenderer : IGridRenderer {
                 double labelY = gridTop - fanOutDist;
                 AddOutlinedText(cellLabel.First, _typeface, fontSize, _extColLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
                     labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
-                _canvas.Children.Add(CreateConnector(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2, _connectorBrush));
+                _canvas.Children.Add(CreateConnector(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2, _extColLabelBrush));
             }
 
             if (showBelow) {
                 double labelY = gridBottom + fanOutDist - labelSize.Height;
                 AddOutlinedText(cellLabel.First, _typeface, fontSize, _extColLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
                     labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
-                _canvas.Children.Add(CreateConnector(anchorX, gridBottom, labelCenterX, labelY - 2, _connectorBrush));
+                _canvas.Children.Add(CreateConnector(anchorX, gridBottom, labelCenterX, labelY - 2, _extColLabelBrush));
             }
         }
     }
@@ -641,14 +641,14 @@ public sealed class GridRenderer : IGridRenderer {
                 double labelX = gridLeft - fanOutDist;
                 AddOutlinedText(cellLabel.Second, _typeface, fontSize, _extRowLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
                     labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
-                _canvas.Children.Add(CreateConnector(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY, _connectorBrush));
+                _canvas.Children.Add(CreateConnector(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY, _extRowLabelBrush));
             }
 
             if (showRight) {
                 double labelX = gridRight + fanOutDist - labelSize.Width;
                 AddOutlinedText(cellLabel.Second, _typeface, fontSize, _extRowLabelBrush, _outlineBrush, _theme.LabelOutlineThickness, 1.0,
                     labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
-                _canvas.Children.Add(CreateConnector(gridRight, anchorY, labelX - 2, labelCenterY, _connectorBrush));
+                _canvas.Children.Add(CreateConnector(gridRight, anchorY, labelX - 2, labelCenterY, _extRowLabelBrush));
             }
         }
     }

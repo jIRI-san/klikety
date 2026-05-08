@@ -132,13 +132,19 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
                 if (isHighlightCol && row == grid.CenterRow) {
                     UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
-                    if (!skipInline) UseCrossLabel(dipRect, row, c, grid, _labelBrush);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, row, c, grid, _labelBrush);
+                    }
                 } else if (isHighlightCol && onCross) {
                     UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
-                    if (!skipInline) UseCrossLabel(dipRect, row, c, grid, _labelBrush);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, row, c, grid, _labelBrush);
+                    }
                 } else if (onCross) {
                     UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
-                    if (!skipInline) UseCrossLabel(dipRect, row, c, grid, _labelBrush, 0.4);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, row, c, grid, _labelBrush, 0.4);
+                    }
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
@@ -168,13 +174,19 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
                 if (isHighlightRow && col == grid.CenterCol) {
                     UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
-                    if (!skipInline) UseCrossLabel(dipRect, r, col, grid, _labelBrush);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, r, col, grid, _labelBrush);
+                    }
                 } else if (isHighlightRow && onCross) {
                     UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
-                    if (!skipInline) UseCrossLabel(dipRect, r, col, grid, _labelBrush);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, r, col, grid, _labelBrush);
+                    }
                 } else if (onCross) {
                     UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
-                    if (!skipInline) UseCrossLabel(dipRect, r, col, grid, _labelBrush, 0.4);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, r, col, grid, _labelBrush, 0.4);
+                    }
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
@@ -205,13 +217,19 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
                 if (isTarget) {
                     UseRect(dipRect, _highlightBg, _highlightBorder, ScaledBorderThickness(dipRect) * 2);
-                    if (!skipInline) UseCrossLabel(dipRect, r, c, grid, _labelBrush);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, r, c, grid, _labelBrush);
+                    }
                 } else if (onTargetCross && onCross) {
                     UseRect(dipRect, _crossBgBrush, _highlightBorder, ScaledBorderThickness(dipRect));
-                    if (!skipInline) UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.6);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.6);
+                    }
                 } else if (onCross) {
                     UseRect(dipRect, _cellBgBrush, _cellBorderBrush, ScaledBorderThickness(dipRect));
-                    if (!skipInline) UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.3);
+                    if (!skipInline) {
+                        UseCrossLabel(dipRect, r, c, grid, _labelBrush, 0.3);
+                    }
                 } else {
                     UseRect(dipRect, _dimBrush, Brushes.Transparent, 0);
                 }
@@ -228,16 +246,27 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         // Scan center row for narrow columns (skip degenerate, zero-width, and CenterCol)
         var externalCols = new List<int>();
         for (int col = 0; col < grid.Cols; col++) {
-            if (col == grid.CenterCol) continue;
-            if (grid.IsDegenerate(grid.CenterRow, col)) continue;
+            if (col == grid.CenterCol) {
+                continue;
+            }
+
+            if (grid.IsDegenerate(grid.CenterRow, col)) {
+                continue;
+            }
+
             var dipRect = DipRect(grid.CellAt(grid.CenterRow, col));
-            if (dipRect.Width <= 0) continue;
-            if (IsNarrowColumn(dipRect, _minLabelFontSize)) {
+            if (dipRect.Width <= 0) {
+                continue;
+            }
+
+            if (IsSmallCell(dipRect, _minLabelFontSize)) {
                 externalCols.Add(col);
             }
         }
 
-        if (externalCols.Count == 0) return;
+        if (externalCols.Count == 0) {
+            return;
+        }
 
         double fontSize = ExternalFontSize();
 
@@ -278,7 +307,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         for (int i = 0; i < externalCols.Count; i++) {
             int col = externalCols[i];
             string? label = GetCrossLabel(grid.CenterRow, col, grid);
-            if (label is null) continue;
+            if (label is null) {
+                continue;
+            }
 
             double opacity = col == highlightCol ? highlightOpacity : defaultOpacity;
             var dipRect = DipRect(grid.CellAt(grid.CenterRow, col));
@@ -290,14 +321,14 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
                 double topLabelY = bboxTop - labelMargin - labelSize.Height;
                 UseExternalLabel(new Rect(labelCenterX - labelSize.Width / 2, topLabelY, labelSize.Width, labelSize.Height),
                     label, fontSize, _extColLabelBrush, opacity);
-                UseLine(anchorX, bboxTop, labelCenterX, topLabelY + labelSize.Height + 2, opacity);
+                UseLine(anchorX, bboxTop, labelCenterX, topLabelY + labelSize.Height + 2, _extColLabelBrush, opacity);
             }
 
             if (showBelow) {
                 double bottomLabelY = bboxBottom + labelMargin;
                 UseExternalLabel(new Rect(labelCenterX - labelSize.Width / 2, bottomLabelY, labelSize.Width, labelSize.Height),
                     label, fontSize, _extColLabelBrush, opacity);
-                UseLine(anchorX, bboxBottom, labelCenterX, bottomLabelY - 2, opacity);
+                UseLine(anchorX, bboxBottom, labelCenterX, bottomLabelY - 2, _extColLabelBrush, opacity);
             }
         }
     }
@@ -307,16 +338,27 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         // Scan center column for short rows (skip degenerate, zero-height, and CenterRow)
         var externalRows = new List<int>();
         for (int row = 0; row < grid.Rows; row++) {
-            if (row == grid.CenterRow) continue;
-            if (grid.IsDegenerate(row, grid.CenterCol)) continue;
+            if (row == grid.CenterRow) {
+                continue;
+            }
+
+            if (grid.IsDegenerate(row, grid.CenterCol)) {
+                continue;
+            }
+
             var dipRect = DipRect(grid.CellAt(row, grid.CenterCol));
-            if (dipRect.Height <= 0) continue;
-            if (IsShortRow(dipRect, _minLabelFontSize)) {
+            if (dipRect.Height <= 0) {
+                continue;
+            }
+
+            if (IsSmallCell(dipRect, _minLabelFontSize)) {
                 externalRows.Add(row);
             }
         }
 
-        if (externalRows.Count == 0) return;
+        if (externalRows.Count == 0) {
+            return;
+        }
 
         double fontSize = ExternalFontSize();
 
@@ -348,16 +390,19 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
         double labelWidth = MeasureText("W", fontSize).Width;
         double labelMargin = fontSize * 0.5;
+        double labelOffset = fontSize * 2.0; // horizontal gap between bbox and label
 
         // Single-side rendering: prefer right, fall back to left if insufficient room
-        bool showRight = (_canvas.ActualWidth - bboxRight) >= labelWidth + labelMargin * 2;
-        bool showLeft = !showRight && bboxLeft >= labelWidth + labelMargin * 2;
+        bool showRight = (_canvas.ActualWidth - bboxRight) >= labelWidth + labelOffset * 2;
+        bool showLeft = !showRight && bboxLeft >= labelWidth + labelOffset * 2;
         if (!showLeft && !showRight) { showRight = true; } // fallback: at least one side
 
         for (int i = 0; i < externalRows.Count; i++) {
             int row = externalRows[i];
             string? label = GetCrossLabel(row, grid.CenterCol, grid);
-            if (label is null) continue;
+            if (label is null) {
+                continue;
+            }
 
             double opacity = row == highlightRow ? highlightOpacity : defaultOpacity;
             var dipRect = DipRect(grid.CellAt(row, grid.CenterCol));
@@ -366,17 +411,17 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
             var labelSize = MeasureText(label, fontSize);
 
             if (showLeft) {
-                double leftLabelX = bboxLeft - labelMargin - labelSize.Width;
+                double leftLabelX = bboxLeft - labelOffset - labelSize.Width;
                 UseExternalLabel(new Rect(leftLabelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
                     label, fontSize, _extRowLabelBrush, opacity);
-                UseLine(bboxLeft, anchorY, leftLabelX + labelSize.Width + 2, labelCenterY, opacity);
+                UseLine(bboxLeft, anchorY, leftLabelX + labelSize.Width + 2, labelCenterY, _extRowLabelBrush, opacity);
             }
 
             if (showRight) {
-                double rightLabelX = bboxRight + labelMargin;
+                double rightLabelX = bboxRight + labelOffset;
                 UseExternalLabel(new Rect(rightLabelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height),
                     label, fontSize, _extRowLabelBrush, opacity);
-                UseLine(bboxRight, anchorY, rightLabelX - 2, labelCenterY, opacity);
+                UseLine(bboxRight, anchorY, rightLabelX - 2, labelCenterY, _extRowLabelBrush, opacity);
             }
         }
     }
@@ -513,14 +558,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         _nextText++;
     }
 
-    void UseLine(double x1, double y1, double x2, double y2, double opacity = 1.0) {
+    void UseLine(double x1, double y1, double x2, double y2, Brush stroke, double opacity = 1.0) {
         Line line;
         if (_nextLine < _linePool.Count) {
             line = _linePool[_nextLine];
             line.Visibility = Visibility.Visible;
         } else {
             line = new Line {
-                Stroke = _connectorBrush,
                 StrokeThickness = _theme.ConnectorLineThickness,
                 StrokeDashArray = [2, 2],
                 IsHitTestVisible = false,
@@ -529,6 +573,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
             _linePool.Add(line);
         }
 
+        line.Stroke = stroke;
         line.X1 = x1;
         line.Y1 = y1;
         line.X2 = x2;
@@ -668,13 +713,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     }
 
     internal static bool IsSmallCell(Rect dipRect, double minLabelFontSize) =>
-        dipRect.Height < minLabelFontSize * 1.8 || dipRect.Width / 2 < minLabelFontSize * 1.6;
+        dipRect.Height < minLabelFontSize * 1.4 || dipRect.Width / 2 < minLabelFontSize * 1.2;
 
     internal static bool IsNarrowColumn(Rect dipRect, double minLabelFontSize) =>
-        dipRect.Width / 2 < minLabelFontSize * 1.6;
+        dipRect.Width / 2 < minLabelFontSize * 1.2;
 
     internal static bool IsShortRow(Rect dipRect, double minLabelFontSize) =>
-        dipRect.Height < minLabelFontSize * 1.8;
+        dipRect.Height < minLabelFontSize * 1.4;
 
     static SolidColorBrush BrushFromHex(string hex, double opacity = 1.0) {
         try {

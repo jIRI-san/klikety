@@ -488,11 +488,11 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
         return new Size(ft.Width, ft.Height);
     }
 
-    private Line CreateConnector(double x1, double y1, double x2, double y2) =>
+    private Line CreateConnector(double x1, double y1, double x2, double y2, Brush stroke) =>
         new() {
             X1 = x1, Y1 = y1,
             X2 = x2, Y2 = y2,
-            Stroke = _connectorBrush,
+            Stroke = stroke,
             StrokeThickness = _theme.ConnectorLineThickness,
             StrokeDashArray = [2, 2],
         };
@@ -550,7 +550,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
                 AddOutlinedText(label, _typeface, fontSize, _extColLabelBrush, _outlineBrush,
                     _theme.LabelOutlineThickness, 1.0,
                     labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
-                _canvas.Children.Add(CreateConnector(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2));
+                _canvas.Children.Add(CreateConnector(anchorX, gridTop, labelCenterX, labelY + labelSize.Height + 2, _extColLabelBrush));
             }
 
             if (showBelow) {
@@ -558,7 +558,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
                 AddOutlinedText(label, _typeface, fontSize, _extColLabelBrush, _outlineBrush,
                     _theme.LabelOutlineThickness, 1.0,
                     labelCenterX - labelSize.Width / 2, labelY, labelSize.Width, labelSize.Height);
-                _canvas.Children.Add(CreateConnector(anchorX, gridBottom, labelCenterX, labelY - 2));
+                _canvas.Children.Add(CreateConnector(anchorX, gridBottom, labelCenterX, labelY - 2, _extColLabelBrush));
             }
         }
     }
@@ -616,7 +616,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
                 AddOutlinedText(label, _typeface, fontSize, _extRowLabelBrush, _outlineBrush,
                     _theme.LabelOutlineThickness, 1.0,
                     labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
-                _canvas.Children.Add(CreateConnector(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY));
+                _canvas.Children.Add(CreateConnector(gridLeft, anchorY, labelX + labelSize.Width + 2, labelCenterY, _extRowLabelBrush));
             }
 
             if (showRight) {
@@ -624,7 +624,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
                 AddOutlinedText(label, _typeface, fontSize, _extRowLabelBrush, _outlineBrush,
                     _theme.LabelOutlineThickness, 1.0,
                     labelX, labelCenterY - labelSize.Height / 2, labelSize.Width, labelSize.Height);
-                _canvas.Children.Add(CreateConnector(gridRight, anchorY, labelX - 2, labelCenterY));
+                _canvas.Children.Add(CreateConnector(gridRight, anchorY, labelX - 2, labelCenterY, _extRowLabelBrush));
             }
         }
     }

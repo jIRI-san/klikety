@@ -208,6 +208,73 @@
         }
       },
       "additionalProperties": false
+    },
+    "keyPressVisualization": {
+      "type": "object",
+      "description": "Visual settings for the key press display HUD. Feature is toggled at runtime via tray menu (always off after restart).",
+      "properties": {
+        "fontSize": {
+          "type": "number",
+          "description": "Font size in DIP for key labels.",
+          "default": 72.0,
+          "exclusiveMinimum": 0
+        },
+        "fontColor": {
+          "type": "string",
+          "description": "Fill color for key labels (hex).",
+          "default": "#FFCC00"
+        },
+        "outlineColor": {
+          "type": "string",
+          "description": "Stroke color for key label outlines (hex).",
+          "default": "#000000"
+        },
+        "outlineThickness": {
+          "type": "number",
+          "description": "Outline stroke thickness in DIP.",
+          "default": 2.0,
+          "minimum": 0
+        },
+        "corner": {
+          "type": "string",
+          "description": "Screen corner for HUD placement.",
+          "default": "BottomRight",
+          "enum": ["TopLeft", "TopRight", "BottomLeft", "BottomRight"]
+        },
+        "fadeTimeoutMs": {
+          "type": "integer",
+          "description": "Milliseconds of inactivity before keys start fading.",
+          "default": 3000,
+          "minimum": 0
+        },
+        "fadeDurationMs": {
+          "type": "integer",
+          "description": "Duration of fade-out animation in milliseconds.",
+          "default": 500,
+          "exclusiveMinimum": 0
+        },
+        "maxVisibleKeys": {
+          "type": "integer",
+          "description": "Maximum number of key entries displayed simultaneously.",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10
+        },
+        "margin": {
+          "type": "number",
+          "description": "Margin from screen edge in DIP.",
+          "default": 20.0,
+          "minimum": 0
+        },
+        "repeatWindowMs": {
+          "type": "integer",
+          "description": "Time window in milliseconds for collapsing repeated identical keys.",
+          "default": 400,
+          "minimum": 50,
+          "maximum": 1000
+        }
+      },
+      "additionalProperties": false
     }
   },
   "$defs": {

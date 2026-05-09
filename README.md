@@ -22,7 +22,8 @@ Also without touching the code. This paragraph is the only one I have written ma
 - **Global scroll hotkeys**: Optional global hotkeys for mouse wheel scrolling at cursor position (default: Ctrl+Alt+PageUp/PageDown). Configurable keys and scroll amount.
 - **Keyboard layout aware**: Labels auto-adapt to QWERTY, DVORAK, Colemak, or any layout via Win32 `ToUnicodeEx`.
 - **Theme support**: Built-in dark and light themes. Create custom `.theme.json` files.
-- **System tray**: Runs in the tray with About, Open Config, Reset Configuration, Start with Windows, Pause/Resume Scroll Keys, and Quit.
+- **System tray**: Runs in the tray with About, Open Config, Reset Configuration, Start with Windows, Show Key Presses, Pause/Resume Scroll Keys, and Quit.
+- **Key press visualization**: Runtime-toggled floating HUD showing recent key presses with outlined text. Modifier combos shown as "Ctrl+C", repeated keys collapsed ("A ×3"), oldest-first staggered fade. Click-through, follows active monitor. Configurable font, color, corner, and timing.
 - **JSONC config**: Comments allowed in `config.json`. Schema-validated with `config.schema.json`.
 - **Debug logging**: All keystrokes and state transitions logged to `%APPDATA%\Klikety\logs\`.
 
@@ -85,6 +86,16 @@ First run extracts default config and theme files automatically.
 | `fileLoggingEnabled` | bool | `false` | Enable file logging to `%APPDATA%\Klikety\logs\`. |
 | `retainedLogFileCount` | int | `7` | Max rolling log files kept. Oldest deleted when exceeded. Only applies when `fileLoggingEnabled` is `true`. |
 | `minLabelFontSize` | double | `14.0` | Min label font size (DIP). When subgrid cells are too small, labels render outside the grid with connector lines. |
+| `keyPressVisualization.fontSize` | double | `72.0` | Font size (DIP) for key labels in the HUD. |
+| `keyPressVisualization.fontColor` | string | `"#FFCC00"` | Hex color for key label fill. |
+| `keyPressVisualization.outlineColor` | string | `"#000000"` | Hex color for key label outline stroke. |
+| `keyPressVisualization.outlineThickness` | double | `2.0` | Outline stroke thickness (DIP). |
+| `keyPressVisualization.corner` | string | `"BottomRight"` | HUD corner: `TopLeft`, `TopRight`, `BottomLeft`, `BottomRight`. |
+| `keyPressVisualization.fadeTimeoutMs` | int | `3000` | Idle time (ms) before entries start fading. |
+| `keyPressVisualization.fadeDurationMs` | int | `500` | Duration (ms) of the fade-out animation. |
+| `keyPressVisualization.maxVisibleKeys` | int | `3` | Max simultaneous key entries shown (1–10). |
+| `keyPressVisualization.margin` | double | `20.0` | Margin (DIP) from screen edge. |
+| `keyPressVisualization.repeatWindowMs` | int | `400` | Time window (ms) for collapsing repeated keys (50–1000). |
 
 ### Example: Custom Action Bindings
 

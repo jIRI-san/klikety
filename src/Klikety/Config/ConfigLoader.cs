@@ -188,6 +188,9 @@ public static class ConfigLoader {
         // === Scroll hotkey validation ===
         ValidateScrollHotKeys(config, violations, actionKeys, allNavKeys, hotkeyVKeys);
 
+        // === Key press visualization validation ===
+        ValidateKeyPressVisualization(config.KeyPressVisualization, violations);
+
         return violations;
     }
 
@@ -355,5 +358,56 @@ public static class ConfigLoader {
                 violations.Add($"{label}: key '{key}' conflicts with hotkey.");
             }
         }
+    }
+
+    private static readonly HashSet<string> ValidCorners = new(StringComparer.OrdinalIgnoreCase) {
+        "TopLeft", "TopRight", "BottomLeft", "BottomRight",
+    };
+
+    private static void ValidateKeyPressVisualization(KeyPressVisualizationConfig kpv, List<string> violations) {
+        if (kpv.FontSize <= 0) {
+            violations.Add($"keyPressVisualization.fontSize must be > 0 (got {kpv.FontSize}).");
+        }
+
+        if (kpv.OutlineThickness < 0) {
+            violations.Add($"keyPressVisualization.outlineThickness must be >= 0 (got {kpv.OutlineThickness}).");
+        }
+
+        if (kpv.Margin < 0) {
+            violations.Add($"keyPressVisualization.margin must be >= 0 (got {kpv.Margin}).");
+        }
+
+        if (!IsValidHexColor(kpv.FontColor)) {
+            violations.Add($"keyPressVisualization.fontColor is not a valid hex color (got '{kpv.FontColor}').");
+        }
+
+        if (!IsValidHexColor(kpv.OutlineColor)) {
+            violations.Add($"keyPressVisualization.outlineColor is not a valid hex color (got '{kpv.OutlineColor}').");
+        }
+
+        if (kpv.FadeTimeoutMs < 0) {
+            violations.Add($"keyPressVisualization.fadeTimeoutMs must be >= 0 (got {kpv.FadeTimeoutMs}).");
+        }
+
+        if (kpv.FadeDurationMs <= 0) {
+            violations.Add($"keyPressVisualization.fadeDurationMs must be > 0 (got {kpv.FadeDurationMs}).");
+        }
+
+        if (kpv.MaxVisibleKeys < 1 || kpv.MaxVisibleKeys > 10) {
+            violations.Add($"keyPressVisualization.maxVisibleKeys must be between 1 and 10 (got {kpv.MaxVisibleKeys}).");
+        }
+
+        if (!ValidCorners.Contains(kpv.Corner)) {
+            violations.Add($"keyPressVisualization.corner must be one of TopLeft, TopRight, BottomLeft, BottomRight (got '{kpv.Corner}').");
+        }
+
+        if (kpv.RepeatWindowMs < 50 || kpv.RepeatWindowMs > 1000) {
+            violations.Add($"keyPressVisualization.repeatWindowMs must be between 50 and 1000 (got {kpv.RepeatWindowMs}).");
+        }
+    }
+
+    private static bool IsValidHexColor(string color) {
+        if (string.IsNullOrEmpty(color) || color[0] != '#') return false;
+        return color.Length is 7 or 9 && color[1..].All(c => char.IsAsciiHexDigit(c));
     }
 }

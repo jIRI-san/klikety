@@ -9,7 +9,9 @@
     "dotnet build": true,
     ".github/agents/scripts/get-diff-uncommitted.ps1": true,
     ".github/agents/scripts/get-diff-smart-default.ps1": true,
-    "dotnet format": true
+    "dotnet format": true,
+    "git add": true,
+    "git commit": true
   },
   "cSpell.words": [
     "Klikety"

@@ -32,6 +32,9 @@ internal static partial class NativeMethods {
     [LibraryImport("user32.dll")]
     private static partial nint MonitorFromPoint(POINT pt, uint dwFlags);
 
+    [LibraryImport("user32.dll")]
+    private static partial nint MonitorFromWindow(nint hwnd, uint dwFlags);
+
     [LibraryImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
@@ -123,5 +126,46 @@ internal static partial class NativeMethods {
             return Point.Empty;
         }
         return new Point(pt.X, pt.Y);
+    }
+
+    /// <summary>
+    /// Returns the work area (physical pixels) of the monitor containing the foreground window.
+    /// Falls back to primary monitor if foreground window is unavailable.
+    /// </summary>
+    public static Rectangle GetForegroundMonitorWorkArea() {
+        var hwnd = GetForegroundWindow();
+        nint hMon;
+        if (hwnd != 0) {
+            hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+        } else {
+            hMon = MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
+        }
+
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(hMon, ref info)) {
+            return new Rectangle(0, 0, 1920, 1080);
+        }
+        var rc = info.rcWork;
+        return new Rectangle(rc.Left, rc.Top, rc.Right - rc.Left, rc.Bottom - rc.Top);
+    }
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static partial nint GetWindowLongPtr(nint hWnd, int nIndex);
+
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static partial nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_TRANSPARENT = 0x00000020;
+    private const int WS_EX_TOOLWINDOW = 0x00000080;
+    private const int WS_EX_NOACTIVATE = 0x08000000;
+
+    /// <summary>
+    /// Applies WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE to make a window click-through.
+    /// </summary>
+    public static void SetClickThroughExStyle(nint hwnd) {
+        var existing = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtr(hwnd, GWL_EXSTYLE,
+            existing | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
     }
 }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -16,15 +17,23 @@ public partial class MacroPickerOverlay : Window, IMacroPickerWindow {
 
     private MacroDefinition?[] _macros = [];
     private readonly Dictionary<Key, int> _keyToSlot = [];
+    private bool _slotSelected;
 
     public MacroPickerOverlay() {
         InitializeComponent();
         KeyDown += OnKeyDown;
-        Deactivated += (_, _) => DismissPicker();
+        Deactivated += (_, _) => {
+            Debug.WriteLine($"[MacroPicker] Deactivated (slotSelected={_slotSelected})");
+            if (!_slotSelected) {
+                DismissPicker();
+            }
+        };
+        Activated += (_, _) => Debug.WriteLine("[MacroPicker] Activated");
     }
 
     void IMacroPickerWindow.Show(MacroDefinition?[] macros, VKey[] slotKeys) {
         _macros = macros;
+        _slotSelected = false;
         _keyToSlot.Clear();
         SlotPanel.Children.Clear();
 
@@ -47,10 +56,14 @@ public partial class MacroPickerOverlay : Window, IMacroPickerWindow {
             SlotPanel.Children.Add(row);
         }
 
+        Debug.WriteLine("[MacroPicker] About to Show()");
         Show();
-        NativeMethods.SetForegroundWindow(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+        var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        Debug.WriteLine($"[MacroPicker] SetForegroundWindow hwnd={hwnd}");
+        NativeMethods.SetForegroundWindow(hwnd);
         Activate();
         Keyboard.Focus(this);
+        Debug.WriteLine($"[MacroPicker] Show complete, IsActive={IsActive}, IsFocused={IsFocused}");
     }
 
     void IMacroPickerWindow.Close() {
@@ -58,6 +71,7 @@ public partial class MacroPickerOverlay : Window, IMacroPickerWindow {
     }
 
     private void OnKeyDown(object sender, KeyEventArgs e) {
+        Debug.WriteLine($"[MacroPicker] KeyDown: {e.Key}");
         if (e.Key == Key.Escape) {
             DismissPicker();
             return;
@@ -65,6 +79,7 @@ public partial class MacroPickerOverlay : Window, IMacroPickerWindow {
 
         if (_keyToSlot.TryGetValue(e.Key, out var slot)) {
             if (_macros.Length > slot && _macros[slot] is not null) {
+                _slotSelected = true;
                 Hide();
                 SlotSelected?.Invoke(slot);
             }
@@ -72,6 +87,7 @@ public partial class MacroPickerOverlay : Window, IMacroPickerWindow {
     }
 
     private void DismissPicker() {
+        Debug.WriteLine("[MacroPicker] DismissPicker called");
         Hide();
         PickerClosed?.Invoke();
     }

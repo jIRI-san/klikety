@@ -385,6 +385,20 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             return;
         }
 
+        // (6b) Slot key: direct playback when idle and overlay open
+        if (_macroState == MacroState.Idle
+            && _activeSession is not null
+            && _config.Macros is { Enabled: true }
+            && _slotKeyMap.TryGetValue(e.Key, out var directSlot)
+            && _macrosFile.Macros.Length > directSlot
+            && _macrosFile.Macros[directSlot] is { } directMacro) {
+            _playbackFromGlobalHotKey = false;
+            _hookService.Disable();
+            _overlayWindow.Hide();
+            StartPlayback(directMacro);
+            return;
+        }
+
         // (7) Chord dispatch: before mode lock, chord key switches mode
         if (!_modeLocked && _chordKeyMap.TryGetValue(e.Key, out var targetMode)) {
             // Non-QWERTY check for chord target
@@ -853,14 +867,34 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     [LoggerMessage(Level = LogLevel.Warning, Message = "Screen mismatch for macro playback: {Details}")]
     private partial void LogScreenMismatch(string details);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Macro picker opening (helper key)")]
+    private partial void LogMacroPickerOpening();
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Macro picker shown")]
+    private partial void LogMacroPickerShown();
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Picker slot selected: {Slot} (state={State})")]
+    private partial void LogPickerSlotSelected(int slot, MacroState state);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Picker closed (state={State})")]
+    private partial void LogPickerClosed(MacroState state);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Playback starting: '{Name}' ({StepCount} steps)")]
+    private partial void LogPlaybackStarting(string name, int stepCount);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Playback finished: {Result}")]
+    private partial void LogPlaybackFinished(PlaybackResultKind result);
+
     // --- Macro picker methods ---
 
     private void ShowMacroPicker() {
+        LogMacroPickerOpening();
         _playbackFromGlobalHotKey = false;
         _macroState = MacroState.Picking;
         _hookService.Disable();
         _overlayWindow.Hide();
         _macroPickerWindow!.Show(_macrosFile.Macros, _config.Macros.SlotKeys);
+        LogMacroPickerShown();
     }
 
     private void OnMacroHotKeyActivated() {
@@ -874,6 +908,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnPickerSlotSelected(int slot) {
+        LogPickerSlotSelected(slot, _macroState);
         if (_macroState != MacroState.Picking) {
             return;
         }
@@ -888,6 +923,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void StartPlayback(MacroDefinition macro) {
+        LogPlaybackStarting(macro.Name, macro.Steps.Count);
         _macroState = MacroState.Playing;
         _hookService.Enable();
 
@@ -918,6 +954,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnPlaybackFinished(PlaybackResult result) {
+        LogPlaybackFinished(result.Kind);
         MacroPlaybackWindow?.Close();
         _hookService.Disable();
         _macroState = MacroState.Idle;
@@ -965,6 +1002,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnPickerClosed() {
+        LogPickerClosed(_macroState);
         _macroState = MacroState.Idle;
         if (_activeSession is not null) {
             _overlayWindow.Show();

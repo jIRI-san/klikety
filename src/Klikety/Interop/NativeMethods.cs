@@ -64,6 +64,11 @@ internal static partial class NativeMethods {
     [return: MarshalAs(UnmanagedType.Bool)]
     private static partial bool GetCursorPos(out POINT lpPoint);
 
+    private enum MonitorDpiType { EffectiveDpi = 0 }
+
+    [LibraryImport("shcore.dll")]
+    private static partial int GetDpiForMonitor(nint hMonitor, MonitorDpiType dpiType, out uint dpiX, out uint dpiY);
+
     /// <summary>
     /// Returns physical-pixel bounds of the primary monitor.
     /// </summary>
@@ -75,6 +80,16 @@ internal static partial class NativeMethods {
         }
         var rc = info.rcMonitor;
         return new Rectangle(rc.Left, rc.Top, rc.Right - rc.Left, rc.Bottom - rc.Top);
+    }
+
+    /// <summary>
+    /// Returns the DPI scale factor for the primary monitor (1.0 = 96 DPI, 1.5 = 144 DPI, etc.).
+    /// </summary>
+    public static double GetPrimaryMonitorDpiScale() {
+        var hMon = MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
+        int hr = GetDpiForMonitor(hMon, MonitorDpiType.EffectiveDpi, out uint dpiX, out _);
+        if (hr != 0) return 1.0; // S_OK = 0; fallback on failure
+        return dpiX / 96.0;
     }
 
     /// <summary>

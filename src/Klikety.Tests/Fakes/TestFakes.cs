@@ -53,7 +53,9 @@ public sealed class FakeCursorPositionProvider : ICursorPositionProvider {
 
 public sealed class FakeScreenBoundsProvider : IScreenBoundsProvider {
     public Rectangle Bounds { get; set; } = new(0, 0, 1920, 1080);
+    public double DpiScale { get; set; } = 1.0;
     public Rectangle GetPrimaryScreenBounds() => Bounds;
+    public double GetDpiScale() => DpiScale;
 }
 
 public sealed class FakeKeyboardLayoutProvider : IKeyboardLayoutProvider {

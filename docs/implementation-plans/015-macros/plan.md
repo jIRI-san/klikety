@@ -76,9 +76,9 @@
 | RISK-10 | `async void` playback exceptions crash process | Medium | High | Explicit `try/catch` for `OperationCanceledException` and general exceptions; `Dispose()` cancels CTS | 5.2 |
 
 ## Phase 1: Data Model, Config & Platform Extensions
-<!-- worktree: -->
+<!-- worktree: feature/015-macros-data-model-config-step-1-1 -->
 
-- [ ] 1.1 Define `MacroStep` record and `MacroDefinition` model in `Config/` (REQ-1, REQ-2, REQ-18) `S`
+- [x] 1.1 Define `MacroStep` record and `MacroDefinition` model in `Config/` (REQ-1, REQ-2, REQ-18) `S`
   - `MacroStep`: `MacroActionType ActionType`, `int X`, `int Y`, `ActionModifiers Modifiers`, `int RelativeTimeMs`, `int? EndX`, `int? EndY`, `int? ScrollDelta`, `MouseAction? DragButton`
   - `MacroActionType` enum: `LeftClick`, `RightClick`, `MiddleClick`, `DoubleClick`, `MoveOnly`, `DragDrop`, `Scroll` (mirrors `MouseAction` + `Scroll`)
   - `MacroDefinition`: `string Name`, `int ScreenWidth`, `int ScreenHeight`, `double DpiScale`, `List<MacroStep> Steps`; `[JsonExtensionData] Dictionary<string, JsonElement>?` for unknown-field preservation

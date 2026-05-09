@@ -184,7 +184,7 @@
   **Rollback:** N/A — manual test only.
   </details>
 
-- [ ] 3.3 Update design notes and config design note (REQ-13) [after: 3.1] `S`
+- [x] 3.3 Update design notes and config design note (REQ-13) [after: 3.1] `S`
   - Add new design note `docs/design-notes/key-press-visualization.design.md` covering: hook lifecycle (second instance, not new type), display manager architecture, config shape, rendering approach (path-based outlined text), privacy guarantees (no persistence/logging), monitor-follow pattern, activation transaction.
   - Update `config.design.md` with `keyPressVisualization` section documentation.
   - Update `.design-notes.md` index table with new entry.

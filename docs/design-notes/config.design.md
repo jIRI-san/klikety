@@ -11,7 +11,7 @@ globs:
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.
 - Written on first run from embedded `config.json` template if absent. **Not overwritten on subsequent runs** — changing defaults in the embedded template does not affect existing installs. When a config or theme default changes during development, the user's `%APPDATA%\Klikety\config.json` and `%APPDATA%\Klikety\themes\*.theme.json` must be updated manually (or the files deleted to trigger re-extraction).
-- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `firstKeys`/`secondKeys` (flat VKey arrays), `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`, `scrollHotkeys`.
+- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `firstKeys`/`secondKeys` (flat VKey arrays), `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`, `scrollHotkeys`, `keyPressVisualization`.
 - `navigationMode` is a legacy field — migrated to `modes.uniformGrid.twoKey/arrowKeys` on first load. Kept in schema for backward compatibility. `ConfigModel` no longer has a `NavigationMode` property (dead code removed); the enum is only used internally by `NavigatorStateMachine` and `UniformGridSession`.
 - Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; hotkey modifier VKeys checked against nav/action key sets; cross-set disjointness (`firstKeys ∩ secondKeys = ∅`); per-set duplicate check; scroll hotkey validation (`scrollAmount` ∈ [1, 100], scroll keys vs reserved/action/chord/nav keys, duplicate up/down rejection); all violations collected and surfaced via tray notification list.
 
@@ -49,7 +49,7 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.
 - `ShutdownMode=OnExplicitShutdown` — process persists until "Quit" menu item calls `Application.Current.Shutdown()`.
-- Context menu items: **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, tray icon, logger factory).
+- Context menu items: **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Show Key Presses** (runtime toggle — creates/destroys visualization resources via activation transaction; see `key-press-visualization.design.md`), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, key press visualization, tray icon, logger factory).
 - Tray notifications used for: hotkey conflict, hook install failure, config/key-binding violations, theme load failure.
 
 ## Logging

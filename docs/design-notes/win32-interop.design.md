@@ -78,6 +78,19 @@ interface IScrollHotKeyService { List<string> Register(); void Unregister(); boo
   ```
 - Returns `System.Drawing.Rectangle` (physical pixels). Used by `GridCalculator`, `SubgridCalculator`, `MouseActionService`, and `OverlayWindow` sizing.
 
+## `NativeMethods.GetForegroundMonitorWorkArea()` — `MonitorFromWindow`
+
+- `GetForegroundWindow()` → `MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY)` → `GetMonitorInfo` → `rcWork`.
+- Returns `System.Drawing.Rectangle` (physical pixels). Consumer (`MonitorService`) converts to DIPs via `PresentationSource.CompositionTarget.TransformFromDevice`.
+- Fallback: primary monitor when `GetForegroundWindow()` returns zero.
+- Used by `KeyPressDisplayManager` for HUD positioning on active monitor.
+
+## `NativeMethods.SetClickThroughExStyle(hwnd)`
+
+- Applies `WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE` via `GetWindowLongPtrW`/`SetWindowLongPtrW`.
+- `LibraryImport` with explicit `EntryPoint` (W-suffix required, same as `GetMonitorInfoW`).
+- Used by `KeyPressWindow.OnSourceInitialized` to make the HUD click-through and non-activating.
+
 ## Keyboard layout independence
 
 - All key handling uses VKey codes (physical-position stable across layouts).

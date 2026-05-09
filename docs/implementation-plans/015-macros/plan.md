@@ -86,14 +86,14 @@
   - Slot derived from array index — no `Slot` property on `MacroDefinition`
   - Load validation: array <10 → pad with nulls; >10 → preserve full array for round-trip, only first 10 bound to UI/hotkeys
 
-- [ ] 1.2 Unit tests for macro model serialization round-trip (REQ-1, REQ-2) `S`
+- [x] 1.2 Unit tests for macro model serialization round-trip (REQ-1, REQ-2) `S`
   - Serialize → deserialize all step types (click, drag with `DragButton`, scroll, with modifiers)
   - Empty slots (null) preserved
   - Unknown JSON fields preserved at each nesting level (`MacrosFile`, `MacroDefinition`, `MacroStep`)
   - Array padding (<10) and >10 preservation verified
   - Invalid `DragButton` values (MoveOnly, DragDrop, DoubleClick) flagged by validation
 
-- [ ] 1.3 `MacroStore` — load/save `macros.json` with atomic write and semantic validation (REQ-3, REQ-24, RISK-4) `M`
+- [~] 1.3 `MacroStore` — load/save `macros.json` with atomic write and semantic validation (REQ-3, REQ-24, RISK-4) `M`
   - Path: `%APPDATA%\Klikety\macros.json`
   - Load: `JsonSerializer.Deserialize<MacrosFile>` with `JsonCommentHandling.Skip`; parse error → return empty + error string
   - **Semantic validation per slot**: non-null `DragButton` for `DragDrop` steps (valid values: `LeftClick`/`RightClick`/`MiddleClick`); non-null `ScrollDelta` for `Scroll` steps; non-null `EndX`/`EndY` for `DragDrop`; non-negative `RelativeTimeMs`. Invalid slots → quarantined (set to null) with per-slot error message.

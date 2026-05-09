@@ -68,18 +68,27 @@ public sealed class FakeKeyboardLayoutProvider : IKeyboardLayoutProvider {
     public bool IsQwertyCompatible() => Qwerty;
 }
 
+public sealed class FakeForegroundWindowProvider : IForegroundWindowProvider {
+    public nint Handle { get; set; }
+    public Rectangle Bounds { get; set; } = Rectangle.Empty;
+    public nint GetForegroundWindowHandle() => Handle;
+    public Rectangle GetWindowBounds(nint hwnd) => hwnd == Handle && Handle != 0 ? Bounds : Rectangle.Empty;
+}
+
 public sealed class FakePlatformServices : IPlatformServices {
     public FakeKeyStateProvider KeyState { get; } = new();
     public FakeTimerFactory Timers { get; } = new();
     public FakeCursorPositionProvider Cursor { get; } = new();
     public FakeScreenBoundsProvider Screen { get; } = new();
     public FakeKeyboardLayoutProvider KeyboardLayout { get; } = new();
+    public FakeForegroundWindowProvider ForegroundWindow { get; } = new();
 
     IKeyStateProvider IPlatformServices.KeyState => KeyState;
     ITimerFactory IPlatformServices.Timers => Timers;
     ICursorPositionProvider IPlatformServices.Cursor => Cursor;
     IScreenBoundsProvider IPlatformServices.Screen => Screen;
     IKeyboardLayoutProvider IPlatformServices.KeyboardLayout => KeyboardLayout;
+    IForegroundWindowProvider IPlatformServices.ForegroundWindow => ForegroundWindow;
 }
 
 // --- End Platform Services Fakes ---

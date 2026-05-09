@@ -17,6 +17,7 @@ public sealed class PlatformServices : IPlatformServices {
     public ICursorPositionProvider Cursor { get; } = new Win32CursorPositionProvider();
     public IScreenBoundsProvider Screen { get; } = new Win32ScreenBoundsProvider();
     public IKeyboardLayoutProvider KeyboardLayout { get; } = new Win32KeyboardLayoutProvider();
+    public IForegroundWindowProvider ForegroundWindow { get; } = new Win32ForegroundWindowProvider();
 }
 
 internal sealed partial class Win32KeyStateProvider : IKeyStateProvider {
@@ -88,4 +89,9 @@ internal sealed class Win32KeyboardLayoutProvider : IKeyboardLayoutProvider {
         var ch = NativeMethods.VKeyToChar((uint)VKey.Q, hkl);
         return ch is 'Q' or 'q';
     }
+}
+
+internal sealed class Win32ForegroundWindowProvider : IForegroundWindowProvider {
+    public nint GetForegroundWindowHandle() => NativeMethods.GetForegroundWindowHandle();
+    public Rectangle GetWindowBounds(nint hwnd) => NativeMethods.GetWindowBounds(hwnd);
 }

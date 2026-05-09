@@ -1,5 +1,5 @@
 ---
-description: Win32 P/Invoke patterns — service interfaces, keyboard hook, hotkey registration, mouse input, monitor info, and keyboard layout independence.
+description: Win32 P/Invoke patterns — service interfaces, keyboard hook, hotkey registration, mouse input, monitor info, foreground window bounds, and keyboard layout independence.
 globs:
   - src/Klikety/Services/**
   - src/Klikety/Interop/**
@@ -8,7 +8,7 @@ globs:
 
 # Win32 Interop
 
-All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`). Real implementations are thin P/Invoke wrappers. Fakes are injected in tests.
+All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`, `IForegroundWindowProvider`). Real implementations are thin P/Invoke wrappers. Fakes are injected in tests.
 
 ## Interfaces
 
@@ -19,6 +19,7 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 interface IScrollHotKeyService { List<string> Register(); void Unregister(); bool IsRegistered; }
 interface IScreenBoundsProvider { Rectangle GetPrimaryScreenBounds(); double GetDpiScale(); }
+interface IForegroundWindowProvider { nint GetForegroundWindowHandle(); Rectangle GetWindowBounds(nint hwnd); }
 ```
 
 ## `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)`
@@ -85,6 +86,17 @@ interface IScreenBoundsProvider { Rectangle GetPrimaryScreenBounds(); double Get
 - Returns `System.Drawing.Rectangle` (physical pixels). Consumer (`MonitorService`) converts to DIPs via `PresentationSource.CompositionTarget.TransformFromDevice`.
 - Fallback: primary monitor when `GetForegroundWindow()` returns zero.
 - Used by `KeyPressDisplayManager` for HUD positioning on active monitor.
+
+## `IForegroundWindowProvider` — `DwmGetWindowAttribute` + `IsIconic`
+
+- Two-method API: `GetForegroundWindowHandle()` returns the current foreground window HWND; `GetWindowBounds(nint hwnd)` returns physical-pixel bounds for a given HWND.
+- Bounds acquired via `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` — returns the visible window rect excluding invisible Win10+ shadow/border.
+- Minimized detection: `IsIconic(hwnd)` called before DWM query. DWM may return stale restored geometry for minimized windows.
+- Pre-capture pattern: HWND captured in `OnHotKeyActivated` before `Show()` to avoid self-detection (overlay becomes foreground after `Show()`). Bounds retrieved for stored HWND at chord-press time.
+- Failure → `Rectangle.Empty`: null/zero HWND, minimized, DWM failure, or zero-area bounds.
+- Production: `Win32ForegroundWindowProvider` wraps `NativeMethods`. Fake: `FakeForegroundWindowProvider` with configurable `Handle` and `Bounds`.
+- Part of `IPlatformServices`; injected via DI.
+- `Marshal.SizeOf<RECT>()` cached in a static `RectSize` field to avoid per-call reflection.
 
 ## `NativeMethods.GetPrimaryMonitorDpiScale()` — `GetDpiForMonitor`
 

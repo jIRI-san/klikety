@@ -50,6 +50,16 @@ internal static partial class NativeMethods {
     public static partial bool SetForegroundWindow(nint hWnd);
 
     [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool IsIconic(nint hWnd);
+
+    private const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+    private static readonly int RectSize = Marshal.SizeOf<RECT>();
+
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmGetWindowAttribute(nint hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+
+    [LibraryImport("user32.dll")]
     private static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
 
     [LibraryImport("user32.dll")]
@@ -189,5 +199,28 @@ internal static partial class NativeMethods {
         var existing = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
         SetWindowLongPtr(hwnd, GWL_EXSTYLE,
             existing | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
+    }
+
+    /// <summary>
+    /// Returns the HWND of the current foreground window, or zero if unavailable.
+    /// </summary>
+    public static nint GetForegroundWindowHandle() => GetForegroundWindow();
+
+    /// <summary>
+    /// Returns the visible bounds of the given window in physical pixels using DWM.
+    /// Returns <see cref="Rectangle.Empty"/> if the window is minimized, invalid, or DWM fails.
+    /// </summary>
+    public static Rectangle GetWindowBounds(nint hwnd) {
+        if (hwnd == 0) return Rectangle.Empty;
+        if (IsIconic(hwnd)) return Rectangle.Empty;
+
+        int hr = DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out var rect, RectSize);
+        if (hr != 0) return Rectangle.Empty;
+
+        int w = rect.Right - rect.Left;
+        int h = rect.Bottom - rect.Top;
+        if (w <= 0 || h <= 0) return Rectangle.Empty;
+
+        return new Rectangle(rect.Left, rect.Top, w, h);
     }
 }

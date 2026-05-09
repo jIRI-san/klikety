@@ -52,6 +52,14 @@ public interface IKeyboardLayoutProvider {
 }
 
 /// <summary>
+/// Provides foreground window handle and bounds in physical pixels.
+/// </summary>
+public interface IForegroundWindowProvider {
+    nint GetForegroundWindowHandle();
+    Rectangle GetWindowBounds(nint hwnd);
+}
+
+/// <summary>
 /// Groups all platform-level abstractions for testability.
 /// </summary>
 public interface IPlatformServices {
@@ -60,4 +68,5 @@ public interface IPlatformServices {
     ICursorPositionProvider Cursor { get; }
     IScreenBoundsProvider Screen { get; }
     IKeyboardLayoutProvider KeyboardLayout { get; }
+    IForegroundWindowProvider ForegroundWindow { get; }
 }

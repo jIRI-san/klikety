@@ -244,8 +244,8 @@ public sealed partial class MouseActionService : IMouseActionService {
         } },
     };
 
-    public void SendScroll(int wheelDelta) {
-        var input = new INPUT {
+    public void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
+        var scrollInput = new INPUT {
             type = INPUT_MOUSE,
             union = new INPUT_UNION { mi = new MOUSEINPUT {
                 mouseData = unchecked((uint)wheelDelta),
@@ -253,6 +253,17 @@ public sealed partial class MouseActionService : IMouseActionService {
             } },
         };
 
-        _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        if (modifiers == ActionModifiers.None) {
+            _ = SendInput(1, [scrollInput], Marshal.SizeOf<INPUT>());
+            return;
+        }
+
+        var modKeyDowns = BuildModifierInputs(modifiers, keyUp: false);
+        var modKeyUps = BuildModifierInputs(modifiers, keyUp: true);
+        var inputs = new INPUT[modKeyDowns.Length + 1 + modKeyUps.Length];
+        modKeyDowns.CopyTo(inputs, 0);
+        inputs[modKeyDowns.Length] = scrollInput;
+        modKeyUps.CopyTo(inputs, modKeyDowns.Length + 1);
+        _ = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
     }
 }

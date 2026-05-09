@@ -128,7 +128,7 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
 
 public sealed class FakeMouseActionService : IMouseActionService {
     public List<(Point Point, MouseAction? Action, ActionModifiers Modifiers)> Calls { get; } = [];
-    public List<int> ScrollCalls { get; } = [];
+    public List<(int WheelDelta, ActionModifiers Modifiers)> ScrollCalls { get; } = [];
     public List<(Point Start, Point End, MouseAction Button, ActionModifiers Modifiers)> DragCalls { get; } = [];
 
     public void MoveTo(Point physicalPoint) {
@@ -139,8 +139,8 @@ public sealed class FakeMouseActionService : IMouseActionService {
         Calls.Add((physicalPoint, action, modifiers));
     }
 
-    public void SendScroll(int wheelDelta) {
-        ScrollCalls.Add(wheelDelta);
+    public void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
+        ScrollCalls.Add((wheelDelta, modifiers));
     }
 
     public void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {

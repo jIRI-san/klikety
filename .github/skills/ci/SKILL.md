@@ -51,7 +51,7 @@ After showing the progress summary, ask:
 
 **"Approve each step, or autopilot?"**
 - **Approve** — stop after each step for review before proceeding (current default behavior).
-- **Autopilot** — implement all remaining steps as independently as possible with minimal user input. Skip per-step confirmations (Step 4 "Proceed?", Step 10 "Ready to commit?", Step 11 "Continue or stop?"). Still run build, tests, acceptance criteria validation, and code review — but auto-fix unambiguous CR findings and auto-commit without asking. Only stop for: `@human` steps, ambiguous CR trade-offs, failing tests that can't be auto-fixed, or blocking dependency issues. The user reviews everything at the end.
+- **Autopilot** — implement all remaining steps as independently as possible with minimal user input. Skip per-step confirmations (Step 4 "Proceed?", Step 10 "Ready to commit?", Step 11 "Continue or stop?"). Still run build, tests, acceptance criteria validation, and code review — but auto-fix unambiguous CR findings and auto-commit without asking. Continue to next phase without confirmation. Only stop for: `@human` steps, ambiguous CR trade-offs, failing tests that can't be auto-fixed, or blocking dependency issues. The user reviews everything at the end.
 
 Remember the chosen mode for the rest of the session.
 

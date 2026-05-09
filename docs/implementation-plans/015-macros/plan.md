@@ -132,7 +132,7 @@
   - `FakeScreenBoundsProvider`: add `DpiScale` property (default 1.0)
   - Unit test: fake returns configured value
 
-- [ ] 1.8 Extend `IMouseActionService.SendScroll` with `ActionModifiers` parameter (REQ-23) `S`
+- [x] 1.8 Extend `IMouseActionService.SendScroll` with `ActionModifiers` parameter (REQ-23) `S`
   - Signature: `SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None)`
   - When `modifiers != None`: bracket wheel event with modifier KEYDOWN/KEYUP in single `SendInput` call (matching `SendAction`/`SendDrag` pattern)
   - Update existing callers (`ScrollHotKeyService`) to pass `ActionModifiers.None`

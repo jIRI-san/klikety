@@ -143,19 +143,19 @@
   - Fix documentation drift: v3→v4 (scrollHotkeys) is undocumented; update before adding v4→v5
 
 ## Phase 2: Macro Store Integration & First-Run
-<!-- worktree: -->
+<!-- worktree: feature/015-macros-data-model-config-step-1-1 -->
 
-- [ ] 2.1 Wire `MacroStore` into `App.xaml.cs` startup (REQ-3) [after: 1.3, 1.4] `S`
+- [x] 2.1 Wire `MacroStore` into `App.xaml.cs` startup (REQ-3) [after: 1.3, 1.4] `S`
   - Load macros via `MacroStore.Load()` during startup (after config load, after FirstRunExtractor)
   - Store instance for coordinator access
   - Load errors → tray notification
 
-- [ ] 2.2 Add `macros.json` to `FirstRunExtractor` as skip-if-exists resource (REQ-3) [after: 1.1] `S`
+- [x] 2.2 Add `macros.json` to `FirstRunExtractor` as skip-if-exists resource (REQ-3) [after: 1.1] `S`
   - Embedded resource: empty macros file (version 1, 10 null slots)
   - `FirstRunExtractor` skip-if-exists category (like `config.json`)
   - Unit test: extraction creates file; subsequent run skips
 
-- [ ] 2.3 Unit tests for MacroStore load/save (REQ-3, RISK-4) [after: 1.3] `M`
+- [x] 2.3 Unit tests for MacroStore load/save (REQ-3, RISK-4) [after: 1.3] `M`
   - Load valid file → correct model
   - Load corrupt file → empty state + error string
   - Load missing file → empty state

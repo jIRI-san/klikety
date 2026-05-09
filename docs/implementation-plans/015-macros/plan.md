@@ -127,7 +127,7 @@
   - SlotKeys array length validation (<10 padded, >10 truncated)
   - Null GlobalHotKey → skip registration
 
-- [ ] 1.7 Add `GetDpiScale()` to `IScreenBoundsProvider` (REQ-22) `S`
+- [x] 1.7 Add `GetDpiScale()` to `IScreenBoundsProvider` (REQ-22) `S`
   - Implementation: `GetDpiForMonitor` (Win32) or `PresentationSource.CompositionTarget.TransformToDevice.M11`
   - `FakeScreenBoundsProvider`: add `DpiScale` property (default 1.0)
   - Unit test: fake returns configured value

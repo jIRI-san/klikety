@@ -147,7 +147,7 @@
 ## Phase 3: App Integration
 <!-- worktree: -->
 
-- [ ] 3.1 Wire into `App.xaml.cs` — tray menu item + lifecycle (REQ-11, REQ-12, REQ-18, REQ-19, RISK-8) [after: 2.4] `M`
+- [x] 3.1 Wire into `App.xaml.cs` — tray menu item + lifecycle (REQ-11, REQ-12, REQ-18, REQ-19, RISK-8) [after: 2.4] `M`
   - Add "Show Key Presses" `MenuItem` with checkmark toggle between "Start with Windows" and separator before "Quit".
   - **Activation transaction** (RISK-8): On click (enabling):
     1. Create `KeyboardHookService` instance (`_keyPressHook`).

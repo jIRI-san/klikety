@@ -44,7 +44,9 @@ public sealed class KeyPressDisplayManager : IDisposable {
     public void HandleKeyEvent(KeyHookEventArgs e) {
         if (e.IsDown) {
             var entry = _processor.ProcessKeyDown(e.Key);
-            if (entry is null) return;
+            if (entry is null) {
+                return;
+            }
 
             // Cancel any active fade
             if (_isFading) {
@@ -152,7 +154,9 @@ public sealed class KeyPressDisplayManager : IDisposable {
             }
             if (item.Opacity > 0) {
                 item.Opacity = Math.Max(0, item.Opacity - decrement);
-                if (item.Opacity > 0) allDone = false;
+                if (item.Opacity > 0) {
+                    allDone = false;
+                }
             }
         }
 

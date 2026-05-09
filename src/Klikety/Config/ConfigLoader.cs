@@ -365,7 +365,9 @@ public static class ConfigLoader {
 
     private static void ValidateMacros(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> navKeys, HashSet<VKey> hotkeyVKeys) {
         var macros = config.Macros;
-        if (macros is null || !macros.Enabled) return;
+        if (macros is null || !macros.Enabled) {
+            return;
+        }
 
         // SpeedModifier validation
         if (macros.SpeedModifier < 0) {
@@ -518,7 +520,10 @@ public static class ConfigLoader {
     }
 
     private static bool IsValidHexColor(string color) {
-        if (string.IsNullOrEmpty(color) || color[0] != '#') return false;
+        if (string.IsNullOrEmpty(color) || color[0] != '#') {
+            return false;
+        }
+
         return color.Length is 7 or 9 && color[1..].All(c => char.IsAsciiHexDigit(c));
     }
 }

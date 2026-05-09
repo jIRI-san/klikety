@@ -362,7 +362,9 @@ public partial class App : Application {
     /// Disables and disposes all key press visualization resources. Safe to call when already disabled.
     /// </summary>
     private void DisableKeyPressVisualization() {
-        if (_keyPressHook is null) return;
+        if (_keyPressHook is null) {
+            return;
+        }
 
         _keyPressHook.Disable();
         _keyPressProcessor?.ResetModifierState();

@@ -51,7 +51,9 @@ public partial class KeyPressWindow : Window {
     }
 
     private void RebuildVisuals() {
-        if (!_isSourceInitialized) return;
+        if (!_isSourceInitialized) {
+            return;
+        }
 
         // Unsubscribe previous handlers
         foreach (var (item, handler) in _handlers) {

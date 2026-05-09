@@ -96,8 +96,13 @@ public sealed class KeyPressProcessor {
     }
 
     public bool IsRepeat(KeyPressEntry current, KeyPressEntry? previous, int repeatWindowMs) {
-        if (previous is null) return false;
-        if (current.Label != previous.Label) return false;
+        if (previous is null) {
+            return false;
+        }
+
+        if (current.Label != previous.Label) {
+            return false;
+        }
 
         var elapsedMs = _timeProvider.GetElapsedTime(previous.TimestampTicks, current.TimestampTicks).TotalMilliseconds;
         return elapsedMs <= repeatWindowMs;
@@ -115,7 +120,9 @@ public sealed class KeyPressProcessor {
     private void BuildLabelCache(IKeyLabelResolver labelResolver) {
         for (int i = 0; i <= 254; i++) {
             var vkey = (VKey)i;
-            if (ModifierVKeys.Contains(vkey)) continue;
+            if (ModifierVKeys.Contains(vkey)) {
+                continue;
+            }
 
             if (SpecialKeyLabels.TryGetValue(vkey, out var special)) {
                 _labelCache[vkey] = special;
@@ -134,7 +141,9 @@ public sealed class KeyPressProcessor {
     }
 
     private string BuildModifierPrefix() {
-        if (_heldModifiers.Count == 0) return string.Empty;
+        if (_heldModifiers.Count == 0) {
+            return string.Empty;
+        }
 
         // Canonical order: Ctrl+Shift+Alt+Win (deduplicate L/R)
         bool ctrl = _heldModifiers.Contains(VKey.LControl) || _heldModifiers.Contains(VKey.RControl) || _heldModifiers.Contains(VKey.Control);
@@ -143,10 +152,21 @@ public sealed class KeyPressProcessor {
         bool win = _heldModifiers.Contains(VKey.LWin) || _heldModifiers.Contains(VKey.RWin);
 
         var parts = new List<string>(4);
-        if (ctrl) parts.Add("Ctrl");
-        if (shift) parts.Add("Shift");
-        if (alt) parts.Add("Alt");
-        if (win) parts.Add("Win");
+        if (ctrl) {
+            parts.Add("Ctrl");
+        }
+
+        if (shift) {
+            parts.Add("Shift");
+        }
+
+        if (alt) {
+            parts.Add("Alt");
+        }
+
+        if (win) {
+            parts.Add("Win");
+        }
 
         return parts.Count > 0 ? string.Join('+', parts) + "+" : string.Empty;
     }

@@ -53,8 +53,9 @@ public sealed class MacroStore : IMacroStore {
     internal MacroStore(string path) => _path = path;
 
     public MacroLoadResult Load() {
-        if (!File.Exists(_path))
+        if (!File.Exists(_path)) {
             return new MacroLoadResult { File = new MacrosFile() };
+        }
 
         string json;
         try {
@@ -81,8 +82,9 @@ public sealed class MacroStore : IMacroStore {
             };
         }
 
-        if (file is null)
+        if (file is null) {
             return new MacroLoadResult { File = new MacrosFile() };
+        }
 
         // Null-guard Macros array (user wrote "macros": null)
         if (file.Macros is null) {
@@ -108,7 +110,9 @@ public sealed class MacroStore : IMacroStore {
         var errors = new List<string>();
         for (var i = 0; i < file.Macros.Length; i++) {
             var def = file.Macros[i];
-            if (def is null) continue;
+            if (def is null) {
+                continue;
+            }
 
             var slotErrors = ValidateSlot(i, def);
             if (slotErrors.Count > 0) {
@@ -154,47 +158,61 @@ public sealed class MacroStore : IMacroStore {
             var step = def.Steps[s];
             var prefix = $"Slot {slot}, step {s}";
 
-            if (step.RelativeTimeMs < 0)
+            if (step.RelativeTimeMs < 0) {
                 errors.Add($"{prefix}: relativeTimeMs is negative ({step.RelativeTimeMs})");
+            }
 
-            if (step.RelativeTimeMs > 600_000)
+            if (step.RelativeTimeMs > 600_000) {
                 errors.Add($"{prefix}: relativeTimeMs exceeds 10 minutes ({step.RelativeTimeMs})");
+            }
 
-            if (step.X < 0 || step.Y < 0)
+            if (step.X < 0 || step.Y < 0) {
                 errors.Add($"{prefix}: coordinates are negative (x={step.X}, y={step.Y})");
+            }
 
-            if (def.ScreenWidth > 0 && step.X >= def.ScreenWidth)
+            if (def.ScreenWidth > 0 && step.X >= def.ScreenWidth) {
                 errors.Add($"{prefix}: x ({step.X}) >= screenWidth ({def.ScreenWidth})");
+            }
 
-            if (def.ScreenHeight > 0 && step.Y >= def.ScreenHeight)
+            if (def.ScreenHeight > 0 && step.Y >= def.ScreenHeight) {
                 errors.Add($"{prefix}: y ({step.Y}) >= screenHeight ({def.ScreenHeight})");
+            }
 
             switch (step.ActionType) {
                 case MacroActionType.DragDrop:
-                    if (step.DragButton is null)
+                    if (step.DragButton is null) {
                         errors.Add($"{prefix}: DragDrop step missing DragButton");
-                    else if (!ValidDragButtons.Contains(step.DragButton.Value))
+                    } else if (!ValidDragButtons.Contains(step.DragButton.Value)) {
                         errors.Add($"{prefix}: invalid DragButton '{step.DragButton}' (must be LeftClick, RightClick, or MiddleClick)");
+                    }
 
-                    if (step.EndX is null || step.EndY is null)
+                    if (step.EndX is null || step.EndY is null) {
                         errors.Add($"{prefix}: DragDrop step missing EndX/EndY");
+                    }
 
-                    if (step.EndX is not null && step.EndX.Value < 0)
+                    if (step.EndX is not null && step.EndX.Value < 0) {
                         errors.Add($"{prefix}: endX is negative ({step.EndX})");
+                    }
 
-                    if (step.EndY is not null && step.EndY.Value < 0)
+                    if (step.EndY is not null && step.EndY.Value < 0) {
                         errors.Add($"{prefix}: endY is negative ({step.EndY})");
+                    }
 
-                    if (step.EndX is not null && def.ScreenWidth > 0 && step.EndX.Value >= def.ScreenWidth)
+                    if (step.EndX is not null && def.ScreenWidth > 0 && step.EndX.Value >= def.ScreenWidth) {
                         errors.Add($"{prefix}: endX ({step.EndX}) >= screenWidth ({def.ScreenWidth})");
+                    }
 
-                    if (step.EndY is not null && def.ScreenHeight > 0 && step.EndY.Value >= def.ScreenHeight)
+                    if (step.EndY is not null && def.ScreenHeight > 0 && step.EndY.Value >= def.ScreenHeight) {
                         errors.Add($"{prefix}: endY ({step.EndY}) >= screenHeight ({def.ScreenHeight})");
+                    }
+
                     break;
 
                 case MacroActionType.Scroll:
-                    if (step.ScrollDelta is null)
+                    if (step.ScrollDelta is null) {
                         errors.Add($"{prefix}: Scroll step missing ScrollDelta");
+                    }
+
                     break;
             }
         }

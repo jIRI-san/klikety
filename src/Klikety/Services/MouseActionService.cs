@@ -74,11 +74,13 @@ public sealed partial class MouseActionService : IMouseActionService {
 
         var input = new INPUT {
             type = INPUT_MOUSE,
-            union = new INPUT_UNION { mi = new MOUSEINPUT {
-                dx = nx,
-                dy = ny,
-                dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
-            } },
+            union = new INPUT_UNION {
+                mi = new MOUSEINPUT {
+                    dx = nx,
+                    dy = ny,
+                    dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+                }
+            },
         };
 
         _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
@@ -237,20 +239,24 @@ public sealed partial class MouseActionService : IMouseActionService {
 
     private static INPUT MakeMoveInput(int nx, int ny) => new() {
         type = INPUT_MOUSE,
-        union = new INPUT_UNION { mi = new MOUSEINPUT {
-            dx = nx,
-            dy = ny,
-            dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
-        } },
+        union = new INPUT_UNION {
+            mi = new MOUSEINPUT {
+                dx = nx,
+                dy = ny,
+                dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+            }
+        },
     };
 
     public void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
         var scrollInput = new INPUT {
             type = INPUT_MOUSE,
-            union = new INPUT_UNION { mi = new MOUSEINPUT {
-                mouseData = unchecked((uint)wheelDelta),
-                dwFlags = MOUSEEVENTF_WHEEL,
-            } },
+            union = new INPUT_UNION {
+                mi = new MOUSEINPUT {
+                    mouseData = unchecked((uint)wheelDelta),
+                    dwFlags = MOUSEEVENTF_WHEEL,
+                }
+            },
         };
 
         if (modifiers == ActionModifiers.None) {

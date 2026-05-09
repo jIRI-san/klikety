@@ -88,7 +88,10 @@ internal static partial class NativeMethods {
     public static double GetPrimaryMonitorDpiScale() {
         var hMon = MonitorFromPoint(new POINT(0, 0), MONITOR_DEFAULTTOPRIMARY);
         int hr = GetDpiForMonitor(hMon, MonitorDpiType.EffectiveDpi, out uint dpiX, out _);
-        if (hr != 0) return 1.0; // S_OK = 0; fallback on failure
+        if (hr != 0) {
+            return 1.0; // S_OK = 0; fallback on failure
+        }
+
         return dpiX / 96.0;
     }
 

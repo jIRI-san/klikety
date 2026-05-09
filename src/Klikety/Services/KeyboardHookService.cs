@@ -60,11 +60,17 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
         _hookId = SetWindowsHookEx(WH_KEYBOARD_LL, _hookProc, GetModuleHandle(module.ModuleName), 0);
 
         if (_hookId != 0) {
-            if (_logger is not null) LogHookEnabled(_logger);
+            if (_logger is not null) {
+                LogHookEnabled(_logger);
+            }
+
             return true;
         }
 
-        if (_logger is not null) LogHookEnableFailed(_logger);
+        if (_logger is not null) {
+            LogHookEnableFailed(_logger);
+        }
+
         return false;
     }
 
@@ -74,7 +80,9 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
             if (UnhookWindowsHookEx(_hookId)) {
                 _hookId = 0;
                 _hookProc = null;
-                if (_logger is not null) LogHookDisabled(_logger);
+                if (_logger is not null) {
+                    LogHookDisabled(_logger);
+                }
             }
         }
     }

@@ -40,6 +40,7 @@ public interface ICursorPositionProvider {
 /// </summary>
 public interface IScreenBoundsProvider {
     Rectangle GetPrimaryScreenBounds();
+    double GetDpiScale();
 }
 
 /// <summary>

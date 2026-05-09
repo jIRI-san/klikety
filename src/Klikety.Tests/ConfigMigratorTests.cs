@@ -35,7 +35,7 @@ public class ConfigMigratorTests {
             var migrated = ReadJsonObject(path);
             Assert.True(migrated.ContainsKey("modes"));
             Assert.False(migrated.ContainsKey("navigationMode"));
-            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
 
             var ug = migrated["modes"]!["uniformGrid"]!;
             Assert.True(ug["enabled"]!.GetValue<bool>());
@@ -168,14 +168,15 @@ public class ConfigMigratorTests {
     public void MigrateIfNeeded_AlreadyMigrated_NoMutation() {
         var json = """
         {
-            "configVersion": 4,
+            "configVersion": 5,
             "horizontalKeys": ["A","S","D","F"],
             "verticalKeys": ["W","E","R","T"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true },
                 "logGrid": { "enabled": true, "twoKey": true, "chordKey": "OemComma", "logGridBaseSize": 10 }
             },
-            "scrollHotkeys": { "enabled": false }
+            "scrollHotkeys": { "enabled": false },
+            "macros": { "enabled": true }
         }
         """;
         var path = WriteTempFile(json);
@@ -333,7 +334,7 @@ public class ConfigMigratorTests {
             Assert.Null(result.BlockingError);
 
             var migrated = ReadJsonObject(path);
-            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
 
             var logGrid = migrated["modes"]!["logGrid"]!;
             Assert.True(logGrid["enabled"]!.GetValue<bool>());
@@ -437,7 +438,7 @@ public class ConfigMigratorTests {
             Assert.Null(result.BlockingError);
 
             var migrated = ReadJsonObject(path);
-            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
 
             var scroll = migrated["scrollHotkeys"]!;
             Assert.False(scroll["enabled"]!.GetValue<bool>());
@@ -448,16 +449,17 @@ public class ConfigMigratorTests {
     }
 
     [Fact]
-    public void MigrateIfNeeded_V4Config_NoMutation() {
+    public void MigrateIfNeeded_V5Config_NoMutation() {
         var json = """
         {
-            "configVersion": 4,
+            "configVersion": 5,
             "horizontalKeys": ["A","S","D","F"],
             "verticalKeys": ["W","E","R","T"],
             "modes": {
                 "uniformGrid": { "enabled": true, "default": true }
             },
-            "scrollHotkeys": { "enabled": true, "scrollAmount": 5 }
+            "scrollHotkeys": { "enabled": true, "scrollAmount": 5 },
+            "macros": { "enabled": true }
         }
         """;
         var path = WriteTempFile(json);
@@ -489,7 +491,7 @@ public class ConfigMigratorTests {
             Assert.True(result.WasMigrated);
 
             var migrated = ReadJsonObject(path);
-            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
             // User's existing scrollHotkeys preserved (not overwritten with defaults)
             Assert.True(migrated["scrollHotkeys"]!["enabled"]!.GetValue<bool>());
             Assert.Equal(10, migrated["scrollHotkeys"]!["scrollAmount"]!.GetValue<int>());
@@ -515,8 +517,62 @@ public class ConfigMigratorTests {
             Assert.True(result.WasMigrated);
 
             var migrated = ReadJsonObject(path);
-            Assert.Equal(4, migrated["configVersion"]!.GetValue<int>());
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
             Assert.Equal("preserved", migrated["customUserField"]!.GetValue<string>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V4ToV5_AddsMacrosSection() {
+        var json = """
+        {
+            "configVersion": 4,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "scrollHotkeys": { "enabled": false }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
+            Assert.True(migrated.ContainsKey("macros"));
+            Assert.True(migrated["macros"]!["enabled"]!.GetValue<bool>());
+            Assert.Equal("OemPipe", migrated["macros"]!["recordKey"]!.GetValue<string>());
+            Assert.Equal("OemTilde", migrated["macros"]!["helperKey"]!.GetValue<string>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V4WithExistingMacros_PreservesUserValues() {
+        var json = """
+        {
+            "configVersion": 4,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "scrollHotkeys": { "enabled": false },
+            "macros": { "enabled": false, "speedModifier": 0.5 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
+            // User's existing macros section preserved
+            Assert.False(migrated["macros"]!["enabled"]!.GetValue<bool>());
+            Assert.Equal(0.5, migrated["macros"]!["speedModifier"]!.GetValue<double>());
         } finally { Cleanup(path); }
     }
 

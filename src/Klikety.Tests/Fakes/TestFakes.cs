@@ -53,7 +53,9 @@ public sealed class FakeCursorPositionProvider : ICursorPositionProvider {
 
 public sealed class FakeScreenBoundsProvider : IScreenBoundsProvider {
     public Rectangle Bounds { get; set; } = new(0, 0, 1920, 1080);
+    public double DpiScale { get; set; } = 1.0;
     public Rectangle GetPrimaryScreenBounds() => Bounds;
+    public double GetDpiScale() => DpiScale;
 }
 
 public sealed class FakeKeyboardLayoutProvider : IKeyboardLayoutProvider {
@@ -126,7 +128,7 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
 
 public sealed class FakeMouseActionService : IMouseActionService {
     public List<(Point Point, MouseAction? Action, ActionModifiers Modifiers)> Calls { get; } = [];
-    public List<int> ScrollCalls { get; } = [];
+    public List<(int WheelDelta, ActionModifiers Modifiers)> ScrollCalls { get; } = [];
     public List<(Point Start, Point End, MouseAction Button, ActionModifiers Modifiers)> DragCalls { get; } = [];
 
     public void MoveTo(Point physicalPoint) {
@@ -137,8 +139,8 @@ public sealed class FakeMouseActionService : IMouseActionService {
         Calls.Add((physicalPoint, action, modifiers));
     }
 
-    public void SendScroll(int wheelDelta) {
-        ScrollCalls.Add(wheelDelta);
+    public void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
+        ScrollCalls.Add((wheelDelta, modifiers));
     }
 
     public void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {
@@ -179,6 +181,7 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public string? StatusText { get; private set; }
     public int ShowStatusTextCount { get; private set; }
     public int ClearStatusTextCount { get; private set; }
+    public bool RecordingBorderVisible { get; private set; }
 
     public void ShowStatusText(string text) {
         StatusText = text;
@@ -188,6 +191,10 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public void ClearStatusText() {
         StatusText = null;
         ClearStatusTextCount++;
+    }
+
+    public void SetRecordingBorder(bool visible) {
+        RecordingBorderVisible = visible;
     }
 
     public void SimulateFocusLoss() {
@@ -348,4 +355,90 @@ public sealed class FakeTimeProvider : TimeProvider {
     }
 
     public void SetTimestamp(long ticks) => _timestamp = ticks;
+}
+
+public sealed class FakeMacroStore : IMacroStore {
+    public MacrosFile LastSavedFile { get; private set; } = new();
+    public int SaveCount { get; private set; }
+    public bool ShouldFailSave { get; set; }
+    public MacrosFile FileToLoad { get; set; } = new();
+    public IReadOnlyList<string> LoadErrors { get; set; } = [];
+
+    public MacroLoadResult Load() => new() { File = FileToLoad, Errors = LoadErrors };
+
+    public MacroSaveResult Save(MacrosFile file) {
+        SaveCount++;
+        LastSavedFile = file;
+        return ShouldFailSave
+            ? new MacroSaveResult { Success = false, Error = "Fake save failure" }
+            : new MacroSaveResult { Success = true };
+    }
+}
+
+public sealed class FakeMacroPickerWindow : IMacroPickerWindow {
+    public event Action<int>? SlotSelected;
+    public event Action? PickerClosed;
+
+    public bool IsShown { get; private set; }
+    public int ShowCount { get; private set; }
+    public MacroDefinition?[]? LastMacros { get; private set; }
+    public VKey[]? LastSlotKeys { get; private set; }
+
+    public void Show(MacroDefinition?[] macros, VKey[] slotKeys) {
+        IsShown = true;
+        ShowCount++;
+        LastMacros = macros;
+        LastSlotKeys = slotKeys;
+    }
+
+    public void Close() => IsShown = false;
+
+    public void SimulateSlotSelected(int slot) => SlotSelected?.Invoke(slot);
+    public void SimulatePickerClosed() => PickerClosed?.Invoke();
+}
+
+public sealed class FakeDelayProvider : IDelayProvider {
+    public List<int> RecordedDelays { get; } = [];
+
+    public Task Delay(int milliseconds, CancellationToken ct) {
+        ct.ThrowIfCancellationRequested();
+        RecordedDelays.Add(milliseconds);
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeMacroPlaybackWindow : IMacroPlaybackWindow {
+    public bool IsShown { get; private set; }
+    public string? LastMacroName { get; private set; }
+    public int LastTotalSteps { get; private set; }
+    public int LastCompletedSteps { get; private set; }
+
+    public void Show(string macroName, int totalSteps) {
+        IsShown = true;
+        LastMacroName = macroName;
+        LastTotalSteps = totalSteps;
+    }
+
+    public void UpdateProgress(int completedSteps, int totalSteps) {
+        LastCompletedSteps = completedSteps;
+        LastTotalSteps = totalSteps;
+    }
+
+    public int LastDelayRemainingMs { get; private set; }
+    public string? LastDelayActionType { get; private set; }
+    public void UpdateDelay(int remainingMs, string actionType) {
+        LastDelayRemainingMs = remainingMs;
+        LastDelayActionType = actionType;
+    }
+
+    public void Close() => IsShown = false;
+}
+
+public sealed class FakeClickIndicator : IClickIndicator {
+    public List<(double X, double Y)> ShownPositions { get; } = [];
+
+    public Task ShowAndWait(double screenX, double screenY) {
+        ShownPositions.Add((screenX, screenY));
+        return Task.CompletedTask;
+    }
 }

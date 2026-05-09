@@ -131,6 +131,10 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         StatusCanvas.Children.Clear();
     }
 
+    void IOverlayWindow.SetRecordingBorder(bool visible) {
+        RecordingBorder.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private static SolidColorBrush TryParseBrush(string? colorString, SolidColorBrush fallback) {
         if (colorString is null) {
             return fallback;

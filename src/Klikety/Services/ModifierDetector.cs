@@ -17,9 +17,18 @@ public sealed partial class ModifierDetector : IModifierDetector {
 
     public ActionModifiers GetCurrentModifiers() {
         var mods = ActionModifiers.None;
-        if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0) mods |= ActionModifiers.Shift;
-        if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) mods |= ActionModifiers.Ctrl;
-        if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0) mods |= ActionModifiers.Alt;
+        if ((GetAsyncKeyState(VK_SHIFT) & 0x8000) != 0) {
+            mods |= ActionModifiers.Shift;
+        }
+
+        if ((GetAsyncKeyState(VK_CONTROL) & 0x8000) != 0) {
+            mods |= ActionModifiers.Ctrl;
+        }
+
+        if ((GetAsyncKeyState(VK_MENU) & 0x8000) != 0) {
+            mods |= ActionModifiers.Alt;
+        }
+
         return mods;
     }
 }

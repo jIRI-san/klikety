@@ -15,9 +15,10 @@ All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookServ
 ```csharp
 interface IHotKeyService   { event EventHandler Activated; bool Register(HotKeyConfig); void Unregister(); }
 interface IKeyboardHookService { event EventHandler<VKey> KeyPressed; bool Enable(); void Disable(); }
-interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); void SendScroll(int wheelDelta); void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None); }
+interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None); void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None); }
 interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 interface IScrollHotKeyService { List<string> Register(); void Unregister(); bool IsRegistered; }
+interface IScreenBoundsProvider { Rectangle GetPrimaryScreenBounds(); double GetDpiScale(); }
 ```
 
 ## `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)`
@@ -44,7 +45,7 @@ interface IScrollHotKeyService { List<string> Register(); void Unregister(); boo
 - Partial `SendInput` sends trigger compensating `KEYUP` events to prevent stuck modifiers.
 - `SendDrag`: single `SendInput` call with move-to-start + button-down + move-to-end + button-up, plus modifier KEYDOWN/KEYUP bracket. Button mapping: `LeftClick`/`DoubleClick` → left, `RightClick` → right, `MiddleClick` → middle. `MoveOnly`/`DragDrop` defensively rejected (return without action).
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
-- `SendScroll`: sends `MOUSEEVENTF_WHEEL` at current cursor position. `mouseData` = `WHEEL_DELTA (120) × scrollAmount`. Positive = up, negative = down. No cursor move.
+- `SendScroll`: sends `MOUSEEVENTF_WHEEL` at current cursor position. `mouseData` = `WHEEL_DELTA (120) × scrollAmount`. Positive = up, negative = down. No cursor move. When `modifiers != None`, wraps wheel event in `KEYDOWN`/`KEYUP` bracket via single `SendInput` call with partial-send compensation.
 
 ## `IScrollHotKeyService` — `RegisterHotKey`
 
@@ -84,6 +85,12 @@ interface IScrollHotKeyService { List<string> Register(); void Unregister(); boo
 - Returns `System.Drawing.Rectangle` (physical pixels). Consumer (`MonitorService`) converts to DIPs via `PresentationSource.CompositionTarget.TransformFromDevice`.
 - Fallback: primary monitor when `GetForegroundWindow()` returns zero.
 - Used by `KeyPressDisplayManager` for HUD positioning on active monitor.
+
+## `NativeMethods.GetPrimaryMonitorDpiScale()` — `GetDpiForMonitor`
+
+- P/Invoke to `shcore.dll!GetDpiForMonitor` with `MDT_EFFECTIVE_DPI`.
+- Returns `dpiX / 96.0` for the primary monitor. Fallback: `1.0` if call fails.
+- Exposed via `IScreenBoundsProvider.GetDpiScale()`. Used by macro recording to tag captures with display scale.
 
 ## `NativeMethods.SetClickThroughExStyle(hwnd)`
 

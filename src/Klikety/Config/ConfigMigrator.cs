@@ -20,7 +20,7 @@ public sealed class MigrationResult {
 /// a JsonDocument pre-pass. Performs atomic writes with .bak backup.
 /// </summary>
 public static class ConfigMigrator {
-    public const int CurrentConfigVersion = 4;
+    public const int CurrentConfigVersion = 5;
 
     private static readonly VKey[] Default8FirstKeys =
         [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
@@ -189,6 +189,17 @@ public static class ConfigMigrator {
                 changed = true;
             }
 
+            // v4 → v5: add macros section if missing
+            if (version < 5) {
+                if (!obj.ContainsKey("macros")) {
+                    obj["macros"] = CreateDefaultMacros();
+                    changed = true;
+                }
+
+                obj["configVersion"] = CurrentConfigVersion;
+                changed = true;
+            }
+
             if (changed) {
                 var writeError = AtomicWrite(path, obj);
                 if (writeError is not null) {
@@ -309,6 +320,11 @@ public static class ConfigMigrator {
             obj["scrollHotkeys"] = CreateDefaultScrollHotKeys();
         }
 
+        // Add macros section with defaults
+        if (!obj.ContainsKey("macros")) {
+            obj["macros"] = CreateDefaultMacros();
+        }
+
         // Remove legacy navigationMode
         obj.Remove("navigationMode");
 
@@ -334,6 +350,18 @@ public static class ConfigMigrator {
             ["key"] = "Next",
         },
         ["scrollAmount"] = 3,
+    };
+
+    private static JsonObject CreateDefaultMacros() => new() {
+        ["enabled"] = true,
+        ["globalHotKey"] = new JsonObject {
+            ["modifiers"] = "Control, Alt, Shift",
+            ["key"] = "M",
+        },
+        ["recordKey"] = "OemPipe",
+        ["helperKey"] = "OemTilde",
+        ["slotKeys"] = new JsonArray("D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"),
+        ["speedModifier"] = 1.0,
     };
 
     private static (bool TwoKey, bool ArrowKeys) ParseLegacyNavMode(string? mode) => mode?.ToLowerInvariant() switch {

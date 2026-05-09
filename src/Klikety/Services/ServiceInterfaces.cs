@@ -33,7 +33,7 @@ public interface IKeyboardHookService : IDisposable {
 public interface IMouseActionService {
     void MoveTo(System.Drawing.Point physicalPoint);
     void SendAction(System.Drawing.Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);
-    void SendScroll(int wheelDelta);
+    void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None);
     void SendDrag(System.Drawing.Point start, System.Drawing.Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None);
 }
 
@@ -54,6 +54,16 @@ public interface IScrollHotKeyService : IDisposable {
 }
 
 /// <summary>
+/// Abstracts global macro hotkey registration and activation.
+/// </summary>
+public interface IMacroHotKeyService : IDisposable {
+    event Action? Activated;
+    bool IsRegistered { get; }
+    string? Register();
+    void Unregister();
+}
+
+/// <summary>
 /// Abstracts the overlay window for testability.
 /// </summary>
 public interface IOverlayWindow {
@@ -64,7 +74,42 @@ public interface IOverlayWindow {
     void ClearCanvas();
     void ShowStatusText(string text);
     void ClearStatusText();
+    void SetRecordingBorder(bool visible);
     bool IsVisible { get; }
+}
+
+/// <summary>
+/// Abstracts the macro picker overlay for testability.
+/// </summary>
+public interface IMacroPickerWindow {
+    event Action<int>? SlotSelected;
+    event Action? PickerClosed;
+    void Show(MacroDefinition?[] macros, VKey[] slotKeys);
+    void Close();
+}
+
+/// <summary>
+/// Abstracts async delay for testable macro playback.
+/// </summary>
+public interface IDelayProvider {
+    Task Delay(int milliseconds, CancellationToken ct);
+}
+
+/// <summary>
+/// Abstracts the playback progress overlay for testability.
+/// </summary>
+public interface IMacroPlaybackWindow {
+    void Show(string macroName, int totalSteps);
+    void UpdateProgress(int completedSteps, int totalSteps);
+    void UpdateDelay(int remainingMs, string actionType);
+    void Close();
+}
+
+/// <summary>
+/// Abstracts the click indicator animation for testability.
+/// </summary>
+public interface IClickIndicator {
+    Task ShowAndWait(double screenX, double screenY);
 }
 
 /// <summary>

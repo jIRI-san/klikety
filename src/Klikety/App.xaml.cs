@@ -21,6 +21,10 @@ public partial class App : Application {
     private bool _scrollHotKeysConfigEnabled;
     private NavigatorCoordinator? _coordinator;
     private ConfigModel? _config;
+    private MacroStore? _macroStore;
+    private MacrosFile? _macrosFile;
+    private MacroHotKeyService? _macroHotKeyService;
+    private MacroPickerOverlay? _macroPickerOverlay;
 
     // Key press visualization state (runtime-only, never persisted)
     private KeyboardHookService? _keyPressHook;
@@ -142,6 +146,14 @@ public partial class App : Application {
             violations.Add(logGridWarning);
         }
 
+        // Load macros
+        _macroStore = new MacroStore();
+        var macroResult = _macroStore.Load();
+        _macrosFile = macroResult.File;
+        foreach (var macroError in macroResult.Errors) {
+            violations.Add(macroError);
+        }
+
         // Create coordinator
         _coordinator = new NavigatorCoordinator(
             _hotKeyService!,
@@ -152,7 +164,9 @@ public partial class App : Application {
             PlatformServices.Instance,
             new ModifierDetector(),
             config,
-            logger);
+            logger,
+            _macroStore,
+            _macrosFile);
 
         // Register hotkey
         _hotKeyService!.Unregister();
@@ -169,6 +183,23 @@ public partial class App : Application {
             var scrollFailures = _scrollHotKeyService.Register();
             violations.AddRange(scrollFailures);
         }
+
+        // Macro hotkey + picker
+        _macroHotKeyService?.Dispose();
+        _macroPickerOverlay ??= new MacroPickerOverlay();
+        if (config.Macros.Enabled && config.Macros.GlobalHotKey is { } macroHotKey) {
+            _macroHotKeyService = new MacroHotKeyService(macroHotKey, logger);
+            var macroFailure = _macroHotKeyService.Register();
+            if (macroFailure is not null) {
+                violations.Add(macroFailure);
+            }
+        }
+
+        _coordinator.MacroHotKeyService = _macroHotKeyService;
+        _coordinator.MacroPickerWindow = _macroPickerOverlay;
+        _coordinator.MacroPlaybackWindow = new MacroPlaybackOverlay();
+        _coordinator.ClickIndicator = new ClickIndicatorAdapter(
+            new ClickIndicatorWindow(config.Macros.PlaybackIndicator));
 
 #if DEBUG
         SetupDebugLogGridSession(config, theme, resolver);
@@ -303,6 +334,16 @@ public partial class App : Application {
             contextMenu.Items.Add(scrollItem);
         }
 
+        // Macro status (info only)
+        if (_config?.Macros.Enabled == true && _macrosFile is not null) {
+            var defined = _macrosFile.Macros.Count(m => m is not null);
+            var macroInfoItem = new System.Windows.Controls.MenuItem {
+                Header = $"Macros: {defined}/10 defined",
+                IsEnabled = false,
+            };
+            contextMenu.Items.Add(macroInfoItem);
+        }
+
         contextMenu.Items.Add(new System.Windows.Controls.Separator());
 
         // Quit
@@ -312,6 +353,7 @@ public partial class App : Application {
             _coordinator?.Dispose();
             _hotKeyService?.Dispose();
             _scrollHotKeyService?.Dispose();
+            _macroHotKeyService?.Dispose();
             _trayIcon?.Dispose();
             _loggerFactory?.Dispose();
             Shutdown();
@@ -362,7 +404,9 @@ public partial class App : Application {
     /// Disables and disposes all key press visualization resources. Safe to call when already disabled.
     /// </summary>
     private void DisableKeyPressVisualization() {
-        if (_keyPressHook is null) return;
+        if (_keyPressHook is null) {
+            return;
+        }
 
         _keyPressHook.Disable();
         _keyPressProcessor?.ResetModifierState();

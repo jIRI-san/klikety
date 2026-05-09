@@ -74,11 +74,13 @@ public sealed partial class MouseActionService : IMouseActionService {
 
         var input = new INPUT {
             type = INPUT_MOUSE,
-            union = new INPUT_UNION { mi = new MOUSEINPUT {
-                dx = nx,
-                dy = ny,
-                dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
-            } },
+            union = new INPUT_UNION {
+                mi = new MOUSEINPUT {
+                    dx = nx,
+                    dy = ny,
+                    dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+                }
+            },
         };
 
         _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
@@ -237,22 +239,41 @@ public sealed partial class MouseActionService : IMouseActionService {
 
     private static INPUT MakeMoveInput(int nx, int ny) => new() {
         type = INPUT_MOUSE,
-        union = new INPUT_UNION { mi = new MOUSEINPUT {
-            dx = nx,
-            dy = ny,
-            dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
-        } },
+        union = new INPUT_UNION {
+            mi = new MOUSEINPUT {
+                dx = nx,
+                dy = ny,
+                dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+            }
+        },
     };
 
-    public void SendScroll(int wheelDelta) {
-        var input = new INPUT {
+    public void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
+        var scrollInput = new INPUT {
             type = INPUT_MOUSE,
-            union = new INPUT_UNION { mi = new MOUSEINPUT {
-                mouseData = unchecked((uint)wheelDelta),
-                dwFlags = MOUSEEVENTF_WHEEL,
-            } },
+            union = new INPUT_UNION {
+                mi = new MOUSEINPUT {
+                    mouseData = unchecked((uint)wheelDelta),
+                    dwFlags = MOUSEEVENTF_WHEEL,
+                }
+            },
         };
 
-        _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        if (modifiers == ActionModifiers.None) {
+            _ = SendInput(1, [scrollInput], Marshal.SizeOf<INPUT>());
+            return;
+        }
+
+        var modKeyDowns = BuildModifierInputs(modifiers, keyUp: false);
+        var modKeyUps = BuildModifierInputs(modifiers, keyUp: true);
+        var inputs = new INPUT[modKeyDowns.Length + 1 + modKeyUps.Length];
+        modKeyDowns.CopyTo(inputs, 0);
+        inputs[modKeyDowns.Length] = scrollInput;
+        modKeyUps.CopyTo(inputs, modKeyDowns.Length + 1);
+        var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        if (sent < inputs.Length) {
+            // Compensate: release modifier keys to prevent stuck state
+            _ = SendInput((uint)modKeyUps.Length, modKeyUps, Marshal.SizeOf<INPUT>());
+        }
     }
 }

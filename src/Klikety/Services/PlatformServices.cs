@@ -76,6 +76,7 @@ internal sealed class Win32CursorPositionProvider : ICursorPositionProvider {
 
 internal sealed class Win32ScreenBoundsProvider : IScreenBoundsProvider {
     public Rectangle GetPrimaryScreenBounds() => NativeMethods.GetPrimaryScreenBounds();
+    public double GetDpiScale() => NativeMethods.GetPrimaryMonitorDpiScale();
 }
 
 internal sealed class Win32KeyboardLayoutProvider : IKeyboardLayoutProvider {

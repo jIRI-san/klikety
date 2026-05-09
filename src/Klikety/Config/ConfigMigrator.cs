@@ -20,7 +20,7 @@ public sealed class MigrationResult {
 /// a JsonDocument pre-pass. Performs atomic writes with .bak backup.
 /// </summary>
 public static class ConfigMigrator {
-    public const int CurrentConfigVersion = 5;
+    public const int CurrentConfigVersion = 6;
 
     private static readonly VKey[] Default8FirstKeys =
         [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
@@ -200,6 +200,24 @@ public static class ConfigMigrator {
                 changed = true;
             }
 
+            // v5 → v6: add appScope section if missing
+            if (version < 6) {
+                if (!obj.ContainsKey("appScope") || obj["appScope"] is not JsonObject) {
+                    var v6ActionKeys = CollectActionKeys(obj);
+                    var v6DefaultChord = VKey.B;
+                    if (v6ActionKeys.Contains(v6DefaultChord) || ContainsVKeyInArray(obj, "horizontalKeys", v6DefaultChord) || ContainsVKeyInArray(obj, "verticalKeys", v6DefaultChord)) {
+                        obj["appScope"] = new JsonObject { ["chordKey"] = (string?)null };
+                        v1Warnings.Add($"App-scope chord key '{v6DefaultChord}' conflicts with existing keys; app-scope auto-disabled.");
+                    } else {
+                        obj["appScope"] = CreateDefaultAppScope();
+                    }
+                    changed = true;
+                }
+
+                obj["configVersion"] = CurrentConfigVersion;
+                changed = true;
+            }
+
             if (changed) {
                 var writeError = AtomicWrite(path, obj);
                 if (writeError is not null) {
@@ -325,6 +343,17 @@ public static class ConfigMigrator {
             obj["macros"] = CreateDefaultMacros();
         }
 
+        // Add appScope section with defaults
+        if (!obj.ContainsKey("appScope") || obj["appScope"] is not JsonObject) {
+            var legacyDefaultChord = VKey.B;
+            if (actionKeys.Contains(legacyDefaultChord) || ContainsVKeyInArray(obj, "horizontalKeys", legacyDefaultChord) || ContainsVKeyInArray(obj, "verticalKeys", legacyDefaultChord)) {
+                obj["appScope"] = new JsonObject { ["chordKey"] = (string?)null };
+                warnings.Add($"App-scope chord key '{legacyDefaultChord}' conflicts with existing keys; app-scope auto-disabled.");
+            } else {
+                obj["appScope"] = CreateDefaultAppScope();
+            }
+        }
+
         // Remove legacy navigationMode
         obj.Remove("navigationMode");
 
@@ -363,6 +392,18 @@ public static class ConfigMigrator {
         ["slotKeys"] = new JsonArray("D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"),
         ["speedModifier"] = 1.0,
     };
+
+    private static JsonObject CreateDefaultAppScope() => new() {
+        ["chordKey"] = "B",
+    };
+
+    private static bool ContainsVKeyInArray(JsonObject obj, string propertyName, VKey key) {
+        if (obj[propertyName] is not JsonArray arr) {
+            return false;
+        }
+        var keyStr = key.ToString();
+        return arr.Any(n => string.Equals(n?.GetValue<string>(), keyStr, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static (bool TwoKey, bool ArrowKeys) ParseLegacyNavMode(string? mode) => mode?.ToLowerInvariant() switch {
         "twokey" => (true, false),

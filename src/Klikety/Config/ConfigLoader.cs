@@ -194,6 +194,9 @@ public static class ConfigLoader {
         // === Macro key validation ===
         ValidateMacros(config, violations, actionKeys, allNavKeys, hotkeyVKeys);
 
+        // === App-scope validation ===
+        ValidateAppScope(config, violations, actionKeys, allNavKeys, hotkeyVKeys);
+
         return violations;
     }
 
@@ -525,5 +528,65 @@ public static class ConfigLoader {
         }
 
         return color.Length is 7 or 9 && color[1..].All(c => char.IsAsciiHexDigit(c));
+    }
+
+    private static void ValidateAppScope(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> navKeys, HashSet<VKey> hotkeyVKeys) {
+        if (config.AppScope is null) {
+            return;
+        }
+
+        var chordKey = config.AppScope.ChordKey;
+        if (chordKey is null) {
+            return; // feature disabled
+        }
+
+        var key = chordKey.Value;
+        var label = "appScope.chordKey";
+
+        if (ReservedKeys.Contains(key)) {
+            violations.Add($"{label}: key '{key}' is reserved.");
+        }
+
+        if (actionKeys.Contains(key)) {
+            violations.Add($"{label}: key '{key}' conflicts with an action binding.");
+        }
+
+        if (navKeys.Contains(key)) {
+            violations.Add($"{label}: key '{key}' conflicts with a navigation key.");
+        }
+
+        if (hotkeyVKeys.Contains(key)) {
+            violations.Add($"{label}: key '{key}' conflicts with the hotkey.");
+        }
+
+        // Chord keys from modes
+        var modes = config.Modes;
+        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid }) {
+            if (mc is { Enabled: true, ChordKey: { } chord } && chord == key) {
+                violations.Add($"{label}: key '{key}' conflicts with a mode chord key.");
+                break;
+            }
+        }
+
+        // Scroll hotkeys
+        if (config.ScrollHotKeys.Enabled) {
+            if (key == config.ScrollHotKeys.ScrollUpKey.Key || key == config.ScrollHotKeys.ScrollDownKey.Key) {
+                violations.Add($"{label}: key '{key}' conflicts with a scroll hotkey.");
+            }
+        }
+
+        // Macro keys
+        var macros = config.Macros;
+        if (macros is { Enabled: true }) {
+            if (key == macros.RecordKey || key == macros.HelperKey) {
+                violations.Add($"{label}: key '{key}' conflicts with a macro key.");
+            }
+            if (macros.SlotKeys?.Contains(key) == true) {
+                violations.Add($"{label}: key '{key}' conflicts with a macro slot key.");
+            }
+            if (macros.GlobalHotKey is { } ghk && ghk.Key == key) {
+                violations.Add($"{label}: key '{key}' conflicts with macro globalHotKey.");
+            }
+        }
     }
 }

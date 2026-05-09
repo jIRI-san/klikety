@@ -790,6 +790,125 @@ public class ConfigLoaderTests {
         } finally { Cleanup(path); }
     }
 
+    [Fact]
+    public void Validate_AppScopeChordConflictsWithAction_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 6,
+            "actionBindings": { "B": "DoubleClick" },
+            "appScope": { "chordKey": "B" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("appScope") && v.Contains("action"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_AppScopeChordConflictsWithModeChord_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 6,
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true },
+                "crosshair": { "enabled": true, "chordKey": "B", "twoKey": true }
+            },
+            "appScope": { "chordKey": "B" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("appScope") && v.Contains("mode chord"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_AppScopeChordConflictsWithNavKey_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 6,
+            "horizontalKeys": ["A","S","D","B"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": { "uniformGrid": { "enabled": true, "default": true } },
+            "appScope": { "chordKey": "B" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("appScope") && v.Contains("navigation"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_AppScopeChordNull_NoViolations() {
+        var json = """
+        {
+            "configVersion": 6,
+            "appScope": { "chordKey": null }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.DoesNotContain(result.Violations, v => v.Contains("appScope"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_AppScopeChordReserved_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 6,
+            "appScope": { "chordKey": "Escape" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("appScope") && v.Contains("reserved"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_AppScopeChordConflictsWithScrollKey_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 6,
+            "scrollHotkeys": {
+                "enabled": true,
+                "scrollUpKey": { "modifiers": "Control, Alt", "key": "B" },
+                "scrollDownKey": { "modifiers": "Control, Alt", "key": "Next" }
+            },
+            "appScope": { "chordKey": "B" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("appScope") && v.Contains("scroll"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Validate_AppScopeChordConflictsWithMacroKey_ReportsViolation() {
+        var json = """
+        {
+            "configVersion": 6,
+            "macros": { "enabled": true, "recordKey": "B" },
+            "appScope": { "chordKey": "B" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("appScope") && v.Contains("macro"));
+        } finally { Cleanup(path); }
+    }
+
     private static string WriteTempFile(string content) {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(path, content);

@@ -168,23 +168,23 @@
 ## Phase 3: Config & Validation
 <!-- worktree: -->
 
-- [ ] 3.1 Add `AppScopeConfig` to `ConfigModel`; config migration v5→v6 (REQ-10) [after: phase 2] `M`
+- [x] 3.1 Add `AppScopeConfig` to `ConfigModel`; config migration v5→v6 (REQ-10) [after: phase 2] `M`
   - `AppScopeConfig`: `VKey? ChordKey` (default `VKey.B`)
   - `ConfigModel.AppScope` property
   - `ConfigMigrator`: v5→v6 adds `appScope` section with defaults if missing. Unconditionally v5→v6 — macros migration (v4→v5) is a prerequisite and must land first. v5→v6 migration verifies `macros` section exists (from v4→v5) as a precondition guard.
   - Config round-trip: unknown fields preserved
 
-- [ ] 3.2 Unit tests for config migration (REQ-10) [after: 3.1] `S`
+- [x] 3.2 Unit tests for config migration (REQ-10) [after: 3.1] `S`
   - Migration from pre-appScope config → section added with defaults
   - Already-migrated config → no mutations
   - Round-trip preserves unknown fields
 
-- [ ] 3.3 Config validation for app-scope chord key (REQ-11, RISK-3) [after: 3.1] `M`
+- [x] 3.3 Config validation for app-scope chord key (REQ-11, RISK-3) [after: 3.1] `M`
   - **Collision targets**: reserved keys (Escape, arrows, VK_RETURN, hotkey modifiers), `actionBindings`, `firstKeys`/`secondKeys`, mode chord keys (Crosshair, LogCrosshair, LogGrid), scroll hotkeys, macro keys (record, helper, slot keys)
   - Collision → validation warning; app-scope disabled for session
   - Null chord key → app-scope feature disabled (no chord key registered)
 
-- [ ] 3.4 Unit tests for config validation (REQ-11) [after: 3.3] `S`
+- [x] 3.4 Unit tests for config validation (REQ-11) [after: 3.3] `S`
   - Chord key conflicts with action binding → warning
   - Chord key conflicts with mode chord → warning
   - Chord key conflicts with nav key → warning

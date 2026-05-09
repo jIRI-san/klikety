@@ -126,7 +126,7 @@
   // Key press visualization HUD. Visual settings only — feature is toggled
   // at runtime via tray menu "Show Key Presses" (always off after restart).
   "keyPressVisualization": {
-    "fontSize": 36.0,
+    "fontSize": 72.0,
     "fontColor": "#FFCC00",
     "outlineColor": "#000000",
     "outlineThickness": 2.0,
@@ -135,6 +135,6 @@
     "fadeDurationMs": 500,
     "maxVisibleKeys": 3,
     "margin": 20.0,
-    "repeatWindowMs": 150
+    "repeatWindowMs": 400
   }
 }

@@ -216,7 +216,7 @@
         "fontSize": {
           "type": "number",
           "description": "Font size in DIP for key labels.",
-          "default": 36.0,
+          "default": 72.0,
           "exclusiveMinimum": 0
         },
         "fontColor": {
@@ -269,7 +269,7 @@
         "repeatWindowMs": {
           "type": "integer",
           "description": "Time window in milliseconds for collapsing repeated identical keys.",
-          "default": 150,
+          "default": 400,
           "minimum": 50,
           "maximum": 1000
         }

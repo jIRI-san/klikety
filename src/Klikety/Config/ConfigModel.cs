@@ -110,7 +110,7 @@ public sealed class ScrollHotKeyConfig {
 /// No enable/disable property — activation is runtime-only via tray menu.
 /// </summary>
 public sealed class KeyPressVisualizationConfig {
-    public double FontSize { get; init; } = 36.0;
+    public double FontSize { get; init; } = 72.0;
     public string FontColor { get; init; } = "#FFCC00";
     public string OutlineColor { get; init; } = "#000000";
     public double OutlineThickness { get; init; } = 2.0;
@@ -119,7 +119,7 @@ public sealed class KeyPressVisualizationConfig {
     public int FadeDurationMs { get; init; } = 500;
     public int MaxVisibleKeys { get; init; } = 3;
     public double Margin { get; init; } = 20.0;
-    public int RepeatWindowMs { get; init; } = 150;
+    public int RepeatWindowMs { get; init; } = 400;
 }
 
 /// <summary>

@@ -31,24 +31,43 @@ public partial class OverlayWindow : Window, IOverlayWindow {
     bool IOverlayWindow.IsVisible => IsVisible;
 
     void IOverlayWindow.Show() {
-        // Size to primary screen bounds in DIPs
-        var screenBounds = NativeMethods.GetPrimaryScreenBounds();
+        ((IOverlayWindow)this).Show(NativeMethods.GetPrimaryScreenBounds());
+    }
 
-        // Must show first so the HWND exists and PresentationSource is available
-        Show();
+    void IOverlayWindow.Show(System.Drawing.Rectangle bounds) {
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+            bounds = NativeMethods.GetPrimaryScreenBounds();
 
-        var source = PresentationSource.FromVisual(this)
-                         ?? throw new InvalidOperationException("No PresentationSource available.");
-        var transform = source.CompositionTarget!.TransformFromDevice;
-        var topLeft = transform.Transform(new System.Windows.Point(screenBounds.X, screenBounds.Y));
-        var bottomRight = transform.Transform(new System.Windows.Point(
-            screenBounds.X + screenBounds.Width,
-            screenBounds.Y + screenBounds.Height));
+        var source = PresentationSource.FromVisual(this);
 
-        Left = topLeft.X;
-        Top = topLeft.Y;
-        Width = bottomRight.X - topLeft.X;
-        Height = bottomRight.Y - topLeft.Y;
+        if (source is not null) {
+            // Window was previously shown — pre-set position/size to prevent flash at old bounds
+            var pre = source.CompositionTarget!.TransformFromDevice;
+            var preTopLeft = pre.Transform(new System.Windows.Point(bounds.X, bounds.Y));
+            var preBottomRight = pre.Transform(new System.Windows.Point(
+                bounds.X + bounds.Width, bounds.Y + bounds.Height));
+            Left = preTopLeft.X;
+            Top = preTopLeft.Y;
+            Width = preBottomRight.X - preTopLeft.X;
+            Height = preBottomRight.Y - preTopLeft.Y;
+
+            Show();
+        } else {
+            // First show — need WPF Show() to create PresentationSource
+            Show();
+
+            source = PresentationSource.FromVisual(this)
+                     ?? throw new InvalidOperationException("No PresentationSource available.");
+            var transform = source.CompositionTarget!.TransformFromDevice;
+            var topLeft = transform.Transform(new System.Windows.Point(bounds.X, bounds.Y));
+            var bottomRight = transform.Transform(new System.Windows.Point(
+                bounds.X + bounds.Width, bounds.Y + bounds.Height));
+
+            Left = topLeft.X;
+            Top = topLeft.Y;
+            Width = bottomRight.X - topLeft.X;
+            Height = bottomRight.Y - topLeft.Y;
+        }
 
         Activate();
         Keyboard.Focus(this);

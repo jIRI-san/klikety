@@ -167,15 +167,25 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public bool IsVisible { get; private set; }
     public int ShowCount { get; private set; }
     public int HideCount { get; private set; }
+    public Rectangle LastShowBounds { get; private set; }
+    public bool RaiseFocusLostOnHide { get; set; }
 
     public void Show() {
+        Show(new Rectangle(0, 0, 1920, 1080));
+    }
+
+    public void Show(Rectangle bounds) {
         IsVisible = true;
         ShowCount++;
+        LastShowBounds = bounds;
     }
 
     public void Hide() {
         IsVisible = false;
         HideCount++;
+        if (RaiseFocusLostOnHide) {
+            FocusLost?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     public void ClearCanvas() {

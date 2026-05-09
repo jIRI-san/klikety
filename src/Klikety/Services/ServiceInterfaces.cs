@@ -69,6 +69,7 @@ public interface IMacroHotKeyService : IDisposable {
 public interface IOverlayWindow {
     event EventHandler? FocusLost;
     void Show();
+    void Show(System.Drawing.Rectangle bounds);
     void Hide();
     void Close();
     void ClearCanvas();

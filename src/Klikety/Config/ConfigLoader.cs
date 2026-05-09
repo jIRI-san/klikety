@@ -365,7 +365,7 @@ public static class ConfigLoader {
 
     private static void ValidateMacros(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> navKeys, HashSet<VKey> hotkeyVKeys) {
         var macros = config.Macros;
-        if (!macros.Enabled) return;
+        if (macros is null || !macros.Enabled) return;
 
         // SpeedModifier validation
         if (macros.SpeedModifier < 0) {
@@ -393,7 +393,12 @@ public static class ConfigLoader {
             violations.Add("macros: recordKey and helperKey must be different.");
         }
 
-        // SlotKeys length validation
+        // SlotKeys null/length validation
+        if (macros.SlotKeys is null) {
+            violations.Add("macros.slotKeys is null.");
+            return;
+        }
+
         if (macros.SlotKeys.Length < 10) {
             violations.Add($"macros.slotKeys has fewer than 10 entries (got {macros.SlotKeys.Length}); missing slots will use defaults.");
         } else if (macros.SlotKeys.Length > 10) {

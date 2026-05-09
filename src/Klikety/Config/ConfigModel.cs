@@ -154,7 +154,7 @@ public sealed class ConfigModel {
 
     /// <summary>
     /// Config schema version for migration detection.
-    /// 0 = legacy (pre-modes), 1 = current.
+    /// 0 = legacy (pre-modes), 1 = modes added, 2 = shared axis keys, 3 = LogGrid, 4 = scroll hotkeys, 5 = macros.
     /// </summary>
     public int ConfigVersion { get; init; }
 

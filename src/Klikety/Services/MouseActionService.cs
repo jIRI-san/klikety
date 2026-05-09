@@ -264,6 +264,10 @@ public sealed partial class MouseActionService : IMouseActionService {
         modKeyDowns.CopyTo(inputs, 0);
         inputs[modKeyDowns.Length] = scrollInput;
         modKeyUps.CopyTo(inputs, modKeyDowns.Length + 1);
-        _ = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        if (sent < inputs.Length) {
+            // Compensate: release modifier keys to prevent stuck state
+            _ = SendInput((uint)modKeyUps.Length, modKeyUps, Marshal.SizeOf<INPUT>());
+        }
     }
 }

@@ -13,11 +13,19 @@ public sealed class MacroLoadResult {
 }
 
 /// <summary>
+/// Result of saving macros to disk.
+/// </summary>
+public sealed class MacroSaveResult {
+    public required bool Success { get; init; }
+    public string? Error { get; init; }
+}
+
+/// <summary>
 /// Loads and saves macros.json with atomic writes and per-slot semantic validation.
 /// </summary>
 public interface IMacroStore {
     MacroLoadResult Load();
-    bool Save(MacrosFile file);
+    MacroSaveResult Save(MacrosFile file);
 }
 
 /// <summary>
@@ -56,6 +64,11 @@ public sealed class MacroStore : IMacroStore {
                 File = new MacrosFile(),
                 Errors = [$"Failed to read macros file: {ex.Message}"],
             };
+        } catch (UnauthorizedAccessException ex) {
+            return new MacroLoadResult {
+                File = new MacrosFile(),
+                Errors = [$"Failed to read macros file: {ex.Message}"],
+            };
         }
 
         MacrosFile? file;
@@ -70,6 +83,15 @@ public sealed class MacroStore : IMacroStore {
 
         if (file is null)
             return new MacroLoadResult { File = new MacrosFile() };
+
+        // Null-guard Macros array (user wrote "macros": null)
+        if (file.Macros is null) {
+            file = new MacrosFile {
+                Version = file.Version,
+                Macros = new MacroDefinition?[10],
+                ExtensionData = file.ExtensionData,
+            };
+        }
 
         // Pad array to 10 if shorter
         if (file.Macros.Length < 10) {
@@ -98,7 +120,7 @@ public sealed class MacroStore : IMacroStore {
         return new MacroLoadResult { File = file, Errors = errors };
     }
 
-    public bool Save(MacrosFile file) {
+    public MacroSaveResult Save(MacrosFile file) {
         try {
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
@@ -107,13 +129,13 @@ public sealed class MacroStore : IMacroStore {
                 var json = JsonSerializer.Serialize(file, JsonOptions);
                 File.WriteAllText(tempPath, json);
                 File.Move(tempPath, _path, overwrite: true);
-                return true;
+                return new MacroSaveResult { Success = true };
             } catch {
                 try { File.Delete(tempPath); } catch { /* best effort */ }
                 throw;
             }
-        } catch {
-            return false;
+        } catch (Exception ex) {
+            return new MacroSaveResult { Success = false, Error = ex.Message };
         }
     }
 
@@ -122,6 +144,11 @@ public sealed class MacroStore : IMacroStore {
 
     private static List<string> ValidateSlot(int slot, MacroDefinition def) {
         var errors = new List<string>();
+
+        if (def.Steps is null) {
+            errors.Add($"Slot {slot}: steps array is null");
+            return errors;
+        }
 
         for (var s = 0; s < def.Steps.Count; s++) {
             var step = def.Steps[s];
@@ -151,6 +178,12 @@ public sealed class MacroStore : IMacroStore {
 
                     if (step.EndX is null || step.EndY is null)
                         errors.Add($"{prefix}: DragDrop step missing EndX/EndY");
+
+                    if (step.EndX is not null && step.EndX.Value < 0)
+                        errors.Add($"{prefix}: endX is negative ({step.EndX})");
+
+                    if (step.EndY is not null && step.EndY.Value < 0)
+                        errors.Add($"{prefix}: endY is negative ({step.EndY})");
 
                     if (step.EndX is not null && def.ScreenWidth > 0 && step.EndX.Value >= def.ScreenWidth)
                         errors.Add($"{prefix}: endX ({step.EndX}) >= screenWidth ({def.ScreenWidth})");

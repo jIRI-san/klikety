@@ -88,7 +88,7 @@
 ## Phase 2: Coordinator App-Scope Logic
 <!-- worktree: -->
 
-- [ ] 2.1 Chord key dispatch: app-scope activation in coordinator (REQ-4, REQ-5, REQ-6, REQ-7, REQ-12, RISK-1, RISK-4, RISK-5, RISK-6, RISK-7) [after: 1.1, 1.3] `L`
+- [x] 2.1 Chord key dispatch: app-scope activation in coordinator (REQ-4, REQ-5, REQ-6, REQ-7, REQ-12, RISK-1, RISK-4, RISK-5, RISK-6, RISK-7) [after: 1.1, 1.3] `L`
   - Add coordinator fields:
     - `_appScoped` bool (false by default, cleared on `DeactivateOverlay`)
     - `_appScopeBounds` Rectangle
@@ -147,7 +147,7 @@
   - Chord key for app-scope available during drag target selection (standard chord dispatch applies — user can press `B` again to scope to target app)
   - Completing drag → `DeactivateOverlay()` as normal (clears `_appScoped`)
 
-- [ ] 2.5 `DeactivateOverlay` cleanup (REQ-5) [after: 2.1] `S`
+- [x] 2.5 `DeactivateOverlay` cleanup (REQ-5) [after: 2.1] `S`
   - Clear `_appScoped = false` in `DeactivateOverlay()`
   - Clear `_appScopeBounds`
 

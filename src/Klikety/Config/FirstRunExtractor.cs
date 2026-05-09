@@ -26,6 +26,7 @@ public static class FirstRunExtractor {
     private static readonly (string ResourceName, string RelativePath)[] SkipIfExists =
     [
         ("Klikety.Resources.config.json", "config.json"),
+        ("Klikety.Resources.macros.json", "macros.json"),
         ("Klikety.Resources.dark.theme.json", Path.Combine("themes", "dark.theme.json")),
         ("Klikety.Resources.light.theme.json", Path.Combine("themes", "light.theme.json")),
     ];

@@ -28,6 +28,7 @@ public class FirstRunExtractorTests : IDisposable {
 
         Assert.True(File.Exists(Path.Combine(_tempDir, "config.json")));
         Assert.True(File.Exists(Path.Combine(_tempDir, "config.schema.json")));
+        Assert.True(File.Exists(Path.Combine(_tempDir, "macros.json")));
         Assert.True(File.Exists(Path.Combine(_themesDir, "theme.schema.json")));
         Assert.True(File.Exists(Path.Combine(_themesDir, "dark.theme.json")));
         Assert.True(File.Exists(Path.Combine(_themesDir, "light.theme.json")));
@@ -55,6 +56,17 @@ public class FirstRunExtractorTests : IDisposable {
         FirstRunExtractor.EnsureDefaults(_tempDir, _themesDir, _assembly);
 
         Assert.Equal("user config", File.ReadAllText(configPath));
+    }
+
+    [Fact]
+    public void EnsureDefaults_ExistingMacros_NotOverwritten() {
+        Directory.CreateDirectory(_tempDir);
+        var macrosPath = Path.Combine(_tempDir, "macros.json");
+        File.WriteAllText(macrosPath, "user macros");
+
+        FirstRunExtractor.EnsureDefaults(_tempDir, _themesDir, _assembly);
+
+        Assert.Equal("user macros", File.ReadAllText(macrosPath));
     }
 
     [Fact]
@@ -97,7 +109,8 @@ public class FirstRunExtractorTests : IDisposable {
         var dir = new DirectoryInfo(_tempDir);
         var leftover = dir.GetFiles().Where(f =>
             f.Name != "config.json" &&
-            f.Name != "config.schema.json").ToArray();
+            f.Name != "config.schema.json" &&
+            f.Name != "macros.json").ToArray();
         Assert.Empty(leftover);
     }
 }

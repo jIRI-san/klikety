@@ -19,6 +19,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\config.schema.json" />
     <EmbeddedResource Include="Resources\config.json" />
+    <EmbeddedResource Include="Resources\macros.json" />
     <EmbeddedResource Include="Resources\theme.schema.json" />
     <EmbeddedResource Include="Resources\dark.theme.json" />
     <EmbeddedResource Include="Resources\light.theme.json" />

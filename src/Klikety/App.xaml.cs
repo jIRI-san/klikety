@@ -21,6 +21,8 @@ public partial class App : Application {
     private bool _scrollHotKeysConfigEnabled;
     private NavigatorCoordinator? _coordinator;
     private ConfigModel? _config;
+    private MacroStore? _macroStore;
+    private MacrosFile? _macrosFile;
 
     // Key press visualization state (runtime-only, never persisted)
     private KeyboardHookService? _keyPressHook;
@@ -140,6 +142,14 @@ public partial class App : Application {
         // LogGrid key-policy warning (trim or unavailability)
         if (sessionFactory.LogGridKeyPolicyWarning is { } logGridWarning) {
             violations.Add(logGridWarning);
+        }
+
+        // Load macros
+        _macroStore = new MacroStore();
+        var macroResult = _macroStore.Load();
+        _macrosFile = macroResult.File;
+        foreach (var macroError in macroResult.Errors) {
+            violations.Add(macroError);
         }
 
         // Create coordinator

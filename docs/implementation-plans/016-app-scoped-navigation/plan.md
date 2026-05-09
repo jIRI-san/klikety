@@ -81,7 +81,7 @@
   - Existing `Show()` delegates: calls `Show(NativeMethods.GetPrimaryScreenBounds())`
   - `FakeOverlayWindow`: record bounds in `Show(Rectangle)` call; parameterless `Show()` delegates with default bounds; optionally raise `FocusLost` on `Hide()` (configurable flag, default off) for testing RISK-4
 
-- [ ] 1.4 Unit tests for `IForegroundWindowProvider` fake and `IOverlayWindow.Show(Rectangle)` (REQ-2, REQ-3) `S`
+- [x] 1.4 Unit tests for `IForegroundWindowProvider` fake and `IOverlayWindow.Show(Rectangle)` (REQ-2, REQ-3) `S`
   - Fake returns configured bounds
   - `Show(Rectangle)` stores bounds for assertion
 

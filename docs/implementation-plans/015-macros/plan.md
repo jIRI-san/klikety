@@ -118,7 +118,7 @@
   - `GlobalHotKey` registration probe (same pattern as main hotkey)
   - All violations collected and returned as validation warnings
 
-- [ ] 1.6 Unit tests for config migration and validation (REQ-4, REQ-17) [after: 1.4, 1.5] `S`
+- [x] 1.6 Unit tests for config migration and validation (REQ-4, REQ-17) [after: 1.4, 1.5] `S`
   - Migration from v4 config (no `macros` section) → v5 with defaults
   - Already-v5 config → no mutations
   - Key collision detection: record key vs action bindings, helper key vs chord keys, slot keys vs nav keys, global hotkey vs main hotkey

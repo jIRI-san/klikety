@@ -332,6 +332,16 @@ public partial class App : Application {
             contextMenu.Items.Add(scrollItem);
         }
 
+        // Macro status (info only)
+        if (_config?.Macros.Enabled == true && _macrosFile is not null) {
+            var defined = _macrosFile.Macros.Count(m => m is not null);
+            var macroInfoItem = new System.Windows.Controls.MenuItem {
+                Header = $"Macros: {defined}/10 defined",
+                IsEnabled = false,
+            };
+            contextMenu.Items.Add(macroInfoItem);
+        }
+
         contextMenu.Items.Add(new System.Windows.Controls.Separator());
 
         // Quit
@@ -341,6 +351,7 @@ public partial class App : Application {
             _coordinator?.Dispose();
             _hotKeyService?.Dispose();
             _scrollHotKeyService?.Dispose();
+            _macroHotKeyService?.Dispose();
             _trayIcon?.Dispose();
             _loggerFactory?.Dispose();
             Shutdown();

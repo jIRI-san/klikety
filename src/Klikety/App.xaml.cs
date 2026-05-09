@@ -20,6 +20,14 @@ public partial class App : Application {
     private ScrollHotKeyService? _scrollHotKeyService;
     private bool _scrollHotKeysConfigEnabled;
     private NavigatorCoordinator? _coordinator;
+    private ConfigModel? _config;
+
+    // Key press visualization state (runtime-only, never persisted)
+    private KeyboardHookService? _keyPressHook;
+    private KeyPressProcessor? _keyPressProcessor;
+    private KeyPressWindow? _keyPressWindow;
+    private KeyPressDisplayManager? _keyPressDisplayManager;
+
 #if DEBUG
     private HotKeyService? _debugHotKeyService;
     private OverlayWindow? _debugOverlay;
@@ -51,6 +59,7 @@ public partial class App : Application {
         // Load config
         var configResult = ConfigLoader.Load();
         var config = configResult.Config;
+        _config = config;
 
         // Logging — dispose previous if re-bootstrapping
         _loggerFactory?.Dispose();
@@ -255,6 +264,25 @@ public partial class App : Application {
         };
         contextMenu.Items.Add(startupItem);
 
+        // Show Key Presses (runtime toggle, always off on startup)
+        var keyPressItem = new System.Windows.Controls.MenuItem {
+            Header = "Show Key Presses",
+            IsChecked = false,
+        };
+        keyPressItem.Click += (_, _) => {
+            if (keyPressItem.IsChecked) {
+                DisableKeyPressVisualization();
+                keyPressItem.IsChecked = false;
+                _trayIcon!.ToolTipText = "Klikety";
+            } else {
+                if (EnableKeyPressVisualization()) {
+                    keyPressItem.IsChecked = true;
+                    _trayIcon!.ToolTipText = "Klikety (Key Display Active)";
+                }
+            }
+        };
+        contextMenu.Items.Add(keyPressItem);
+
         // Scroll Keys toggle (visible when scroll hotkeys are enabled in config)
         if (_scrollHotKeyService is not null && _scrollHotKeysConfigEnabled) {
             var scrollItem = new System.Windows.Controls.MenuItem {
@@ -280,6 +308,7 @@ public partial class App : Application {
         // Quit
         var quitItem = new System.Windows.Controls.MenuItem { Header = "Quit" };
         quitItem.Click += (_, _) => {
+            DisableKeyPressVisualization();
             _coordinator?.Dispose();
             _hotKeyService?.Dispose();
             _scrollHotKeyService?.Dispose();
@@ -297,6 +326,54 @@ public partial class App : Application {
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Startup violations: {Message}")]
     private static partial void LogStartupViolations(ILogger logger, string message);
+
+    /// <summary>
+    /// Activation transaction: creates all key press visualization resources and enables the hook.
+    /// Returns false (and cleans up) if the hook fails to install.
+    /// </summary>
+    private bool EnableKeyPressVisualization() {
+        var vizConfig = _config!.KeyPressVisualization;
+
+        var hook = new KeyboardHookService();
+        var resolver = new Win32KeyLabelResolver();
+        var processor = new KeyPressProcessor(resolver, PlatformServices.Instance.KeyState, TimeProvider.System);
+        var window = new KeyPressWindow(vizConfig);
+        var monitorService = new MonitorService(window);
+        var displayManager = new KeyPressDisplayManager(vizConfig, processor, window, monitorService);
+
+        if (!hook.Enable()) {
+            displayManager.Dispose();
+            window.Close();
+            _trayIcon?.ShowNotification("Klikety", "Failed to enable key press display.");
+            return false;
+        }
+
+        hook.KeyEvent += (_, e) => displayManager.HandleKeyEvent(e);
+        window.Show();
+
+        _keyPressHook = hook;
+        _keyPressProcessor = processor;
+        _keyPressWindow = window;
+        _keyPressDisplayManager = displayManager;
+        return true;
+    }
+
+    /// <summary>
+    /// Disables and disposes all key press visualization resources. Safe to call when already disabled.
+    /// </summary>
+    private void DisableKeyPressVisualization() {
+        if (_keyPressHook is null) return;
+
+        _keyPressHook.Disable();
+        _keyPressProcessor?.ResetModifierState();
+        _keyPressDisplayManager?.Dispose();
+        _keyPressWindow?.Close();
+
+        _keyPressHook = null;
+        _keyPressProcessor = null;
+        _keyPressWindow = null;
+        _keyPressDisplayManager = null;
+    }
 
 #if DEBUG
     private void SetupDebugLogGridSession(ConfigModel config, Config.ThemeModel theme, Win32KeyLabelResolver resolver) {

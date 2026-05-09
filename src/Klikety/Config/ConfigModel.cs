@@ -231,4 +231,10 @@ public sealed class ConfigModel {
     public KeyPressVisualizationConfig KeyPressVisualization { get; init; } = new();
 
     public MacrosConfig Macros { get; init; } = new();
+
+    public AppScopeConfig AppScope { get; init; } = new();
+}
+
+public sealed class AppScopeConfig {
+    public VKey? ChordKey { get; init; } = VKey.B;
 }

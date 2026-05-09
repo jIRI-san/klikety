@@ -54,6 +54,16 @@ public interface IScrollHotKeyService : IDisposable {
 }
 
 /// <summary>
+/// Abstracts global macro hotkey registration and activation.
+/// </summary>
+public interface IMacroHotKeyService : IDisposable {
+    event Action? Activated;
+    bool IsRegistered { get; }
+    string? Register();
+    void Unregister();
+}
+
+/// <summary>
 /// Abstracts the overlay window for testability.
 /// </summary>
 public interface IOverlayWindow {
@@ -66,6 +76,16 @@ public interface IOverlayWindow {
     void ClearStatusText();
     void SetRecordingBorder(bool visible);
     bool IsVisible { get; }
+}
+
+/// <summary>
+/// Abstracts the macro picker overlay for testability.
+/// </summary>
+public interface IMacroPickerWindow {
+    event Action<int>? SlotSelected;
+    event Action? PickerClosed;
+    void Show(MacroDefinition?[] macros, VKey[] slotKeys);
+    void Close();
 }
 
 /// <summary>

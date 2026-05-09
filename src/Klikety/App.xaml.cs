@@ -23,6 +23,8 @@ public partial class App : Application {
     private ConfigModel? _config;
     private MacroStore? _macroStore;
     private MacrosFile? _macrosFile;
+    private MacroHotKeyService? _macroHotKeyService;
+    private MacroPickerOverlay? _macroPickerOverlay;
 
     // Key press visualization state (runtime-only, never persisted)
     private KeyboardHookService? _keyPressHook;
@@ -181,6 +183,20 @@ public partial class App : Application {
             var scrollFailures = _scrollHotKeyService.Register();
             violations.AddRange(scrollFailures);
         }
+
+        // Macro hotkey + picker
+        _macroHotKeyService?.Dispose();
+        _macroPickerOverlay ??= new MacroPickerOverlay();
+        if (config.Macros.Enabled && config.Macros.GlobalHotKey is { } macroHotKey) {
+            _macroHotKeyService = new MacroHotKeyService(macroHotKey, logger);
+            var macroFailure = _macroHotKeyService.Register();
+            if (macroFailure is not null) {
+                violations.Add(macroFailure);
+            }
+        }
+
+        _coordinator.MacroHotKeyService = _macroHotKeyService;
+        _coordinator.MacroPickerWindow = _macroPickerOverlay;
 
 #if DEBUG
         SetupDebugLogGridSession(config, theme, resolver);

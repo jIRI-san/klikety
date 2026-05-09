@@ -374,3 +374,25 @@ public sealed class FakeMacroStore : IMacroStore {
             : new MacroSaveResult { Success = true };
     }
 }
+
+public sealed class FakeMacroPickerWindow : IMacroPickerWindow {
+    public event Action<int>? SlotSelected;
+    public event Action? PickerClosed;
+
+    public bool IsShown { get; private set; }
+    public int ShowCount { get; private set; }
+    public MacroDefinition?[]? LastMacros { get; private set; }
+    public VKey[]? LastSlotKeys { get; private set; }
+
+    public void Show(MacroDefinition?[] macros, VKey[] slotKeys) {
+        IsShown = true;
+        ShowCount++;
+        LastMacros = macros;
+        LastSlotKeys = slotKeys;
+    }
+
+    public void Close() => IsShown = false;
+
+    public void SimulateSlotSelected(int slot) => SlotSelected?.Invoke(slot);
+    public void SimulatePickerClosed() => PickerClosed?.Invoke();
+}

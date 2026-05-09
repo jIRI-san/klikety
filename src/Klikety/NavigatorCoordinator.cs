@@ -44,6 +44,36 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private readonly Dictionary<VKey, int> _slotKeyMap = [];
     private IDebounceTimer? _resumeTimer;
 
+    // Macro picker + hotkey (set after construction by App.xaml.cs)
+    public IMacroHotKeyService? MacroHotKeyService {
+        get => _macroHotKeyService;
+        set {
+            if (_macroHotKeyService is not null) {
+                _macroHotKeyService.Activated -= OnMacroHotKeyActivated;
+            }
+            _macroHotKeyService = value;
+            if (_macroHotKeyService is not null) {
+                _macroHotKeyService.Activated += OnMacroHotKeyActivated;
+            }
+        }
+    }
+    public IMacroPickerWindow? MacroPickerWindow {
+        get => _macroPickerWindow;
+        set {
+            if (_macroPickerWindow is not null) {
+                _macroPickerWindow.SlotSelected -= OnPickerSlotSelected;
+                _macroPickerWindow.PickerClosed -= OnPickerClosed;
+            }
+            _macroPickerWindow = value;
+            if (_macroPickerWindow is not null) {
+                _macroPickerWindow.SlotSelected += OnPickerSlotSelected;
+                _macroPickerWindow.PickerClosed += OnPickerClosed;
+            }
+        }
+    }
+    private IMacroHotKeyService? _macroHotKeyService;
+    private IMacroPickerWindow? _macroPickerWindow;
+
     /// <summary>Debounce timeout duration.</summary>
     private static readonly TimeSpan DebounceTimeout = TimeSpan.FromMilliseconds(500);
 
@@ -336,8 +366,15 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             return;
         }
 
-        // (6) Helper key: open picker when idle and overlay open (Phase 4)
-        // TODO: implement in Phase 4
+        // (6) Helper key: open picker when idle and overlay open
+        if (_macroState == MacroState.Idle
+            && _activeSession is not null
+            && _macroPickerWindow is not null
+            && _config.Macros is { Enabled: true }
+            && e.Key == _config.Macros.HelperKey) {
+            ShowMacroPicker();
+            return;
+        }
 
         // (7) Chord dispatch: before mode lock, chord key switches mode
         if (!_modeLocked && _chordKeyMap.TryGetValue(e.Key, out var targetMode)) {
@@ -801,10 +838,47 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to save macro slot {Slot}: {Error}")]
     private partial void LogMacroSaveFailed(int slot, string error);
 
+    // --- Macro picker methods ---
+
+    private void ShowMacroPicker() {
+        _macroState = MacroState.Picking;
+        _hookService.Disable();
+        _overlayWindow.Hide();
+        _macroPickerWindow!.Show(_macrosFile.Macros, _config.Macros.SlotKeys);
+    }
+
+    private void OnMacroHotKeyActivated() {
+        if (_macroState != MacroState.Idle || _macroPickerWindow is null) {
+            return;
+        }
+
+        _macroState = MacroState.Picking;
+        _macroPickerWindow.Show(_macrosFile.Macros, _config.Macros.SlotKeys);
+    }
+
+    private void OnPickerSlotSelected(int slot) {
+        _macroState = MacroState.Idle;
+        if (_activeSession is not null) {
+            _overlayWindow.Show();
+            _hookService.Enable();
+        }
+        // TODO: Phase 5 — start playback for slot
+    }
+
+    private void OnPickerClosed() {
+        _macroState = MacroState.Idle;
+        if (_activeSession is not null) {
+            _overlayWindow.Show();
+            _hookService.Enable();
+        }
+    }
+
     // --- End macro recording methods ---
 
     public void Dispose() {
         _resumeTimer?.Dispose();
+        MacroHotKeyService = null;
+        MacroPickerWindow = null;
         if (_macroRecorder is not null) {
             _macroRecorder.RecordingComplete -= OnRecordingComplete;
             _macroRecorder.RecordingCancelled -= OnRecordingCancelled;

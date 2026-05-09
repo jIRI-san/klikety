@@ -1,0 +1,62 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Klikety.Config;
+
+/// <summary>
+/// Action types recordable in a macro step. Mirrors <see cref="MouseAction"/> plus Scroll.
+/// </summary>
+public enum MacroActionType {
+    LeftClick,
+    RightClick,
+    MiddleClick,
+    DoubleClick,
+    MoveOnly,
+    DragDrop,
+    Scroll,
+}
+
+/// <summary>
+/// A single recorded action within a macro.
+/// </summary>
+public sealed class MacroStep {
+    public MacroActionType ActionType { get; init; }
+    public int X { get; init; }
+    public int Y { get; init; }
+    public ActionModifiers Modifiers { get; init; }
+    public int RelativeTimeMs { get; init; }
+    public int? EndX { get; init; }
+    public int? EndY { get; init; }
+    public int? ScrollDelta { get; init; }
+    public MouseAction? DragButton { get; init; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+/// <summary>
+/// A named macro recording with screen context and ordered steps.
+/// Slot is derived from array index in <see cref="MacrosFile.Macros"/> — no Slot property.
+/// </summary>
+public sealed class MacroDefinition {
+    public string Name { get; set; } = string.Empty;
+    public int ScreenWidth { get; init; }
+    public int ScreenHeight { get; init; }
+    public double DpiScale { get; init; }
+    public List<MacroStep> Steps { get; init; } = [];
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+/// <summary>
+/// Root model for macros.json. Contains version and 10-slot macro array.
+/// Array index = slot number. Null = empty slot.
+/// </summary>
+public sealed class MacrosFile {
+    public int Version { get; init; } = 1;
+    public MacroDefinition?[] Macros { get; init; } = new MacroDefinition?[10];
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}

@@ -107,7 +107,7 @@
   - `ConfigModel.Macros` property
   - `ConfigMigrator`: v4→v5 adds `macros` section with defaults if missing; preserves existing user values
 
-- [ ] 1.5 Config validation for macro keys — full collision matrix (REQ-17, RISK-6) [after: 1.4] `M`
+- [x] 1.5 Config validation for macro keys — full collision matrix (REQ-17, RISK-6) [after: 1.4] `M`
   - **Macro keys to validate**: `RecordKey`, `HelperKey`, `SlotKeys[10]`, `GlobalHotKey`
   - **Existing key sets to check against**: reserved keys (Escape, arrows, VK_RETURN, hotkey modifiers), `actionBindings`, `horizontalKeys`, `verticalKeys`, chord keys, scroll hotkeys
   - **Intra-macro uniqueness**: `RecordKey ≠ HelperKey`; `SlotKeys` has no duplicates; `GlobalHotKey` base key checked against `RecordKey`/`HelperKey`/`SlotKeys`

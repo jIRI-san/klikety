@@ -165,7 +165,7 @@
 ## Phase 3: Recording
 <!-- worktree: -->
 
-- [ ] 3.1 `MacroRecorder` state machine: Idle → SlotSelection → Recording → Complete (REQ-5, REQ-7, REQ-8, REQ-19, RISK-5) [after: 1.1, 1.4, 1.7] `L`
+- [x] 3.1 `MacroRecorder` state machine: Idle → SlotSelection → Recording → Complete (REQ-5, REQ-7, REQ-8, REQ-19, RISK-5) [after: 1.1, 1.4, 1.7] `L`
   - States: `Idle`, `AwaitSlot`, `AwaitOverwrite`, `Recording`
   - `StartRecording()`: transition Idle → AwaitSlot
   - `OnSlotKey(VKey)`: map to slot index; if occupied → AwaitOverwrite; if empty → Recording
@@ -178,7 +178,7 @@
   - **Drag pairing**: holds partial drag state (`_pendingDragStart`) when `DragDrop` action recorded. Next action key resolves button → emit single `MacroStep` with `DragButton` set (validated: only `LeftClick`/`RightClick`/`MiddleClick`), `EndX`/`EndY` populated. Cancel during pending drag → clear `_pendingDragStart`. Session `Cancelled` event → clear `_pendingDragStart`.
   - Interface: testable via direct method calls, no UI dependency
 
-- [ ] 3.2 Coordinator integration: intercept actions during recording (REQ-5, REQ-6, REQ-18, REQ-20, REQ-21, RISK-2, RISK-5, RISK-7, RISK-8, RISK-9) [after: 3.1] `L`
+- [x] 3.2 Coordinator integration: intercept actions during recording (REQ-5, REQ-6, REQ-18, REQ-20, REQ-21, RISK-2, RISK-5, RISK-7, RISK-8, RISK-9) [after: 3.1] `L`
   - **Macro state mutex**: `_macroState` enum (`Idle`, `Recording`, `Playing`, `Picking`) field on coordinator. Guards all macro entry points.
   - **Key dispatch priority** (full chain in `OnKeyEvent`):
     1. Debounce check (existing)
@@ -199,14 +199,14 @@
   - **Post-recording overlay**: overlay remains open with normal session (user can continue navigating)
   - Escape during recording → `Cancel()` → clear `_pendingDragStart` → clear red border → `_macroState = Idle` → normal overlay state
 
-- [ ] 3.3 Recording UI: slot selection prompt, overwrite confirm, red border (REQ-7, REQ-8, REQ-19) [after: 3.1, 3.2] `M` [discovery]
+- [x] 3.3 Recording UI: slot selection prompt, overwrite confirm, red border (REQ-7, REQ-8, REQ-19) [after: 3.1, 3.2] `M` [discovery]
   - Slot selection: overlay text "Select slot (0-9):" — intercept next key press
   - Overwrite confirmation: overlay text "Slot N: \<name\>. Overwrite? (Y/N)" — Y/N keys added to recording control keys in dispatch step 4
   - Auto-naming on stop: "Macro N" (no text input UI needed)
   - All prompts rendered on the overlay canvas (reuse overlay infrastructure, no new windows)
   - Visual feedback: 3px red border on overlay during active recording
 
-- [ ] 3.4 Unit tests for MacroRecorder state machine (REQ-5, REQ-7, REQ-8, REQ-19) [after: 3.1] `M`
+- [x] 3.4 Unit tests for MacroRecorder state machine (REQ-5, REQ-7, REQ-8, REQ-19) [after: 3.1] `M`
   - Full state transition coverage: Idle→AwaitSlot→Recording→complete
   - Cancel from each state
   - Overwrite flow: occupied slot → confirm → record; deny → abort
@@ -216,7 +216,7 @@
   - Drag pairing: DragDrop → Cancel → partial discarded
   - **StopRecording with `_pendingDragStart != null`** → discard pending drag, log warning, save remaining steps
 
-- [ ] 3.5 Integration tests for recording flow via coordinator (REQ-5, REQ-6, REQ-18, REQ-20, REQ-21) [after: 3.2] `M`
+- [x] 3.5 Integration tests for recording flow via coordinator (REQ-5, REQ-6, REQ-18, REQ-20, REQ-21) [after: 3.2] `M`
   - Simulate: open overlay → press record key → select slot → navigate → action → verify step recorded → overlay resumed with new session → second action → stop recording
   - Verify: action fires at correct position; overlay suspends/resumes (session re-created, not original); modifier keys captured
   - Verify: Escape cancels at each stage; `_pendingDragStart` cleared on cancel
@@ -229,7 +229,7 @@
 ## Phase 4: Macro Picker
 <!-- worktree: -->
 
-- [ ] 4.1 `MacroPickerOverlay` — centered activating window listing 10 slots (REQ-9) [after: 2.1] `M` [discovery]
+- [x] 4.1 `MacroPickerOverlay` — centered activating window listing 10 slots (REQ-9) [after: 2.1] `M` [discovery]
   - WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, centered on primary screen
   - **Activating**: takes WPF keyboard focus. Handles `KeyDown` events directly (slot keys + Escape). Hook is disabled while picker is active (picker owns all key input).
   - **Focus loss**: wires `Deactivated` → self-dismiss + fire `PickerClosed` (prevents stuck `Picking` state on Alt+Tab/focus loss)
@@ -241,13 +241,13 @@
   - Styling: consistent with existing overlay theme (background color, font, opacity from theme)
   - Interface: `IMacroPickerWindow` for test faking
 
-- [ ] 4.2 Global hotkey registration for macro picker (REQ-10, RISK-3) [after: 4.1, 1.4] `M`
+- [x] 4.2 Global hotkey registration for macro picker (REQ-10, RISK-3) [after: 4.1, 1.4] `M`
   - New `IMacroHotKeyService` (separate from main `IHotKeyService`) — same pattern as `IScrollHotKeyService`
   - Owns its own `HwndSource` and hotkey ID (`0x3000`)
   - `Register()` attempts registration; failure → tray notification
   - `Activated` event → if `_macroState != Idle` → ignore; else set `_macroState = Picking`, disable hook, show `MacroPickerOverlay`
 
-- [ ] 4.3 Overlay helper key integration (REQ-11, REQ-17, REQ-21) [after: 4.1, 3.2] `M`
+- [x] 4.3 Overlay helper key integration (REQ-11, REQ-17, REQ-21) [after: 4.1, 3.2] `M`
   - Helper key (default backtick) processed in coordinator's key dispatch chain (priority step 6, after record key, before chord dispatch)
   - When pressed with overlay open and `_macroState == Idle`: suspend overlay → disable hook → set `_macroState = Picking` → show `MacroPickerOverlay`
   - Slot selected → close picker → start playback (Phase 5)
@@ -256,7 +256,7 @@
   - If `_macroState == Playing` → helper key passed through
   - Key collision: if helper key collides with nav keys → log warning, helper key disabled for this session
 
-- [ ] 4.4 Unit tests for macro picker (REQ-9, REQ-10, REQ-11, REQ-21) [after: 4.1, 4.2, 4.3] `S`
+- [x] 4.4 Unit tests for macro picker (REQ-9, REQ-10, REQ-11, REQ-21) [after: 4.1, 4.2, 4.3] `S`
   - Slot selection fires correct event
   - Empty slot → no event
   - Escape → close → `PickerClosed` event
@@ -269,7 +269,7 @@
 ## Phase 5: Playback
 <!-- worktree: -->
 
-- [ ] 5.1 `MacroPlayer` — execute recorded steps with timing (REQ-12, REQ-13, REQ-16, REQ-18, REQ-23, REQ-27, RISK-1) [after: 1.1, 1.7, 1.8, 2.1] `L`
+- [x] 5.1 `MacroPlayer` — execute recorded steps with timing (REQ-12, REQ-13, REQ-16, REQ-18, REQ-23, REQ-27, RISK-1) [after: 1.1, 1.7, 1.8, 2.1] `L`
   - Constructor: `IMouseActionService`, `IScreenBoundsProvider` (for screen bounds + DPI scale), `IDelayProvider`, `double speedModifier`
   - `Play(MacroDefinition macro, CancellationToken ct)`: async method returning `PlaybackResult`
   - Screen validation: compare current `screenWidth`/`screenHeight` (from `GetPrimaryScreenBounds()`) and `dpiScale` (from `GetDpiScale()`) vs recorded values; mismatch → return `PlaybackResult.ScreenMismatch(expected, actual)`
@@ -286,7 +286,7 @@
   - Fire `StepCompleted(int stepIndex, int totalSteps)` event for progress tracking
   - Return `PlaybackResult.Completed` or `PlaybackResult.Cancelled`
 
-- [ ] 5.2 Coordinator integration: playback lifecycle + Escape cancel (REQ-12, REQ-15, REQ-20, REQ-21, REQ-25, REQ-26, RISK-8, RISK-9, RISK-10) [after: 5.1, 4.3] `M`
+- [x] 5.2 Coordinator integration: playback lifecycle + Escape cancel (REQ-12, REQ-15, REQ-20, REQ-21, REQ-25, REQ-26, RISK-8, RISK-9, RISK-10) [after: 5.1, 4.3] `M`
   - Track whether playback was initiated via global hotkey or helper key (`_playbackEntryPath`)
   - On slot selected from picker:
     - Guard: if `_macroState != Picking` → ignore (defensive)
@@ -312,7 +312,7 @@
   - **Dispose**: cancel `_playbackCts`, `_playbackTask?.Wait()` (drain before teardown), call `MacroRecorder.Cancel()`, then proceed with existing teardown. `_disposed = true` set before service disposal to guard `OnPlaybackFinished` callback.
   - **Save failure**: `MacroStore.Save()` failure → tray notification + retain `MacroDefinition` in memory (slot not emptied)
 
-- [ ] 5.3 Playback overlay: "Klikety macro: \<name\>" + progress bar (REQ-14) [after: 5.1] `M` [discovery]
+- [x] 5.3 Playback overlay: "Klikety macro: \<name\>" + progress bar (REQ-14) [after: 5.1] `M` [discovery]
   - Small WPF window (fixed size, e.g. 350×80) centered on screen
   - Title: "Klikety macro: \<name\>"
   - Progress bar: filled proportionally as steps complete
@@ -321,7 +321,7 @@
   - Updated via `StepCompleted` event
   - Interface: `IMacroPlaybackWindow` for test faking
 
-- [ ] 5.4 Unit tests for MacroPlayer (REQ-12, REQ-13, REQ-15, REQ-16, REQ-18, REQ-23, REQ-27, RISK-1) [after: 5.1] `M`
+- [x] 5.4 Unit tests for MacroPlayer (REQ-12, REQ-13, REQ-15, REQ-16, REQ-18, REQ-23, REQ-27, RISK-1) [after: 5.1] `M`
   - Playback fires correct actions in order with correct coordinates and modifiers
   - Action mapping: each `MacroActionType` → correct `IMouseActionService` method call
   - Speed modifier 1.0: `FakeDelayProvider` receives correct delays
@@ -334,7 +334,7 @@
   - Scroll step → `SendScroll` called with delta + modifiers
   - All tests use `FakeDelayProvider` — no real timing, deterministic
 
-- [ ] 5.5 Integration tests for playback via coordinator (REQ-12, REQ-15, REQ-21, REQ-25, REQ-26) [after: 5.2] `M`
+- [x] 5.5 Integration tests for playback via coordinator (REQ-12, REQ-15, REQ-21, REQ-25, REQ-26) [after: 5.2] `M`
   - Simulate: trigger macro → verify actions fired in order via `FakeMouseActionService`
   - Simulate: Escape during playback (via hook) → verify remaining actions not fired
   - Simulate: screen mismatch → verify tray notification, no actions
@@ -349,18 +349,18 @@
 ## Phase 6: Polish & Documentation
 <!-- worktree: -->
 
-- [ ] 6.1 Logging: structured log entries for macro operations (REQ-5, REQ-12) [after: 3.2, 5.2] `S`
+- [x] 6.1 Logging: structured log entries for macro operations (REQ-5, REQ-12) [after: 3.2, 5.2] `S`
   - Recording: start, each step captured, stop, cancel
   - Playback: start, screen validation result, each step executed, complete, cancel
   - Use existing `ILogger` + source-generated log methods (partial class)
 
-- [ ] 6.2 Tray menu: macro status indicator (REQ-4) [after: 5.2] `S`
+- [x] 6.2 Tray menu: macro status indicator (REQ-4) [after: 5.2] `S`
   - "Macros: N/10 defined" info item in tray context menu
   - No interactive tray actions (picker is the UI)
 
-- [ ] 6.3 Design note: create `macros.design.md` [after: 5.5] `S`
+- [x] 6.3 Design note: create `macros.design.md` [after: 5.5] `S`
   - Document: data model, recording flow (suspend/resume with session re-creation, hook override, drag pairing, resume delay, cursor origin), playback flow (hook strict filtering, delay abstraction, post-playback restoration per entry path), async lifecycle, config schema, key collision rules, dispatch priority chain, macro state mutex (including `Picking`), focus loss guard, semantic validation
   - Add to `.design-notes.md` index table
 
-- [ ] 6.4 Update `config.design.md` with macros config section (REQ-4) [after: 1.9] `S`
+- [x] 6.4 Update `config.design.md` with macros config section (REQ-4) [after: 1.9] `S`
   - Document: `MacrosConfig` shape, migration v4→v5, validation rules, full collision matrix

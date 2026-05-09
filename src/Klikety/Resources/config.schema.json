@@ -275,6 +275,86 @@
         }
       },
       "additionalProperties": false
+    },
+    "macros": {
+      "type": "object",
+      "description": "Macro recording and playback settings.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable macro recording and playback.",
+          "default": true
+        },
+        "globalHotKey": {
+          "$ref": "#/$defs/hotKeyConfig",
+          "description": "Global hotkey to open the macro picker overlay."
+        },
+        "recordKey": {
+          "type": "string",
+          "description": "VKey name for the record toggle key.",
+          "default": "OemPipe"
+        },
+        "helperKey": {
+          "type": "string",
+          "description": "VKey name for the helper/picker key.",
+          "default": "OemTilde"
+        },
+        "slotKeys": {
+          "type": "array",
+          "description": "VKey names for slot selection (indices 0-9).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "speedModifier": {
+          "type": "number",
+          "description": "Global playback speed multiplier. 1.0 = original, 0.5 = double speed, 2.0 = half speed.",
+          "default": 1.0,
+          "minimum": 0
+        },
+        "playbackIndicator": {
+          "type": "object",
+          "description": "Visual circle indicator shown at click positions during playback.",
+          "properties": {
+            "fillColor": {
+              "type": "string",
+              "description": "Fill color as hex (#AARRGGBB or #RRGGBB).",
+              "default": "#44FF0000"
+            },
+            "strokeColor": {
+              "type": "string",
+              "description": "Stroke color as hex (#AARRGGBB or #RRGGBB).",
+              "default": "#CCFF0000"
+            },
+            "strokeThickness": {
+              "type": "number",
+              "description": "Stroke thickness in DIP.",
+              "default": 2.0,
+              "minimum": 0
+            },
+            "initialRadius": {
+              "type": "number",
+              "description": "Starting radius of the indicator circle in DIP.",
+              "default": 60.0,
+              "minimum": 1
+            },
+            "finalRadius": {
+              "type": "number",
+              "description": "Ending radius after animation in DIP.",
+              "default": 10.0,
+              "minimum": 1
+            },
+            "animationDurationMs": {
+              "type": "integer",
+              "description": "Duration of the shrink animation in milliseconds.",
+              "default": 200,
+              "minimum": 100
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "$defs": {

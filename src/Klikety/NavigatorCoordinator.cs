@@ -81,6 +81,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private bool _playbackFromGlobalHotKey;
     private bool _disposed;
     public IMacroPlaybackWindow? MacroPlaybackWindow { get; set; }
+    public IClickIndicator? ClickIndicator { get; set; }
     public IDelayProvider DelayProvider { get; set; } = new TaskDelayProvider();
 
     /// <summary>Debounce timeout duration.</summary>
@@ -927,11 +928,15 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _macroState = MacroState.Playing;
         _hookService.Enable();
 
-        _macroPlayer = new MacroPlayer(_mouseService, _platform.Screen, DelayProvider, _config.Macros.SpeedModifier);
+        _macroPlayer = new MacroPlayer(_mouseService, _platform.Screen, DelayProvider,
+            macro.SpeedModifier != 1.0 ? macro.SpeedModifier : _config.Macros.SpeedModifier,
+            ClickIndicator);
 
         MacroPlaybackWindow?.Show(macro.Name, macro.Steps.Count);
         _macroPlayer.StepCompleted += (completed, total) =>
             MacroPlaybackWindow?.UpdateProgress(completed, total);
+        _macroPlayer.DelayUpdate += (remainingMs, actionType) =>
+            MacroPlaybackWindow?.UpdateDelay(remainingMs, actionType);
 
         _playbackCts = new CancellationTokenSource();
         _playbackTask = RunPlaybackAsync(macro, _playbackCts.Token);

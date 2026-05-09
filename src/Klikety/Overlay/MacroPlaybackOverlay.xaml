@@ -20,6 +20,12 @@
                 <TextBlock x:Name="StepText" FontSize="10" FontFamily="Consolas"
                            Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Grid>
-        </StackPanel>
+      <TextBlock x:Name="DelayText"
+          FontSize="10"
+          FontFamily="Consolas"
+                 Foreground="#999"
+          Margin="0,4,0,0"
+          Visibility="Collapsed"/>
+    </StackPanel>
     </Border>
 </Window>

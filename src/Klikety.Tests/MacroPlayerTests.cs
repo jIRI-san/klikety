@@ -132,7 +132,7 @@ public class MacroPlayerTests {
 
         await player.Play(macro, CancellationToken.None);
 
-        Assert.Equal([200, 500], delay.RecordedDelays);
+        Assert.Equal(200 + 500, delay.RecordedDelays.Sum());
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class MacroPlayerTests {
 
         await player.Play(macro, CancellationToken.None);
 
-        Assert.Equal([100], delay.RecordedDelays);
+        Assert.Equal(100, delay.RecordedDelays.Sum());
     }
 
     [Fact]
@@ -155,7 +155,8 @@ public class MacroPlayerTests {
 
         await player.Play(macro, CancellationToken.None);
 
-        Assert.Equal([100, 50], delay.RecordedDelays);
+        // 200*0.5=100, 60*0.5=30 clamped to 50 → total 150
+        Assert.Equal(150, delay.RecordedDelays.Sum());
     }
 
     [Fact]
@@ -166,7 +167,7 @@ public class MacroPlayerTests {
 
         await player.Play(macro, CancellationToken.None);
 
-        Assert.Equal([50], delay.RecordedDelays);
+        Assert.Equal(50, delay.RecordedDelays.Sum());
     }
 
     [Fact]

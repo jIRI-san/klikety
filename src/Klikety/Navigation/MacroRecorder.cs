@@ -202,6 +202,7 @@ public sealed partial class MacroRecorder {
             ScreenWidth = _screenWidth,
             ScreenHeight = _screenHeight,
             DpiScale = _dpiScale,
+            SpeedModifier = 1.0,
             Steps = [.. _steps],
         };
 

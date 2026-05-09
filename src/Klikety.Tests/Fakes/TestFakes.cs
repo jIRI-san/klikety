@@ -424,5 +424,21 @@ public sealed class FakeMacroPlaybackWindow : IMacroPlaybackWindow {
         LastTotalSteps = totalSteps;
     }
 
+    public int LastDelayRemainingMs { get; private set; }
+    public string? LastDelayActionType { get; private set; }
+    public void UpdateDelay(int remainingMs, string actionType) {
+        LastDelayRemainingMs = remainingMs;
+        LastDelayActionType = actionType;
+    }
+
     public void Close() => IsShown = false;
+}
+
+public sealed class FakeClickIndicator : IClickIndicator {
+    public List<(double X, double Y)> ShownPositions { get; } = [];
+
+    public Task ShowAndWait(double screenX, double screenY) {
+        ShownPositions.Add((screenX, screenY));
+        return Task.CompletedTask;
+    }
 }

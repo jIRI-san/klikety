@@ -43,6 +43,7 @@ public sealed class MacroDefinition {
     public int ScreenWidth { get; init; }
     public int ScreenHeight { get; init; }
     public double DpiScale { get; init; }
+    public double SpeedModifier { get; init; } = 1.0;
     public List<MacroStep> Steps { get; init; } = [];
 
     [JsonExtensionData]

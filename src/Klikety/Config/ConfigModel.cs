@@ -121,6 +121,20 @@ public sealed class MacrosConfig {
         VKey.D5, VKey.D6, VKey.D7, VKey.D8, VKey.D9,
     ];
     public double SpeedModifier { get; init; } = 1.0;
+    public PlaybackIndicatorConfig PlaybackIndicator { get; init; } = new();
+}
+
+/// <summary>
+/// Visual indicator shown at each click position during macro playback.
+/// Circle shrinks from initial radius to 10px, then the click executes.
+/// </summary>
+public sealed class PlaybackIndicatorConfig {
+    public string FillColor { get; init; } = "#44FF0000";
+    public string StrokeColor { get; init; } = "#CCFF0000";
+    public double StrokeThickness { get; init; } = 2.0;
+    public double InitialRadius { get; init; } = 60.0;
+    public double FinalRadius { get; init; } = 10.0;
+    public int AnimationDurationMs { get; init; } = 200;
 }
 
 /// <summary>

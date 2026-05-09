@@ -24,6 +24,18 @@ public partial class MacroPlaybackOverlay : Window, IMacroPlaybackWindow {
         Dispatcher.Invoke(() => {
             StepText.Text = $"Step {completedSteps} / {totalSteps}";
             ProgressBar.Value = totalSteps > 0 ? (double)completedSteps / totalSteps * 100 : 0;
+            DelayText.Visibility = Visibility.Collapsed;
+        });
+    }
+
+    void IMacroPlaybackWindow.UpdateDelay(int remainingMs, string actionType) {
+        Dispatcher.Invoke(() => {
+            if (remainingMs > 0) {
+                DelayText.Text = $"Waiting {remainingMs} ms, then {actionType}";
+                DelayText.Visibility = Visibility.Visible;
+            } else {
+                DelayText.Visibility = Visibility.Collapsed;
+            }
         });
     }
 

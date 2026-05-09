@@ -1,4 +1,5 @@
 {
+  "$schema": "macros.schema.json",
   "version": 1,
   "macros": [
     null,

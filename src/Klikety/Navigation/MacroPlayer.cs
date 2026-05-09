@@ -28,15 +28,18 @@ public sealed class MacroPlayer {
     private readonly IScreenBoundsProvider _screen;
     private readonly IDelayProvider _delay;
     private readonly double _speedModifier;
+    private readonly IClickIndicator? _clickIndicator;
 
     public event Action<int, int>? StepCompleted;
+    public event Action<int, string>? DelayUpdate;
 
     public MacroPlayer(IMouseActionService mouseService, IScreenBoundsProvider screen,
-        IDelayProvider delay, double speedModifier) {
+          IDelayProvider delay, double speedModifier, IClickIndicator? clickIndicator = null) {
         _mouseService = mouseService;
         _screen = screen;
         _delay = delay;
         _speedModifier = speedModifier;
+        _clickIndicator = clickIndicator;
     }
 
     public async Task<PlaybackResult> Play(MacroDefinition macro, CancellationToken ct) {
@@ -57,13 +60,32 @@ public sealed class MacroPlayer {
 
             var step = macro.Steps[i];
             var delayMs = ComputeDelay(step.RelativeTimeMs);
-            await _delay.Delay(delayMs, ct);
+            await DelayWithUpdates(delayMs, step.ActionType.ToString(), ct);
 
-            ExecuteStep(step);
+            await ExecuteStep(step);
             StepCompleted?.Invoke(i + 1, totalSteps);
         }
 
         return PlaybackResult.Completed;
+    }
+
+    private const int DelayTickMs = 50;
+
+    private async Task DelayWithUpdates(int totalMs, string actionType, CancellationToken ct) {
+        if (totalMs <= 0) {
+            DelayUpdate?.Invoke(0, actionType);
+            return;
+        }
+
+        var remaining = totalMs;
+        DelayUpdate?.Invoke(remaining, actionType);
+
+        while (remaining > 0) {
+            var chunk = Math.Min(remaining, DelayTickMs);
+            await _delay.Delay(chunk, ct);
+            remaining -= chunk;
+            DelayUpdate?.Invoke(remaining, actionType);
+        }
     }
 
     private int ComputeDelay(int relativeTimeMs) {
@@ -76,8 +98,13 @@ public sealed class MacroPlayer {
         return Math.Max(50, clamped);
     }
 
-    private void ExecuteStep(MacroStep step) {
+    private async Task ExecuteStep(MacroStep step) {
         var point = new Point(step.X, step.Y);
+
+        // Show click indicator for actions that interact (not MoveOnly)
+        if (_clickIndicator != null && step.ActionType != MacroActionType.MoveOnly) {
+            await _clickIndicator.ShowAndWait(step.X, step.Y);
+        }
 
         switch (step.ActionType) {
             case MacroActionType.LeftClick:

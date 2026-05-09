@@ -101,7 +101,15 @@ public interface IDelayProvider {
 public interface IMacroPlaybackWindow {
     void Show(string macroName, int totalSteps);
     void UpdateProgress(int completedSteps, int totalSteps);
+    void UpdateDelay(int remainingMs, string actionType);
     void Close();
+}
+
+/// <summary>
+/// Abstracts the click indicator animation for testability.
+/// </summary>
+public interface IClickIndicator {
+    Task ShowAndWait(double screenX, double screenY);
 }
 
 /// <summary>

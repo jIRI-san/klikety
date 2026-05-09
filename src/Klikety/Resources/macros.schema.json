@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Klikety Macros",
+  "description": "Macro recordings for Klikety. Each slot stores a replayable sequence of mouse actions.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path to this schema file. Enables editor IntelliSense."
+    },
+    "version": {
+      "type": "integer",
+      "description": "Schema version. Current: 1.",
+      "const": 1
+    },
+    "macros": {
+      "type": "array",
+      "description": "10-slot macro array. Index = slot number. Null = empty slot.",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "oneOf": [
+          { "type": "null" },
+          { "$ref": "#/$defs/macroDefinition" }
+        ]
+      }
+    }
+  },
+  "required": ["version", "macros"],
+  "additionalProperties": true,
+  "$defs": {
+    "macroDefinition": {
+      "type": "object",
+      "description": "A named macro recording with screen context and ordered steps.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name for this macro."
+        },
+        "screenWidth": {
+          "type": "integer",
+          "description": "Screen width in physical pixels at recording time."
+        },
+        "screenHeight": {
+          "type": "integer",
+          "description": "Screen height in physical pixels at recording time."
+        },
+        "dpiScale": {
+          "type": "number",
+          "description": "DPI scale factor at recording time (e.g. 1.0, 1.25, 1.5)."
+        },
+        "speedModifier": {
+          "type": "number",
+          "description": "Per-macro speed multiplier. 1.0 = original speed, 0.5 = double speed, 2.0 = half speed. Overrides the global macros.speedModifier in config.json when set.",
+          "default": 1.0,
+          "minimum": 0,
+          "examples": [0.5, 1.0, 2.0, 5.0]
+        },
+        "steps": {
+          "type": "array",
+          "description": "Ordered list of recorded actions.",
+          "items": { "$ref": "#/$defs/macroStep" }
+        }
+      },
+      "required": ["name", "screenWidth", "screenHeight", "dpiScale", "steps"],
+      "additionalProperties": true
+    },
+    "macroStep": {
+      "type": "object",
+      "description": "A single recorded mouse action.",
+      "properties": {
+        "actionType": {
+          "type": "string",
+          "description": "The type of mouse action.",
+          "enum": ["leftClick", "rightClick", "middleClick", "doubleClick", "moveOnly", "dragDrop", "scroll"]
+        },
+        "x": {
+          "type": "integer",
+          "description": "X coordinate in physical pixels."
+        },
+        "y": {
+          "type": "integer",
+          "description": "Y coordinate in physical pixels."
+        },
+        "modifiers": {
+          "type": "string",
+          "description": "Modifier keys held during the action.",
+          "enum": ["none", "shift", "ctrl", "alt", "shift, ctrl", "shift, alt", "ctrl, alt", "shift, ctrl, alt"],
+          "default": "none"
+        },
+        "relativeTimeMs": {
+          "type": "integer",
+          "description": "Delay before this step in milliseconds (relative to recording start).",
+          "minimum": 0
+        },
+        "endX": {
+          "type": ["integer", "null"],
+          "description": "End X coordinate for drag operations."
+        },
+        "endY": {
+          "type": ["integer", "null"],
+          "description": "End Y coordinate for drag operations."
+        },
+        "scrollDelta": {
+          "type": ["integer", "null"],
+          "description": "Scroll wheel delta for scroll operations."
+        },
+        "dragButton": {
+          "type": ["string", "null"],
+          "description": "Mouse button used for drag operations.",
+          "enum": ["leftClick", "rightClick", "middleClick", null]
+        }
+      },
+      "required": ["actionType", "x", "y", "relativeTimeMs"],
+      "additionalProperties": true
+    }
+  }
+}

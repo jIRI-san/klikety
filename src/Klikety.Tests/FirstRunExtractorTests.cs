@@ -110,7 +110,8 @@ public class FirstRunExtractorTests : IDisposable {
         var leftover = dir.GetFiles().Where(f =>
             f.Name != "config.json" &&
             f.Name != "config.schema.json" &&
-            f.Name != "macros.json").ToArray();
+            f.Name != "macros.json" &&
+            f.Name != "macros.schema.json").ToArray();
         Assert.Empty(leftover);
     }
 }

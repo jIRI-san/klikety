@@ -19,6 +19,7 @@ public static class FirstRunExtractor {
     private static readonly (string ResourceName, string RelativePath)[] AlwaysOverwrite =
     [
         ("Klikety.Resources.config.schema.json", "config.schema.json"),
+        ("Klikety.Resources.macros.schema.json", "macros.schema.json"),
         ("Klikety.Resources.theme.schema.json", Path.Combine("themes", "theme.schema.json")),
     ];
 

@@ -74,7 +74,7 @@
   - Configurable `Bounds` property (default: `Rectangle.Empty`)
   - Add to `FakePlatformServices` — update all existing test constructors
 
-- [ ] 1.3 Add `IOverlayWindow.Show(Rectangle bounds)` overload (REQ-3, RISK-2, RISK-8) `M`
+- [x] 1.3 Add `IOverlayWindow.Show(Rectangle bounds)` overload (REQ-3, RISK-2, RISK-8) `M`
   - New interface method: `void Show(Rectangle bounds)` — sizes overlay to given physical-pixel rectangle
   - `OverlayWindow` implementation: same DIP transform logic as current `Show()`, but using provided bounds instead of `GetPrimaryScreenBounds()`
   - **Flash prevention**: when the window was previously shown (has existing `PresentationSource`), pre-set `Left`/`Top`/`Width`/`Height` to target bounds before calling WPF `Show()`. Only call `Show()`-then-reposition on first invocation when `PresentationSource` is not yet available.

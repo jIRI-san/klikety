@@ -74,6 +74,15 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private IMacroHotKeyService? _macroHotKeyService;
     private IMacroPickerWindow? _macroPickerWindow;
 
+    // Playback state
+    private MacroPlayer? _macroPlayer;
+    private CancellationTokenSource? _playbackCts;
+    private Task? _playbackTask;
+    private bool _playbackFromGlobalHotKey;
+    private bool _disposed;
+    public IMacroPlaybackWindow? MacroPlaybackWindow { get; set; }
+    public IDelayProvider DelayProvider { get; set; } = new TaskDelayProvider();
+
     /// <summary>Debounce timeout duration.</summary>
     private static readonly TimeSpan DebounceTimeout = TimeSpan.FromMilliseconds(500);
 
@@ -339,7 +348,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         // (2) Playing: only Escape cancels playback, all else ignored by hook
         if (_macroState == MacroState.Playing) {
             if (e.Key == VKey.Escape) {
-                // TODO: cancel playback (Phase 5)
+                _playbackCts?.Cancel();
             }
             return;
         }
@@ -838,9 +847,16 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to save macro slot {Slot}: {Error}")]
     private partial void LogMacroSaveFailed(int slot, string error);
 
+    [LoggerMessage(Level = LogLevel.Error, Message = "Macro playback failed: {Error}")]
+    private partial void LogPlaybackFailed(string error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Screen mismatch for macro playback: {Details}")]
+    private partial void LogScreenMismatch(string details);
+
     // --- Macro picker methods ---
 
     private void ShowMacroPicker() {
+        _playbackFromGlobalHotKey = false;
         _macroState = MacroState.Picking;
         _hookService.Disable();
         _overlayWindow.Hide();
@@ -852,17 +868,100 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             return;
         }
 
+        _playbackFromGlobalHotKey = true;
         _macroState = MacroState.Picking;
         _macroPickerWindow.Show(_macrosFile.Macros, _config.Macros.SlotKeys);
     }
 
     private void OnPickerSlotSelected(int slot) {
-        _macroState = MacroState.Idle;
-        if (_activeSession is not null) {
-            _overlayWindow.Show();
-            _hookService.Enable();
+        if (_macroState != MacroState.Picking) {
+            return;
         }
-        // TODO: Phase 5 — start playback for slot
+
+        var macro = _macrosFile.Macros.Length > slot ? _macrosFile.Macros[slot] : null;
+        if (macro is null) {
+            OnPickerClosed();
+            return;
+        }
+
+        StartPlayback(macro);
+    }
+
+    private void StartPlayback(MacroDefinition macro) {
+        _macroState = MacroState.Playing;
+        _hookService.Enable();
+
+        _macroPlayer = new MacroPlayer(_mouseService, _platform.Screen, DelayProvider, _config.Macros.SpeedModifier);
+
+        MacroPlaybackWindow?.Show(macro.Name, macro.Steps.Count);
+        _macroPlayer.StepCompleted += (completed, total) =>
+            MacroPlaybackWindow?.UpdateProgress(completed, total);
+
+        _playbackCts = new CancellationTokenSource();
+        _playbackTask = RunPlaybackAsync(macro, _playbackCts.Token);
+    }
+
+    private async Task RunPlaybackAsync(MacroDefinition macro, CancellationToken ct) {
+        PlaybackResult? result = null;
+        try {
+            result = await _macroPlayer!.Play(macro, ct);
+        } catch (OperationCanceledException) {
+            result = PlaybackResult.Cancelled;
+        } catch (Exception ex) {
+            LogPlaybackFailed(ex.Message);
+            result = PlaybackResult.Cancelled;
+        } finally {
+            if (!_disposed) {
+                OnPlaybackFinished(result ?? PlaybackResult.Cancelled);
+            }
+        }
+    }
+
+    private void OnPlaybackFinished(PlaybackResult result) {
+        MacroPlaybackWindow?.Close();
+        _hookService.Disable();
+        _macroState = MacroState.Idle;
+        _playbackCts?.Dispose();
+        _playbackCts = null;
+        _playbackTask = null;
+        _macroPlayer = null;
+
+        if (result.Kind == PlaybackResultKind.ScreenMismatch) {
+            LogScreenMismatch(result.Message ?? "unknown");
+        }
+
+        if (_playbackFromGlobalHotKey || _activeSession is null) {
+            DeactivateOverlay();
+        } else {
+            ResumeOverlayAfterPlayback();
+        }
+    }
+
+    private void ResumeOverlayAfterPlayback() {
+        _origin = _platform.Cursor.GetCursorPosition();
+        _screenBounds = _platform.Screen.GetPrimaryScreenBounds();
+
+        try {
+            _overlayWindow.Show();
+        } catch (InvalidOperationException) {
+            return;
+        }
+
+        _hookService.Enable();
+        _modeLocked = false;
+
+        var defaultModeName = GetDefaultModeName();
+        try {
+            var session = _sessionFactory.Create(defaultModeName);
+            session.ActionRequested += OnSessionActionRequested;
+            session.Cancelled += OnSessionCancelled;
+            session.CursorMoveRequested += OnSessionCursorMoveRequested;
+            _activeSession = session;
+            session.Activate(_screenBounds, _origin);
+        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
+            LogModeSwitchFailed(defaultModeName, ex.Message);
+            DeactivateOverlay();
+        }
     }
 
     private void OnPickerClosed() {
@@ -876,9 +975,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     // --- End macro recording methods ---
 
     public void Dispose() {
+        _disposed = true;
+        _playbackCts?.Cancel();
+        _playbackTask?.GetAwaiter().GetResult();
+        _playbackCts?.Dispose();
         _resumeTimer?.Dispose();
         MacroHotKeyService = null;
         MacroPickerWindow = null;
+        MacroPlaybackWindow?.Close();
         if (_macroRecorder is not null) {
             _macroRecorder.RecordingComplete -= OnRecordingComplete;
             _macroRecorder.RecordingCancelled -= OnRecordingCancelled;

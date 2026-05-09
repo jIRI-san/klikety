@@ -396,3 +396,33 @@ public sealed class FakeMacroPickerWindow : IMacroPickerWindow {
     public void SimulateSlotSelected(int slot) => SlotSelected?.Invoke(slot);
     public void SimulatePickerClosed() => PickerClosed?.Invoke();
 }
+
+public sealed class FakeDelayProvider : IDelayProvider {
+    public List<int> RecordedDelays { get; } = [];
+
+    public Task Delay(int milliseconds, CancellationToken ct) {
+        ct.ThrowIfCancellationRequested();
+        RecordedDelays.Add(milliseconds);
+        return Task.CompletedTask;
+    }
+}
+
+public sealed class FakeMacroPlaybackWindow : IMacroPlaybackWindow {
+    public bool IsShown { get; private set; }
+    public string? LastMacroName { get; private set; }
+    public int LastTotalSteps { get; private set; }
+    public int LastCompletedSteps { get; private set; }
+
+    public void Show(string macroName, int totalSteps) {
+        IsShown = true;
+        LastMacroName = macroName;
+        LastTotalSteps = totalSteps;
+    }
+
+    public void UpdateProgress(int completedSteps, int totalSteps) {
+        LastCompletedSteps = completedSteps;
+        LastTotalSteps = totalSteps;
+    }
+
+    public void Close() => IsShown = false;
+}

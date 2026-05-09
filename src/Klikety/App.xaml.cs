@@ -197,6 +197,7 @@ public partial class App : Application {
 
         _coordinator.MacroHotKeyService = _macroHotKeyService;
         _coordinator.MacroPickerWindow = _macroPickerOverlay;
+        _coordinator.MacroPlaybackWindow = new MacroPlaybackOverlay();
 
 #if DEBUG
         SetupDebugLogGridSession(config, theme, resolver);

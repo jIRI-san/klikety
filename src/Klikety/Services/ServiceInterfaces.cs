@@ -89,6 +89,22 @@ public interface IMacroPickerWindow {
 }
 
 /// <summary>
+/// Abstracts async delay for testable macro playback.
+/// </summary>
+public interface IDelayProvider {
+    Task Delay(int milliseconds, CancellationToken ct);
+}
+
+/// <summary>
+/// Abstracts the playback progress overlay for testability.
+/// </summary>
+public interface IMacroPlaybackWindow {
+    void Show(string macroName, int totalSteps);
+    void UpdateProgress(int completedSteps, int totalSteps);
+    void Close();
+}
+
+/// <summary>
 /// Abstracts grid rendering for testability.
 /// </summary>
 public interface IGridRenderer {

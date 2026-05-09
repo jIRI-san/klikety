@@ -660,36 +660,55 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void ResetOverlayForDrag() {
-        // Unsubscribe and deactivate current session
-        if (_activeSession is not null) {
-            _activeSession.ActionRequested -= OnSessionActionRequested;
-            _activeSession.Cancelled -= OnSessionCancelled;
-            _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
-            _activeSession.Deactivate();
-            _activeSession = null;
+        if (_switching) {
+            return;
         }
 
-        _overlayWindow.ClearCanvas();
-        _modeLocked = false;
+        _switching = true;
 
-        // Create and activate new default-mode session
-        var defaultModeName = GetDefaultModeName();
         try {
-            var session = _sessionFactory.Create(defaultModeName);
+            // Unsubscribe and deactivate current session
+            if (_activeSession is not null) {
+                _activeSession.ActionRequested -= OnSessionActionRequested;
+                _activeSession.Cancelled -= OnSessionCancelled;
+                _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
+                _activeSession.Deactivate();
+                _activeSession = null;
+            }
 
-            session.ActionRequested += OnSessionActionRequested;
-            session.Cancelled += OnSessionCancelled;
-            session.CursorMoveRequested += OnSessionCursorMoveRequested;
+            _overlayWindow.ClearCanvas();
+            _modeLocked = false;
 
-            _activeSession = session;
-            session.Activate(_screenBounds, _dragStartPoint);
+            // If app-scoped, reset overlay to full-screen for drag target selection
+            if (_appScoped) {
+                _appScoped = false;
+                _appScopeBounds = Rectangle.Empty;
+                _overlayWindow.SetAppScopeBorder(false);
+                _overlayWindow.Hide();
+                _overlayWindow.Show();
+            }
 
-            _overlayWindow.ShowStatusText("Select drag target");
-        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
-            LogModeSwitchFailed(defaultModeName, ex.Message);
-            _dragMode = false;
-            _overlayWindow.ClearStatusText();
-            DeactivateOverlay();
+            // Create and activate new default-mode session
+            var defaultModeName = GetDefaultModeName();
+            try {
+                var session = _sessionFactory.Create(defaultModeName);
+
+                session.ActionRequested += OnSessionActionRequested;
+                session.Cancelled += OnSessionCancelled;
+                session.CursorMoveRequested += OnSessionCursorMoveRequested;
+
+                _activeSession = session;
+                session.Activate(_screenBounds, _dragStartPoint);
+
+                _overlayWindow.ShowStatusText("Select drag target");
+            } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
+                LogModeSwitchFailed(defaultModeName, ex.Message);
+                _dragMode = false;
+                _overlayWindow.ClearStatusText();
+                DeactivateOverlay();
+            }
+        } finally {
+            _switching = false;
         }
     }
 

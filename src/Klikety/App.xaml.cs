@@ -162,7 +162,9 @@ public partial class App : Application {
             PlatformServices.Instance,
             new ModifierDetector(),
             config,
-            logger);
+            logger,
+            _macroStore,
+            _macrosFile);
 
         // Register hotkey
         _hotKeyService!.Unregister();

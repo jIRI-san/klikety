@@ -64,6 +64,7 @@ public interface IOverlayWindow {
     void ClearCanvas();
     void ShowStatusText(string text);
     void ClearStatusText();
+    void SetRecordingBorder(bool visible);
     bool IsVisible { get; }
 }
 

@@ -10,6 +10,16 @@ using Microsoft.Extensions.Logging;
 namespace Klikety;
 
 /// <summary>
+/// Macro subsystem state. Enforces mutual exclusion between recording, playback, and picking.
+/// </summary>
+public enum MacroState {
+    Idle,
+    Recording,
+    Playing,
+    Picking,
+}
+
+/// <summary>
 /// Wires all services together: hotkey → overlay → hook → session → mouse action.
 /// Single DeactivateOverlay() method covers all exit paths.
 /// Delegates key input and rendering to the active <see cref="IModeSession"/>.
@@ -25,6 +35,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private readonly ModeSessionFactory _sessionFactory;
     private readonly IPlatformServices _platform;
     private readonly IModifierDetector _modifierDetector;
+
+    // Macro subsystem
+    private readonly IMacroStore? _macroStore;
+    private readonly MacroRecorder? _macroRecorder;
+    private MacrosFile _macrosFile = new();
+    private MacroState _macroState = MacroState.Idle;
+    private readonly Dictionary<VKey, int> _slotKeyMap = [];
+    private IDebounceTimer? _resumeTimer;
 
     /// <summary>Debounce timeout duration.</summary>
     private static readonly TimeSpan DebounceTimeout = TimeSpan.FromMilliseconds(500);
@@ -57,7 +75,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         IPlatformServices platform,
         IModifierDetector modifierDetector,
         ConfigModel config,
-        ILogger logger) {
+        ILogger logger,
+        IMacroStore? macroStore = null,
+        MacrosFile? macrosFile = null) {
         _hotKeyService = hotKeyService;
         _hookService = hookService;
         _mouseService = mouseService;
@@ -67,8 +87,20 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _modifierDetector = modifierDetector;
         _config = config;
         _logger = logger;
+        _macroStore = macroStore;
+        _macrosFile = macrosFile ?? new MacrosFile();
 
         BuildChordKeyMap();
+        BuildSlotKeyMap();
+
+        if (config.Macros is { Enabled: true }) {
+            _macroRecorder = new MacroRecorder(platform.Screen, logger);
+            _macroRecorder.RecordingComplete += OnRecordingComplete;
+            _macroRecorder.RecordingCancelled += OnRecordingCancelled;
+            _macroRecorder.SlotSelectionRequested += OnSlotSelectionRequested;
+            _macroRecorder.OverwriteConfirmRequested += OnOverwriteConfirmRequested;
+            _macroRecorder.RecordingStarted += OnRecordingStarted;
+        }
 
         _hotKeyService.Activated += OnHotKeyActivated;
         _hookService.KeyEvent += OnKeyEvent;
@@ -87,6 +119,17 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         if (_config.Modes.LogGrid is { Enabled: true, ChordKey: { } logGridChord }
             && _sessionFactory.IsLogGridAvailable) {
             _chordKeyMap[logGridChord] = "LogGrid";
+        }
+    }
+
+    private void BuildSlotKeyMap() {
+        var macros = _config.Macros;
+        if (macros is not { Enabled: true }) {
+            return;
+        }
+
+        for (var i = 0; i < Math.Min(macros.SlotKeys.Length, 10); i++) {
+            _slotKeyMap[macros.SlotKeys[i]] = i;
         }
     }
 
@@ -261,7 +304,42 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         LogKeyPressed(e.Key);
 
-        // Chord dispatch: before mode lock, chord key switches mode
+        // --- Macro key dispatch priority ---
+
+        // (2) Playing: only Escape cancels playback, all else ignored by hook
+        if (_macroState == MacroState.Playing) {
+            if (e.Key == VKey.Escape) {
+                // TODO: cancel playback (Phase 5)
+            }
+            return;
+        }
+
+        // (4) Recording: recording control keys
+        if (_macroState == MacroState.Recording && _macroRecorder is not null) {
+            if (HandleRecordingKey(e.Key)) {
+                return;
+            }
+            // During recording in AwaitSlot/AwaitOverwrite, keys are consumed
+            if (_macroRecorder.State is MacroRecorderState.AwaitSlot or MacroRecorderState.AwaitOverwrite) {
+                return;
+            }
+        }
+
+        // (5) Record key: start recording when idle and overlay open
+        if (_macroState == MacroState.Idle
+            && _activeSession is not null
+            && _macroRecorder is not null
+            && _config.Macros is { Enabled: true }
+            && e.Key == _config.Macros.RecordKey) {
+            _macroState = MacroState.Recording;
+            _macroRecorder.StartRecording();
+            return;
+        }
+
+        // (6) Helper key: open picker when idle and overlay open (Phase 4)
+        // TODO: implement in Phase 4
+
+        // (7) Chord dispatch: before mode lock, chord key switches mode
         if (!_modeLocked && _chordKeyMap.TryGetValue(e.Key, out var targetMode)) {
             // Non-QWERTY check for chord target
             if (targetMode != "UniformGrid" && !IsQwertyLayout()) {
@@ -323,6 +401,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
     private void OnFocusLost(object? sender, EventArgs e) {
         LogFocusLost();
+
+        // Suppress deactivation during recording or playback
+        if (_macroState != MacroState.Idle) {
+            return;
+        }
+
         DeactivateOverlay();
     }
 
@@ -333,9 +417,55 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         if (!_screenBounds.Contains(point)) {
             LogActionOutOfBounds(point.X, point.Y);
             _mouseService.MoveTo(_origin);
+            if (_macroState == MacroState.Recording) {
+                // Stay in recording mode, resume overlay
+                ResumeOverlayForRecording();
+                return;
+            }
             DeactivateOverlay();
             return;
         }
+
+        // Recording: intercept action to record step, then suspend/resume
+        if (_macroState == MacroState.Recording && _macroRecorder is not null) {
+            var modifiers = action == MouseAction.MoveOnly
+                ? ActionModifiers.None
+                : _modifierDetector.GetCurrentModifiers();
+
+            // Drag phase 2: completing a drag during recording
+            if (_dragMode) {
+                if (action is MouseAction.MoveOnly or MouseAction.DragDrop) {
+                    LogDragInvalidAction(action);
+                    return;
+                }
+
+                _macroRecorder.RecordAction(point, action, modifiers);
+                _overlayWindow.ClearStatusText();
+                _dragMode = false;
+                SuspendOverlayForAction();
+                _mouseService.SendDrag(_dragStartPoint, point, action, modifiers);
+                ScheduleResumeAfterAction();
+                return;
+            }
+
+            // Drag phase 1: starting a drag during recording
+            if (action == MouseAction.DragDrop) {
+                _macroRecorder.RecordAction(point, MouseAction.DragDrop, modifiers);
+                _dragStartPoint = point;
+                _dragMode = true;
+                ResetOverlayForDrag();
+                return;
+            }
+
+            // Normal action during recording
+            _macroRecorder.RecordAction(point, action, modifiers);
+            SuspendOverlayForAction();
+            _mouseService.SendAction(point, action, modifiers);
+            ScheduleResumeAfterAction();
+            return;
+        }
+
+        // --- Normal (non-recording) action dispatch ---
 
         // Drag phase 2: completing a drag
         if (_dragMode) {
@@ -405,6 +535,20 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
     private void OnSessionCancelled() {
         LogCancelled();
+
+        // During recording, cancel just resets overlay for next action
+        if (_macroState == MacroState.Recording && _macroRecorder is not null) {
+            if (_dragMode) {
+                _dragMode = false;
+                _overlayWindow.ClearStatusText();
+            }
+            // Cancel the pending drag in recorder
+            _macroRecorder.Cancel();
+            _macroState = MacroState.Idle;
+            _overlayWindow.SetRecordingBorder(false);
+            return;
+        }
+
         if (_dragMode) {
             _dragMode = false;
             _overlayWindow.ClearStatusText();
@@ -496,7 +640,179 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     [LoggerMessage(Level = LogLevel.Debug, Message = "Drag mode: invalid action {Action} — ignored")]
     private partial void LogDragInvalidAction(MouseAction action);
 
+    // --- Macro recording methods ---
+
+    private bool HandleRecordingKey(VKey key) {
+        var macros = _config.Macros;
+        if (macros is null || _macroRecorder is null) {
+            return false;
+        }
+
+        // Escape cancels from any recording state
+        if (key == VKey.Escape) {
+            CancelRecording();
+            return true;
+        }
+
+        // Record key toggles stop when actively recording
+        if (key == macros.RecordKey && _macroRecorder.State == MacroRecorderState.Recording) {
+            _macroRecorder.StopRecording();
+            return true;
+        }
+
+        // Slot key during AwaitSlot
+        if (_macroRecorder.State == MacroRecorderState.AwaitSlot && _slotKeyMap.TryGetValue(key, out var slot)) {
+            _macroRecorder.OnSlotKey(slot, _macrosFile.Macros);
+            return true;
+        }
+
+        // Y/N during AwaitOverwrite
+        if (_macroRecorder.State == MacroRecorderState.AwaitOverwrite) {
+            if (key == VKey.Y) {
+                _macroRecorder.OnOverwriteResponse(true);
+                return true;
+            }
+
+            if (key == VKey.N) {
+                _macroRecorder.OnOverwriteResponse(false);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void CancelRecording() {
+        _macroRecorder?.Cancel();
+        _macroState = MacroState.Idle;
+        _overlayWindow.SetRecordingBorder(false);
+        _overlayWindow.ClearStatusText();
+    }
+
+    private void SuspendOverlayForAction() {
+        // Deactivate session but keep hook enabled (strict filtering via _macroState)
+        if (_activeSession is not null) {
+            _activeSession.ActionRequested -= OnSessionActionRequested;
+            _activeSession.Cancelled -= OnSessionCancelled;
+            _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
+            _activeSession.Deactivate();
+            _activeSession = null;
+        }
+
+        _overlayWindow.ClearCanvas();
+        _overlayWindow.ClearStatusText();
+        _overlayWindow.Hide();
+    }
+
+    private void ScheduleResumeAfterAction() {
+        _resumeTimer?.Dispose();
+        _resumeTimer = _platform.Timers.Create();
+        _resumeTimer.Elapsed += OnResumeTimerElapsed;
+        _resumeTimer.Start(TimeSpan.FromMilliseconds(200));
+    }
+
+    private void OnResumeTimerElapsed() {
+        _resumeTimer?.Stop();
+        _resumeTimer?.Dispose();
+        _resumeTimer = null;
+        ResumeOverlayForRecording();
+    }
+
+    private void ResumeOverlayForRecording() {
+        if (_macroState != MacroState.Recording) {
+            return;
+        }
+
+        _origin = _platform.Cursor.GetCursorPosition();
+        _screenBounds = _platform.Screen.GetPrimaryScreenBounds();
+
+        // Re-show overlay
+        try {
+            _overlayWindow.Show();
+        } catch (InvalidOperationException) {
+            CancelRecording();
+            return;
+        }
+
+        _modeLocked = false;
+
+        // Create new default-mode session with current cursor as origin
+        var defaultModeName = GetDefaultModeName();
+        try {
+            var session = _sessionFactory.Create(defaultModeName);
+
+            session.ActionRequested += OnSessionActionRequested;
+            session.Cancelled += OnSessionCancelled;
+            session.CursorMoveRequested += OnSessionCursorMoveRequested;
+
+            _activeSession = session;
+            session.Activate(_screenBounds, _origin);
+
+            _overlayWindow.SetRecordingBorder(true);
+        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
+            LogModeSwitchFailed(defaultModeName, ex.Message);
+            CancelRecording();
+        }
+    }
+
+    // Recorder event handlers
+
+    private void OnSlotSelectionRequested() {
+        _overlayWindow.ShowStatusText("Select slot (0-9):");
+    }
+
+    private void OnOverwriteConfirmRequested(int slot, string name) {
+        _overlayWindow.ShowStatusText($"Slot {slot}: {name}. Overwrite? (Y/N)");
+    }
+
+    private void OnRecordingStarted() {
+        _overlayWindow.ClearStatusText();
+        _overlayWindow.SetRecordingBorder(true);
+    }
+
+    private void OnRecordingComplete(int slot, MacroDefinition macro) {
+        _macroState = MacroState.Idle;
+        _overlayWindow.SetRecordingBorder(false);
+
+        // Save to store
+        _macrosFile.Macros[slot] = macro;
+        if (_macroStore is not null) {
+            var result = _macroStore.Save(_macrosFile);
+            if (!result.Success) {
+                LogMacroSaveFailed(slot, result.Error ?? "unknown error");
+                // Keep in-memory state (slot not emptied on save failure)
+            }
+        }
+    }
+
+    private void OnRecordingCancelled() {
+        _macroState = MacroState.Idle;
+        _overlayWindow.SetRecordingBorder(false);
+        _overlayWindow.ClearStatusText();
+    }
+
+    private void OnSessionCancelledDuringRecording() {
+        if (_macroState == MacroState.Recording && _macroRecorder is not null) {
+            CancelRecording();
+            return;
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to save macro slot {Slot}: {Error}")]
+    private partial void LogMacroSaveFailed(int slot, string error);
+
+    // --- End macro recording methods ---
+
     public void Dispose() {
+        _resumeTimer?.Dispose();
+        if (_macroRecorder is not null) {
+            _macroRecorder.RecordingComplete -= OnRecordingComplete;
+            _macroRecorder.RecordingCancelled -= OnRecordingCancelled;
+            _macroRecorder.SlotSelectionRequested -= OnSlotSelectionRequested;
+            _macroRecorder.OverwriteConfirmRequested -= OnOverwriteConfirmRequested;
+            _macroRecorder.RecordingStarted -= OnRecordingStarted;
+            _macroRecorder.Cancel();
+        }
         _hotKeyService.Activated -= OnHotKeyActivated;
         _hookService.KeyEvent -= OnKeyEvent;
         _overlayWindow.FocusLost -= OnFocusLost;

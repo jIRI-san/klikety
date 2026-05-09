@@ -181,6 +181,7 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public string? StatusText { get; private set; }
     public int ShowStatusTextCount { get; private set; }
     public int ClearStatusTextCount { get; private set; }
+    public bool RecordingBorderVisible { get; private set; }
 
     public void ShowStatusText(string text) {
         StatusText = text;
@@ -190,6 +191,10 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public void ClearStatusText() {
         StatusText = null;
         ClearStatusTextCount++;
+    }
+
+    public void SetRecordingBorder(bool visible) {
+        RecordingBorderVisible = visible;
     }
 
     public void SimulateFocusLoss() {
@@ -350,4 +355,22 @@ public sealed class FakeTimeProvider : TimeProvider {
     }
 
     public void SetTimestamp(long ticks) => _timestamp = ticks;
+}
+
+public sealed class FakeMacroStore : IMacroStore {
+    public MacrosFile LastSavedFile { get; private set; } = new();
+    public int SaveCount { get; private set; }
+    public bool ShouldFailSave { get; set; }
+    public MacrosFile FileToLoad { get; set; } = new();
+    public IReadOnlyList<string> LoadErrors { get; set; } = [];
+
+    public MacroLoadResult Load() => new() { File = FileToLoad, Errors = LoadErrors };
+
+    public MacroSaveResult Save(MacrosFile file) {
+        SaveCount++;
+        LastSavedFile = file;
+        return ShouldFailSave
+            ? new MacroSaveResult { Success = false, Error = "Fake save failure" }
+            : new MacroSaveResult { Success = true };
+    }
 }

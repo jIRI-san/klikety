@@ -102,7 +102,7 @@
   - No `EnsureDefaults()` — `FirstRunExtractor` is primary creation path
   - Interface: `IMacroStore` for test faking
 
-- [ ] 1.4 Add `MacrosConfig` to `ConfigModel`; config migration v4→v5 (REQ-4) `M`
+- [x] 1.4 Add `MacrosConfig` to `ConfigModel`; config migration v4→v5 (REQ-4) `M`
   - `MacrosConfig`: `bool Enabled` (default `true`), `HotKeyConfig? GlobalHotKey` (default Ctrl+Alt+Shift+M), `VKey RecordKey` (default `VKey.Oem5` = backslash), `VKey HelperKey` (default `VKey.Oem3` = backtick), `VKey[] SlotKeys` (default `[VKey.D0..VKey.D9]`), `double SpeedModifier` (default `1.0`)
   - `ConfigModel.Macros` property
   - `ConfigMigrator`: v4→v5 adds `macros` section with defaults if missing; preserves existing user values

@@ -542,6 +542,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _appScoped = true;
             _appScopeBounds = bounds;
             session.Activate(bounds, _origin);
+
+            _overlayWindow.SetAppScopeBorder(true);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
             LogModeSwitchFailed(_currentModeName, ex.Message);
             _appScoped = false;
@@ -759,6 +761,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
             _overlayWindow.ClearCanvas();
             _overlayWindow.ClearStatusText();
+            _overlayWindow.SetAppScopeBorder(false);
             _overlayWindow.Hide();
         } finally {
             _deactivating = false;

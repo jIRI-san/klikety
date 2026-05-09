@@ -154,6 +154,34 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         RecordingBorder.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    void IOverlayWindow.SetAppScopeBorder(bool visible) {
+        // Remove any existing app-scope border from StatusCanvas
+        for (int i = StatusCanvas.Children.Count - 1; i >= 0; i--) {
+            if (StatusCanvas.Children[i] is System.Windows.Shapes.Rectangle r && r.Tag is "AppScopeBorder") {
+                StatusCanvas.Children.RemoveAt(i);
+            }
+        }
+
+        if (!visible) return;
+
+        var colorStr = _theme?.AppScopeBorderColor ?? "#4488FF";
+        var brush = TryParseBrush(colorStr, new SolidColorBrush(Color.FromRgb(0x44, 0x88, 0xFF)));
+        double canvasWidth = ActualWidth > 0 ? ActualWidth : Width;
+        double canvasHeight = ActualHeight > 0 ? ActualHeight : Height;
+
+        var border = new System.Windows.Shapes.Rectangle {
+            Width = canvasWidth,
+            Height = canvasHeight,
+            Stroke = brush,
+            StrokeThickness = 2,
+            Fill = Brushes.Transparent,
+            Tag = "AppScopeBorder",
+        };
+        Canvas.SetLeft(border, 0);
+        Canvas.SetTop(border, 0);
+        StatusCanvas.Children.Add(border);
+    }
+
     private static SolidColorBrush TryParseBrush(string? colorString, SolidColorBrush fallback) {
         if (colorString is null) {
             return fallback;

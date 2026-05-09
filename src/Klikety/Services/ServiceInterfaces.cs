@@ -76,6 +76,7 @@ public interface IOverlayWindow {
     void ShowStatusText(string text);
     void ClearStatusText();
     void SetRecordingBorder(bool visible);
+    void SetAppScopeBorder(bool visible);
     bool IsVisible { get; }
 }
 

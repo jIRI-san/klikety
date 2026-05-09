@@ -201,6 +201,7 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public int ShowStatusTextCount { get; private set; }
     public int ClearStatusTextCount { get; private set; }
     public bool RecordingBorderVisible { get; private set; }
+    public bool AppScopeBorderVisible { get; private set; }
 
     public void ShowStatusText(string text) {
         StatusText = text;
@@ -214,6 +215,10 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
 
     public void SetRecordingBorder(bool visible) {
         RecordingBorderVisible = visible;
+    }
+
+    public void SetAppScopeBorder(bool visible) {
+        AppScopeBorderVisible = visible;
     }
 
     public void SimulateFocusLoss() {

@@ -54,9 +54,9 @@
 | RISK-9 | Adding `IForegroundWindowProvider` to `IPlatformServices` breaks all existing test setups (`FakePlatformServices`) | Low | Low | Routine — update `FakePlatformServices` and all test constructors in step 1.2 | 1.2 |
 
 ## Phase 1: Platform & Overlay Infrastructure
-<!-- worktree: -->
+<!-- worktree: feature/016-app-scoped-navigation -->
 
-- [ ] 1.1 Add `IForegroundWindowProvider` interface + production implementation using `DwmGetWindowAttribute` (REQ-1, REQ-2, RISK-1) `M`
+- [x] 1.1 Add `IForegroundWindowProvider` interface + production implementation using `DwmGetWindowAttribute` (REQ-1, REQ-2, RISK-1) `M`
   - Add P/Invoke to `NativeMethods`:
     - `DwmGetWindowAttribute(IntPtr hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out RECT, sizeof(RECT))` (from `dwmapi.dll`)
     - `IsIconic(IntPtr hwnd)` (from `user32.dll`) — explicit minimized detection
@@ -69,7 +69,7 @@
     - `GetWindowBounds(nint hwnd)`: calls `IsIconic(hwnd)` first → if minimized, return `Rectangle.Empty`. Otherwise `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` → convert `RECT` to `Rectangle`. DWM failure → return `Rectangle.Empty`
   - Add to `IPlatformServices` as `IForegroundWindowProvider ForegroundWindow { get; }`
 
-- [ ] 1.2 `FakeForegroundWindowProvider` for testing (REQ-2, RISK-9) `S`
+- [x] 1.2 `FakeForegroundWindowProvider` for testing (REQ-2, RISK-9) `S`
   - Configurable `Handle` property (default: `IntPtr.Zero`)
   - Configurable `Bounds` property (default: `Rectangle.Empty`)
   - Add to `FakePlatformServices` — update all existing test constructors

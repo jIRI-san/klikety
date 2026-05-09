@@ -163,7 +163,7 @@
   - On app quit: if feature active, run disable path.
   - No state persisted — always unchecked on startup (REQ-12).
 
-- [ ] 3.2 End-to-end manual testing (all REQs) @human `M`
+- [x] 3.2 End-to-end manual testing (all REQs) @human `M`
   <details><summary>Details</summary>
 
   **Steps:**

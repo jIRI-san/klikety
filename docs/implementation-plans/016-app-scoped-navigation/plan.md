@@ -122,26 +122,26 @@
     13. Set `_switching = false` in finally block
   - Wrap in try/catch/finally with `_switching` guard (same pattern as `SwitchMode()`)
 
-- [ ] 2.2 Overlay resize + session re-activation flow (REQ-5, RISK-2, RISK-4) [after: 2.1] `M`
+- [x] 2.2 Overlay resize + session re-activation flow (REQ-5, RISK-2, RISK-4) [after: 2.1] `M`
   - Test the resize path: overlay hides → shows at new bounds → session activated with correct bounds
   - Focus loss guard: `_switching` flag in `OnFocusLost` suppresses `DeactivateOverlay()` during the hide/show transition (added in 2.1)
   - Test with `FakeOverlayWindow.RaiseFocusLostOnHide = true` to simulate WPF `Deactivated` during `Hide()` — verify `_switching` guard prevents deactivation
   - Verify PresentationSource transform works correctly when overlay repositioned
 
-- [ ] 2.3 App-scope visual border indicator (REQ-8) [after: 2.1, 2.7] `M` [discovery]
+- [x] 2.3 App-scope visual border indicator (REQ-8) [after: 2.1, 2.7] `M` [discovery]
   - Render 2px border rectangle on `StatusCanvas` (not `RootCanvas`) — survives `ClearCanvas()` calls from renderers during normal key updates
   - Border color from theme `AppScopeBorderColor` (added in step 2.7); hardcoded fallback `#4488FF` if theme property missing
   - Border rendered in `SwitchToAppScope()` after session activation
   - Border survives mode switches and renderer updates (lives on `StatusCanvas`)
   - Border cleared on `DeactivateOverlay()` and `ClearStatusText()`
 
-- [ ] 2.7 Theme: add `AppScopeBorderColor` to `ThemeModel` (REQ-8) [after: 1.3] `S`
+- [x] 2.7 Theme: add `AppScopeBorderColor` to `ThemeModel` (REQ-8) [after: 1.3] `S`
   - Default color in dark theme: `#4488FF` (blue accent)
   - Default color in light theme: `#2266CC`
   - Add to embedded theme files + schema
   - Must be completed before 2.3 (border rendering references theme property)
 
-- [ ] 2.4 Drag mode interaction with app-scope (REQ-9, RISK-4) [after: 2.1] `M`
+- [x] 2.4 Drag mode interaction with app-scope (REQ-9, RISK-4) [after: 2.1] `M`
   - `ResetOverlayForDrag()`: if `_appScoped`, wrap in `_switching` guard (same as `SwitchToAppScope`), resize overlay back to full-screen (`_overlayWindow.Hide()` → `_overlayWindow.Show()` with full screen bounds), clear `_appScoped = false`, clear border from `StatusCanvas`
   - The `_switching` guard prevents `OnFocusLost` from triggering `DeactivateOverlay()` during the Hide→Show cycle
   - Chord key for app-scope available during drag target selection (standard chord dispatch applies — user can press `B` again to scope to target app)
@@ -151,7 +151,7 @@
   - Clear `_appScoped = false` in `DeactivateOverlay()`
   - Clear `_appScopeBounds`
 
-- [ ] 2.6 Unit tests for app-scope coordinator logic (REQ-4, REQ-5, REQ-6, REQ-7, REQ-9, REQ-12, RISK-4, RISK-7) [after: 2.1, 2.4] `L`
+- [x] 2.6 Unit tests for app-scope coordinator logic (REQ-4, REQ-5, REQ-6, REQ-7, REQ-9, REQ-12, RISK-4, RISK-7) [after: 2.1, 2.4] `L`
   - **Chord press happy path**: overlay open → press app-scope chord → overlay resized to stored HWND bounds → session active with new bounds → origin clamped into bounds
   - **Mode lock**: press nav key first → app-scope chord forwarded to session (flashes invalid)
   - **Minimized**: `IsIconic` returns true for stored HWND → flash invalid, overlay stays full-screen

@@ -191,6 +191,9 @@ public static class ConfigLoader {
         // === Key press visualization validation ===
         ValidateKeyPressVisualization(config.KeyPressVisualization, violations);
 
+        // === Macro key validation ===
+        ValidateMacros(config, violations, actionKeys, allNavKeys, hotkeyVKeys);
+
         return violations;
     }
 
@@ -354,6 +357,109 @@ public static class ConfigLoader {
                 violations.Add($"{label}: key '{key}' conflicts with a navigation key.");
             }
 
+            if (hotkeyVKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with hotkey.");
+            }
+        }
+    }
+
+    private static void ValidateMacros(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> navKeys, HashSet<VKey> hotkeyVKeys) {
+        var macros = config.Macros;
+        if (!macros.Enabled) return;
+
+        // SpeedModifier validation
+        if (macros.SpeedModifier < 0) {
+            violations.Add($"macros.speedModifier must be >= 0 (got {macros.SpeedModifier}); clamped to 0.");
+        }
+
+        // Collect chord keys for conflict checking
+        var chordKeys = new HashSet<VKey>();
+        var modes = config.Modes;
+        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid }) {
+            if (mc is { Enabled: true, ChordKey: { } chord }) {
+                chordKeys.Add(chord);
+            }
+        }
+
+        // Collect scroll keys
+        var scrollKeys = new HashSet<VKey>();
+        if (config.ScrollHotKeys.Enabled) {
+            scrollKeys.Add(config.ScrollHotKeys.ScrollUpKey.Key);
+            scrollKeys.Add(config.ScrollHotKeys.ScrollDownKey.Key);
+        }
+
+        // Intra-macro uniqueness
+        if (macros.RecordKey == macros.HelperKey) {
+            violations.Add("macros: recordKey and helperKey must be different.");
+        }
+
+        // SlotKeys length validation
+        if (macros.SlotKeys.Length < 10) {
+            violations.Add($"macros.slotKeys has fewer than 10 entries (got {macros.SlotKeys.Length}); missing slots will use defaults.");
+        } else if (macros.SlotKeys.Length > 10) {
+            violations.Add($"macros.slotKeys has more than 10 entries (got {macros.SlotKeys.Length}); extra entries ignored.");
+        }
+
+        // SlotKeys duplicate check
+        var slotKeySet = new HashSet<VKey>();
+        foreach (var sk in macros.SlotKeys) {
+            if (!slotKeySet.Add(sk)) {
+                violations.Add($"macros.slotKeys contains duplicate key '{sk}'.");
+            }
+        }
+
+        // SlotKeys vs RecordKey/HelperKey
+        foreach (var sk in macros.SlotKeys) {
+            if (sk == macros.RecordKey) {
+                violations.Add($"macros: slot key '{sk}' conflicts with recordKey.");
+            }
+            if (sk == macros.HelperKey) {
+                violations.Add($"macros: slot key '{sk}' conflicts with helperKey.");
+            }
+        }
+
+        // GlobalHotKey base key vs macro keys
+        if (macros.GlobalHotKey is { } ghk) {
+            if (ghk.Key == macros.RecordKey) {
+                violations.Add($"macros: globalHotKey key '{ghk.Key}' conflicts with recordKey.");
+            }
+            if (ghk.Key == macros.HelperKey) {
+                violations.Add($"macros: globalHotKey key '{ghk.Key}' conflicts with helperKey.");
+            }
+            if (slotKeySet.Contains(ghk.Key)) {
+                violations.Add($"macros: globalHotKey key '{ghk.Key}' conflicts with a slot key.");
+            }
+            // GlobalHotKey vs main hotkey
+            if (ghk.Key == config.HotKey.Key && ghk.Modifiers == config.HotKey.Modifiers) {
+                violations.Add("macros: globalHotKey conflicts with the main application hotkey.");
+            }
+        }
+
+        // Full collision matrix: each macro key vs existing key sets
+        var macroKeysToCheck = new List<(string Label, VKey Key)> {
+            ("macros.recordKey", macros.RecordKey),
+            ("macros.helperKey", macros.HelperKey),
+        };
+        for (var i = 0; i < Math.Min(macros.SlotKeys.Length, 10); i++) {
+            macroKeysToCheck.Add(($"macros.slotKeys[{i}]", macros.SlotKeys[i]));
+        }
+
+        foreach (var (label, key) in macroKeysToCheck) {
+            if (ReservedKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' is reserved.");
+            }
+            if (actionKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with an action binding.");
+            }
+            if (navKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with a navigation key.");
+            }
+            if (chordKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with a chord key.");
+            }
+            if (scrollKeys.Contains(key)) {
+                violations.Add($"{label}: key '{key}' conflicts with a scroll hotkey.");
+            }
             if (hotkeyVKeys.Contains(key)) {
                 violations.Add($"{label}: key '{key}' conflicts with hotkey.");
             }

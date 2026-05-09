@@ -11,6 +11,8 @@ context: fork
 
 > This skill requires **agent mode** — it writes files, runs terminal commands, and manages git. If you are in plan or ask mode, switch to agent mode before continuing.
 
+> **Interaction rule:** Every question that offers predefined choices (e.g. plan selection, approve/autopilot, yes/no confirmations, continue/stop) **must** use the `vscode_askQuestions` tool with `options` — never plain-text prompts. Free-form questions (e.g. "describe the issue") can remain as regular text.
+
 ## Step 1: Select Plan
 
 Scan `docs/implementation-plans/` for plan folders (exclude `archived/`). Each plan is a folder containing `plan.md`.
@@ -47,11 +49,17 @@ This gives the user orientation, especially when resuming across sessions.
 
 ### Execution Mode
 
-After showing the progress summary, ask:
+Detect or ask for execution mode:
+
+1. **On a feature branch** — infer mode from branch name:
+   - Branch matches `feature/<plan-slug>` (no phase/step suffix) → **autopilot**. Inform: "Detected autopilot mode from branch name."
+   - Branch matches `feature/<plan-slug>-<phase-slug>-<step-N>` → **approve**. Inform: "Detected approve mode from branch name."
+   - Unrecognized pattern → ask (see below).
+2. **On `main`/`master` or unrecognized branch** — after showing the progress summary, ask:
 
 **"Approve each step, or autopilot?"**
-- **Approve** — stop after each step for review before proceeding (current default behavior).
-- **Autopilot** — implement all remaining steps as independently as possible with minimal user input. Skip per-step confirmations (Step 4 "Proceed?", Step 10 "Ready to commit?", Step 11 "Continue or stop?"). Still run build, tests, acceptance criteria validation, and code review — but auto-fix unambiguous CR findings and auto-commit without asking. Continue to next phase without confirmation. Only stop for: `@human` steps, ambiguous CR trade-offs, failing tests that can't be auto-fixed, or blocking dependency issues. The user reviews everything at the end.
+- **Approve** — stop after each step for review before proceeding. Worktree naming: `feature/<plan-slug>-<phase-slug>-<step-N>` (scoped to current step).
+- **Autopilot** — implement all remaining steps with minimal user input. Single worktree for the entire plan, named `feature/<plan-slug>`. All phases and steps execute on this one worktree from start to end. Skip per-step confirmations (Step 4 "Proceed?", Step 10 "Ready to commit?", Step 11 "Continue or stop?"). Still run build, tests, acceptance criteria validation, and code review — but auto-fix unambiguous CR findings and auto-commit without asking. Continue to next phase without confirmation. Only stop for: `@human` steps, ambiguous CR trade-offs, failing tests that can't be auto-fixed, or blocking dependency issues. The user reviews everything at the end.
 
 Remember the chosen mode for the rest of the session.
 
@@ -78,10 +86,12 @@ Proceed directly to Step 4 using the current branch — skip all worktree creati
 
 #### If current branch is `main` or `master`
 1. Find the next `[ ]` step across all phases.
-2. Derive the worktree branch name: `feature/<plan-slug>-<phase-slug>-<step-N>`
-   - `plan-slug`: the folder name (e.g. `007-navigation-modes`)
-   - `phase-slug`: kebab-case of the phase heading
-   - `step-N`: step number (e.g. `step-1-1`)
+2. Derive the worktree branch name based on execution mode (chosen in Step 1):
+   - **Autopilot**: `feature/<plan-slug>` — single worktree for the entire plan.
+   - **Approve**: `feature/<plan-slug>-<phase-slug>-<step-N>` — scoped to the current step.
+   - `plan-slug`: the plan folder name (e.g. `007-navigation-modes`)
+   - `phase-slug`: kebab-case of the phase heading (approve only)
+   - `step-N`: step number, e.g. `step-1-1` (approve only)
 3. Determine the worktree root: sibling folder to the repo named `<repo-folder>.worktrees` — e.g. `c:\dev\qz` → `c:\dev\qz.worktrees`. Create it if it does not exist (`mkdir` / `New-Item -ItemType Directory`).
 4. Run: `git worktree add <worktree-root>/<branch-name> -b <branch-name>`
 5. Run: `code <worktree-root>/<branch-name>` to open a new VS Code instance in the worktree.
@@ -89,9 +99,11 @@ Proceed directly to Step 4 using the current branch — skip all worktree creati
 7. **Stop** — do NOT record the branch in the plan file here; that happens on first run inside the worktree.
 
 #### If current branch is a feature branch
+Execution mode was already inferred from branch name in Step 1 (Execution Mode).
+
 Check `plan.md` for a `<!-- worktree: <branch-name> -->` comment in the current or next pending phase:
 
-- **Comment absent** — this is the first `/ci` run in this worktree. Record it now: add `<!-- worktree: <current-branch> -->` on the line immediately after the phase heading. This comment is committed with the first step's changes as part of that step's commit.
+- **Comment absent** — this is the first `/ci` run in this worktree. Record it now: add `<!-- worktree: <current-branch> -->` on the line immediately after the phase heading. In autopilot mode, add it to the first phase heading (all phases share this worktree). In approve mode, add it to the matching phase heading. This comment is committed with the first step's changes as part of that step's commit.
 - **Comment present and matches current branch** → continue to Step 4.
 - **Comment present but does not match** → warn: "Current branch `<current>` does not match plan branch `<recorded>`. Proceed anyway? (yes / no)"
 

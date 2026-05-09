@@ -139,7 +139,7 @@
   - `FakeMouseActionService`: record modifiers in scroll call list
   - Unit test: verify modifier bracketing
 
-- [ ] 1.9 Update `config.design.md`: document v3→v4 scroll migration (prerequisite) [after: 1.4] `S`
+- [x] 1.9 Update `config.design.md`: document v3→v4 scroll migration (prerequisite) [after: 1.4] `S`
   - Fix documentation drift: v3→v4 (scrollHotkeys) is undocumented; update before adding v4→v5
 
 ## Phase 2: Macro Store Integration & First-Run

@@ -177,6 +177,12 @@
       "description": "Background color for status text banner.",
       "default": "#333333",
       "examples": ["#333333"]
+    },
+    "appScopeBorderColor": {
+      "type": "string",
+      "description": "Border color for the app-scope visual indicator (2px border when overlay is scoped to a window).",
+      "default": "#4488FF",
+      "examples": ["#4488FF", "#2266CC"]
     }
   },
   "additionalProperties": false

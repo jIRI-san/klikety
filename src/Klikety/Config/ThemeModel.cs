@@ -47,4 +47,7 @@ public sealed class ThemeModel {
     public string StatusTextFillColor { get; init; } = "#FFFFFF";
     public string StatusTextOutlineColor { get; init; } = "#000000";
     public string StatusTextBackgroundColor { get; init; } = "#333333";
+
+    // App-scope visual indicator border
+    public string AppScopeBorderColor { get; init; } = "#4488FF";
 }

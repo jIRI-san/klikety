@@ -38,5 +38,8 @@
   "connectorLineThickness": 1.0, // 1px connector lines
   // LogGrid small-cell tint
   "smallCellBackgroundColor": "#C8DEFF", // Light blue tint for small cells
-  "smallCellBackgroundOpacity": 0.4 // Semi-transparent
+  "smallCellBackgroundOpacity": 0.4, // Semi-transparent
+
+  // App-scope visual indicator
+  "appScopeBorderColor": "#2266CC" // Blue accent border when app-scoped
 }

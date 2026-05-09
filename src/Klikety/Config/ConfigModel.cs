@@ -106,6 +106,24 @@ public sealed class ScrollHotKeyConfig {
 }
 
 /// <summary>
+/// Macro recording and playback configuration.
+/// </summary>
+public sealed class MacrosConfig {
+    public bool Enabled { get; init; } = true;
+    public HotKeyConfig? GlobalHotKey { get; init; } = new() {
+        Modifiers = HotKeyModifiers.Control | HotKeyModifiers.Alt | HotKeyModifiers.Shift,
+        Key = VKey.M,
+    };
+    public VKey RecordKey { get; init; } = VKey.OemPipe;    // backslash
+    public VKey HelperKey { get; init; } = VKey.OemTilde;   // backtick
+    public VKey[] SlotKeys { get; init; } = [
+        VKey.D0, VKey.D1, VKey.D2, VKey.D3, VKey.D4,
+        VKey.D5, VKey.D6, VKey.D7, VKey.D8, VKey.D9,
+    ];
+    public double SpeedModifier { get; init; } = 1.0;
+}
+
+/// <summary>
 /// Visual settings for the key press visualization HUD.
 /// No enable/disable property — activation is runtime-only via tray menu.
 /// </summary>
@@ -197,4 +215,6 @@ public sealed class ConfigModel {
     public ScrollHotKeyConfig ScrollHotKeys { get; init; } = new();
 
     public KeyPressVisualizationConfig KeyPressVisualization { get; init; } = new();
+
+    public MacrosConfig Macros { get; init; } = new();
 }

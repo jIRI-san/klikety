@@ -522,6 +522,60 @@ public class ConfigMigratorTests {
         } finally { Cleanup(path); }
     }
 
+    [Fact]
+    public void MigrateIfNeeded_V4ToV5_AddsMacrosSection() {
+        var json = """
+        {
+            "configVersion": 4,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "scrollHotkeys": { "enabled": false }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
+            Assert.True(migrated.ContainsKey("macros"));
+            Assert.True(migrated["macros"]!["enabled"]!.GetValue<bool>());
+            Assert.Equal("OemPipe", migrated["macros"]!["recordKey"]!.GetValue<string>());
+            Assert.Equal("OemTilde", migrated["macros"]!["helperKey"]!.GetValue<string>());
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void MigrateIfNeeded_V4WithExistingMacros_PreservesUserValues() {
+        var json = """
+        {
+            "configVersion": 4,
+            "horizontalKeys": ["A","S","D","F"],
+            "verticalKeys": ["W","E","R","T"],
+            "modes": {
+                "uniformGrid": { "enabled": true, "default": true }
+            },
+            "scrollHotkeys": { "enabled": false },
+            "macros": { "enabled": false, "speedModifier": 0.5 }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigMigrator.MigrateIfNeeded(path);
+            Assert.True(result.WasMigrated);
+
+            var migrated = ReadJsonObject(path);
+            Assert.Equal(5, migrated["configVersion"]!.GetValue<int>());
+            // User's existing macros section preserved
+            Assert.False(migrated["macros"]!["enabled"]!.GetValue<bool>());
+            Assert.Equal(0.5, migrated["macros"]!["speedModifier"]!.GetValue<double>());
+        } finally { Cleanup(path); }
+    }
+
     private static string WriteTempFile(string content) {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(path, content);

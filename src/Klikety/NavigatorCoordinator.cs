@@ -527,10 +527,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             }
 
             _overlayWindow.ClearCanvas();
-            _overlayWindow.Hide();
-            _overlayWindow.Show(bounds);
 
-            // Create and activate new session at app-scoped bounds
+            // Keep overlay full-screen — renderers use screen-space coordinates that
+            // match the full-screen canvas. Pass window bounds to session only.
             var session = _sessionFactory.Create(_currentModeName);
 
             session.ActionRequested += OnSessionActionRequested;
@@ -543,7 +542,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _appScopeBounds = bounds;
             session.Activate(bounds, _origin);
 
-            _overlayWindow.SetAppScopeBorder(true);
+            _overlayWindow.SetAppScopeBorder(true, bounds);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
             LogModeSwitchFailed(_currentModeName, ex.Message);
             _appScoped = false;
@@ -679,13 +678,11 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _overlayWindow.ClearCanvas();
             _modeLocked = false;
 
-            // If app-scoped, reset overlay to full-screen for drag target selection
+            // If app-scoped, clear scope state (overlay is already full-screen)
             if (_appScoped) {
                 _appScoped = false;
                 _appScopeBounds = Rectangle.Empty;
                 _overlayWindow.SetAppScopeBorder(false);
-                _overlayWindow.Hide();
-                _overlayWindow.Show();
             }
 
             // Create and activate new default-mode session

@@ -217,7 +217,7 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
         RecordingBorderVisible = visible;
     }
 
-    public void SetAppScopeBorder(bool visible) {
+    public void SetAppScopeBorder(bool visible, System.Drawing.Rectangle bounds = default) {
         AppScopeBorderVisible = visible;
     }
 

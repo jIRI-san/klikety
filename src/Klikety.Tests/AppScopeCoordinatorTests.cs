@@ -54,8 +54,9 @@ public class AppScopeCoordinatorTests {
 
         hook.SimulateKeyDown(VKey.B);
 
+        // Overlay stays full-screen; session gets window bounds; border visible
         Assert.True(overlay.IsVisible);
-        Assert.Equal(windowBounds, overlay.LastShowBounds);
+        Assert.True(overlay.AppScopeBorderVisible);
     }
 
     [Fact]
@@ -120,9 +121,8 @@ public class AppScopeCoordinatorTests {
 
         hook.SimulateKeyDown(VKey.B);
 
-        // Clipped to intersection with primary screen (0,0,1920,1080)
-        var expected = new Rectangle(1200, 100, 720, 600);
-        Assert.Equal(expected, overlay.LastShowBounds);
+        // Session activated (border visible); overlay stays full-screen
+        Assert.True(overlay.AppScopeBorderVisible);
     }
 
     [Fact]
@@ -150,9 +150,9 @@ public class AppScopeCoordinatorTests {
 
         hook.SimulateKeyDown(VKey.B);
 
-        // Overlay should be visible at window bounds (origin clamped, session active)
+        // Overlay visible with border (session activated at window bounds, origin clamped)
         Assert.True(overlay.IsVisible);
-        Assert.Equal(windowBounds, overlay.LastShowBounds);
+        Assert.True(overlay.AppScopeBorderVisible);
     }
 
     [Fact]
@@ -202,9 +202,9 @@ public class AppScopeCoordinatorTests {
         hook.SimulateKeyDown(VKey.W);
         hook.SimulateKeyDown(VKey.X); // DragDrop
 
-        // After drag start, overlay should be full-screen and border cleared
+        // After drag start, overlay should remain full-screen and border cleared
         Assert.False(overlay.AppScopeBorderVisible);
-        Assert.NotEqual(appScopeBounds, overlay.LastShowBounds);
+        Assert.True(overlay.IsVisible);
     }
 
     [Fact]

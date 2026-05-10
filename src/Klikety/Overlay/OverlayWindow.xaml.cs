@@ -155,7 +155,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         RecordingBorder.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    void IOverlayWindow.SetAppScopeBorder(bool visible) {
+    void IOverlayWindow.SetAppScopeBorder(bool visible, System.Drawing.Rectangle bounds) {
         // Remove any existing app-scope border from StatusCanvas
         for (int i = StatusCanvas.Children.Count - 1; i >= 0; i--) {
             if (StatusCanvas.Children[i] is System.Windows.Shapes.Rectangle r && r.Tag is "AppScopeBorder") {
@@ -169,19 +169,30 @@ public partial class OverlayWindow : Window, IOverlayWindow {
 
         var colorStr = _theme?.AppScopeBorderColor ?? "#4488FF";
         var brush = TryParseBrush(colorStr, new SolidColorBrush(Color.FromRgb(0x44, 0x88, 0xFF)));
-        double canvasWidth = ActualWidth > 0 ? ActualWidth : Width;
-        double canvasHeight = ActualHeight > 0 ? ActualHeight : Height;
+
+        // Convert physical-pixel bounds to DIP coordinates on the full-screen canvas
+        var source = PresentationSource.FromVisual(this);
+        double bx = bounds.X, by = bounds.Y, bw = bounds.Width, bh = bounds.Height;
+        if (source?.CompositionTarget is not null) {
+            var t = source.CompositionTarget.TransformFromDevice;
+            var tl = t.Transform(new System.Windows.Point(bounds.X, bounds.Y));
+            var br = t.Transform(new System.Windows.Point(bounds.Right, bounds.Bottom));
+            bx = tl.X;
+            by = tl.Y;
+            bw = br.X - tl.X;
+            bh = br.Y - tl.Y;
+        }
 
         var border = new System.Windows.Shapes.Rectangle {
-            Width = canvasWidth,
-            Height = canvasHeight,
+            Width = bw,
+            Height = bh,
             Stroke = brush,
             StrokeThickness = 2,
             Fill = Brushes.Transparent,
             Tag = "AppScopeBorder",
         };
-        Canvas.SetLeft(border, 0);
-        Canvas.SetTop(border, 0);
+        Canvas.SetLeft(border, bx);
+        Canvas.SetTop(border, by);
         StatusCanvas.Children.Add(border);
     }
 

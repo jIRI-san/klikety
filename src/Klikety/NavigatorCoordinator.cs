@@ -438,9 +438,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             && _macrosFile.Macros.Length > directSlot
             && _macrosFile.Macros[directSlot] is { } directMacro) {
             _playbackFromGlobalHotKey = false;
+            var savedHwnd = _preOverlayHwnd;
             _hookService.Disable();
             _overlayWindow.Hide();
-            StartPlayback(directMacro);
+            StartPlayback(directMacro, savedHwnd);
             return;
         }
 
@@ -1151,10 +1152,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             return;
         }
 
-        StartPlayback(macro);
+        StartPlayback(macro, _preOverlayHwnd);
     }
 
-    private void StartPlayback(MacroDefinition macro) {
+    private void StartPlayback(MacroDefinition macro, nint targetHwnd) {
         LogPlaybackStarting(macro.Name, macro.Steps.Count);
         _macroState = MacroState.Playing;
         _hookService.Enable();
@@ -1165,11 +1166,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         PlaybackContext context;
         if (macro.PositionMode == MacroPositionMode.WindowRelative) {
-            var hwnd = _preOverlayHwnd;
-            var title = _platform.ForegroundWindow.GetWindowTitle(hwnd);
-            var bounds = _platform.ForegroundWindow.GetWindowBounds(hwnd);
+            var title = _platform.ForegroundWindow.GetWindowTitle(targetHwnd);
+            var bounds = _platform.ForegroundWindow.GetWindowBounds(targetHwnd);
             var cursor = _platform.Cursor.GetCursorPosition();
-            context = new PlaybackContext(MacroPositionMode.WindowRelative, bounds, title, hwnd, cursor);
+            context = new PlaybackContext(MacroPositionMode.WindowRelative, bounds, title, targetHwnd, cursor);
         } else {
             context = PlaybackContext.Absolute;
         }

@@ -70,11 +70,16 @@ Full chain in `OnKeyEvent`:
 
 ## Recording Flow
 
-`MacroRecorder` state machine: `Idle` → `AwaitSlot` → `AwaitOverwrite` (if occupied) → `Recording`.
+`MacroRecorder` state machine: `Idle` → `AwaitSlot` → `AwaitOverwrite` (if occupied) → `Recording` → (for DragDrop in window-relative) `AwaitStartFromCursorConfirm`.
 
 - **Slot selection**: overlay shows prompt; next digit key selects slot. Occupied → overwrite confirm (Y/N).
+- **App-scope context**: when recording starts from app-scoped overlay, coordinator builds `MacroRecordingContext` (window bounds, title pattern, DPI) and passes to `MacroRecorder.StartRecording()`. Empty title → recording rejected with status message.
+- **Title pattern extraction**: `ExtractTitlePattern()` takes last segment after " - " separator (e.g. "Document.txt - Notepad" → "Notepad").
 - **Step capture**: coordinator intercepts `ActionRequested` from session → records step (action type, point, modifiers, timing) → `SuspendOverlayForAction()` → action fires → 200ms delay → `ResumeOverlayForRecording()`.
-- **Suspend/resume**: suspend hides overlay without coordinator teardown. Resume creates new default-mode session with current cursor position as origin. Hook stays enabled with strict filtering during gap.
+- **Coordinate transformation**: when `_recordingAppScoped`, coordinator transforms screen coordinates to window-relative: `(point.X - windowBounds.Left, point.Y - windowBounds.Top)`.
+- **Resume in app-scope**: `ResumeOverlayForRecording()` re-queries window bounds. HWND invalid → auto-stop + save. Resized → cancel. Moved → update bounds + clamp origin. Activates session with window bounds.
+- **ResetOverlayForDrag**: preserves app-scope when `_recordingAppScoped` — activates with window bounds instead of screen bounds.
+- **StartFromCursor prompt**: after DragDrop pair completion in window-relative mode, recorder transitions to `AwaitStartFromCursorConfirm` and fires `StartFromCursorRequested`. Coordinator shows "Drag from cursor? [Y/N]". Y → `StartFromCursor = true` on step. N → normal step. Escape → cancel recording. `StopRecording()` from this state finalizes pending step with default decline.
 - **Drag pairing**: `DragDrop` action held as `_pendingDragStart`. Next action resolves the button → emit single `MacroStep` with `DragButton`, `EndX`, `EndY`. Cancel during pending drag → clear `_pendingDragStart`.
 - **Stop**: auto-names "Macro N". Sets `SpeedModifier = 1.0`. If `_pendingDragStart` is non-null → discarded with warning. Fires `RecordingComplete(slot, macro)`.
 - **Focus loss guard**: `_macroState != Idle` in `OnFocusLost` suppresses `DeactivateOverlay()`.
@@ -83,7 +88,7 @@ Full chain in `OnKeyEvent`:
 
 `MacroPickerOverlay` — activating WPF window. Takes keyboard focus; hook disabled while picker active.
 
-- Shows 10 rows: slot key + name (or `<empty>` grayed).
+- Shows 10 rows: slot key + name + position badge (`[W]` for WindowRelative, `[S]` for Absolute) (or `<empty>` grayed).
 - Slot key on occupied slot → `SlotSelected(slot)` → close picker → start playback.
 - Escape or focus loss → `PickerClosed` → resume overlay.
 - `_slotSelected` guard prevents `Deactivated` from firing `PickerClosed` after a slot selection (race fix).
@@ -94,7 +99,13 @@ Full chain in `OnKeyEvent`:
 
 `MacroPlayer` — async engine executing steps with timing.
 
-- **Screen validation**: current width/height/DPI must match recorded values. Mismatch → `PlaybackResult.ScreenMismatch` + tray notification.
+- **Screen validation** (Absolute): current width/height/DPI must match recorded values. Mismatch → `PlaybackResult.ScreenMismatch` + tray notification.
+- **Window validation** (WindowRelative): foreground window title must contain `WindowTitlePattern` (case-insensitive). Window dimensions must match `WindowWidth`/`WindowHeight`. DPI must match (epsilon 0.01). Mismatch → `PlaybackResult.WindowMismatch`.
+- **Coordinate resolution** (WindowRelative): step coordinates offset from window top-left: `screenPoint = (windowBounds.Left + step.X, windowBounds.Top + step.Y)`. Resolved point checked against window bounds → `PlaybackResult.CoordinateOutOfBounds` if outside.
+- **Per-step drift check** (WindowRelative): before each action step, re-verify foreground HWND matches and window bounds haven't changed. Focus lost → `PlaybackResult.WindowDrift`. Resized → `WindowDrift`. Moved → update bounds for next step (coordinates stay correct).
+- **StartFromCursor** (WindowRelative DragDrop): when `step.StartFromCursor == true`, drag starts from `PlaybackContext.InitialCursorPosition` instead of resolved step position. End point still resolved normally.
+- **PlaybackContext**: record passed to `Play()` with `PositionMode`, `WindowBounds`, `WindowTitle`, `WindowHwnd`, `InitialCursorPosition`. `PlaybackContext.Absolute` for screen-space macros.
+- **PlaybackResultKind**: `Completed`, `Cancelled`, `ScreenMismatch`, `WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`.
 - **Speed modifier**: `delay = Math.Max(50, (int)(relativeTimeMs × speedModifier))`. When `speedModifier == 0` → 100ms fixed. 50ms global floor prevents input coalescing. Per-macro `SpeedModifier` overrides global config when ≠ 1.0.
 - **Delay chunking**: delays split into 50ms ticks for live countdown updates. `DelayUpdate(remainingMs, actionType)` event fires each tick.
 - **Click indicator**: `IClickIndicator.ShowAndWait(x, y)` called before each action step (except `MoveOnly`). Non-activating, click-through WPF window. Shrinking circle animation (configurable via `PlaybackIndicatorConfig`). Waits for animation to complete before executing the click.
@@ -103,7 +114,7 @@ Full chain in `OnKeyEvent`:
 
 ### Playback Overlay
 
-`MacroPlaybackOverlay` — non-activating (`ShowActivated=false`), topmost progress window. Shows macro name, progress bar, step counter, and delay countdown text ("Waiting N ms… then ActionType").
+`MacroPlaybackOverlay` — non-activating (`ShowActivated=false`), topmost progress window. Shows macro name, progress bar, step counter, and delay countdown text ("Waiting N ms… then ActionType"). For window-relative macros, title includes the window context pattern (e.g. "Klikety macro: Test — Notepad").
 
 ### Async Lifecycle
 

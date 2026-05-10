@@ -11,9 +11,11 @@ public partial class MacroPlaybackOverlay : Window, IMacroPlaybackWindow {
         InitializeComponent();
     }
 
-    void IMacroPlaybackWindow.Show(string macroName, int totalSteps) {
+    void IMacroPlaybackWindow.Show(string macroName, int totalSteps, string? windowContext) {
         _totalSteps = totalSteps;
-        TitleText.Text = $"Klikety macro: {macroName}";
+        TitleText.Text = windowContext is not null
+            ? $"Klikety macro: {macroName} — {windowContext}"
+            : $"Klikety macro: {macroName}";
         StepText.Text = $"Step 0 / {totalSteps}";
         ProgressBar.Value = 0;
         Show();

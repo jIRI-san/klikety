@@ -43,11 +43,13 @@ public partial class MacroPickerOverlay : Window, IMacroPickerWindow {
             _keyToSlot[wpfKey] = i;
 
             var label = slotKeys[i].ToString();
-            var name = macros[i]?.Name ?? "<empty>";
-            var isEmpty = macros[i] is null;
+            var macro = macros[i];
+            var name = macro?.Name ?? "<empty>";
+            var isEmpty = macro is null;
+            var badge = macro?.PositionMode == MacroPositionMode.WindowRelative ? " [W]" : macro is not null ? " [S]" : "";
 
             var row = new TextBlock {
-                Text = $"  {label}  —  {name}",
+                Text = $"  {label}  —  {name}{badge}",
                 FontSize = 18,
                 FontFamily = new FontFamily("Consolas"),
                 Foreground = isEmpty ? Brushes.Gray : Brushes.White,

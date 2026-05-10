@@ -1173,7 +1173,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             context = PlaybackContext.Absolute;
         }
 
-        MacroPlaybackWindow?.Show(macro.Name, macro.Steps.Count);
+        var windowContext = macro.PositionMode == MacroPositionMode.WindowRelative
+            ? macro.WindowTitlePattern : null;
+        MacroPlaybackWindow?.Show(macro.Name, macro.Steps.Count, windowContext);
         _macroPlayer.StepCompleted += (completed, total) =>
             MacroPlaybackWindow?.UpdateProgress(completed, total);
         _macroPlayer.DelayUpdate += (remainingMs, actionType) =>

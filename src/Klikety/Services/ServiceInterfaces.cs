@@ -101,7 +101,7 @@ public interface IDelayProvider {
 /// Abstracts the playback progress overlay for testability.
 /// </summary>
 public interface IMacroPlaybackWindow {
-    void Show(string macroName, int totalSteps);
+    void Show(string macroName, int totalSteps, string? windowContext = null);
     void UpdateProgress(int completedSteps, int totalSteps);
     void UpdateDelay(int remainingMs, string actionType);
     void Close();

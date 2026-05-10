@@ -439,7 +439,7 @@ public sealed class FakeMacroPlaybackWindow : IMacroPlaybackWindow {
     public int LastTotalSteps { get; private set; }
     public int LastCompletedSteps { get; private set; }
 
-    public void Show(string macroName, int totalSteps) {
+    public void Show(string macroName, int totalSteps, string? windowContext = null) {
         IsShown = true;
         LastMacroName = macroName;
         LastTotalSteps = totalSteps;

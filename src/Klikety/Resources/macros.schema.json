@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Klikety Macros",
-  "description": "Macro recordings for Klikety. Each slot stores a replayable sequence of mouse actions.",
+  "description": "Macro recordings for Klikety v2. Supports absolute and window-relative position modes.",
   "type": "object",
   "properties": {
     "$schema": {
@@ -10,8 +10,8 @@
     },
     "version": {
       "type": "integer",
-      "description": "Schema version. Current: 1.",
-      "const": 1
+      "description": "Schema version. Current: 2.",
+      "enum": [1, 2]
     },
     "macros": {
       "type": "array",
@@ -55,6 +55,24 @@
           "default": 1.0,
           "minimum": 0,
           "examples": [0.5, 1.0, 2.0, 5.0]
+        },
+        "positionMode": {
+          "type": "string",
+          "description": "Coordinate mode: absolute (screen) or windowRelative (target window).",
+          "enum": ["absolute", "windowRelative"],
+          "default": "absolute"
+        },
+        "windowWidth": {
+          "type": ["integer", "null"],
+          "description": "Target window width in physical pixels. Required when positionMode is windowRelative."
+        },
+        "windowHeight": {
+          "type": ["integer", "null"],
+          "description": "Target window height in physical pixels. Required when positionMode is windowRelative."
+        },
+        "windowTitlePattern": {
+          "type": ["string", "null"],
+          "description": "Substring to match in target window title. Required when positionMode is windowRelative."
         },
         "steps": {
           "type": "array",
@@ -109,6 +127,11 @@
           "type": ["string", "null"],
           "description": "Mouse button used for drag operations.",
           "enum": ["leftClick", "rightClick", "middleClick", null]
+        },
+        "startFromCursor": {
+          "type": "boolean",
+          "description": "When true, DragDrop starts from current cursor position instead of recorded start point.",
+          "default": false
         }
       },
       "required": ["actionType", "x", "y", "relativeTimeMs"],

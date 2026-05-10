@@ -247,7 +247,7 @@
 ## Phase 3: Playback Flow
 <!-- worktree: -->
 
-- [ ] 3.1 Window validation for `WindowRelative` playback (REQ-10, REQ-13, REQ-17, REQ-21, RISK-2, RISK-7, RISK-10) [after: 2.6] `M`
+- [x] 3.1 Window validation for `WindowRelative` playback (REQ-10, REQ-13, REQ-17, REQ-21, RISK-2, RISK-7, RISK-10) [after: 2.6] `M`
   <details><summary>Spec</summary>
 
   - **`PlaybackResultKind`** (REQ-21): add `WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`. Update all `switch`/pattern-match consumers: coordinator (post-playback handler), `MacroPlaybackOverlay` (display), all existing tests.
@@ -276,7 +276,7 @@
 
   </details>
 
-- [ ] 3.2 Coordinate resolution + per-step drift check during `WindowRelative` playback (REQ-11, REQ-17, REQ-21, RISK-4, RISK-8) [after: 3.1] `M`
+- [x] 3.2 Coordinate resolution + per-step drift check during `WindowRelative` playback (REQ-11, REQ-17, REQ-21, RISK-4, RISK-8) [after: 3.1] `M`
   <details><summary>Spec</summary>
 
   - **`MacroPlayer.ExecuteStep()`**: resolve coordinates before executing:
@@ -295,7 +295,7 @@
 
   </details>
 
-- [ ] 3.3 `StartFromCursor` playback for DragDrop (REQ-12) [after: 3.2] `S`
+- [x] 3.3 `StartFromCursor` playback for DragDrop (REQ-12) [after: 3.2] `S`
   <details><summary>Spec</summary>
 
   - **`MacroPlayer.ExecuteStep()`**: for `DragDrop` with `StartFromCursor == true`:
@@ -307,7 +307,7 @@
 
   </details>
 
-- [ ] 3.4 Unit tests for playback flow (REQ-10, REQ-11, REQ-12, REQ-13, REQ-17, REQ-21) [after: 3.3] `L`
+- [x] 3.4 Unit tests for playback flow (REQ-10, REQ-11, REQ-12, REQ-13, REQ-17, REQ-21) [after: 3.3] `L`
   <details><summary>Spec</summary>
 
   - **`MacroPlayerTests.cs`**:
@@ -330,7 +330,7 @@
 
   </details>
 
-- [ ] 3.5 `dotnet format` + build clean [after: 3.4] `S`
+- [x] 3.5 `dotnet format` + build clean [after: 3.4] `S`
 
 ## Phase 4: UI & Polish
 <!-- worktree: -->

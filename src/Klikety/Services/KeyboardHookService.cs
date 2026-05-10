@@ -20,6 +20,8 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
     private const int WM_SYSKEYDOWN = 0x0104;
     private const int WM_KEYUP = 0x0101;
     private const int WM_SYSKEYUP = 0x0105;
+    private const int LLKHF_INJECTED = 0x10;
+    private const int FLAGS_OFFSET = 8; // offset of 'flags' in KBDLLHOOKSTRUCT
     private bool _disposed;
 
     private delegate nint LowLevelKeyboardProc(int nCode, nint wParam, nint lParam);
@@ -102,8 +104,16 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
             bool isUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
 
             if (isDown || isUp) {
-                // Drain mode: suppress all keys, auto-disable on first keyup
+                var flags = (uint)Marshal.ReadInt32(lParam, FLAGS_OFFSET);
+                bool isInjected = (flags & LLKHF_INJECTED) != 0;
+
+                // Drain mode: suppress physical keys, auto-disable on physical keyup.
+                // Injected events (e.g. ClearStuckModifiers via SendInput) pass through.
                 if (_draining) {
+                    if (isInjected) {
+                        return CallNextHookEx(_hookId, nCode, wParam, lParam);
+                    }
+
                     if (isUp) {
                         _draining = false;
                         Disable();

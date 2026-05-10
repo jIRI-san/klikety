@@ -56,6 +56,7 @@ public interface IKeyboardLayoutProvider {
 /// </summary>
 public interface IForegroundWindowProvider {
     nint GetForegroundWindowHandle();
+    void SetForegroundWindow(nint hwnd);
     Rectangle GetWindowBounds(nint hwnd);
     string GetWindowTitle(nint hwnd);
 }

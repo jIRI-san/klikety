@@ -823,12 +823,25 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _modeLocked = false;
             _appScoped = false;
             _appScopeBounds = Rectangle.Empty;
+
+            // Restore focus to the window that was active before the overlay.
+            // Critical for MoveOnly/Cancel where no click activates the target.
+            var savedHwnd = _preOverlayHwnd;
             _preOverlayHwnd = 0;
 
             _overlayWindow.ClearCanvas();
             _overlayWindow.ClearStatusText();
             _overlayWindow.SetAppScopeBorder(false);
             _overlayWindow.Hide();
+
+            if (savedHwnd != 0) {
+                _platform.ForegroundWindow.SetForegroundWindow(savedHwnd);
+            }
+
+            // Clear modifier keys (Alt/Ctrl/Shift) that may be stuck in the target
+            // window's thread — hotkey modifier keydown went to target before overlay
+            // opened, but keyup was consumed by overlay.
+            _mouseService.ClearStuckModifiers();
         } finally {
             _deactivating = false;
         }

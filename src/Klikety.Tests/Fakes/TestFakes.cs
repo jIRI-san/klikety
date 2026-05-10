@@ -70,9 +70,11 @@ public sealed class FakeKeyboardLayoutProvider : IKeyboardLayoutProvider {
 
 public sealed class FakeForegroundWindowProvider : IForegroundWindowProvider {
     public nint Handle { get; set; }
+    public nint LastSetForegroundHwnd { get; private set; }
     public Rectangle Bounds { get; set; } = Rectangle.Empty;
     public string Title { get; set; } = string.Empty;
     public nint GetForegroundWindowHandle() => Handle;
+    public void SetForegroundWindow(nint hwnd) => LastSetForegroundHwnd = hwnd;
     public Rectangle GetWindowBounds(nint hwnd) => hwnd == Handle && Handle != 0 ? Bounds : Rectangle.Empty;
     public string GetWindowTitle(nint hwnd) => hwnd == Handle && Handle != 0 ? Title : string.Empty;
 }
@@ -161,6 +163,9 @@ public sealed class FakeMouseActionService : IMouseActionService {
     public void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {
         DragCalls.Add((start, end, button, modifiers));
     }
+
+    public int ClearStuckModifiersCalls { get; private set; }
+    public void ClearStuckModifiers() => ClearStuckModifiersCalls++;
 }
 
 public sealed class FakeModifierDetector : IModifierDetector {

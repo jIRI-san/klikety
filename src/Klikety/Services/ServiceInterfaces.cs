@@ -41,6 +41,13 @@ public interface IMouseActionService {
     void SendAction(System.Drawing.Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);
     void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None);
     void SendDrag(System.Drawing.Point start, System.Drawing.Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None);
+
+    /// <summary>
+    /// Inject keyup events for Alt, Ctrl, Shift to clear modifier state that may be
+    /// stuck in the foreground window's thread (e.g. hotkey Alt pressed before overlay,
+    /// keyup consumed by overlay).
+    /// </summary>
+    void ClearStuckModifiers();
 }
 
 /// <summary>

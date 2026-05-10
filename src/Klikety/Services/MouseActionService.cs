@@ -165,6 +165,15 @@ public sealed partial class MouseActionService : IMouseActionService {
         return [.. inputs];
     }
 
+    public void ClearStuckModifiers() {
+        INPUT[] keyUps = [
+            new() { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_MENU, dwFlags = KEYEVENTF_KEYUP } } },
+            new() { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_CONTROL, dwFlags = KEYEVENTF_KEYUP } } },
+            new() { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_SHIFT, dwFlags = KEYEVENTF_KEYUP } } },
+        ];
+        _ = SendInput((uint)keyUps.Length, keyUps, Marshal.SizeOf<INPUT>());
+    }
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "SendInput partial send: {Sent}/{Total}. Issuing compensating KEYUP.")]
     private partial void LogPartialSend(uint sent, int total);
 

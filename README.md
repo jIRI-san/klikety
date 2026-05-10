@@ -16,6 +16,7 @@ Also without touching the code. This paragraph is the only one I have written ma
 - **Arrow key navigation**: Optional arrow-key cell movement with crosshair highlight. Enter zooms into a cell; action keys (Space) click directly.
 - **Auto-scaling labels**: Font sizes adapt to cell height (80% at L1, 90% at L2/L3). External labels with connector lines when cells get too small.
 - **Outlined text**: Two-layer stroke+fill rendering ensures label readability over any background.
+- **App-scope navigation**: Press a chord key (default `B`) to scope the grid to the foreground application window. Partial off-screen windows clipped to screen bounds. All modes work within the scoped area.
 - **Configurable actions**: Space = left click (default). Bind any key to right-click, double-click, middle-click, move-only (cursor move without click), or drag-and-drop.
 - **Modifier-aware clicks**: Hold Shift, Ctrl, or Alt while pressing an action key to send modified clicks (Shift+click, Ctrl+click, etc.).
 - **Drag-and-drop**: Two-point drag flow — navigate to start, press drag key, navigate to end, press action key. Supports left/right/middle drag with modifiers.
@@ -86,6 +87,7 @@ First run extracts default config and theme files automatically.
 | `fileLoggingEnabled` | bool | `false` | Enable file logging to `%APPDATA%\Klikety\logs\`. |
 | `retainedLogFileCount` | int | `7` | Max rolling log files kept. Oldest deleted when exceeded. Only applies when `fileLoggingEnabled` is `true`. |
 | `minLabelFontSize` | double | `14.0` | Min label font size (DIP). When subgrid cells are too small, labels render outside the grid with connector lines. |
+| `appScope.chordKey` | string (VKey) | `"B"` | Chord key to scope grid to foreground window. `null` disables. |
 | `keyPressVisualization.fontSize` | double | `72.0` | Font size (DIP) for key labels in the HUD. |
 | `keyPressVisualization.fontColor` | string | `"#FFCC00"` | Hex color for key label fill. |
 | `keyPressVisualization.outlineColor` | string | `"#000000"` | Hex color for key label outline stroke. |

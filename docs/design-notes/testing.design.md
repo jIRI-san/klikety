@@ -9,7 +9,7 @@ globs:
 
 ## Unit Tests
 
-- **Unit tests** (`Klikety.Tests`): xUnit, 350+ tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, `GridRenderer` threshold/fan-out logic, `CrosshairStateMachine`, `CrosshairSession`, `LogCrosshairStateMachine`, `LogCrosshairSession`, `LogGridCalculator`, `DynamicKeyReducer`, and `ConfigMigrator`.
+- **Unit tests** (`Klikety.Tests`): xUnit, 700+ tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `ConfigMigrator`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, `GridRenderer` threshold/fan-out logic, `CrosshairStateMachine`, `CrosshairSession`, `LogCrosshairStateMachine`, `LogCrosshairSession`, `LogGridCalculator`, `DynamicKeyReducer`, `AppScopeCoordinator` (chord activation, bounds clipping, drag reset, mode switching).
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.
 - `NavigatorCoordinator` integration tests inject fakes and simulate full hotkey→key→action flows without any Win32 calls, except `NativeMethods.GetPrimaryScreenBounds()` which is called in `OnHotKeyActivated` — this works in tests because it's real Win32 (not mocked).
@@ -21,7 +21,7 @@ globs:
 - `FakeHotKeyService` — records Register/Unregister calls, allows manual `Activated` event firing.
 - `FakeKeyboardHookService` (with `SimulateKey`) — programmatically injects key events.
 - `FakeMouseActionService` — records `(physicalX, physicalY, MouseAction)` call list.
-- `FakeOverlayWindow` — tracks show/hide/focus-loss, rendered grid state.
+- `FakeOverlayWindow` — tracks show/hide/focus-loss, rendered grid state, `AppScopeBorderVisible`/`AppScopeBorderBounds`.
 - `FakeGridRenderer` — records `RenderCall` list (method name, cells, col) for assertion.
 
 All fakes live in `Klikety.Tests/Fakes/`.

@@ -172,15 +172,15 @@ Scopes the overlay grid to a single application window instead of the full scree
 2. When the chord key is pressed (before mode lock), coordinator calls `IForegroundWindowProvider.GetWindowBounds(_preOverlayHwnd)` using the pre-captured handle.
 3. Bounds validated: `IsIconic` (minimized), zero/negative dimensions, empty intersection with `_screenBounds` → rejection with flash message.
 4. Partial off-screen windows clipped to screen bounds. Cursor origin clamped into clipped bounds.
-5. `SwitchToAppScope(clipped)`: deactivates current session → hides/shows overlay at window bounds → creates new session at clipped bounds → sets `_appScoped = true`.
+5. `SwitchToAppScope(clipped)`: deactivates current session → clears canvas → creates new session at clipped bounds → sets `_appScoped = true`. Overlay stays full-screen — grid renderers use screen-space DIP coordinates that assume canvas origin matches screen origin. Resizing the overlay would break coordinate mapping.
 
 **`ActiveBounds` property**: returns `_appScopeBounds` when `_appScoped`, else `_screenBounds`. Used by `SwitchMode` and `OnSessionActionRequested` for bounds validation.
 
 **Switching guard** (`_switching`): prevents `OnFocusLost` from triggering `DeactivateOverlay` during the hide/show cycle in `SwitchToAppScope` and `ResetOverlayForDrag`.
 
-**Drag interaction**: `ResetOverlayForDrag` resets overlay to full screen, clears `_appScoped`/`_appScopeBounds`, removes visual border. Chord key remains available during drag mode.
+**Drag interaction**: `ResetOverlayForDrag` clears `_appScoped`/`_appScopeBounds`, removes visual border. Overlay is already full-screen so no resize needed. Chord key remains available during drag mode.
 
-**Visual indicator**: 2px rectangle on `StatusCanvas` via `IOverlayWindow.SetAppScopeBorder(bool visible)`. Uses `ThemeModel.AppScopeBorderColor`.
+**Visual indicator**: 2px rectangle on `StatusCanvas` via `IOverlayWindow.SetAppScopeBorder(bool visible, Rectangle bounds)`. Converts physical-pixel bounds to DIPs using `TransformFromDevice` for correct positioning on the full-screen canvas. Uses `ThemeModel.AppScopeBorderColor`.
 
 **Mode switching**: `SwitchMode` uses `ActiveBounds`, so mode changes within app-scope stay scoped to the window.
 

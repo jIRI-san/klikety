@@ -205,6 +205,69 @@ public class MacroPlaybackIntegrationTests {
         // Should not deactivate — playing state guards it
         // (overlay visibility depends on async timing, but no crash)
     }
+
+    [Fact]
+    public async Task WindowRelativeMacro_TitleMismatch_NoActionsPlayed() {
+        var file = new MacrosFile();
+        file.Macros[0] = new MacroDefinition {
+            Name = "WR",
+            PositionMode = MacroPositionMode.WindowRelative,
+            WindowWidth = 800,
+            WindowHeight = 600,
+            WindowTitlePattern = "Notepad",
+            ScreenWidth = 1920,
+            ScreenHeight = 1080,
+            DpiScale = 1.0,
+            Steps = [new MacroStep { ActionType = MacroActionType.LeftClick, X = 10, Y = 10, RelativeTimeMs = 100 }],
+        };
+        var (coordinator, hotKey, hook, mouse, overlay, platform, _, picker, _, _) =
+            CreatePlaybackCoordinator(macrosFile: file);
+
+        // Set foreground window to wrong title
+        platform.ForegroundWindow.Handle = 42;
+        platform.ForegroundWindow.Bounds = new System.Drawing.Rectangle(100, 50, 800, 600);
+        platform.ForegroundWindow.Title = "Chrome";
+
+        hotKey.SimulateActivation();
+        hook.SimulateKeyDown(VKey.OemTilde);
+        picker.SimulateSlotSelected(0);
+
+        await Task.Delay(50);
+
+        Assert.Empty(mouse.Calls);
+    }
+
+    [Fact]
+    public async Task WindowRelativeMacro_MatchingWindow_PlaysWithOffset() {
+        var file = new MacrosFile();
+        file.Macros[0] = new MacroDefinition {
+            Name = "WR",
+            PositionMode = MacroPositionMode.WindowRelative,
+            WindowWidth = 800,
+            WindowHeight = 600,
+            WindowTitlePattern = "Notepad",
+            ScreenWidth = 1920,
+            ScreenHeight = 1080,
+            DpiScale = 1.0,
+            Steps = [new MacroStep { ActionType = MacroActionType.LeftClick, X = 50, Y = 30, RelativeTimeMs = 100 }],
+        };
+        var (coordinator, hotKey, hook, mouse, overlay, platform, _, picker, _, _) =
+            CreatePlaybackCoordinator(macrosFile: file);
+
+        platform.ForegroundWindow.Handle = 42;
+        platform.ForegroundWindow.Bounds = new System.Drawing.Rectangle(100, 50, 800, 600);
+        platform.ForegroundWindow.Title = "My Notepad";
+
+        hotKey.SimulateActivation();
+        hook.SimulateKeyDown(VKey.OemTilde);
+        picker.SimulateSlotSelected(0);
+
+        await Task.Delay(50);
+
+        Assert.Single(mouse.Calls);
+        // Window at (100, 50), step at (50, 30) → screen (150, 80)
+        Assert.Equal(new System.Drawing.Point(150, 80), mouse.Calls[0].Point);
+    }
 }
 
 internal sealed class FakeMacroHotKeyService : IMacroHotKeyService {

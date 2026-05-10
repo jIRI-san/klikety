@@ -1160,7 +1160,18 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         _macroPlayer = new MacroPlayer(_mouseService, _platform.Screen, DelayProvider,
             macro.SpeedModifier != 1.0 ? macro.SpeedModifier : _config.Macros.SpeedModifier,
-            ClickIndicator);
+            ClickIndicator, _platform.ForegroundWindow);
+
+        PlaybackContext context;
+        if (macro.PositionMode == MacroPositionMode.WindowRelative) {
+            var hwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
+            var title = _platform.ForegroundWindow.GetWindowTitle(hwnd);
+            var bounds = _platform.ForegroundWindow.GetWindowBounds(hwnd);
+            var cursor = _platform.Cursor.GetCursorPosition();
+            context = new PlaybackContext(MacroPositionMode.WindowRelative, bounds, title, hwnd, cursor);
+        } else {
+            context = PlaybackContext.Absolute;
+        }
 
         MacroPlaybackWindow?.Show(macro.Name, macro.Steps.Count);
         _macroPlayer.StepCompleted += (completed, total) =>
@@ -1169,13 +1180,13 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             MacroPlaybackWindow?.UpdateDelay(remainingMs, actionType);
 
         _playbackCts = new CancellationTokenSource();
-        _playbackTask = RunPlaybackAsync(macro, _playbackCts.Token);
+        _playbackTask = RunPlaybackAsync(macro, context, _playbackCts.Token);
     }
 
-    private async Task RunPlaybackAsync(MacroDefinition macro, CancellationToken ct) {
+    private async Task RunPlaybackAsync(MacroDefinition macro, PlaybackContext context, CancellationToken ct) {
         PlaybackResult? result = null;
         try {
-            result = await _macroPlayer!.Play(macro, ct);
+            result = await _macroPlayer!.Play(macro, context, ct);
         } catch (OperationCanceledException) {
             result = PlaybackResult.Cancelled;
         } catch (Exception ex) {
@@ -1198,7 +1209,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _playbackTask = null;
         _macroPlayer = null;
 
-        if (result.Kind == PlaybackResultKind.ScreenMismatch) {
+        if (result.Kind is PlaybackResultKind.ScreenMismatch
+                or PlaybackResultKind.WindowMismatch
+                or PlaybackResultKind.CoordinateOutOfBounds
+                or PlaybackResultKind.WindowDrift) {
             LogScreenMismatch(result.Message ?? "unknown");
         }
 

@@ -633,6 +633,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
                 }
 
                 _macroRecorder.RecordAction(recordPoint, action, modifiers);
+
+                // StartFromCursor prompt — don't clear status or suspend overlay
+                if (_macroRecorder.State == MacroRecorderState.AwaitStartFromCursorConfirm) {
+                    _dragMode = false;
+                    _mouseService.SendDrag(_dragStartPoint, point, action, modifiers);
+                    return;
+                }
+
                 _overlayWindow.ClearStatusText();
                 _dragMode = false;
                 SuspendOverlayForAction();

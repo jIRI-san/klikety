@@ -89,6 +89,13 @@ interface IForegroundWindowProvider { nint GetForegroundWindowHandle(); Rectangl
 
 ## `IForegroundWindowProvider` — `DwmGetWindowAttribute` + `IsIconic`
 
+- Two-method API: `GetForegroundWindowHandle()` returns the HWND of the foreground window; `GetWindowBounds(nint hwnd)` returns the window's physical-pixel bounds.
+- `GetWindowBounds` uses `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` for accurate bounds (excludes invisible DWM borders). `Marshal.SizeOf<RECT>()` cached in a static field.
+- `IsIconic(hwnd)` check: minimized windows return `Rectangle.Empty` — callers must validate.
+- Bounds validation: zero or negative width/height → `Rectangle.Empty`.
+- Pre-capture pattern: `NavigatorCoordinator` captures `_preOverlayHwnd` via `GetForegroundWindowHandle()` before showing the overlay (in `OnHotKeyActivated`). The app-scope chord later uses this saved handle to get the target window's bounds — ensuring the overlay's own HWND isn't captured.
+- Real implementation: `Win32ForegroundWindowProvider` wraps `NativeMethods`. Fake: `FakeForegroundWindowProvider` with configurable `Handle` and `Bounds` properties.
+
 - Two-method API: `GetForegroundWindowHandle()` returns the current foreground window HWND; `GetWindowBounds(nint hwnd)` returns physical-pixel bounds for a given HWND.
 - Bounds acquired via `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` — returns the visible window rect excluding invisible Win10+ shadow/border.
 - Minimized detection: `IsIconic(hwnd)` called before DWM query. DWM may return stale restored geometry for minimized windows.

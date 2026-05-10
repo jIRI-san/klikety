@@ -193,17 +193,17 @@
 ## Phase 4: Polish & Documentation
 <!-- worktree: -->
 
-- [ ] 4.1 Logging: structured log entries for app-scope operations [after: 2.1] `S`
+- [x] 4.1 Logging: structured log entries for app-scope operations [after: 2.1] `S`
   - App-scope activated: log target window bounds (width × height)
   - App-scope rejected: log reason (minimized, empty intersection, self-detection)
   - Use source-generated `[LoggerMessage]` methods on coordinator partial class
 
-- [ ] 4.2 Design note: update `navigation-modes.design.md` with app-scope section [after: phase 3] `S`
+- [x] 4.2 Design note: update `navigation-modes.design.md` with app-scope section [after: phase 3] `S`
   - Document: chord key trigger, pre-overlay HWND capture, bounds acquisition (DWM + IsIconic), overlay resize, session re-activation, origin clamping, ActiveBounds property, drag interaction, macro compatibility, visual indicator on StatusCanvas, OnFocusLost switching guard
   - Update `.design-notes.md` index if scope changes
 
-- [ ] 4.3 Design note: update `win32-interop.design.md` with DWM window bounds [after: 1.1] `S`
+- [x] 4.3 Design note: update `win32-interop.design.md` with DWM window bounds [after: 1.1] `S`
   - Document: `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)`, `IsIconic`, `IForegroundWindowProvider` (two-method API: handle + bounds), pre-capture pattern
 
-- [ ] 4.4 Design note: update `config.design.md` with appScope config section [after: 3.1] `S`
+- [x] 4.4 Design note: update `config.design.md` with appScope config section [after: 3.1] `S`
   - Document: `AppScopeConfig` shape, migration v5→v6 (unconditional, macros v4→v5 prerequisite), validation rules

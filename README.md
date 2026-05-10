@@ -25,6 +25,8 @@ Also without touching the code. This paragraph is the only one I have written ma
 - **Theme support**: Built-in dark and light themes. Create custom `.theme.json` files.
 - **System tray**: Runs in the tray with About, Open Config, Reset Configuration, Start with Windows, Show Key Presses, Pause/Resume Scroll Keys, and Quit.
 - **Key press visualization**: Runtime-toggled floating HUD showing recent key presses with outlined text. Modifier combos shown as "Ctrl+C", repeated keys collapsed ("A ×3"), oldest-first staggered fade. Click-through, follows active monitor. Configurable font, color, corner, and timing.
+- **Macro recording & playback**: Record sequences of mouse actions into 10 slots. Play back at configurable speed with per-step click indicator. Screen resolution and DPI validation on playback.
+- **Window-relative macros**: Record macros scoped to a specific application window. Coordinates stored relative to window top-left. Playback validates window title, size, and DPI. Per-step drift detection aborts if the target window moves or loses focus. `StartFromCursor` option for drag operations.
 - **JSONC config**: Comments allowed in `config.json`. Schema-validated with `config.schema.json`.
 - **Debug logging**: All keystrokes and state transitions logged to `%APPDATA%\Klikety\logs\`.
 
@@ -98,6 +100,10 @@ First run extracts default config and theme files automatically.
 | `keyPressVisualization.maxVisibleKeys` | int | `3` | Max simultaneous key entries shown (1–10). |
 | `keyPressVisualization.margin` | double | `20.0` | Margin (DIP) from screen edge. |
 | `keyPressVisualization.repeatWindowMs` | int | `400` | Time window (ms) for collapsing repeated keys (50–1000). |
+| `macros.enabled` | bool | `true` | Enable macro recording and playback. |
+| `macros.globalHotKey` | HotKeyConfig | Ctrl+Alt+Shift+M | Global hotkey to open macro picker (null to disable). |
+| `macros.recordKey` | string (VKey) | `"OemPipe"` | Key to start/stop macro recording while overlay is active. |
+| `macros.speedModifier` | double | `1.0` | Global playback speed multiplier (0.1–10.0). Per-macro override takes precedence. |
 
 ### Example: Custom Action Bindings
 

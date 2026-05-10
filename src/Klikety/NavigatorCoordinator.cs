@@ -925,14 +925,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             if (key == VKey.Y) {
                 _macroRecorder.OnStartFromCursorResponse(true);
                 _overlayWindow.ClearStatusText();
-                _overlayWindow.SetRecordingBorder(true);
+                ResumeOverlayForRecording();
                 return true;
             }
 
             if (key == VKey.N) {
                 _macroRecorder.OnStartFromCursorResponse(false);
                 _overlayWindow.ClearStatusText();
-                _overlayWindow.SetRecordingBorder(true);
+                ResumeOverlayForRecording();
                 return true;
             }
 

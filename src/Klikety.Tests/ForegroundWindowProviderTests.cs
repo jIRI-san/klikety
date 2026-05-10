@@ -31,6 +31,24 @@ public class ForegroundWindowProviderTests {
     }
 
     [Fact]
+    public void GetWindowTitle_ValidHandle_ReturnsConfiguredTitle() {
+        var fake = new FakeForegroundWindowProvider { Handle = 0x1234, Title = "Outlook" };
+        Assert.Equal("Outlook", fake.GetWindowTitle(0x1234));
+    }
+
+    [Fact]
+    public void GetWindowTitle_ZeroHandle_ReturnsEmpty() {
+        var fake = new FakeForegroundWindowProvider { Handle = 0, Title = "Outlook" };
+        Assert.Equal(string.Empty, fake.GetWindowTitle(0));
+    }
+
+    [Fact]
+    public void GetWindowTitle_MismatchedHandle_ReturnsEmpty() {
+        var fake = new FakeForegroundWindowProvider { Handle = 0x1234, Title = "Outlook" };
+        Assert.Equal(string.Empty, fake.GetWindowTitle(0x5678));
+    }
+
+    [Fact]
     public void ShowBounds_RecordsBoundsInFakeOverlay() {
         var overlay = new FakeOverlayWindow();
         var bounds = new Rectangle(100, 200, 800, 600);

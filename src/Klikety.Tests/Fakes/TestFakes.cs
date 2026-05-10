@@ -71,8 +71,10 @@ public sealed class FakeKeyboardLayoutProvider : IKeyboardLayoutProvider {
 public sealed class FakeForegroundWindowProvider : IForegroundWindowProvider {
     public nint Handle { get; set; }
     public Rectangle Bounds { get; set; } = Rectangle.Empty;
+    public string Title { get; set; } = string.Empty;
     public nint GetForegroundWindowHandle() => Handle;
     public Rectangle GetWindowBounds(nint hwnd) => hwnd == Handle && Handle != 0 ? Bounds : Rectangle.Empty;
+    public string GetWindowTitle(nint hwnd) => hwnd == Handle && Handle != 0 ? Title : string.Empty;
 }
 
 public sealed class FakePlatformServices : IPlatformServices {

@@ -94,4 +94,5 @@ internal sealed class Win32KeyboardLayoutProvider : IKeyboardLayoutProvider {
 internal sealed class Win32ForegroundWindowProvider : IForegroundWindowProvider {
     public nint GetForegroundWindowHandle() => NativeMethods.GetForegroundWindowHandle();
     public Rectangle GetWindowBounds(nint hwnd) => NativeMethods.GetWindowBounds(hwnd);
+    public string GetWindowTitle(nint hwnd) => NativeMethods.GetWindowTitle(hwnd);
 }

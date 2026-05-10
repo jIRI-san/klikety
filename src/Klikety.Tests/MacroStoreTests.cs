@@ -389,6 +389,238 @@ public class MacroStoreTests : IDisposable {
         Assert.NotEmpty(result.Errors);
     }
 
+    [Fact]
+    public void Load_V1File_DefaultsToAbsolute() {
+        var json = """
+        {
+            "version": 1,
+            "macros": [
+                {
+                    "name": "Legacy",
+                    "screenWidth": 1920,
+                    "screenHeight": 1080,
+                    "dpiScale": 1.0,
+                    "steps": [
+                        { "actionType": "leftClick", "x": 100, "y": 200, "modifiers": "none", "relativeTimeMs": 0 }
+                    ]
+                },
+                null, null, null, null, null, null, null, null, null
+            ]
+        }
+        """;
+        File.WriteAllText(_macrosPath, json);
+
+        var result = _store.Load();
+
+        Assert.Empty(result.Errors);
+        Assert.NotNull(result.File.Macros[0]);
+        Assert.Equal(MacroPositionMode.Absolute, result.File.Macros[0]!.PositionMode);
+    }
+
+    [Fact]
+    public void Load_V2WindowRelative_LoadsCorrectly() {
+        var json = """
+        {
+            "version": 2,
+            "macros": [
+                {
+                    "name": "Window Macro",
+                    "screenWidth": 0,
+                    "screenHeight": 0,
+                    "dpiScale": 1.0,
+                    "positionMode": "windowRelative",
+                    "windowWidth": 800,
+                    "windowHeight": 600,
+                    "windowTitlePattern": "Outlook",
+                    "steps": [
+                        { "actionType": "leftClick", "x": 100, "y": 200, "modifiers": "none", "relativeTimeMs": 0 }
+                    ]
+                },
+                null, null, null, null, null, null, null, null, null
+            ]
+        }
+        """;
+        File.WriteAllText(_macrosPath, json);
+
+        var result = _store.Load();
+
+        Assert.Empty(result.Errors);
+        Assert.NotNull(result.File.Macros[0]);
+        Assert.Equal(MacroPositionMode.WindowRelative, result.File.Macros[0]!.PositionMode);
+        Assert.Equal(800, result.File.Macros[0]!.WindowWidth);
+        Assert.Equal(600, result.File.Macros[0]!.WindowHeight);
+        Assert.Equal("Outlook", result.File.Macros[0]!.WindowTitlePattern);
+    }
+
+    [Fact]
+    public void Load_WindowRelative_MissingTitlePattern_Quarantined() {
+        var json = """
+        {
+            "version": 2,
+            "macros": [
+                {
+                    "name": "No Title",
+                    "positionMode": "windowRelative",
+                    "windowWidth": 800,
+                    "windowHeight": 600,
+                    "windowTitlePattern": "",
+                    "dpiScale": 1.0,
+                    "steps": [
+                        { "actionType": "leftClick", "x": 100, "y": 200, "modifiers": "none", "relativeTimeMs": 0 }
+                    ]
+                },
+                null, null, null, null, null, null, null, null, null
+            ]
+        }
+        """;
+        File.WriteAllText(_macrosPath, json);
+
+        var result = _store.Load();
+
+        Assert.NotEmpty(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("WindowTitlePattern"));
+        Assert.Null(result.File.Macros[0]);
+    }
+
+    [Fact]
+    public void Load_WindowRelative_CoordinatesExceedWindowBounds_Quarantined() {
+        var json = """
+        {
+            "version": 2,
+            "macros": [
+                {
+                    "name": "Out of Bounds",
+                    "positionMode": "windowRelative",
+                    "windowWidth": 800,
+                    "windowHeight": 600,
+                    "windowTitlePattern": "Outlook",
+                    "dpiScale": 1.0,
+                    "steps": [
+                        { "actionType": "leftClick", "x": 800, "y": 200, "modifiers": "none", "relativeTimeMs": 0 }
+                    ]
+                },
+                null, null, null, null, null, null, null, null, null
+            ]
+        }
+        """;
+        File.WriteAllText(_macrosPath, json);
+
+        var result = _store.Load();
+
+        Assert.NotEmpty(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("windowWidth"));
+        Assert.Null(result.File.Macros[0]);
+    }
+
+    [Fact]
+    public void Load_StartFromCursor_OnNonDragDrop_Quarantined() {
+        var json = """
+        {
+            "version": 2,
+            "macros": [
+                {
+                    "name": "Bad Cursor",
+                    "positionMode": "windowRelative",
+                    "windowWidth": 800,
+                    "windowHeight": 600,
+                    "windowTitlePattern": "Outlook",
+                    "dpiScale": 1.0,
+                    "steps": [
+                        { "actionType": "leftClick", "x": 100, "y": 200, "modifiers": "none", "relativeTimeMs": 0, "startFromCursor": true }
+                    ]
+                },
+                null, null, null, null, null, null, null, null, null
+            ]
+        }
+        """;
+        File.WriteAllText(_macrosPath, json);
+
+        var result = _store.Load();
+
+        Assert.NotEmpty(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("StartFromCursor") && e.Contains("DragDrop"));
+        Assert.Null(result.File.Macros[0]);
+    }
+
+    [Fact]
+    public void Load_StartFromCursor_OnDragDrop_Valid() {
+        var json = """
+        {
+            "version": 2,
+            "macros": [
+                {
+                    "name": "Cursor Drag",
+                    "positionMode": "windowRelative",
+                    "windowWidth": 800,
+                    "windowHeight": 600,
+                    "windowTitlePattern": "Outlook",
+                    "dpiScale": 1.0,
+                    "steps": [
+                        {
+                            "actionType": "dragDrop",
+                            "x": 9999, "y": 9999,
+                            "modifiers": "none",
+                            "relativeTimeMs": 0,
+                            "endX": 300, "endY": 400,
+                            "dragButton": "leftClick",
+                            "startFromCursor": true
+                        }
+                    ]
+                },
+                null, null, null, null, null, null, null, null, null
+            ]
+        }
+        """;
+        File.WriteAllText(_macrosPath, json);
+
+        var result = _store.Load();
+
+        Assert.Empty(result.Errors);
+        Assert.NotNull(result.File.Macros[0]);
+        Assert.True(result.File.Macros[0]!.Steps[0].StartFromCursor);
+    }
+
+    [Fact]
+    public void Load_VersionGreaterThan2_Quarantined() {
+        var json = """
+        {
+            "version": 3,
+            "macros": [
+                {
+                    "name": "Future",
+                    "screenWidth": 1920,
+                    "screenHeight": 1080,
+                    "dpiScale": 1.0,
+                    "steps": [
+                        { "actionType": "leftClick", "x": 100, "y": 200, "modifiers": "none", "relativeTimeMs": 0 }
+                    ]
+                },
+                null, null, null, null, null, null, null, null, null
+            ]
+        }
+        """;
+        File.WriteAllText(_macrosPath, json);
+
+        var result = _store.Load();
+
+        Assert.NotEmpty(result.Errors);
+        Assert.Contains(result.Errors, e => e.Contains("unsupported version"));
+        Assert.All(result.File.Macros, m => Assert.Null(m));
+    }
+
+    [Fact]
+    public void Save_AlwaysWritesVersion2() {
+        var file = new MacrosFile {
+            Version = 1,
+            Macros = CreateTestMacrosArray(),
+        };
+
+        _store.Save(file);
+        var result = _store.Load();
+
+        Assert.Equal(2, result.File.Version);
+    }
+
     private static MacroDefinition?[] CreateTestMacrosArray() {
         var macros = new MacroDefinition?[10];
         macros[0] = new MacroDefinition {

@@ -17,6 +17,15 @@ public enum MacroActionType {
 }
 
 /// <summary>
+/// Position mode for a macro recording. Absolute uses screen coordinates;
+/// WindowRelative uses offsets from the target window's top-left corner.
+/// </summary>
+public enum MacroPositionMode {
+    Absolute = 0,
+    WindowRelative = 1,
+}
+
+/// <summary>
 /// A single recorded action within a macro.
 /// </summary>
 public sealed class MacroStep {
@@ -29,6 +38,9 @@ public sealed class MacroStep {
     public int? EndY { get; init; }
     public int? ScrollDelta { get; init; }
     public MouseAction? DragButton { get; init; }
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool StartFromCursor { get; init; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }
@@ -44,6 +56,10 @@ public sealed class MacroDefinition {
     public int ScreenHeight { get; init; }
     public double DpiScale { get; init; }
     public double SpeedModifier { get; init; } = 1.0;
+    public MacroPositionMode PositionMode { get; init; }
+    public int WindowWidth { get; init; }
+    public int WindowHeight { get; init; }
+    public string WindowTitlePattern { get; init; } = string.Empty;
     public List<MacroStep> Steps { get; init; } = [];
 
     [JsonExtensionData]
@@ -55,7 +71,7 @@ public sealed class MacroDefinition {
 /// Array index = slot number. Null = empty slot.
 /// </summary>
 public sealed class MacrosFile {
-    public int Version { get; init; } = 1;
+    public int Version { get; init; } = 2;
     public MacroDefinition?[] Macros { get; init; } = new MacroDefinition?[10];
 
     [JsonExtensionData]

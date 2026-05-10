@@ -108,7 +108,7 @@ public class MacroModelTests {
         var json = JsonSerializer.Serialize(file, JsonOptions);
         var result = JsonSerializer.Deserialize<MacrosFile>(json, JsonOptions)!;
 
-        Assert.Equal(1, result.Version);
+        Assert.Equal(2, result.Version);
         Assert.Equal(10, result.Macros.Length);
         Assert.Null(result.Macros[0]);
         Assert.NotNull(result.Macros[3]);

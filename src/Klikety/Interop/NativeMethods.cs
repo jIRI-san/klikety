@@ -206,6 +206,34 @@ internal static partial class NativeMethods {
     /// </summary>
     public static nint GetForegroundWindowHandle() => GetForegroundWindow();
 
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextLengthW")]
+    private static partial int GetWindowTextLength(nint hWnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowTextW(nint hWnd, char[] lpString, int nMaxCount);
+
+    /// <summary>
+    /// Returns the title text of the given window, or empty string if the HWND is zero/invalid.
+    /// </summary>
+    public static string GetWindowTitle(nint hwnd) {
+        if (hwnd == 0) {
+            return string.Empty;
+        }
+
+        int length = GetWindowTextLength(hwnd);
+        if (length <= 0) {
+            return string.Empty;
+        }
+
+        var buffer = new char[length + 1];
+        int copied = GetWindowTextW(hwnd, buffer, buffer.Length);
+        if (copied <= 0) {
+            return string.Empty;
+        }
+
+        return new string(buffer, 0, copied).Trim();
+    }
+
     /// <summary>
     /// Returns the visible bounds of the given window in physical pixels using DWM.
     /// Returns <see cref="Rectangle.Empty"/> if the window is minimized, invalid, or DWM fails.

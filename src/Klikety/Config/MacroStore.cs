@@ -108,6 +108,14 @@ public sealed class MacroStore : IMacroStore {
 
         // Semantic validation per slot
         var errors = new List<string>();
+
+        if (file.Version > 2) {
+            return new MacroLoadResult {
+                File = new MacrosFile(),
+                Errors = [$"macros.json has unsupported version {file.Version} (max 2)"],
+            };
+        }
+
         for (var i = 0; i < file.Macros.Length; i++) {
             var def = file.Macros[i];
             if (def is null) {
@@ -125,6 +133,14 @@ public sealed class MacroStore : IMacroStore {
     }
 
     public MacroSaveResult Save(MacrosFile file) {
+        if (file.Version != 2) {
+            file = new MacrosFile {
+                Version = 2,
+                Macros = file.Macros,
+                ExtensionData = file.ExtensionData,
+            };
+        }
+
         try {
             var dir = Path.GetDirectoryName(_path)!;
             Directory.CreateDirectory(dir);
@@ -154,6 +170,24 @@ public sealed class MacroStore : IMacroStore {
             return errors;
         }
 
+        if (def.PositionMode == MacroPositionMode.WindowRelative) {
+            if (def.WindowWidth <= 0) {
+                errors.Add($"Slot {slot}: windowRelative macro requires WindowWidth > 0");
+            }
+
+            if (def.WindowHeight <= 0) {
+                errors.Add($"Slot {slot}: windowRelative macro requires WindowHeight > 0");
+            }
+
+            if (string.IsNullOrEmpty(def.WindowTitlePattern)) {
+                errors.Add($"Slot {slot}: windowRelative macro requires non-empty WindowTitlePattern");
+            }
+
+            if (errors.Count > 0) {
+                return errors;
+            }
+        }
+
         for (var s = 0; s < def.Steps.Count; s++) {
             var step = def.Steps[s];
             var prefix = $"Slot {slot}, step {s}";
@@ -166,16 +200,14 @@ public sealed class MacroStore : IMacroStore {
                 errors.Add($"{prefix}: relativeTimeMs exceeds 10 minutes ({step.RelativeTimeMs})");
             }
 
-            if (step.X < 0 || step.Y < 0) {
-                errors.Add($"{prefix}: coordinates are negative (x={step.X}, y={step.Y})");
+            if (step.StartFromCursor && step.ActionType != MacroActionType.DragDrop) {
+                errors.Add($"{prefix}: StartFromCursor is only valid on DragDrop steps");
             }
 
-            if (def.ScreenWidth > 0 && step.X >= def.ScreenWidth) {
-                errors.Add($"{prefix}: x ({step.X}) >= screenWidth ({def.ScreenWidth})");
-            }
-
-            if (def.ScreenHeight > 0 && step.Y >= def.ScreenHeight) {
-                errors.Add($"{prefix}: y ({step.Y}) >= screenHeight ({def.ScreenHeight})");
+            if (def.PositionMode == MacroPositionMode.WindowRelative) {
+                ValidateWindowRelativeStep(prefix, def, step, errors);
+            } else {
+                ValidateAbsoluteStep(prefix, def, step, errors);
             }
 
             switch (step.ActionType) {
@@ -190,22 +222,6 @@ public sealed class MacroStore : IMacroStore {
                         errors.Add($"{prefix}: DragDrop step missing EndX/EndY");
                     }
 
-                    if (step.EndX is not null && step.EndX.Value < 0) {
-                        errors.Add($"{prefix}: endX is negative ({step.EndX})");
-                    }
-
-                    if (step.EndY is not null && step.EndY.Value < 0) {
-                        errors.Add($"{prefix}: endY is negative ({step.EndY})");
-                    }
-
-                    if (step.EndX is not null && def.ScreenWidth > 0 && step.EndX.Value >= def.ScreenWidth) {
-                        errors.Add($"{prefix}: endX ({step.EndX}) >= screenWidth ({def.ScreenWidth})");
-                    }
-
-                    if (step.EndY is not null && def.ScreenHeight > 0 && step.EndY.Value >= def.ScreenHeight) {
-                        errors.Add($"{prefix}: endY ({step.EndY}) >= screenHeight ({def.ScreenHeight})");
-                    }
-
                     break;
 
                 case MacroActionType.Scroll:
@@ -218,5 +234,72 @@ public sealed class MacroStore : IMacroStore {
         }
 
         return errors;
+    }
+
+    private static void ValidateAbsoluteStep(string prefix, MacroDefinition def, MacroStep step, List<string> errors) {
+        if (step.X < 0 || step.Y < 0) {
+            errors.Add($"{prefix}: coordinates are negative (x={step.X}, y={step.Y})");
+        }
+
+        if (def.ScreenWidth > 0 && step.X >= def.ScreenWidth) {
+            errors.Add($"{prefix}: x ({step.X}) >= screenWidth ({def.ScreenWidth})");
+        }
+
+        if (def.ScreenHeight > 0 && step.Y >= def.ScreenHeight) {
+            errors.Add($"{prefix}: y ({step.Y}) >= screenHeight ({def.ScreenHeight})");
+        }
+
+        if (step.ActionType == MacroActionType.DragDrop) {
+            if (step.EndX is not null && step.EndX.Value < 0) {
+                errors.Add($"{prefix}: endX is negative ({step.EndX})");
+            }
+
+            if (step.EndY is not null && step.EndY.Value < 0) {
+                errors.Add($"{prefix}: endY is negative ({step.EndY})");
+            }
+
+            if (step.EndX is not null && def.ScreenWidth > 0 && step.EndX.Value >= def.ScreenWidth) {
+                errors.Add($"{prefix}: endX ({step.EndX}) >= screenWidth ({def.ScreenWidth})");
+            }
+
+            if (step.EndY is not null && def.ScreenHeight > 0 && step.EndY.Value >= def.ScreenHeight) {
+                errors.Add($"{prefix}: endY ({step.EndY}) >= screenHeight ({def.ScreenHeight})");
+            }
+        }
+    }
+
+    private static void ValidateWindowRelativeStep(string prefix, MacroDefinition def, MacroStep step, List<string> errors) {
+        // Skip start coordinate validation when StartFromCursor — X/Y are vestigial
+        if (!step.StartFromCursor) {
+            if (step.X < 0 || step.Y < 0) {
+                errors.Add($"{prefix}: coordinates are negative (x={step.X}, y={step.Y})");
+            }
+
+            if (step.X >= def.WindowWidth) {
+                errors.Add($"{prefix}: x ({step.X}) >= windowWidth ({def.WindowWidth})");
+            }
+
+            if (step.Y >= def.WindowHeight) {
+                errors.Add($"{prefix}: y ({step.Y}) >= windowHeight ({def.WindowHeight})");
+            }
+        }
+
+        if (step.ActionType == MacroActionType.DragDrop) {
+            if (step.EndX is not null && step.EndX.Value < 0) {
+                errors.Add($"{prefix}: endX is negative ({step.EndX})");
+            }
+
+            if (step.EndY is not null && step.EndY.Value < 0) {
+                errors.Add($"{prefix}: endY is negative ({step.EndY})");
+            }
+
+            if (step.EndX is not null && step.EndX.Value >= def.WindowWidth) {
+                errors.Add($"{prefix}: endX ({step.EndX}) >= windowWidth ({def.WindowWidth})");
+            }
+
+            if (step.EndY is not null && step.EndY.Value >= def.WindowHeight) {
+                errors.Add($"{prefix}: endY ({step.EndY}) >= windowHeight ({def.WindowHeight})");
+            }
+        }
     }
 }

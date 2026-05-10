@@ -335,7 +335,7 @@
 ## Phase 4: UI & Polish
 <!-- worktree: -->
 
-- [ ] 4.1 Picker shows position mode badge (REQ-15) [after: 3.5] `S`
+- [x] 4.1 Picker shows position mode badge (REQ-15) [after: 3.5] `S`
   <details><summary>Spec</summary>
 
   - **`MacroPickerOverlay`**: for each non-empty slot, append `[W]` if `PositionMode == WindowRelative`, `[S]` if `Absolute`, after the macro name.
@@ -343,7 +343,7 @@
 
   </details>
 
-- [ ] 4.2 Playback overlay shows window context (REQ-16) [after: 3.5] `S`
+- [x] 4.2 Playback overlay shows window context (REQ-16) [after: 3.5] `S`
   <details><summary>Spec</summary>
 + embedded resource (REQ-2, REQ-3, REQ-4) [after: 1.3] `S`
   <details><summary>Spec</summary>
@@ -362,7 +362,7 @@
 
   </details>
 
-- [ ] 4.4 Update design notes (all REQs) [after: 4.2] `M`
+- [x] 4.4 Update design notes (all REQs) [after: 4.2] `M`
   <details><summary>Spec</summary>
 
   - **`macros.design.md`**: document `MacroPositionMode`, window-relative recording flow, coordinate transformation, `StartFromCursor`, playback validation, recording resume in app-scope.
@@ -377,4 +377,4 @@
 - **Multi-monitor DPI**: `GetDpiScale()` returns primary monitor DPI. Window on secondary monitor with different scaling → DPI validation may pass incorrectly. Documented, not solved.
 - **UWP/Store app titles**: `GetWindowTextW` may return empty for some UWP apps. Recording blocked by REQ-18; playback fails on empty pattern. Workaround: none (re-record once Microsoft surfaces title properly).
 - **Tray notification routing**: playback failures (`WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`) are surfaced via `PlaybackResult` to the coordinator. The coordinator's existing post-playback handler routes to tray notifications via `App.xaml.cs` wiring. No new notification abstraction introduced — follows existing pattern.
-- [ ] 4.5 `dotnet format` + full test run + build clean [after: 4.4] `S`
+- [x] 4.5 `dotnet format` + full test run + build clean [after: 4.4] `S`

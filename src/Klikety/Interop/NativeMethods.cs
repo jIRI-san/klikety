@@ -211,15 +211,24 @@ internal static partial class NativeMethods {
     /// Returns <see cref="Rectangle.Empty"/> if the window is minimized, invalid, or DWM fails.
     /// </summary>
     public static Rectangle GetWindowBounds(nint hwnd) {
-        if (hwnd == 0) return Rectangle.Empty;
-        if (IsIconic(hwnd)) return Rectangle.Empty;
+        if (hwnd == 0) {
+            return Rectangle.Empty;
+        }
+
+        if (IsIconic(hwnd)) {
+            return Rectangle.Empty;
+        }
 
         int hr = DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out var rect, RectSize);
-        if (hr != 0) return Rectangle.Empty;
+        if (hr != 0) {
+            return Rectangle.Empty;
+        }
 
         int w = rect.Right - rect.Left;
         int h = rect.Bottom - rect.Top;
-        if (w <= 0 || h <= 0) return Rectangle.Empty;
+        if (w <= 0 || h <= 0) {
+            return Rectangle.Empty;
+        }
 
         return new Rectangle(rect.Left, rect.Top, w, h);
     }

@@ -35,8 +35,9 @@ public partial class OverlayWindow : Window, IOverlayWindow {
     }
 
     void IOverlayWindow.Show(System.Drawing.Rectangle bounds) {
-        if (bounds.Width <= 0 || bounds.Height <= 0)
+        if (bounds.Width <= 0 || bounds.Height <= 0) {
             bounds = NativeMethods.GetPrimaryScreenBounds();
+        }
 
         var source = PresentationSource.FromVisual(this);
 
@@ -162,7 +163,9 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             }
         }
 
-        if (!visible) return;
+        if (!visible) {
+            return;
+        }
 
         var colorStr = _theme?.AppScopeBorderColor ?? "#4488FF";
         var brush = TryParseBrush(colorStr, new SolidColorBrush(Color.FromRgb(0x44, 0x88, 0xFF)));

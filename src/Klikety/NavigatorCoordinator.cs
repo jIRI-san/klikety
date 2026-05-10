@@ -106,6 +106,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private nint _preOverlayHwnd;
     private string _currentModeName = "UniformGrid";
 
+    // Recording app-scope persistence
+    private bool _recordingAppScoped;
+    private Rectangle _recordingWindowBounds;
+
     private Rectangle ActiveBounds => _appScoped ? _appScopeBounds : _screenBounds;
 
     // Debounce state
@@ -151,6 +155,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _macroRecorder.SlotSelectionRequested += OnSlotSelectionRequested;
             _macroRecorder.OverwriteConfirmRequested += OnOverwriteConfirmRequested;
             _macroRecorder.RecordingStarted += OnRecordingStarted;
+            _macroRecorder.StartFromCursorRequested += OnStartFromCursorRequested;
         }
 
         _hotKeyService.Activated += OnHotKeyActivated;
@@ -386,8 +391,32 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             && _macroRecorder is not null
             && _config.Macros is { Enabled: true }
             && e.Key == _config.Macros.RecordKey) {
-            _macroState = MacroState.Recording;
-            _macroRecorder.StartRecording();
+            if (_appScoped) {
+                var windowTitle = _platform.ForegroundWindow.GetWindowTitle(_preOverlayHwnd);
+                if (string.IsNullOrEmpty(windowTitle)) {
+                    _overlayWindow.ShowStatusText("Window has no title — cannot record");
+                    return;
+                }
+
+                var titlePattern = ExtractTitlePattern(windowTitle);
+                var context = new MacroRecordingContext(
+                    IsWindowRelative: true,
+                    WindowWidth: _appScopeBounds.Width,
+                    WindowHeight: _appScopeBounds.Height,
+                    WindowTitlePattern: titlePattern,
+                    DpiScale: _platform.Screen.GetDpiScale()
+                );
+
+                _macroState = MacroState.Recording;
+                _recordingAppScoped = true;
+                _recordingWindowBounds = _appScopeBounds;
+                _macroRecorder.StartRecording(context);
+            } else {
+                _macroState = MacroState.Recording;
+                _recordingAppScoped = false;
+                _recordingWindowBounds = Rectangle.Empty;
+                _macroRecorder.StartRecording();
+            }
             return;
         }
 
@@ -591,6 +620,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
                 ? ActionModifiers.None
                 : _modifierDetector.GetCurrentModifiers();
 
+            var recordPoint = _recordingAppScoped
+                ? new Point(point.X - _recordingWindowBounds.Left, point.Y - _recordingWindowBounds.Top)
+                : point;
+
             // Drag phase 2: completing a drag during recording
             if (_dragMode) {
                 if (action is MouseAction.MoveOnly or MouseAction.DragDrop) {
@@ -598,7 +631,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
                     return;
                 }
 
-                _macroRecorder.RecordAction(point, action, modifiers);
+                _macroRecorder.RecordAction(recordPoint, action, modifiers);
                 _overlayWindow.ClearStatusText();
                 _dragMode = false;
                 SuspendOverlayForAction();
@@ -609,7 +642,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
             // Drag phase 1: starting a drag during recording
             if (action == MouseAction.DragDrop) {
-                _macroRecorder.RecordAction(point, MouseAction.DragDrop, modifiers);
+                _macroRecorder.RecordAction(recordPoint, MouseAction.DragDrop, modifiers);
                 _dragStartPoint = point;
                 _dragMode = true;
                 ResetOverlayForDrag();
@@ -617,7 +650,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             }
 
             // Normal action during recording
-            _macroRecorder.RecordAction(point, action, modifiers);
+            _macroRecorder.RecordAction(recordPoint, action, modifiers);
             SuspendOverlayForAction();
             _mouseService.SendAction(point, action, modifiers);
             ScheduleResumeAfterAction();
@@ -678,8 +711,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _overlayWindow.ClearCanvas();
             _modeLocked = false;
 
-            // If app-scoped, clear scope state (overlay is already full-screen)
-            if (_appScoped) {
+            // If app-scoped and not recording in app-scope, clear scope state
+            if (_appScoped && !_recordingAppScoped) {
                 _appScoped = false;
                 _appScopeBounds = Rectangle.Empty;
                 _overlayWindow.SetAppScopeBorder(false);
@@ -695,7 +728,15 @@ public sealed partial class NavigatorCoordinator : IDisposable {
                 session.CursorMoveRequested += OnSessionCursorMoveRequested;
 
                 _activeSession = session;
-                session.Activate(_screenBounds, _dragStartPoint);
+
+                if (_recordingAppScoped) {
+                    session.Activate(_recordingWindowBounds, _dragStartPoint);
+                    _appScoped = true;
+                    _appScopeBounds = _recordingWindowBounds;
+                    _overlayWindow.SetAppScopeBorder(true, _recordingWindowBounds);
+                } else {
+                    session.Activate(_screenBounds, _dragStartPoint);
+                }
 
                 _overlayWindow.ShowStatusText("Select drag target");
             } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
@@ -784,6 +825,11 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
     }
 
+    private static string ExtractTitlePattern(string windowTitle) {
+        var lastSep = windowTitle.LastIndexOf(" - ", StringComparison.Ordinal);
+        return lastSep >= 0 ? windowTitle[(lastSep + 3)..] : windowTitle;
+    }
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Hotkey activated")]
     private partial void LogHotkeyActivated();
 
@@ -865,6 +911,26 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             }
         }
 
+        // Y/N during AwaitStartFromCursorConfirm
+        if (_macroRecorder.State == MacroRecorderState.AwaitStartFromCursorConfirm) {
+            if (key == VKey.Y) {
+                _macroRecorder.OnStartFromCursorResponse(true);
+                _overlayWindow.ClearStatusText();
+                _overlayWindow.SetRecordingBorder(true);
+                return true;
+            }
+
+            if (key == VKey.N) {
+                _macroRecorder.OnStartFromCursorResponse(false);
+                _overlayWindow.ClearStatusText();
+                _overlayWindow.SetRecordingBorder(true);
+                return true;
+            }
+
+            // All other keys consumed (ignored) during this state
+            return true;
+        }
+
         return false;
     }
 
@@ -912,6 +978,33 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _origin = _platform.Cursor.GetCursorPosition();
         _screenBounds = _platform.Screen.GetPrimaryScreenBounds();
 
+        // Window-relative recording: re-query window bounds via stored HWND
+        if (_recordingAppScoped) {
+            var newBounds = _platform.ForegroundWindow.GetWindowBounds(_preOverlayHwnd);
+
+            // HWND invalid (window closed) → auto-stop + save
+            if (newBounds.IsEmpty) {
+                _macroRecorder!.StopRecording();
+                return;
+            }
+
+            // Window resized → cancel recording
+            if (newBounds.Width != _recordingWindowBounds.Width || newBounds.Height != _recordingWindowBounds.Height) {
+                _overlayWindow.ShowStatusText("Window resized during recording");
+                CancelRecording();
+                return;
+            }
+
+            // Window moved (same size) → update bounds, offsets are frame-independent
+            _recordingWindowBounds = newBounds;
+
+            // Clamp origin into window bounds
+            _origin = new Point(
+                Math.Clamp(_origin.X, newBounds.Left, newBounds.Right - 1),
+                Math.Clamp(_origin.Y, newBounds.Top, newBounds.Bottom - 1)
+            );
+        }
+
         // Re-show overlay
         try {
             _overlayWindow.Show();
@@ -932,7 +1025,15 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             session.CursorMoveRequested += OnSessionCursorMoveRequested;
 
             _activeSession = session;
-            session.Activate(_screenBounds, _origin);
+
+            if (_recordingAppScoped) {
+                session.Activate(_recordingWindowBounds, _origin);
+                _appScoped = true;
+                _appScopeBounds = _recordingWindowBounds;
+                _overlayWindow.SetAppScopeBorder(true, _recordingWindowBounds);
+            } else {
+                session.Activate(_screenBounds, _origin);
+            }
 
             _overlayWindow.SetRecordingBorder(true);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
@@ -954,6 +1055,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private void OnRecordingStarted() {
         _overlayWindow.ClearStatusText();
         _overlayWindow.SetRecordingBorder(true);
+    }
+
+    private void OnStartFromCursorRequested() {
+        _overlayWindow.ShowStatusText("Drag from cursor? [Y/N]");
     }
 
     private void OnRecordingComplete(int slot, MacroDefinition macro) {

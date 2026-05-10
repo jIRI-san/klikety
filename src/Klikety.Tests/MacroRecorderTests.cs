@@ -409,4 +409,145 @@ public class MacroRecorderTests {
         Assert.Equal(MacroActionType.RightClick, result.Steps[1].ActionType);
         Assert.Equal(MacroActionType.Scroll, result.Steps[2].ActionType);
     }
+
+    // --- Window-relative context tests ---
+
+    private static MacroRecordingContext WindowRelativeContext(int w = 800, int h = 600, string title = "Outlook") =>
+        new(IsWindowRelative: true, WindowWidth: w, WindowHeight: h, WindowTitlePattern: title, DpiScale: 1.5);
+
+    [Fact]
+    public void StopRecording_WindowRelativeContext_ProducesWindowRelativeMacro() {
+        _recorder.StartRecording(WindowRelativeContext());
+        _recorder.OnSlotKey(0, EmptySlots());
+        _recorder.RecordAction(new Point(100, 200), MouseAction.LeftClick, ActionModifiers.None);
+
+        MacroDefinition? result = null;
+        _recorder.RecordingComplete += (_, macro) => result = macro;
+        _recorder.StopRecording();
+
+        Assert.NotNull(result);
+        Assert.Equal(MacroPositionMode.WindowRelative, result.PositionMode);
+        Assert.Equal(800, result.WindowWidth);
+        Assert.Equal(600, result.WindowHeight);
+        Assert.Equal("Outlook", result.WindowTitlePattern);
+        Assert.Equal(0, result.ScreenWidth);
+        Assert.Equal(0, result.ScreenHeight);
+    }
+
+    [Fact]
+    public void StopRecording_NoContext_ProducesAbsoluteMacro() {
+        _recorder.StartRecording();
+        _recorder.OnSlotKey(0, EmptySlots());
+        _recorder.RecordAction(new Point(100, 200), MouseAction.LeftClick, ActionModifiers.None);
+
+        MacroDefinition? result = null;
+        _recorder.RecordingComplete += (_, macro) => result = macro;
+        _recorder.StopRecording();
+
+        Assert.NotNull(result);
+        Assert.Equal(MacroPositionMode.Absolute, result.PositionMode);
+        Assert.Equal(1920, result.ScreenWidth);
+        Assert.Equal(1080, result.ScreenHeight);
+    }
+
+    [Fact]
+    public void DragDrop_WindowRelative_FiresStartFromCursorRequested() {
+        var fired = false;
+        _recorder.StartFromCursorRequested += () => fired = true;
+
+        _recorder.StartRecording(WindowRelativeContext());
+        _recorder.OnSlotKey(0, EmptySlots());
+
+        // Drag phase 1 (start) + phase 2 (end with button)
+        _recorder.RecordAction(new Point(10, 20), MouseAction.DragDrop, ActionModifiers.None);
+        _recorder.RecordAction(new Point(50, 60), MouseAction.LeftClick, ActionModifiers.None);
+
+        Assert.True(fired);
+        Assert.Equal(MacroRecorderState.AwaitStartFromCursorConfirm, _recorder.State);
+    }
+
+    [Fact]
+    public void DragDrop_Absolute_DoesNotFireStartFromCursorRequested() {
+        var fired = false;
+        _recorder.StartFromCursorRequested += () => fired = true;
+
+        _recorder.StartRecording();
+        _recorder.OnSlotKey(0, EmptySlots());
+
+        _recorder.RecordAction(new Point(10, 20), MouseAction.DragDrop, ActionModifiers.None);
+        _recorder.RecordAction(new Point(50, 60), MouseAction.LeftClick, ActionModifiers.None);
+
+        Assert.False(fired);
+        Assert.Equal(MacroRecorderState.Recording, _recorder.State);
+    }
+
+    [Fact]
+    public void StartFromCursor_Y_SetsStartFromCursorTrue() {
+        _recorder.StartRecording(WindowRelativeContext());
+        _recorder.OnSlotKey(0, EmptySlots());
+        _recorder.RecordAction(new Point(10, 20), MouseAction.DragDrop, ActionModifiers.None);
+        _recorder.RecordAction(new Point(50, 60), MouseAction.LeftClick, ActionModifiers.None);
+
+        _recorder.OnStartFromCursorResponse(true);
+
+        MacroDefinition? result = null;
+        _recorder.RecordingComplete += (_, macro) => result = macro;
+        _recorder.StopRecording();
+
+        Assert.NotNull(result);
+        Assert.Single(result.Steps);
+        Assert.True(result.Steps[0].StartFromCursor);
+        Assert.Equal(MacroRecorderState.Idle, _recorder.State);
+    }
+
+    [Fact]
+    public void StartFromCursor_N_SetsStartFromCursorFalse() {
+        _recorder.StartRecording(WindowRelativeContext());
+        _recorder.OnSlotKey(0, EmptySlots());
+        _recorder.RecordAction(new Point(10, 20), MouseAction.DragDrop, ActionModifiers.None);
+        _recorder.RecordAction(new Point(50, 60), MouseAction.LeftClick, ActionModifiers.None);
+
+        _recorder.OnStartFromCursorResponse(false);
+
+        MacroDefinition? result = null;
+        _recorder.RecordingComplete += (_, macro) => result = macro;
+        _recorder.StopRecording();
+
+        Assert.NotNull(result);
+        Assert.Single(result.Steps);
+        Assert.False(result.Steps[0].StartFromCursor);
+    }
+
+    [Fact]
+    public void AwaitStartFromCursorConfirm_Escape_CancelsRecording() {
+        _recorder.StartRecording(WindowRelativeContext());
+        _recorder.OnSlotKey(0, EmptySlots());
+        _recorder.RecordAction(new Point(10, 20), MouseAction.DragDrop, ActionModifiers.None);
+        _recorder.RecordAction(new Point(50, 60), MouseAction.LeftClick, ActionModifiers.None);
+
+        Assert.Equal(MacroRecorderState.AwaitStartFromCursorConfirm, _recorder.State);
+
+        var cancelled = false;
+        _recorder.RecordingCancelled += () => cancelled = true;
+        _recorder.Cancel();
+
+        Assert.True(cancelled);
+        Assert.Equal(MacroRecorderState.Idle, _recorder.State);
+    }
+
+    [Fact]
+    public void StopRecording_FromAwaitStartFromCursorConfirm_FinalizesStep() {
+        _recorder.StartRecording(WindowRelativeContext());
+        _recorder.OnSlotKey(0, EmptySlots());
+        _recorder.RecordAction(new Point(10, 20), MouseAction.DragDrop, ActionModifiers.None);
+        _recorder.RecordAction(new Point(50, 60), MouseAction.LeftClick, ActionModifiers.None);
+
+        MacroDefinition? result = null;
+        _recorder.RecordingComplete += (_, macro) => result = macro;
+        _recorder.StopRecording();
+
+        Assert.NotNull(result);
+        Assert.Single(result.Steps);
+        Assert.False(result.Steps[0].StartFromCursor); // default decline
+    }
 }

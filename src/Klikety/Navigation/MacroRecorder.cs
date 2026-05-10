@@ -9,12 +9,24 @@ using Microsoft.Extensions.Logging;
 namespace Klikety.Navigation;
 
 /// <summary>
+/// Context for a macro recording session, determining position mode and window metadata.
+/// </summary>
+public sealed record MacroRecordingContext(
+    bool IsWindowRelative,
+    int WindowWidth,
+    int WindowHeight,
+    string WindowTitlePattern,
+    double DpiScale
+);
+
+/// <summary>
 /// State machine for macro recording. Manages slot selection, overwrite confirmation,
 /// step capture with timing, and drag pairing. No UI dependency — testable via direct calls.
 /// </summary>
 public sealed partial class MacroRecorder {
     private readonly IScreenBoundsProvider _screen;
     private readonly ILogger _logger;
+    private MacroRecordingContext? _recordingContext;
 
     private MacroRecorderState _state = MacroRecorderState.Idle;
     private int _selectedSlot;
@@ -26,6 +38,9 @@ public sealed partial class MacroRecorder {
 
     // Drag pairing: DragDrop action → next action resolves button
     private (Point Start, ActionModifiers Modifiers, int RelativeTimeMs)? _pendingDragStart;
+
+    // StartFromCursor: pending DragDrop step awaiting Y/N
+    private MacroStep? _pendingStartFromCursorStep;
 
     /// <summary>Current state of the recorder.</summary>
     public MacroRecorderState State => _state;
@@ -45,6 +60,9 @@ public sealed partial class MacroRecorder {
     /// <summary>Raised when the recorder enters Recording state (after slot confirmed).</summary>
     public event Action? RecordingStarted;
 
+    /// <summary>Raised when the recorder needs StartFromCursor confirmation for a DragDrop step.</summary>
+    public event Action? StartFromCursorRequested;
+
     public MacroRecorder(IScreenBoundsProvider screen, ILogger logger) {
         _screen = screen;
         _logger = logger;
@@ -53,11 +71,17 @@ public sealed partial class MacroRecorder {
     /// <summary>
     /// Begin the recording flow: transition Idle → AwaitSlot.
     /// </summary>
-    public void StartRecording() {
+    public void StartRecording() => StartRecording(null);
+
+    /// <summary>
+    /// Begin the recording flow with explicit context: transition Idle → AwaitSlot.
+    /// </summary>
+    public void StartRecording(MacroRecordingContext? context) {
         if (_state != MacroRecorderState.Idle) {
             return;
         }
 
+        _recordingContext = context;
         _state = MacroRecorderState.AwaitSlot;
         SlotSelectionRequested?.Invoke();
         LogRecordingAwaitSlot();
@@ -121,7 +145,7 @@ public sealed partial class MacroRecorder {
         // Drag phase 2: resolve pending drag with button
         if (_pendingDragStart is { } drag) {
             if (action is MouseAction.LeftClick or MouseAction.RightClick or MouseAction.MiddleClick) {
-                _steps.Add(new MacroStep {
+                var step = new MacroStep {
                     ActionType = MacroActionType.DragDrop,
                     X = drag.Start.X,
                     Y = drag.Start.Y,
@@ -130,8 +154,17 @@ public sealed partial class MacroRecorder {
                     EndX = point.X,
                     EndY = point.Y,
                     DragButton = action,
-                });
+                };
                 _pendingDragStart = null;
+
+                // In window-relative mode, prompt for StartFromCursor
+                if (_recordingContext is { IsWindowRelative: true }) {
+                    _pendingStartFromCursorStep = step;
+                    _state = MacroRecorderState.AwaitStartFromCursorConfirm;
+                    StartFromCursorRequested?.Invoke();
+                } else {
+                    _steps.Add(step);
+                }
             } else {
                 // Invalid drag button (MoveOnly, DoubleClick, DragDrop) — discard drag
                 LogDragPairInvalid(action);
@@ -161,6 +194,34 @@ public sealed partial class MacroRecorder {
     }
 
     /// <summary>
+    /// Handle StartFromCursor confirmation response (Y/N).
+    /// </summary>
+    public void OnStartFromCursorResponse(bool confirmed) {
+        if (_state != MacroRecorderState.AwaitStartFromCursorConfirm || _pendingStartFromCursorStep is null) {
+            return;
+        }
+
+        if (confirmed) {
+            _steps.Add(new MacroStep {
+                ActionType = _pendingStartFromCursorStep.ActionType,
+                X = _pendingStartFromCursorStep.X,
+                Y = _pendingStartFromCursorStep.Y,
+                Modifiers = _pendingStartFromCursorStep.Modifiers,
+                RelativeTimeMs = _pendingStartFromCursorStep.RelativeTimeMs,
+                EndX = _pendingStartFromCursorStep.EndX,
+                EndY = _pendingStartFromCursorStep.EndY,
+                DragButton = _pendingStartFromCursorStep.DragButton,
+                StartFromCursor = true,
+            });
+        } else {
+            _steps.Add(_pendingStartFromCursorStep);
+        }
+
+        _pendingStartFromCursorStep = null;
+        _state = MacroRecorderState.Recording;
+    }
+
+    /// <summary>
     /// Record a scroll step.
     /// </summary>
     public void RecordScroll(Point point, int scrollDelta, ActionModifiers modifiers) {
@@ -185,8 +246,14 @@ public sealed partial class MacroRecorder {
     /// Stop recording and emit the completed macro.
     /// </summary>
     public void StopRecording() {
-        if (_state != MacroRecorderState.Recording) {
+        if (_state is not MacroRecorderState.Recording and not MacroRecorderState.AwaitStartFromCursorConfirm) {
             return;
+        }
+
+        // Finalize any pending StartFromCursor step (decline by default)
+        if (_pendingStartFromCursorStep is not null) {
+            _steps.Add(_pendingStartFromCursorStep);
+            _pendingStartFromCursorStep = null;
         }
 
         if (_pendingDragStart is not null) {
@@ -204,7 +271,15 @@ public sealed partial class MacroRecorder {
             DpiScale = _dpiScale,
             SpeedModifier = 1.0,
             Steps = [.. _steps],
+            PositionMode = _recordingContext is { IsWindowRelative: true }
+                ? MacroPositionMode.WindowRelative
+                : MacroPositionMode.Absolute,
+            WindowWidth = _recordingContext is { IsWindowRelative: true } ? _recordingContext.WindowWidth : 0,
+            WindowHeight = _recordingContext is { IsWindowRelative: true } ? _recordingContext.WindowHeight : 0,
+            WindowTitlePattern = _recordingContext is { IsWindowRelative: true } ? _recordingContext.WindowTitlePattern : string.Empty,
         };
+
+        _recordingContext = null;
 
         LogRecordingStopped(_selectedSlot, _steps.Count);
         RecordingComplete?.Invoke(_selectedSlot, macro);
@@ -220,17 +295,25 @@ public sealed partial class MacroRecorder {
 
         LogRecordingCancelled(_state);
         _pendingDragStart = null;
+        _pendingStartFromCursorStep = null;
         _steps.Clear();
         _stepTimer.Stop();
+        _recordingContext = null;
         _state = MacroRecorderState.Idle;
         RecordingCancelled?.Invoke();
     }
 
     private void BeginRecording() {
-        var bounds = _screen.GetPrimaryScreenBounds();
-        _screenWidth = bounds.Width;
-        _screenHeight = bounds.Height;
-        _dpiScale = _screen.GetDpiScale();
+        if (_recordingContext is not null) {
+            _screenWidth = _recordingContext.IsWindowRelative ? 0 : _screen.GetPrimaryScreenBounds().Width;
+            _screenHeight = _recordingContext.IsWindowRelative ? 0 : _screen.GetPrimaryScreenBounds().Height;
+            _dpiScale = _recordingContext.DpiScale;
+        } else {
+            var bounds = _screen.GetPrimaryScreenBounds();
+            _screenWidth = bounds.Width;
+            _screenHeight = bounds.Height;
+            _dpiScale = _screen.GetDpiScale();
+        }
 
         _steps.Clear();
         _pendingDragStart = null;
@@ -271,4 +354,5 @@ public enum MacroRecorderState {
     AwaitSlot,
     AwaitOverwrite,
     Recording,
+    AwaitStartFromCursorConfirm,
 }

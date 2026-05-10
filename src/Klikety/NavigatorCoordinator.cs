@@ -1134,6 +1134,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
 
         _playbackFromGlobalHotKey = true;
+        _preOverlayHwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
         _macroState = MacroState.Picking;
         _macroPickerWindow.Show(_macrosFile.Macros, _config.Macros.SlotKeys);
     }
@@ -1164,7 +1165,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         PlaybackContext context;
         if (macro.PositionMode == MacroPositionMode.WindowRelative) {
-            var hwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
+            var hwnd = _preOverlayHwnd;
             var title = _platform.ForegroundWindow.GetWindowTitle(hwnd);
             var bounds = _platform.ForegroundWindow.GetWindowBounds(hwnd);
             var cursor = _platform.Cursor.GetCursorPosition();

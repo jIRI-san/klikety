@@ -798,7 +798,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _deactivating = true;
 
         try {
-            _hookService.Disable();
+            _hookService.DrainAndDisable();
 
             // Clear debounce state
             _debounceKeys.Clear();

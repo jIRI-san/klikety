@@ -25,6 +25,12 @@ public interface IKeyboardHookService : IDisposable {
     event EventHandler<KeyHookEventArgs>? KeyEvent;
     bool Enable();
     void Disable();
+
+    /// <summary>
+    /// Enter drain mode: suppress all keys without dispatching, auto-disable on first keyup.
+    /// Prevents action-key keyup from leaking to the target app after overlay closes.
+    /// </summary>
+    void DrainAndDisable();
 }
 
 /// <summary>

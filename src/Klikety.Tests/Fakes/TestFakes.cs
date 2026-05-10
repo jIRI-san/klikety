@@ -121,6 +121,10 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
         IsEnabled = false;
     }
 
+    public void DrainAndDisable() {
+        IsEnabled = false;
+    }
+
     public void Dispose() {
         Disable();
     }

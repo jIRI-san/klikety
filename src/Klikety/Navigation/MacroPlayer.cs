@@ -127,7 +127,7 @@ public sealed class MacroPlayer {
                 }
             }
 
-            var stepResult = ExecuteStep(step, macro.PositionMode, windowBounds, context.InitialCursorPosition);
+            var stepResult = await ExecuteStep(step, macro.PositionMode, windowBounds, context.InitialCursorPosition);
             if (stepResult is not null) {
                 return stepResult;
             }
@@ -190,7 +190,7 @@ public sealed class MacroPlayer {
         return new Point(x, y);
     }
 
-    private PlaybackResult? ExecuteStep(MacroStep step, MacroPositionMode mode, Rectangle windowBounds, Point initialCursor) {
+    private async Task<PlaybackResult?> ExecuteStep(MacroStep step, MacroPositionMode mode, Rectangle windowBounds, Point initialCursor) {
         var point = ResolvePoint(step.X, step.Y, mode, windowBounds);
 
         if (mode == MacroPositionMode.WindowRelative) {
@@ -203,7 +203,7 @@ public sealed class MacroPlayer {
 
         // Show click indicator for actions that interact (not MoveOnly)
         if (_clickIndicator != null && step.ActionType != MacroActionType.MoveOnly) {
-            _clickIndicator.ShowAndWait(point.X, point.Y).GetAwaiter().GetResult();
+            await _clickIndicator.ShowAndWait(point.X, point.Y);
         }
 
         switch (step.ActionType) {

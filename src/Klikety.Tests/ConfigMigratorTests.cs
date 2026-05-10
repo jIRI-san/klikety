@@ -600,7 +600,7 @@ public class ConfigMigratorTests {
             var migrated = ReadJsonObject(path);
             Assert.Equal(6, migrated["configVersion"]!.GetValue<int>());
             Assert.True(migrated.ContainsKey("appScope"));
-            Assert.Equal("B", migrated["appScope"]!["chordKey"]!.GetValue<string>());
+            Assert.Equal("OemPeriod", migrated["appScope"]!["chordKey"]!.GetValue<string>());
         } finally { Cleanup(path); }
     }
 
@@ -675,7 +675,7 @@ public class ConfigMigratorTests {
 
             var migrated = ReadJsonObject(path);
             Assert.True(migrated.ContainsKey("appScope"));
-            Assert.Equal("B", migrated["appScope"]!["chordKey"]!.GetValue<string>());
+            Assert.Equal("OemPeriod", migrated["appScope"]!["chordKey"]!.GetValue<string>());
         } finally { Cleanup(path); }
     }
 

@@ -204,7 +204,7 @@ public static class ConfigMigrator {
             if (version < 6) {
                 if (!obj.ContainsKey("appScope") || obj["appScope"] is not JsonObject) {
                     var v6ActionKeys = CollectActionKeys(obj);
-                    var v6DefaultChord = VKey.B;
+                    var v6DefaultChord = VKey.OemPeriod;
                     if (v6ActionKeys.Contains(v6DefaultChord) || ContainsVKeyInArray(obj, "horizontalKeys", v6DefaultChord) || ContainsVKeyInArray(obj, "verticalKeys", v6DefaultChord)) {
                         obj["appScope"] = new JsonObject { ["chordKey"] = (string?)null };
                         v1Warnings.Add($"App-scope chord key '{v6DefaultChord}' conflicts with existing keys; app-scope auto-disabled.");
@@ -345,7 +345,7 @@ public static class ConfigMigrator {
 
         // Add appScope section with defaults
         if (!obj.ContainsKey("appScope") || obj["appScope"] is not JsonObject) {
-            var legacyDefaultChord = VKey.B;
+            var legacyDefaultChord = VKey.OemPeriod;
             if (actionKeys.Contains(legacyDefaultChord) || ContainsVKeyInArray(obj, "horizontalKeys", legacyDefaultChord) || ContainsVKeyInArray(obj, "verticalKeys", legacyDefaultChord)) {
                 obj["appScope"] = new JsonObject { ["chordKey"] = (string?)null };
                 warnings.Add($"App-scope chord key '{legacyDefaultChord}' conflicts with existing keys; app-scope auto-disabled.");
@@ -394,7 +394,7 @@ public static class ConfigMigrator {
     };
 
     private static JsonObject CreateDefaultAppScope() => new() {
-        ["chordKey"] = "B",
+        ["chordKey"] = "OemPeriod",
     };
 
     private static bool ContainsVKeyInArray(JsonObject obj, string propertyName, VKey key) {

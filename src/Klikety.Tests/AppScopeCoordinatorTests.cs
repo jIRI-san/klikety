@@ -52,7 +52,7 @@ public class AppScopeCoordinatorTests {
 
         Assert.True(overlay.IsVisible);
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
 
         // Overlay stays full-screen; session gets window bounds; border visible
         Assert.True(overlay.IsVisible);
@@ -68,7 +68,7 @@ public class AppScopeCoordinatorTests {
         hook.SimulateKeyDown(VKey.A);
 
         var showCountBefore = overlay.ShowCount;
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
 
         // Overlay should not have been re-shown (no app-scope switch)
         Assert.Equal(showCountBefore, overlay.ShowCount);
@@ -83,7 +83,7 @@ public class AppScopeCoordinatorTests {
         platform.ForegroundWindow.Bounds = Rectangle.Empty;
         hotKey.SimulateActivation();
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
 
         Assert.Equal("Invalid window", overlay.StatusText);
         Assert.True(overlay.IsVisible); // stays full-screen
@@ -95,7 +95,7 @@ public class AppScopeCoordinatorTests {
         platform.ForegroundWindow.Handle = 0;
         hotKey.SimulateActivation();
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
 
         Assert.Equal("Invalid window", overlay.StatusText);
     }
@@ -107,7 +107,7 @@ public class AppScopeCoordinatorTests {
         var windowBounds = new Rectangle(2000, 100, 800, 600);
         ActivateOverlay(hotKey, platform, windowBounds: windowBounds);
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
 
         Assert.Equal("Window outside screen", overlay.StatusText);
     }
@@ -119,7 +119,7 @@ public class AppScopeCoordinatorTests {
         var windowBounds = new Rectangle(1200, 100, 820, 600);
         ActivateOverlay(hotKey, platform, windowBounds: windowBounds);
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
 
         // Session activated (border visible); overlay stays full-screen
         Assert.True(overlay.AppScopeBorderVisible);
@@ -130,11 +130,11 @@ public class AppScopeCoordinatorTests {
         var (_, hotKey, hook, _, overlay, platform) = CreateCoordinator();
         ActivateOverlay(hotKey, platform);
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
         var showCountAfterFirst = overlay.ShowCount;
 
         // Second press (auto-repeat) should be no-op
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
         Assert.Equal(showCountAfterFirst, overlay.ShowCount);
     }
 
@@ -148,7 +148,7 @@ public class AppScopeCoordinatorTests {
         platform.Cursor.Position = new Point(100, 100);
         hotKey.SimulateActivation();
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
 
         // Overlay visible with border (session activated at window bounds, origin clamped)
         Assert.True(overlay.IsVisible);
@@ -160,7 +160,7 @@ public class AppScopeCoordinatorTests {
         var (_, hotKey, hook, _, overlay, platform) = CreateCoordinator();
         ActivateOverlay(hotKey, platform);
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
         Assert.True(overlay.IsVisible);
 
         // Escape at L1 deactivates
@@ -173,7 +173,7 @@ public class AppScopeCoordinatorTests {
         var (coordinator, hotKey, hook, _, overlay, platform) = CreateCoordinator();
         ActivateOverlay(hotKey, platform);
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
         Assert.True(overlay.AppScopeBorderVisible);
 
         hook.SimulateKeyDown(VKey.Escape);
@@ -193,7 +193,7 @@ public class AppScopeCoordinatorTests {
         var (_, hotKey, hook, _, overlay, platform) = CreateCoordinator(config);
         ActivateOverlay(hotKey, platform);
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
         Assert.True(overlay.AppScopeBorderVisible);
         var appScopeBounds = overlay.LastShowBounds;
 
@@ -214,7 +214,7 @@ public class AppScopeCoordinatorTests {
         ActivateOverlay(hotKey, platform);
 
         // This will trigger Hide() → FocusLost during SwitchToAppScope
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
 
         // Should not have been deactivated — still visible at window bounds
         Assert.True(overlay.IsVisible);
@@ -227,7 +227,7 @@ public class AppScopeCoordinatorTests {
 
         Assert.False(overlay.AppScopeBorderVisible);
 
-        hook.SimulateKeyDown(VKey.B);
+        hook.SimulateKeyDown(VKey.OemPeriod);
         Assert.True(overlay.AppScopeBorderVisible);
 
         hook.SimulateKeyDown(VKey.Escape);

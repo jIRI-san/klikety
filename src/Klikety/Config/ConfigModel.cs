@@ -236,5 +236,5 @@ public sealed class ConfigModel {
 }
 
 public sealed class AppScopeConfig {
-    public VKey? ChordKey { get; init; } = VKey.B;
+    public VKey? ChordKey { get; init; } = VKey.OemPeriod;
 }

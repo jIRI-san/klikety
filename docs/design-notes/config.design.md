@@ -31,7 +31,7 @@ Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added)
 - v2→v3: adds `logGrid` mode block if missing. Chord key (OemComma) conflict → auto-disable.
 - v3→v4: adds `scrollHotkeys` section with disabled defaults if missing. Preserves existing user-added `scrollHotkeys`.
 - v4→v5: adds `macros` section with enabled defaults if missing. Preserves existing user-added `macros`. Default: `enabled: true`, `globalHotKey: Ctrl+Alt+Shift+M`, `recordKey: OemPipe` (backslash), `helperKey: OemTilde` (backtick), `slotKeys: [D0..D9]`, `speedModifier: 1.0`.
-- v5→v6: adds `appScope` section if missing or null. Conflict-aware: if default chord key (`B`) collides with `actionBindings`, `horizontalKeys`, or `verticalKeys`, sets `chordKey: null` (feature auto-disabled) with migration warning. Default: `chordKey: "B"`. Preserves existing user-added `appScope`.
+- v5→v6: adds `appScope` section if missing or null. Conflict-aware: if default chord key (`OemPeriod`) collides with `actionBindings`, `horizontalKeys`, or `verticalKeys`, sets `chordKey: null` (feature auto-disabled) with migration warning. Default: `chordKey: "OemPeriod"`. Preserves existing user-added `appScope`.
 - Atomic write: random temp file (`Path.GetRandomFileName()`) → `.bak` backup → rename. Write errors return `BlockingError`.
 - `configVersion` > known → fail-closed with blocking error.
 - Mixed shape (`modes` + `navigationMode`) → `modes` wins.

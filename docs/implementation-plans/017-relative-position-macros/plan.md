@@ -131,7 +131,7 @@
 ## Phase 2: Recording Flow
 <!-- worktree: -->
 
-- [ ] 2.1 Pass app-scope context to `MacroRecorder` at recording start (REQ-5, REQ-6, REQ-18, RISK-1, RISK-2) [after: 1.6] `M`
+- [x] 2.1 Pass app-scope context to `MacroRecorder` at recording start (REQ-5, REQ-6, REQ-18, RISK-1, RISK-2) [after: 1.6] `M`
   <details><summary>Spec</summary>
 
   - **`MacroRecorder`**: add `StartRecording(MacroRecordingContext context)` overload. `MacroRecordingContext` is a new record:
@@ -159,7 +159,7 @@
 
   </details>
 
-- [ ] 2.2 Recording resume preserves app-scope (REQ-7, REQ-19, REQ-20, RISK-3, RISK-9) [after: 2.1] `M`
+- [x] 2.2 Recording resume preserves app-scope (REQ-7, REQ-19, REQ-20, RISK-3, RISK-9) [after: 2.1] `M`
   <details><summary>Spec</summary>
 
   - **`ResumeOverlayForRecording()`** in `NavigatorCoordinator.cs`:
@@ -179,7 +179,7 @@
 
   </details>
 
-- [ ] 2.3 Coordinate transformation for window-relative recording (REQ-8, RISK-4) [after: 2.2] `M`
+- [x] 2.3 Coordinate transformation for window-relative recording (REQ-8, RISK-4) [after: 2.2] `M`
   <details><summary>Spec</summary>
 
   - **Coordinator owns the transform**: `NavigatorCoordinator.OnSessionActionRequested()` pre-transforms the action point before calling `MacroRecorder.RecordAction()`:
@@ -194,7 +194,7 @@
 
   </details>
 
-- [ ] 2.4 `StartFromCursor` prompt for DragDrop during recording (REQ-9, RISK-5) [after: 2.3] `M`
+- [x] 2.4 `StartFromCursor` prompt for DragDrop during recording (REQ-9, RISK-5) [after: 2.3] `M`
   <details><summary>Spec</summary>
 
   - Only offered in `WindowRelative` mode (absolute macros have no concept of "current cursor" — positions are fixed).
@@ -219,7 +219,7 @@
 
   </details>
 
-- [ ] 2.5 Unit tests for recording flow (REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-18, REQ-19, REQ-20) [after: 2.4] `L`
+- [x] 2.5 Unit tests for recording flow (REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-18, REQ-19, REQ-20) [after: 2.4] `L`
   <details><summary>Spec</summary>
 
   - **`MacroRecorderTests.cs`**:
@@ -242,7 +242,7 @@
 
   </details>
 
-- [ ] 2.6 `dotnet format` + build clean [after: 2.5] `S`
+- [x] 2.6 `dotnet format` + build clean [after: 2.5] `S`
 
 ## Phase 3: Playback Flow
 <!-- worktree: -->

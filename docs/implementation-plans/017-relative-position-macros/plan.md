@@ -68,9 +68,9 @@
 | RISK-10 | Multi-monitor DPI mismatch: window on secondary monitor with different scaling | Low | Medium | Known limitation. `GetDpiScale()` returns primary monitor DPI. Documented in design notes. Not solved in this plan. | 3.1 |
 
 ## Phase 1: Data Model & Platform Layer
-<!-- worktree: -->
+<!-- worktree: feature/017-relative-position-macros -->
 
-- [ ] 1.1 Add `GetWindowTitle(nint hwnd)` to `IForegroundWindowProvider` + production implementation + fake (REQ-1, RISK-1) `S`
+- [x] 1.1 Add `GetWindowTitle(nint hwnd)` to `IForegroundWindowProvider` + production implementation + fake (REQ-1, RISK-1) `S`
   <details><summary>Spec</summary>
 
   - **`IForegroundWindowProvider`** (`Services/IPlatformServices.cs`): add `string GetWindowTitle(nint hwnd)`.
@@ -80,14 +80,14 @@
 
   </details>
 
-- [ ] 1.2 Unit tests for `GetWindowTitle` fake behavior (REQ-1) [after: 1.1] `S`
+- [x] 1.2 Unit tests for `GetWindowTitle` fake behavior (REQ-1) [after: 1.1] `S`
   <details><summary>Spec</summary>
 
   - In `ForegroundWindowProviderTests.cs`: add tests — configured title returned for matching handle; empty for zero handle; empty for mismatched handle.
 
   </details>
 
-- [ ] 1.3 Extend `MacroDefinition` and `MacroStep` data models (REQ-2, REQ-3, RISK-6) `S`
+- [x] 1.3 Extend `MacroDefinition` and `MacroStep` data models (REQ-2, REQ-3, RISK-6) `S`
   <details><summary>Spec</summary>
 
   - **`MacroPositionMode` enum** (in `MacroModels.cs`): `Absolute = 0`, `WindowRelative = 1`. Default `Absolute` ensures backward compatibility (missing JSON field → 0).
@@ -97,7 +97,7 @@
 
   </details>
 
-- [ ] 1.4 Extend `MacroStore` validation for window-relative macros (REQ-4, REQ-14) [after: 1.3] `M`
+- [x] 1.4 Extend `MacroStore` validation for window-relative macros (REQ-4, REQ-14) [after: 1.3] `M`
   <details><summary>Spec</summary>
 
   - **Version handling**: accept version 1 and 2. Version > 2 → quarantine with error (same pattern as existing unknown-version handling, if any; otherwise add). `Save()` always writes `Version = 2`.
@@ -112,7 +112,7 @@
 
   </details>
 
-- [ ] 1.5 Unit tests for extended MacroStore validation (REQ-4, REQ-14) [after: 1.4] `M`
+- [x] 1.5 Unit tests for extended MacroStore validation (REQ-4, REQ-14) [after: 1.4] `M`
   <details><summary>Spec</summary>
 
   - In `MacroStoreTests.cs`:
@@ -126,7 +126,7 @@
 
   </details>
 
-- [ ] 1.6 `dotnet format` + build clean (all REQs) [after: 1.5] `S`
+- [x] 1.6 `dotnet format` + build clean (all REQs) [after: 1.5] `S`
 
 ## Phase 2: Recording Flow
 <!-- worktree: -->

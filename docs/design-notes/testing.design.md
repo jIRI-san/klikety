@@ -23,6 +23,7 @@ globs:
 - `FakeMouseActionService` — records `(physicalX, physicalY, MouseAction)` call list.
 - `FakeOverlayWindow` — tracks show/hide/focus-loss, rendered grid state, `AppScopeBorderVisible`/`AppScopeBorderBounds`.
 - `FakeGridRenderer` — records `RenderCall` list (method name, cells, col) for assertion.
+- `FakeForegroundWindowProvider` — configurable `Handle`, `Bounds`, `Title`. Returns configured values for matching handle; empty/default for zero or mismatched handle.
 
 All fakes live in `Klikety.Tests/Fakes/`.
 

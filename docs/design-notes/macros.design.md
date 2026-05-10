@@ -21,26 +21,33 @@ Replayable mouse action recordings. 10 fixed slots, each storing a named sequenc
 
 ```
 MacrosFile
-  ├── Version (int, v1)
+  ├── Version (int, v2)
   └── Macros (MacroDefinition?[10])  — index = slot, null = empty
         ├── Name, ScreenWidth, ScreenHeight, DpiScale, SpeedModifier
+        ├── PositionMode (Absolute|WindowRelative), WindowWidth, WindowHeight, WindowTitlePattern
         └── Steps (List<MacroStep>)
-              └── ActionType, X, Y, Modifiers, RelativeTimeMs, EndX?, EndY?, ScrollDelta?, DragButton?
+              └── ActionType, X, Y, Modifiers, RelativeTimeMs, EndX?, EndY?, ScrollDelta?, DragButton?, StartFromCursor
 ```
 
 - `MacroActionType`: `LeftClick`, `RightClick`, `MiddleClick`, `DoubleClick`, `MoveOnly`, `DragDrop`, `Scroll`.
+- `MacroPositionMode`: `Absolute` (default, screen coordinates), `WindowRelative` (offsets from target window top-left).
 - `RelativeTimeMs`: delay before this step (relative to recording start, not previous step).
 - `SpeedModifier`: per-macro speed multiplier (default 1.0). Overrides global `config.macros.speedModifier` when ≠ 1.0.
+- `StartFromCursor`: `bool` on `MacroStep`, default `false`. Only valid on `DragDrop` steps. `[JsonIgnore(Condition = WhenWritingDefault)]` suppresses serialization when false.
+- `WindowRelative` fields: `WindowWidth`/`WindowHeight` = recorded window dimensions, `WindowTitlePattern` = substring for title matching at playback.
 - All models have `[JsonExtensionData] Dictionary<string, JsonElement>?` for forward-compatible round-trip.
 - Array padding: <10 → pad with nulls; >10 → preserved for round-trip, only first 10 bound.
+- **Version**: v2. `MacrosFile.Version` defaults to 2. v1 files load (missing fields default to `Absolute`/zero/empty). `MacroStore.Save()` always writes version 2.
 
 ## MacroStore
 
 `IMacroStore` → `MacroStore`. Load/save `macros.json`.
 
-- **Load**: parse JSON → pad array → per-slot semantic validation. Invalid slots quarantined (set to null) with error messages.
-- **Semantic validation**: `DragDrop` requires non-null `DragButton` (only `LeftClick`/`RightClick`/`MiddleClick`), `EndX`, `EndY`. `Scroll` requires non-null `ScrollDelta`. Non-negative `RelativeTimeMs`. Coordinate bounds checked against `ScreenWidth`/`ScreenHeight`.
-- **Save**: atomic write — temp file in same directory (`Path.GetRandomFileName()`) → `File.Move(overwrite: true)`. Same-volume rename = atomic. Returns `MacroSaveResult` with success/failure.
+- **Load**: parse JSON → version check (>2 → quarantine all) → pad array → per-slot semantic validation. Invalid slots quarantined (set to null) with error messages.
+- **Semantic validation**: dispatched by `PositionMode`:
+  - **Absolute**: `DragDrop` requires non-null `DragButton` (only `LeftClick`/`RightClick`/`MiddleClick`), `EndX`, `EndY`. `Scroll` requires non-null `ScrollDelta`. Non-negative `RelativeTimeMs`. Coordinate bounds checked against `ScreenWidth`/`ScreenHeight`.
+  - **WindowRelative**: requires `WindowWidth > 0`, `WindowHeight > 0`, non-empty `WindowTitlePattern`. Step coordinates checked against `WindowWidth`/`WindowHeight`. `StartFromCursor` on non-`DragDrop` → error. When `StartFromCursor == true`, start X/Y validation skipped (vestigial coords).
+- **Save**: atomic write — temp file in same directory (`Path.GetRandomFileName()`) → `File.Move(overwrite: true)`. Same-volume rename = atomic. Always writes `Version = 2`. Returns `MacroSaveResult` with success/failure.
 - **First run**: `FirstRunExtractor` creates `macros.json` (skip-if-exists) and `macros.schema.json` (always-overwrite).
 
 ## Macro State Mutex

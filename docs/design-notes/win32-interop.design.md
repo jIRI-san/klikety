@@ -19,7 +19,7 @@ interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendActi
 interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 interface IScrollHotKeyService { List<string> Register(); void Unregister(); bool IsRegistered; }
 interface IScreenBoundsProvider { Rectangle GetPrimaryScreenBounds(); double GetDpiScale(); }
-interface IForegroundWindowProvider { nint GetForegroundWindowHandle(); Rectangle GetWindowBounds(nint hwnd); }
+interface IForegroundWindowProvider { nint GetForegroundWindowHandle(); Rectangle GetWindowBounds(nint hwnd); string GetWindowTitle(nint hwnd); }
 ```
 
 ## `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)`
@@ -104,6 +104,15 @@ interface IForegroundWindowProvider { nint GetForegroundWindowHandle(); Rectangl
 - Production: `Win32ForegroundWindowProvider` wraps `NativeMethods`. Fake: `FakeForegroundWindowProvider` with configurable `Handle` and `Bounds`.
 - Part of `IPlatformServices`; injected via DI.
 - `Marshal.SizeOf<RECT>()` cached in a static `RectSize` field to avoid per-call reflection.
+
+## `NativeMethods.GetWindowTitle(nint)` — `GetWindowTextW` + `GetWindowTextLengthW`
+
+- Zero/invalid HWND → `string.Empty`.
+- `GetWindowTextLengthW` returns 0 for windows with no title text → `string.Empty`.
+- Allocates `char[length + 1]` buffer, calls `GetWindowTextW`, constructs string from copied count, trims whitespace.
+- `DllImport` (not `LibraryImport`) for `GetWindowTextW` because `char[]` buffer requires `CharSet.Unicode` marshalling.
+- Used by `IForegroundWindowProvider.GetWindowTitle(nint)` for window-relative macro recording (captures target window title).
+- Fake: `FakeForegroundWindowProvider.Title` property — returns configured title for matching handle, empty for zero/mismatched handle.
 
 ## `NativeMethods.GetPrimaryMonitorDpiScale()` — `GetDpiForMonitor`
 

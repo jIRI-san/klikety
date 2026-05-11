@@ -112,7 +112,7 @@
 
   Document the release workflow: triggers, version policy, two-job pipeline, artifact format, concurrency, and idempotency checks. Add entry to `.design-notes.md` Available Skills table.
 
-- [ ] 1.3 Test workflow with a dry-run tag push (REQ-1, REQ-3, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-11) [after: 1.1, 1.2] @human `S`
+- [x] 1.3 Test workflow with a dry-run tag push (REQ-1, REQ-3, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-11) [after: 1.1, 1.2] @human `S`
   <details><summary>Details</summary>
 
   **Steps:**

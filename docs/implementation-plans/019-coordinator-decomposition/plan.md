@@ -52,7 +52,7 @@ Smallest, most isolated extraction. No dependencies on other helpers.
   - All existing test files (`NavigatorCoordinatorTests.cs`, `AppScopeCoordinatorTests.cs`, macro integration tests) use the shared helper
   - `dotnet test` — all tests pass with no helper duplication
 
-- [ ] 1.1 Create `DebounceHandler` class (REQ-1, REQ-8) [after: 1.0] `S`
+- [x] 1.1 Create `DebounceHandler` class (REQ-1, REQ-8) [after: 1.0] `S`
   - File: `src/Klikety/Navigation/DebounceHandler.cs`
   - Constructor takes `IPlatformServices`, `ConfigModel` (for `HotKey` modifiers/key)
   - Methods: `PopulateFromHotKey()` (current `PopulateDebounceKeys`), `StartTimer()` (current `StartDebounceTimer`), `Contains(VKey)`, `Remove(VKey)`, `Clear()`, `StopAndDispose()`, `OnTimerElapsed()` (current `OnDebounceTimerElapsed` reconciliation)

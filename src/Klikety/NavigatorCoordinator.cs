@@ -84,9 +84,6 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     public IClickIndicator? ClickIndicator { get; set; }
     public IDelayProvider DelayProvider { get; set; } = new TaskDelayProvider();
 
-    /// <summary>Debounce timeout duration.</summary>
-    private static readonly TimeSpan DebounceTimeout = TimeSpan.FromMilliseconds(500);
-
 #pragma warning disable CA1859 // Will hold different session types (Crosshair, LogCrosshair)
     private IModeSession? _activeSession;
 #pragma warning restore CA1859
@@ -112,9 +109,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
     private Rectangle ActiveBounds => _appScoped ? _appScopeBounds : _screenBounds;
 
-    // Debounce state
-    private readonly HashSet<VKey> _debounceKeys = [];
-    private IDebounceTimer? _debounceTimer;
+    private readonly DebounceHandler _debounce;
 
     // Chord key lookup: VKey → mode name
     private readonly Dictionary<VKey, string> _chordKeyMap = [];
@@ -142,6 +137,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _logger = logger;
         _macroStore = macroStore;
         _macrosFile = macrosFile ?? new MacrosFile();
+
+        _debounce = new DebounceHandler(platform, config);
 
         BuildChordKeyMap();
         BuildSlotKeyMap();
@@ -211,7 +208,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _currentModeName = defaultModeName;
 
         // Populate debounce keys BEFORE hook enable (closes TOCTOU)
-        PopulateDebounceKeys();
+        _debounce.PopulateFromHotKey();
 
         // Capture foreground window HWND before Show() — overlay becomes foreground after Show()
         _preOverlayHwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
@@ -231,7 +228,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
 
         // Start debounce timer
-        StartDebounceTimer();
+        _debounce.StartTimer();
 
         _modeLocked = false;
 
@@ -283,84 +280,21 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         return _platform.KeyboardLayout.IsQwertyCompatible();
     }
 
-    private void PopulateDebounceKeys() {
-        _debounceKeys.Clear();
-
-        // Always add the trigger key unconditionally
-        _debounceKeys.Add(_config.HotKey.Key);
-
-        // Check modifier variants via actual key state
-        var modifiers = _config.HotKey.Modifiers;
-
-        if (modifiers.HasFlag(HotKeyModifiers.Alt)) {
-            CheckAndAddDebounceKey(VKey.LMenu);
-            CheckAndAddDebounceKey(VKey.RMenu);
-            CheckAndAddDebounceKey(VKey.Menu);
-        }
-
-        if (modifiers.HasFlag(HotKeyModifiers.Control)) {
-            CheckAndAddDebounceKey(VKey.LControl);
-            CheckAndAddDebounceKey(VKey.RControl);
-        }
-
-        if (modifiers.HasFlag(HotKeyModifiers.Shift)) {
-            CheckAndAddDebounceKey(VKey.LShift);
-            CheckAndAddDebounceKey(VKey.RShift);
-        }
-
-        if (modifiers.HasFlag(HotKeyModifiers.Win)) {
-            CheckAndAddDebounceKey(VKey.LWin);
-            CheckAndAddDebounceKey(VKey.RWin);
-        }
-    }
-
-    private void CheckAndAddDebounceKey(VKey key) {
-        if (_platform.KeyState.IsKeyDown(key)) {
-            _debounceKeys.Add(key);
-        }
-    }
-
-    private void StartDebounceTimer() {
-        _debounceTimer?.Dispose();
-        _debounceTimer = _platform.Timers.Create();
-        _debounceTimer.Elapsed += OnDebounceTimerElapsed;
-        _debounceTimer.Start(DebounceTimeout);
-    }
-
-    private void OnDebounceTimerElapsed() {
-        // Reconcile: remove keys that are no longer physically held
-        var toRemove = new List<VKey>();
-        foreach (var key in _debounceKeys) {
-            if (!_platform.KeyState.IsKeyDown(key)) {
-                toRemove.Add(key);
-            }
-        }
-
-        foreach (var key in toRemove) {
-            _debounceKeys.Remove(key);
-        }
-
-        _debounceTimer?.Stop();
-    }
-
     private void OnKeyEvent(object? sender, KeyHookEventArgs e) {
         if (!e.IsDown) {
             // Key-up: debounce removal only
-            _debounceKeys.Remove(e.Key);
+            _debounce.Remove(e.Key);
             return;
         }
 
         // Debounce suppression: ignore keys still in debounce set
-        if (_debounceKeys.Contains(e.Key)) {
+        if (_debounce.Contains(e.Key)) {
             return;
         }
 
         // Trigger-key fast removal: on first keydown for a different key,
         // remove trigger only if no longer physically held
-        if (_debounceKeys.Contains(_config.HotKey.Key)
-            && !_platform.KeyState.IsKeyDown(_config.HotKey.Key)) {
-            _debounceKeys.Remove(_config.HotKey.Key);
-        }
+        _debounce.RemoveTriggerIfReleased();
 
         LogKeyPressed(e.Key);
 
@@ -801,10 +735,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _hookService.DrainAndDisable();
 
             // Clear debounce state
-            _debounceKeys.Clear();
-            _debounceTimer?.Stop();
-            _debounceTimer?.Dispose();
-            _debounceTimer = null;
+            _debounce.StopAndDispose();
 
             if (_activeSession is not null) {
                 _activeSession.ActionRequested -= OnSessionActionRequested;

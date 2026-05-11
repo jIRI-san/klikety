@@ -60,7 +60,7 @@ Smallest, most isolated extraction. No dependencies on other helpers.
   - Implements `IDisposable` for timer cleanup
   - No `[LoggerMessage]` needed — debounce has no log calls currently
 
-- [ ] 1.2 Move debounce tests to `CoordinatorDebounceTests.cs` (REQ-6) [after: 1.0] `S`
+- [x] 1.2 Move debounce tests to `CoordinatorDebounceTests.cs` (REQ-6) [after: 1.0] `S`
   - Tests to move (8 tests): `Debounce_TriggerKeySuppressedUntilReleased`, `Debounce_ModifierKeySuppressedWhenHeld`, `Debounce_KeyUpRemovesFromDebounceSet`, `Debounce_DifferentKeyRemovesTrigger`, `Debounce_TimerReconciles`, `Debounce_MultipleModifiers_AllSuppressed`, `Debounce_KeyUpThenDown_SecondDownProcessed`, `DebounceTimer_ReconcilesClearedKeys`
   - Use shared `CoordinatorTestHelper.CreateCoordinator()`. Tests still exercise debounce through coordinator's public surface.
   - `DeactivateOverlay_ClearsDebounceTimer` stays in coordinator tests (tests `DeactivateOverlay` behavior).

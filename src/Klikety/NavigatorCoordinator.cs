@@ -1237,6 +1237,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hookService.KeyEvent -= OnKeyEvent;
         _overlayWindow.FocusLost -= OnFocusLost;
         DeactivateOverlay();
+        _debounce.Dispose();
         _hookService.Dispose();
         _overlayWindow.Close();
     }

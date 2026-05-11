@@ -84,6 +84,8 @@ internal sealed class DebounceHandler : IDisposable {
     /// </summary>
     public void StopAndDispose() {
         _timer?.Stop();
+        _timer?.Dispose();
+        _timer = null;
         _keys.Clear();
     }
 

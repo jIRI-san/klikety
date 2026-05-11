@@ -81,7 +81,7 @@ Smallest, most isolated extraction. No dependencies on other helpers.
 
 Session lifecycle pattern used in 6 places. Most impactful extraction for readability.
 
-- [ ] 2.1 Create `SessionManager` class (REQ-2, REQ-8, RISK-1, RISK-4) `M`
+- [x] 2.1 Create `SessionManager` class (REQ-2, REQ-8, RISK-1, RISK-4) `M`
   - File: `src/Klikety/Navigation/SessionManager.cs`
   - Constructor takes `ModeSessionFactory`, `IOverlayWindow`, `ILogger`
   - State: `IModeSession? _activeSession`, `bool _switching`, `bool _modeLocked`, `string _currentModeName`, `Point _origin`, `Rectangle _screenBounds`, `bool _appScoped`, `Rectangle _appScopeBounds`

@@ -1,13 +1,10 @@
 using System.Drawing;
 
 using Klikety.Config;
-using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
 using Klikety.Services;
 using Klikety.Tests.Fakes;
-
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Klikety.Tests;
 
@@ -15,25 +12,8 @@ public class AppScopeCoordinatorTests {
     private static (NavigatorCoordinator Coordinator, FakeHotKeyService HotKey, FakeKeyboardHookService Hook,
         FakeMouseActionService Mouse, FakeOverlayWindow Overlay, FakePlatformServices Platform)
         CreateCoordinator(ConfigModel? configOverride = null) {
-        var config = configOverride ?? new ConfigModel {
-            Modes = new ModesConfig {
-                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-            },
-        };
-        var hotKey = new FakeHotKeyService();
-        var hook = new FakeKeyboardHookService();
-        var mouse = new FakeMouseActionService();
-        var overlay = new FakeOverlayWindow();
-        var actionMapper = new ActionMapper(config.ActionBindings);
-        var renderer = new FakeGridRenderer();
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, renderer);
-        var platform = new FakePlatformServices();
-        var modifierDetector = new FakeModifierDetector();
-
-        var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
-            NullLogger.Instance);
-
+        var (coordinator, hotKey, hook, mouse, overlay, _, platform, _) =
+            CoordinatorTestHelper.CreateCoordinator(configOverride: configOverride);
         return (coordinator, hotKey, hook, mouse, overlay, platform);
     }
 

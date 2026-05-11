@@ -1,13 +1,10 @@
 using System.Drawing;
 
 using Klikety.Config;
-using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
 using Klikety.Services;
 using Klikety.Tests.Fakes;
-
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Klikety.Tests;
 
@@ -23,22 +20,9 @@ public class MacroRecordingIntegrationTests {
             },
             Macros = macros,
         };
-        var hotKey = new FakeHotKeyService();
-        var hook = new FakeKeyboardHookService();
-        var mouse = new FakeMouseActionService();
-        var overlay = new FakeOverlayWindow();
-        var actionMapper = new ActionMapper(config.ActionBindings);
-        var renderer = new FakeGridRenderer();
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, renderer);
-        var platform = new FakePlatformServices();
-        var modifierDetector = new FakeModifierDetector();
         var macroStore = new FakeMacroStore();
-        var macrosFile = new MacrosFile();
-
-        var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
-            NullLogger.Instance, macroStore, macrosFile);
-
+        var (coordinator, hotKey, hook, mouse, overlay, _, platform, modifierDetector) =
+            CoordinatorTestHelper.CreateCoordinator(configOverride: config, macroStore: macroStore);
         return (coordinator, hotKey, hook, mouse, overlay, platform, modifierDetector, macroStore);
     }
 
@@ -121,31 +105,17 @@ public class MacroRecordingIntegrationTests {
 
     [Fact]
     public void OverwriteConfirm_OccupiedSlot_ShowsPrompt() {
-        var macroStore = new FakeMacroStore();
-        var macros = new MacrosConfig();
-        var config = new ConfigModel {
-            Modes = new ModesConfig {
-                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-            },
-            Macros = macros,
-        };
-        var hotKey = new FakeHotKeyService();
-        var hook = new FakeKeyboardHookService();
-        var mouse = new FakeMouseActionService();
-        var overlay = new FakeOverlayWindow();
-        var actionMapper = new ActionMapper(config.ActionBindings);
-        var renderer = new FakeGridRenderer();
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, renderer);
-        var platform = new FakePlatformServices();
-        var modifierDetector = new FakeModifierDetector();
-
-        // Pre-populate slot 0
         var macrosFile = new MacrosFile();
         macrosFile.Macros[0] = new MacroDefinition { Name = "Existing Macro", ScreenWidth = 1920, ScreenHeight = 1080, DpiScale = 1.0 };
 
-        var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
-            NullLogger.Instance, macroStore, macrosFile);
+        var macroStore = new FakeMacroStore();
+        var (coordinator, hotKey, hook, mouse, overlay, _, platform, modifierDetector) =
+            CoordinatorTestHelper.CreateCoordinator(configOverride: new ConfigModel {
+                Modes = new ModesConfig {
+                    UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+                },
+                Macros = new MacrosConfig(),
+            }, macroStore: macroStore, macrosFile: macrosFile);
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe); // start
@@ -156,30 +126,17 @@ public class MacroRecordingIntegrationTests {
 
     [Fact]
     public void OverwriteDenied_CancelsRecording() {
-        var macroStore = new FakeMacroStore();
-        var macros = new MacrosConfig();
-        var config = new ConfigModel {
-            Modes = new ModesConfig {
-                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-            },
-            Macros = macros,
-        };
-        var hotKey = new FakeHotKeyService();
-        var hook = new FakeKeyboardHookService();
-        var mouse = new FakeMouseActionService();
-        var overlay = new FakeOverlayWindow();
-        var actionMapper = new ActionMapper(config.ActionBindings);
-        var renderer = new FakeGridRenderer();
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, renderer);
-        var platform = new FakePlatformServices();
-        var modifierDetector = new FakeModifierDetector();
-
         var macrosFile = new MacrosFile();
         macrosFile.Macros[0] = new MacroDefinition { Name = "Existing", ScreenWidth = 1920, ScreenHeight = 1080, DpiScale = 1.0 };
 
-        var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
-            NullLogger.Instance, macroStore, macrosFile);
+        var macroStore = new FakeMacroStore();
+        var (coordinator, hotKey, hook, mouse, overlay, _, platform, modifierDetector) =
+            CoordinatorTestHelper.CreateCoordinator(configOverride: new ConfigModel {
+                Modes = new ModesConfig {
+                    UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+                },
+                Macros = new MacrosConfig(),
+            }, macroStore: macroStore, macrosFile: macrosFile);
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe);
@@ -192,30 +149,17 @@ public class MacroRecordingIntegrationTests {
 
     [Fact]
     public void OverwriteConfirmed_StartsRecording() {
-        var macroStore = new FakeMacroStore();
-        var macros = new MacrosConfig();
-        var config = new ConfigModel {
-            Modes = new ModesConfig {
-                UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
-            },
-            Macros = macros,
-        };
-        var hotKey = new FakeHotKeyService();
-        var hook = new FakeKeyboardHookService();
-        var mouse = new FakeMouseActionService();
-        var overlay = new FakeOverlayWindow();
-        var actionMapper = new ActionMapper(config.ActionBindings);
-        var renderer = new FakeGridRenderer();
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, renderer);
-        var platform = new FakePlatformServices();
-        var modifierDetector = new FakeModifierDetector();
-
         var macrosFile = new MacrosFile();
         macrosFile.Macros[3] = new MacroDefinition { Name = "Old", ScreenWidth = 1920, ScreenHeight = 1080, DpiScale = 1.0 };
 
-        var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
-            NullLogger.Instance, macroStore, macrosFile);
+        var macroStore = new FakeMacroStore();
+        var (coordinator, hotKey, hook, mouse, overlay, _, platform, modifierDetector) =
+            CoordinatorTestHelper.CreateCoordinator(configOverride: new ConfigModel {
+                Modes = new ModesConfig {
+                    UniformGrid = new ModeConfig { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+                },
+                Macros = new MacrosConfig(),
+            }, macroStore: macroStore, macrosFile: macrosFile);
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe);

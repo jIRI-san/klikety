@@ -84,31 +84,20 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     public IClickIndicator? ClickIndicator { get; set; }
     public IDelayProvider DelayProvider { get; set; } = new TaskDelayProvider();
 
-#pragma warning disable CA1859 // Will hold different session types (Crosshair, LogCrosshair)
-    private IModeSession? _activeSession;
-#pragma warning restore CA1859
     private bool _deactivating;
-    private bool _switching;
-    private bool _modeLocked;
     private bool _nonQwertyWarningShown;
-    private Point _origin;
-    private Rectangle _screenBounds;
     private bool _dragMode;
     private Point _dragStartPoint;
 
     // App-scope state
-    private bool _appScoped;
-    private Rectangle _appScopeBounds;
     private VKey? _appScopeChordKey;
     private nint _preOverlayHwnd;
-    private string _currentModeName = "UniformGrid";
 
     // Recording app-scope persistence
     private bool _recordingAppScoped;
     private Rectangle _recordingWindowBounds;
 
-    private Rectangle ActiveBounds => _appScoped ? _appScopeBounds : _screenBounds;
-
+    private readonly SessionManager _sessionManager;
     private readonly DebounceHandler _debounce;
 
     // Chord key lookup: VKey → mode name
@@ -139,6 +128,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _macrosFile = macrosFile ?? new MacrosFile();
 
         _debounce = new DebounceHandler(platform, config);
+        _sessionManager = new SessionManager(sessionFactory, overlayWindow, logger);
 
         BuildChordKeyMap();
         BuildSlotKeyMap();
@@ -158,6 +148,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hotKeyService.Activated += OnHotKeyActivated;
         _hookService.KeyEvent += OnKeyEvent;
         _overlayWindow.FocusLost += OnFocusLost;
+        _sessionManager.ActionRequested += OnSessionActionRequested;
+        _sessionManager.Cancelled += OnSessionCancelled;
+        _sessionManager.CursorMoveRequested += OnSessionCursorMoveRequested;
     }
 
     private void BuildChordKeyMap() {
@@ -188,24 +181,23 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
     private void OnHotKeyActivated(object? sender, EventArgs e) {
         // Re-entrant guard: ignore if already active
-        if (_activeSession is not null) {
+        if (_sessionManager.IsActive) {
             return;
         }
 
         LogHotkeyActivated();
 
-        _screenBounds = _platform.Screen.GetPrimaryScreenBounds();
-        _origin = _platform.Cursor.GetCursorPosition();
+        var screenBounds = _platform.Screen.GetPrimaryScreenBounds();
+        var origin = _platform.Cursor.GetCursorPosition();
 
         // Multi-monitor guardrail: cursor outside primary screen → suppress
-        if (!_screenBounds.Contains(_origin)) {
-            LogCursorOutsidePrimary(_origin.X, _origin.Y);
+        if (!screenBounds.Contains(origin)) {
+            LogCursorOutsidePrimary(origin.X, origin.Y);
             return;
         }
 
         // Determine default mode, with non-QWERTY fallback
         var defaultModeName = GetDefaultModeName();
-        _currentModeName = defaultModeName;
 
         // Populate debounce keys BEFORE hook enable (closes TOCTOU)
         _debounce.PopulateFromHotKey();
@@ -230,20 +222,11 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         // Start debounce timer
         _debounce.StartTimer();
 
-        _modeLocked = false;
-
         // Create and activate default mode session
         try {
-            var session = _sessionFactory.Create(defaultModeName);
-
-            session.ActionRequested += OnSessionActionRequested;
-            session.Cancelled += OnSessionCancelled;
-            session.CursorMoveRequested += OnSessionCursorMoveRequested;
-
-            _activeSession = session;
-            session.Activate(_screenBounds, _origin);
+            _sessionManager.ActivateDefaultSession(screenBounds, origin, defaultModeName);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
-            LogModeSwitchFailed(defaultModeName, ex.Message);
+            LogActivationFailed(defaultModeName, ex.Message);
             DeactivateOverlay();
         }
     }
@@ -321,11 +304,11 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         // (5) Record key: start recording when idle and overlay open
         if (_macroState == MacroState.Idle
-            && _activeSession is not null
+            && _sessionManager.IsActive
             && _macroRecorder is not null
             && _config.Macros is { Enabled: true }
             && e.Key == _config.Macros.RecordKey) {
-            if (_appScoped) {
+            if (_sessionManager.AppScoped) {
                 var windowTitle = _platform.ForegroundWindow.GetWindowTitle(_preOverlayHwnd);
                 if (string.IsNullOrEmpty(windowTitle)) {
                     _overlayWindow.ShowStatusText("Window has no title — cannot record");
@@ -335,15 +318,15 @@ public sealed partial class NavigatorCoordinator : IDisposable {
                 var titlePattern = ExtractTitlePattern(windowTitle);
                 var context = new MacroRecordingContext(
                     IsWindowRelative: true,
-                    WindowWidth: _appScopeBounds.Width,
-                    WindowHeight: _appScopeBounds.Height,
+                    WindowWidth: _sessionManager.AppScopeBounds.Width,
+                    WindowHeight: _sessionManager.AppScopeBounds.Height,
                     WindowTitlePattern: titlePattern,
                     DpiScale: _platform.Screen.GetDpiScale()
                 );
 
                 _macroState = MacroState.Recording;
                 _recordingAppScoped = true;
-                _recordingWindowBounds = _appScopeBounds;
+                _recordingWindowBounds = _sessionManager.AppScopeBounds;
                 _macroRecorder.StartRecording(context);
             } else {
                 _macroState = MacroState.Recording;
@@ -356,7 +339,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         // (6) Helper key: open picker when idle and overlay open
         if (_macroState == MacroState.Idle
-            && _activeSession is not null
+            && _sessionManager.IsActive
             && _macroPickerWindow is not null
             && _config.Macros is { Enabled: true }
             && e.Key == _config.Macros.HelperKey) {
@@ -366,7 +349,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         // (6b) Slot key: direct playback when idle and overlay open
         if (_macroState == MacroState.Idle
-            && _activeSession is not null
+            && _sessionManager.IsActive
             && _config.Macros is { Enabled: true }
             && _slotKeyMap.TryGetValue(e.Key, out var directSlot)
             && _macrosFile.Macros.Length > directSlot
@@ -380,8 +363,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
 
         // (7) App-scope chord dispatch: before mode lock, chord key scopes to foreground window
-        if (!_modeLocked && _appScopeChordKey is { } appScopeKey && e.Key == appScopeKey) {
-            if (_appScoped) {
+        if (!_sessionManager.IsModeLocked && _appScopeChordKey is { } appScopeKey && e.Key == appScopeKey) {
+            if (_sessionManager.AppScoped) {
                 return; // Auto-repeat guard
             }
 
@@ -394,7 +377,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             }
 
             // Clip to primary screen
-            var clipped = Rectangle.Intersect(hwndBounds, _screenBounds);
+            var clipped = Rectangle.Intersect(hwndBounds, _sessionManager.ScreenBounds);
             if (clipped.IsEmpty) {
                 LogAppScopeRejected("window outside primary screen");
                 _overlayWindow.ShowStatusText("Window outside screen");
@@ -403,17 +386,21 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
             // Clamp origin into clipped bounds
             var cursor = _platform.Cursor.GetCursorPosition();
-            _origin = new Point(
+            var origin = new Point(
                 Math.Clamp(cursor.X, clipped.Left, clipped.Right - 1),
                 Math.Clamp(cursor.Y, clipped.Top, clipped.Bottom - 1));
 
             LogAppScopeActivated(clipped.Width, clipped.Height);
-            SwitchToAppScope(clipped);
+            try {
+                _sessionManager.SwitchToAppScope(clipped, origin);
+            } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
+                DeactivateOverlay();
+            }
             return;
         }
 
         // (8) Chord dispatch: before mode lock, chord key switches mode
-        if (!_modeLocked && _chordKeyMap.TryGetValue(e.Key, out var targetMode)) {
+        if (!_sessionManager.IsModeLocked && _chordKeyMap.TryGetValue(e.Key, out var targetMode)) {
             // Non-QWERTY check for chord target
             if (targetMode != "UniformGrid" && !IsQwertyLayout()) {
                 if (!_nonQwertyWarningShown) {
@@ -424,104 +411,23 @@ public sealed partial class NavigatorCoordinator : IDisposable {
                 return;
             }
 
-            SwitchMode(targetMode);
+            try {
+                _sessionManager.SwitchMode(targetMode);
+            } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
+                DeactivateOverlay();
+            }
             return;
         }
 
         // Any key forwarded to session locks the mode
-        if (_activeSession is not null) {
-            _modeLocked = true;
-            _activeSession.OnKey(e.Key);
-        }
-    }
-
-    private void SwitchMode(string targetModeName) {
-        if (_switching) {
-            return;
-        }
-
-        _switching = true;
-        LogModeSwitching(targetModeName);
-
-        try {
-            // Unsubscribe and deactivate old session
-            if (_activeSession is not null) {
-                _activeSession.ActionRequested -= OnSessionActionRequested;
-                _activeSession.Cancelled -= OnSessionCancelled;
-                _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
-                _activeSession.Deactivate();
-                _activeSession = null;
-            }
-
-            _overlayWindow.ClearCanvas();
-
-            // Create and activate new session
-            var session = _sessionFactory.Create(targetModeName);
-
-            session.ActionRequested += OnSessionActionRequested;
-            session.Cancelled += OnSessionCancelled;
-            session.CursorMoveRequested += OnSessionCursorMoveRequested;
-
-            _activeSession = session;
-            _currentModeName = targetModeName;
-            session.Activate(ActiveBounds, _origin);
-        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
-            LogModeSwitchFailed(targetModeName, ex.Message);
-            DeactivateOverlay();
-        } finally {
-            _switching = false;
-        }
-    }
-
-    private void SwitchToAppScope(Rectangle bounds) {
-        if (_switching) {
-            return;
-        }
-
-        _switching = true;
-
-        try {
-            // Unsubscribe and deactivate old session
-            if (_activeSession is not null) {
-                _activeSession.ActionRequested -= OnSessionActionRequested;
-                _activeSession.Cancelled -= OnSessionCancelled;
-                _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
-                _activeSession.Deactivate();
-                _activeSession = null;
-            }
-
-            _overlayWindow.ClearCanvas();
-
-            // Keep overlay full-screen — renderers use screen-space coordinates that
-            // match the full-screen canvas. Pass window bounds to session only.
-            var session = _sessionFactory.Create(_currentModeName);
-
-            session.ActionRequested += OnSessionActionRequested;
-            session.Cancelled += OnSessionCancelled;
-            session.CursorMoveRequested += OnSessionCursorMoveRequested;
-
-            _activeSession = session;
-            _modeLocked = false;
-            _appScoped = true;
-            _appScopeBounds = bounds;
-            session.Activate(bounds, _origin);
-
-            _overlayWindow.SetAppScopeBorder(true, bounds);
-        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
-            LogModeSwitchFailed(_currentModeName, ex.Message);
-            _appScoped = false;
-            _appScopeBounds = Rectangle.Empty;
-            DeactivateOverlay();
-        } finally {
-            _switching = false;
-        }
+        _sessionManager.ForwardKey(e.Key);
     }
 
     private void OnFocusLost(object? sender, EventArgs e) {
         LogFocusLost();
 
         // Suppress deactivation during mode/app-scope switching (WPF fires Deactivated on Hide)
-        if (_switching) {
+        if (_sessionManager.IsSwitching) {
             return;
         }
 
@@ -537,9 +443,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         LogActionRequested(action, point.X, point.Y);
 
         // Bounds validation
-        if (!ActiveBounds.Contains(point)) {
+        if (!_sessionManager.ActiveBounds.Contains(point)) {
             LogActionOutOfBounds(point.X, point.Y);
-            _mouseService.MoveTo(_origin);
+            _mouseService.MoveTo(_sessionManager.Origin);
             if (_macroState == MacroState.Recording) {
                 // Stay in recording mode, resume overlay
                 ResumeOverlayForRecording();
@@ -635,61 +541,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void ResetOverlayForDrag() {
-        if (_switching) {
-            return;
-        }
-
-        _switching = true;
-
         try {
-            // Unsubscribe and deactivate current session
-            if (_activeSession is not null) {
-                _activeSession.ActionRequested -= OnSessionActionRequested;
-                _activeSession.Cancelled -= OnSessionCancelled;
-                _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
-                _activeSession.Deactivate();
-                _activeSession = null;
-            }
-
-            _overlayWindow.ClearCanvas();
-            _modeLocked = false;
-
-            // If app-scoped and not recording in app-scope, clear scope state
-            if (_appScoped && !_recordingAppScoped) {
-                _appScoped = false;
-                _appScopeBounds = Rectangle.Empty;
-                _overlayWindow.SetAppScopeBorder(false);
-            }
-
-            // Create and activate new default-mode session
-            var defaultModeName = GetDefaultModeName();
-            try {
-                var session = _sessionFactory.Create(defaultModeName);
-
-                session.ActionRequested += OnSessionActionRequested;
-                session.Cancelled += OnSessionCancelled;
-                session.CursorMoveRequested += OnSessionCursorMoveRequested;
-
-                _activeSession = session;
-
-                if (_recordingAppScoped) {
-                    session.Activate(_recordingWindowBounds, _dragStartPoint);
-                    _appScoped = true;
-                    _appScopeBounds = _recordingWindowBounds;
-                    _overlayWindow.SetAppScopeBorder(true, _recordingWindowBounds);
-                } else {
-                    session.Activate(_screenBounds, _dragStartPoint);
-                }
-
-                _overlayWindow.ShowStatusText("Select drag target");
-            } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
-                LogModeSwitchFailed(defaultModeName, ex.Message);
-                _dragMode = false;
-                _overlayWindow.ClearStatusText();
-                DeactivateOverlay();
-            }
-        } finally {
-            _switching = false;
+            _sessionManager.ResetForDrag(GetDefaultModeName(), _dragStartPoint,
+                _recordingAppScoped, _recordingWindowBounds);
+            _overlayWindow.ShowStatusText("Select drag target");
+        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
+            _dragMode = false;
+            _overlayWindow.ClearStatusText();
+            DeactivateOverlay();
         }
     }
 
@@ -712,7 +571,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         if (_dragMode) {
             _dragMode = false;
             _overlayWindow.ClearStatusText();
-            _mouseService.MoveTo(_origin);
+            _mouseService.MoveTo(_sessionManager.Origin);
         }
         DeactivateOverlay();
     }
@@ -737,23 +596,13 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             // Clear debounce state
             _debounce.StopAndDispose();
 
-            if (_activeSession is not null) {
-                _activeSession.ActionRequested -= OnSessionActionRequested;
-                _activeSession.Cancelled -= OnSessionCancelled;
-                _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
-                _activeSession.Deactivate();
-                _activeSession = null;
-            }
+            _sessionManager.DeactivateSession();
 
             // Drag-mode cleanup: restore cursor to origin on focus-loss or unexpected deactivation
             if (_dragMode) {
-                _mouseService.MoveTo(_origin);
+                _mouseService.MoveTo(_sessionManager.Origin);
                 _dragMode = false;
             }
-
-            _modeLocked = false;
-            _appScoped = false;
-            _appScopeBounds = Rectangle.Empty;
 
             // Restore focus to the window that was active before the overlay.
             // Critical for MoveOnly/Cancel where no click activates the target.
@@ -807,11 +656,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     [LoggerMessage(Level = LogLevel.Warning, Message = "Non-QWERTY layout detected — falling back to UniformGrid instead of {Mode}")]
     private partial void LogNonQwertyFallback(string mode);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Switching to mode: {Mode}")]
-    private partial void LogModeSwitching(string mode);
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "Mode switch to {Mode} failed: {Error}")]
-    private partial void LogModeSwitchFailed(string mode, string error);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Activation failed for mode {Mode}: {Error}")]
+    private partial void LogActivationFailed(string mode, string error);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Action point ({X}, {Y}) out of screen bounds — suppressed")]
     private partial void LogActionOutOfBounds(int x, int y);
@@ -896,13 +742,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
     private void SuspendOverlayForAction() {
         // Deactivate session but keep hook enabled (strict filtering via _macroState)
-        if (_activeSession is not null) {
-            _activeSession.ActionRequested -= OnSessionActionRequested;
-            _activeSession.Cancelled -= OnSessionCancelled;
-            _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
-            _activeSession.Deactivate();
-            _activeSession = null;
-        }
+        _sessionManager.DeactivateSession();
 
         _overlayWindow.ClearCanvas();
         _overlayWindow.ClearStatusText();
@@ -928,8 +768,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             return;
         }
 
-        _origin = _platform.Cursor.GetCursorPosition();
-        _screenBounds = _platform.Screen.GetPrimaryScreenBounds();
+        var origin = _platform.Cursor.GetCursorPosition();
+        var screenBounds = _platform.Screen.GetPrimaryScreenBounds();
+        _sessionManager.ScreenBounds = screenBounds;
 
         // Window-relative recording: re-query window bounds via stored HWND
         if (_recordingAppScoped) {
@@ -952,9 +793,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _recordingWindowBounds = newBounds;
 
             // Clamp origin into window bounds
-            _origin = new Point(
-                Math.Clamp(_origin.X, newBounds.Left, newBounds.Right - 1),
-                Math.Clamp(_origin.Y, newBounds.Top, newBounds.Bottom - 1)
+            origin = new Point(
+                Math.Clamp(origin.X, newBounds.Left, newBounds.Right - 1),
+                Math.Clamp(origin.Y, newBounds.Top, newBounds.Bottom - 1)
             );
         }
 
@@ -966,31 +807,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             return;
         }
 
-        _modeLocked = false;
-
         // Create new default-mode session with current cursor as origin
         var defaultModeName = GetDefaultModeName();
         try {
-            var session = _sessionFactory.Create(defaultModeName);
-
-            session.ActionRequested += OnSessionActionRequested;
-            session.Cancelled += OnSessionCancelled;
-            session.CursorMoveRequested += OnSessionCursorMoveRequested;
-
-            _activeSession = session;
-
-            if (_recordingAppScoped) {
-                session.Activate(_recordingWindowBounds, _origin);
-                _appScoped = true;
-                _appScopeBounds = _recordingWindowBounds;
-                _overlayWindow.SetAppScopeBorder(true, _recordingWindowBounds);
-            } else {
-                session.Activate(_screenBounds, _origin);
-            }
+            _sessionManager.ResumeForRecording(defaultModeName, screenBounds, origin,
+                _recordingAppScoped, _recordingWindowBounds);
 
             _overlayWindow.SetRecordingBorder(true);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
-            LogModeSwitchFailed(defaultModeName, ex.Message);
             CancelRecording();
         }
     }
@@ -1171,7 +995,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             LogScreenMismatch(result.Message ?? "unknown");
         }
 
-        if (_playbackFromGlobalHotKey || _activeSession is null) {
+        if (_playbackFromGlobalHotKey || !_sessionManager.IsActive) {
             DeactivateOverlay();
         } else {
             ResumeOverlayAfterPlayback();
@@ -1179,8 +1003,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void ResumeOverlayAfterPlayback() {
-        _origin = _platform.Cursor.GetCursorPosition();
-        _screenBounds = _platform.Screen.GetPrimaryScreenBounds();
+        var origin = _platform.Cursor.GetCursorPosition();
+        var screenBounds = _platform.Screen.GetPrimaryScreenBounds();
 
         try {
             _overlayWindow.Show();
@@ -1189,18 +1013,11 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
 
         _hookService.Enable();
-        _modeLocked = false;
 
         var defaultModeName = GetDefaultModeName();
         try {
-            var session = _sessionFactory.Create(defaultModeName);
-            session.ActionRequested += OnSessionActionRequested;
-            session.Cancelled += OnSessionCancelled;
-            session.CursorMoveRequested += OnSessionCursorMoveRequested;
-            _activeSession = session;
-            session.Activate(_screenBounds, _origin);
+            _sessionManager.ResumeAfterPlayback(defaultModeName, screenBounds, origin);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
-            LogModeSwitchFailed(defaultModeName, ex.Message);
             DeactivateOverlay();
         }
     }
@@ -1208,7 +1025,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private void OnPickerClosed() {
         LogPickerClosed(_macroState);
         _macroState = MacroState.Idle;
-        if (_activeSession is not null) {
+        if (_sessionManager.IsActive) {
             _overlayWindow.Show();
             _hookService.Enable();
         }
@@ -1236,8 +1053,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hotKeyService.Activated -= OnHotKeyActivated;
         _hookService.KeyEvent -= OnKeyEvent;
         _overlayWindow.FocusLost -= OnFocusLost;
+        _sessionManager.ActionRequested -= OnSessionActionRequested;
+        _sessionManager.Cancelled -= OnSessionCancelled;
+        _sessionManager.CursorMoveRequested -= OnSessionCursorMoveRequested;
         DeactivateOverlay();
         _debounce.Dispose();
+        _sessionManager.Dispose();
         _hookService.Dispose();
         _overlayWindow.Close();
     }

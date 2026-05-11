@@ -108,7 +108,7 @@ Session lifecycle pattern used in 6 places. Most impactful extraction for readab
   - Tests to move (6 tests): `ChordKey_BeforeLock_SwitchesMode`, `ChordKey_AfterModeLock_ForwardedToSession`, `DisabledMode_ChordKeyIgnored`, `ModeLock_NavKeyLocksMode`, `SwitchMode_FactoryThrows_DeactivatesOverlay`, `SwitchMode_OldSessionDeactivated`
   - Use shared `CoordinatorTestHelper.CreateCoordinator()`. Still exercise mode switching through coordinator surface.
 
-- [ ] 2.3 Wire `SessionManager` into coordinator, remove inline session code (REQ-2, REQ-7, REQ-8, RISK-4) [after: 2.1, 2.2] `M`
+- [x] 2.3 Wire `SessionManager` into coordinator, remove inline session code (REQ-2, REQ-7, REQ-8, RISK-4) [after: 2.1, 2.2] `M`
   - Replace `_activeSession`, `_switching`, `_modeLocked`, `_currentModeName` fields with `SessionManager _sessionManager`
   - Replace all 6 session lifecycle patterns with `SessionManager` method calls
   - Coordinator subscribes to `_sessionManager.ActionRequested` / `.Cancelled` / `.CursorMoveRequested` once in constructor

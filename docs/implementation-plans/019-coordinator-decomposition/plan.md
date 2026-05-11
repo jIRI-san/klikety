@@ -43,11 +43,11 @@
 | RISK-5 | HWND dual-owner between coordinator and MacroHandler | Medium | High | Overlay Show/Hide exclusively owned by coordinator. MacroHandler fires intent events; coordinator handles actual visibility. MacroHandler stores its own target HWND copy at recording/playback start, independent of coordinator's `_preOverlayHwnd`. | 3.1, 3.3 |
 
 ## Phase 1: Extract DebounceHandler
-<!-- worktree: -->
+<!-- worktree: feature/019-coordinator-decomposition -->
 
 Smallest, most isolated extraction. No dependencies on other helpers.
 
-- [ ] 1.0 Extract shared test helper (REQ-6) `S`
+- [x] 1.0 Extract shared test helper (REQ-6) `S`
   - Extract `CreateCoordinator()` from `NavigatorCoordinatorTests.cs` into `CoordinatorTestHelper.cs` as an `internal static` class
   - All existing test files (`NavigatorCoordinatorTests.cs`, `AppScopeCoordinatorTests.cs`, macro integration tests) use the shared helper
   - `dotnet test` — all tests pass with no helper duplication

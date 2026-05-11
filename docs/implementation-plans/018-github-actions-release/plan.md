@@ -108,7 +108,7 @@
      - For manual dispatch (no tag): `gh release create` creates the tag automatically
      - Uses `GITHUB_TOKEN` with `contents: write`
 
-- [ ] 1.2 Create `docs/design-notes/ci-cd.design.md` (REQ-12) `S`
+- [x] 1.2 Create `docs/design-notes/ci-cd.design.md` (REQ-12) `S`
 
   Document the release workflow: triggers, version policy, two-job pipeline, artifact format, concurrency, and idempotency checks. Add entry to `.design-notes.md` Available Skills table.
 

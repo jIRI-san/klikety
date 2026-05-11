@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 1.2.0)'
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Determine version
+        id: version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$INPUT_VERSION"
+          fi
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Expected N.N.N or N.N.N-suffix."
+            exit 1
+          fi
+
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Guard manual dispatch to main
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          if [[ "$REF" != "refs/heads/main" ]]; then
+            echo "::error::Manual dispatch must run from main branch."
+            exit 1
+          fi
+
+      - name: Check existing release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          HTTP_CODE=$(gh api "repos/$GH_REPO/releases/tags/v$VERSION" --silent -i 2>/dev/null | head -1 | awk '{print $2}') || true
+          if [[ "$HTTP_CODE" == "200" ]]; then
+            echo "::error::Release v$VERSION already exists."
+            exit 1
+          elif [[ "$HTTP_CODE" != "404" && -n "$HTTP_CODE" ]]; then
+            echo "::error::Failed to check existing release (HTTP $HTTP_CODE)."
+            exit 1
+          fi
+
+      - name: Format check
+        run: dotnet format Klikety.slnx --verify-no-changes
+
+      - name: Test
+        run: dotnet test src/Klikety.Tests/Klikety.Tests.csproj -c Release
+
+      - name: Publish
+        run: dotnet publish src/Klikety/Klikety.csproj -r win-x64 --self-contained -c Release -p:Version=${{ env.VERSION }} -o publish/
+
+      - name: Zip
+        shell: pwsh
+        run: Compress-Archive -Path publish/* -DestinationPath "Klikety-v${{ env.VERSION }}-win-x64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-zip
+          path: Klikety-v${{ env.VERSION }}-win-x64.zip
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-zip
+
+      - name: Create Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          gh release create "v$VERSION" \
+            --target "$TARGET_SHA" \
+            --title "Klikety v$VERSION" \
+            --generate-notes \
+            "Klikety-v${VERSION}-win-x64.zip"

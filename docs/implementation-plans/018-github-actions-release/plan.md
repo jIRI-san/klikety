@@ -45,9 +45,9 @@
 | RISK-3 | Parallel release runs race on tag/release creation | Low | Medium | `concurrency: { group: release, cancel-in-progress: false }` serializes runs | 1.1 |
 
 ## Phase 1: Release Workflow
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: feature/018-github-actions-release -->
 
-- [ ] 1.1 Create `.github/workflows/release.yml` (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, RISK-1, RISK-2, RISK-3) `M`
+- [x] 1.1 Create `.github/workflows/release.yml` (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, RISK-1, RISK-2, RISK-3) `M`
 
   Workflow file `.github/workflows/release.yml` with:
 

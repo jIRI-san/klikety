@@ -122,7 +122,7 @@ Session lifecycle pattern used in 6 places. Most impactful extraction for readab
 
 These two are coupled (action dispatch branches on macro state) — extract together to avoid intermediate breakage.
 
-- [ ] 3.1 Create `ActionDispatcher` and `MacroHandler` classes (REQ-3, REQ-4, REQ-8, RISK-1) `L`
+- [x] 3.1 Create `ActionDispatcher` and `MacroHandler` classes (REQ-3, REQ-4, REQ-8, RISK-1) `L`
   - **`ActionDispatcher`** — File: `src/Klikety/Navigation/ActionDispatcher.cs`
     - Constructor takes `IMouseActionService`, `IModifierDetector`, `IOverlayWindow`, `SessionManager`, `ILogger`, callback `Action` for `DeactivateOverlay`
     - State: `_dragMode`, `_dragStartPoint`
@@ -156,12 +156,12 @@ These two are coupled (action dispatch branches on macro state) — extract toge
       - `ClearStatusTextRequested` — fires when macro handler needs to clear status text
       - `SetRecordingBorderRequested(bool show)` — fires for recording border changes
 
-- [ ] 3.2 Move drag and action dispatch tests to `CoordinatorDragTests.cs` (REQ-6) `S`
+- [x] 3.2 Move drag and action dispatch tests to `CoordinatorDragTests.cs` (REQ-6) `S`
   - Tests to move (10 drag tests): `DragDrop_StartsPhase_ResetsOverlay_ShowsStatusText`, `DragDrop_SecondAction_LeftClick_SendsDrag`, `DragDrop_SecondAction_RightClick_SendsRightDrag`, `DragDrop_SecondAction_WithModifiers_PassesModifiers`, `DragDrop_Escape_AbortsDrag_RestoresCursorToOrigin`, `DragDrop_MoveOnlyInDragMode_Ignored`, `DragDrop_DragDropInDragMode_Ignored`, `DragDrop_StatusTextClearedOnCompletion`, `DragDrop_FocusLoss_AbortsDrag_RestoresCursor`, `DragDrop_Completion_NoIntermediateMoveTo_Origin`
   - Also move action dispatch tests (7 tests): `ActionOutOfBounds_Suppressed`, `ActionOutOfBounds_RestoresCursorAndSuppresses`, `MoveOnly_DeactivatesOverlay_NoClick`, `Modifiers_CapturedAndPassedToSendAction`, `MoveOnly_IgnoresModifiers`, `NoModifiers_PassesNoneToSendAction`, `ClickThroughSafety_HideBeforeSendAction`
   - Use shared `CoordinatorTestHelper.CreateCoordinator()`.
 
-- [ ] 3.3 Wire `ActionDispatcher` and `MacroHandler` into coordinator (REQ-3, REQ-4, REQ-7, REQ-8, RISK-1, RISK-3) [after: 3.1, 3.2] `M`
+- [x] 3.3 Wire `ActionDispatcher` and `MacroHandler` into coordinator (REQ-3, REQ-4, REQ-7, REQ-8, RISK-1, RISK-3) [after: 3.1, 3.2] `M`
   - Coordinator constructor creates `MacroHandler` and `ActionDispatcher`, passes `SessionManager`
   - `OnKeyEvent` macro dispatch: `if (_macroHandler.TryHandleKey(key, _preOverlayHwnd)) return;`
   - `OnSessionActionRequested` delegates to `_actionDispatcher.HandleAction(...)` or `_actionDispatcher.HandleRecordingAction(..., _macroHandler)`

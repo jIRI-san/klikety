@@ -65,7 +65,7 @@ Smallest, most isolated extraction. No dependencies on other helpers.
   - Use shared `CoordinatorTestHelper.CreateCoordinator()`. Tests still exercise debounce through coordinator's public surface.
   - `DeactivateOverlay_ClearsDebounceTimer` stays in coordinator tests (tests `DeactivateOverlay` behavior).
 
-- [ ] 1.3 Wire `DebounceHandler` into coordinator, remove inline debounce code (REQ-1, REQ-7, REQ-8) [after: 1.1, 1.2] `S`
+- [x] 1.3 Wire `DebounceHandler` into coordinator, remove inline debounce code (REQ-1, REQ-7, REQ-8) [after: 1.1, 1.2] `S`
   - Replace `_debounceKeys` HashSet and `_debounceTimer` fields with `DebounceHandler _debounce`
   - Replace `PopulateDebounceKeys()` → `_debounce.PopulateFromHotKey()`
   - Replace `StartDebounceTimer()` → `_debounce.StartTimer()`

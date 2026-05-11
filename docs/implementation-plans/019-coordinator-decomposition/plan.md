@@ -104,7 +104,7 @@ Session lifecycle pattern used in 6 places. Most impactful extraction for readab
   - `CA1859` suppression on `_activeSession` moves here
   - Implements `IDisposable`: unsubscribes active session events, deactivates session
 
-- [ ] 2.2 Move mode-switching tests to `CoordinatorModeSwitchingTests.cs` (REQ-6) `S`
+- [x] 2.2 Move mode-switching tests to `CoordinatorModeSwitchingTests.cs` (REQ-6) `S`
   - Tests to move (6 tests): `ChordKey_BeforeLock_SwitchesMode`, `ChordKey_AfterModeLock_ForwardedToSession`, `DisabledMode_ChordKeyIgnored`, `ModeLock_NavKeyLocksMode`, `SwitchMode_FactoryThrows_DeactivatesOverlay`, `SwitchMode_OldSessionDeactivated`
   - Use shared `CoordinatorTestHelper.CreateCoordinator()`. Still exercise mode switching through coordinator surface.
 

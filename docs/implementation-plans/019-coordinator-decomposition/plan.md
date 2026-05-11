@@ -175,13 +175,13 @@ These two are coupled (action dispatch branches on macro state) — extract toge
 ## Phase 4: Final Cleanup & Verification
 <!-- worktree: -->
 
-- [ ] 4.1 Slim coordinator to final form (REQ-5, RISK-2) [after: 3.3] `S`
+- [x] 4.1 Slim coordinator to final form (REQ-5, RISK-2) [after: 3.3] `S`
   - Verify coordinator is ~300 lines: ctor, `OnHotKeyActivated`, `OnKeyEvent`, `OnFocusLost`, `DeactivateOverlay`, `Dispose`, `GetDefaultModeName`, `IsQwertyLayout`, `ExtractTitlePattern`, remaining log declarations
   - Delete dead method `OnSessionCancelledDuringRecording()` (unreferenced)
   - Remove any other dead code, unused usings
   - `dotnet format` + verify zero warnings
 
-- [ ] 4.2 Full test suite verification (REQ-7, REQ-8) [after: 4.1] `S`
+- [x] 4.2 Full test suite verification (REQ-7, REQ-8) [after: 4.1] `S`
   - `dotnet test` — all 64 coordinator tests + all macro integration tests + all other tests pass
   - `dotnet build` — zero warnings across all projects
   - Verify test file distribution:
@@ -193,7 +193,7 @@ These two are coupled (action dispatch branches on macro state) — extract toge
     - `AppScopeCoordinatorTests.cs` — unchanged
     - `MacroRecordingIntegrationTests.cs` / `MacroPlaybackIntegrationTests.cs` / `MacroPickerIntegrationTests.cs` — unchanged
 
-- [ ] 4.3 Update design notes (REQ-9) [after: 4.1] `S`
+- [x] 4.3 Update design notes (REQ-9) [after: 4.1] `S`
   - `state-machine.design.md`: update globs to include new files, document `SessionManager` and `ActionDispatcher` roles, update "Overlay Lifecycle" section to reflect delegation pattern
   - `macros.design.md`: update globs to include `MacroHandler.cs`, update "Macro State Mutex" and "Key Dispatch Priority" sections to reference `MacroHandler`
   - `.design-notes.md`: update Available Skills table with new file paths in globs

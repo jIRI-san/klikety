@@ -5,6 +5,7 @@ globs:
   - src/Klikety/Config/MacroStore.cs
   - src/Klikety/Navigation/MacroRecorder.cs
   - src/Klikety/Navigation/MacroPlayer.cs
+  - src/Klikety/Navigation/MacroHandler.cs
   - src/Klikety/Overlay/MacroPickerOverlay.xaml*
   - src/Klikety/Overlay/MacroPlaybackOverlay.xaml*
   - src/Klikety/Overlay/ClickIndicatorWindow.cs
@@ -52,11 +53,11 @@ MacrosFile
 
 ## Macro State Mutex
 
-`MacroState` enum on `NavigatorCoordinator`: `Idle`, `Recording`, `Playing`, `Picking`. Enforces mutual exclusion — only one macro operation active. Guards all entry points.
+`MacroState` enum (namespace-level in `NavigatorCoordinator.cs`): `Idle`, `Recording`, `Playing`, `Picking`. Enforces mutual exclusion — only one macro operation active. Guards all entry points. `MacroHandler` owns the state field and exposes it via `State` property.
 
 ## Key Dispatch Priority
 
-Full chain in `OnKeyEvent`:
+Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey()` for steps 2–6b):
 
 1. Debounce check
 2. `Playing` → only Escape (cancel playback), all else passed through via `CallNextHookEx`
@@ -75,9 +76,9 @@ Full chain in `OnKeyEvent`:
 - **Slot selection**: overlay shows prompt; next digit key selects slot. Occupied → overwrite confirm (Y/N).
 - **App-scope context**: when recording starts from app-scoped overlay, coordinator builds `MacroRecordingContext` (window bounds, title pattern, DPI) and passes to `MacroRecorder.StartRecording()`. Empty title → recording rejected with status message.
 - **Title pattern extraction**: `ExtractTitlePattern()` takes last segment after " - " separator (e.g. "Document.txt - Notepad" → "Notepad").
-- **Step capture**: coordinator intercepts `ActionRequested` from session → records step (action type, point, modifiers, timing) → `SuspendOverlayForAction()` → action fires → 200ms delay → `ResumeOverlayForRecording()`.
-- **Coordinate transformation**: when `_recordingAppScoped`, coordinator transforms screen coordinates to window-relative: `(point.X - windowBounds.Left, point.Y - windowBounds.Top)`.
-- **Resume in app-scope**: `ResumeOverlayForRecording()` re-queries window bounds. HWND invalid → auto-stop + save. Resized → cancel. Moved → update bounds + clamp origin. Activates session with window bounds.
+- **Step capture**: `ActionDispatcher.HandleRecordingAction()` intercepts `ActionRequested` from session → records step (action type, point, modifiers, timing) → coordinator calls `MacroHandler.SuspendOverlayForAction()` → action fires → 200ms delay → `MacroHandler.ScheduleResumeAfterAction()`.
+- **Coordinate transformation**: when `_recordingAppScoped`, `ActionDispatcher` transforms screen coordinates to window-relative: `(point.X - windowBounds.Left, point.Y - windowBounds.Top)`.
+- **Resume in app-scope**: `MacroHandler.ResumeOverlayForRecording()` re-queries window bounds. HWND invalid → auto-stop + save. Resized → cancel. Moved → update bounds + clamp origin. Fires `ResumeOverlayRequested` event; coordinator calls `_overlayWindow.Show()`. Delegates session creation to `SessionManager.ResumeForRecording()`.
 - **ResetOverlayForDrag**: preserves app-scope when `_recordingAppScoped` — activates with window bounds instead of screen bounds.
 - **StartFromCursor prompt**: after DragDrop pair completion in window-relative mode, recorder transitions to `AwaitStartFromCursorConfirm` and fires `StartFromCursorRequested`. Coordinator shows "Drag from cursor? [Y/N]". Y → `StartFromCursor = true` on step. N → normal step. Escape → cancel recording. `StopRecording()` from this state finalizes pending step with default decline.
 - **Drag pairing**: `DragDrop` action held as `_pendingDragStart`. Next action resolves the button → emit single `MacroStep` with `DragButton`, `EndX`, `EndY`. Cancel during pending drag → clear `_pendingDragStart`.

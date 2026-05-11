@@ -1,4 +1,4 @@
-# 018: GitHub Actions Release Workflow
+# 018: GitHub Actions Release Workflow [DONE]
 
 ## Decisions
 

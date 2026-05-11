@@ -125,7 +125,7 @@
 
   </details>
 
-- [ ] 1.4 Test manual dispatch (REQ-2, REQ-3, REQ-4, REQ-10) [after: 1.3] @human `S`
+- [x] 1.4 Test manual dispatch (REQ-2, REQ-3, REQ-4, REQ-10) [after: 1.3] @human `S`
   <details><summary>Details</summary>
 
   **Steps:**

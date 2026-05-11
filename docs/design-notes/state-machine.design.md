@@ -5,6 +5,9 @@ globs:
   - src/Klikety/Navigation/NavigatorStateMachine.cs
   - src/Klikety/Navigation/ArrowNavigator.cs
   - src/Klikety/Navigation/UniformGridSession.cs
+  - src/Klikety/Navigation/SessionManager.cs
+  - src/Klikety/Navigation/ActionDispatcher.cs
+  - src/Klikety/Navigation/DebounceHandler.cs
   - src/Klikety/Grid/LabelGenerator.cs
   - src/Klikety/Grid/GridCalculator.cs
   - src/Klikety/Grid/SubgridCalculator.cs
@@ -16,8 +19,9 @@ globs:
 ## Overlay Lifecycle
 
 - `OverlayWindow` is a WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to primary screen bounds converted to DIPs via `PresentationSource` transform.
-- `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, exception, Quit. It calls `IGridRenderer.ClearCanvas()`, hides the overlay, calls `IKeyboardHookService.Disable()`, and resets `NavigatorStateMachine` to `Idle`. Safe to call multiple times.
-- `NavigatorCoordinator` implements `IDisposable`. `Dispose()` unsubscribes from all service events (`Activated`, `KeyEvent`, `FocusLost`), calls `DeactivateOverlay()`, and closes the overlay window. Called by `App.xaml.cs` on coordinator replacement (config reset) and application quit.
+- `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, exception, Quit. It calls `IGridRenderer.ClearCanvas()`, hides the overlay, calls `IKeyboardHookService.DrainAndDisable()`, and clears session/debounce/drag state. Safe to call multiple times.
+- `NavigatorCoordinator` delegates to four helper classes via composition: `SessionManager` (session lifecycle and scope state), `ActionDispatcher` (action dispatch and drag-drop), `MacroHandler` (recording/playback/picker), and `DebounceHandler` (hotkey debounce). Overlay visibility remains exclusively owned by the coordinator.
+- `NavigatorCoordinator` implements `IDisposable`. `Dispose()` unsubscribes from all service events (`Activated`, `KeyEvent`, `FocusLost`), disposes `MacroHandler`, `SessionManager`, and `DebounceHandler`, calls `DeactivateOverlay()`, and closes the overlay window. Called by `App.xaml.cs` on coordinator replacement (config reset) and application quit.
 - `OverlayWindow.Deactivated` event wires to `DeactivateOverlay()` to handle focus loss (Alt+Tab, OS notifications, background app stealing focus).
 - `OverlayWindow.Show()` wrapped in try/catch for `InvalidOperationException` (no `PresentationSource` available) — prevents activation failure from leaving the overlay in an indeterminate state.
 - Cursor position at `Activate()` time is saved; restored via `IMouseActionService.MoveTo(originPoint)` when Escape is pressed at L1 or focus is lost.
@@ -95,7 +99,7 @@ All action dispatch methods (`TryHandleActionKey`, `HandleNavFirstKey`, `HandleA
 
 ## Drag-and-Drop Mode
 
-Coordinator manages drag state via `_dragMode` bool and `_dragStartPoint` field. Flow:
+`ActionDispatcher` manages drag state via `_dragMode` bool and `_dragStartPoint` field. Flow:
 
 1. **Start**: `DragDrop` action key pressed (and `!_dragMode`) → store `_dragStartPoint = point`, set `_dragMode = true`, call `ResetOverlayForDrag()`.
 2. **ResetOverlayForDrag**: unsubscribe old session → deactivate → `ClearCanvas` → create new default-mode session → activate at `_dragStartPoint` → `ShowStatusText("Select drag target")`. Mode switching (chord keys) allowed during drag phase.

@@ -1,11 +1,8 @@
 using Klikety.Config;
-using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
 using Klikety.Services;
 using Klikety.Tests.Fakes;
-
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Klikety.Tests;
 
@@ -22,24 +19,14 @@ public class MacroPlaybackIntegrationTests {
             },
             Macros = macros,
         };
-        var hotKey = new FakeHotKeyService();
-        var hook = new FakeKeyboardHookService();
-        var mouse = new FakeMouseActionService();
-        var overlay = new FakeOverlayWindow();
-        var actionMapper = new ActionMapper(config.ActionBindings);
-        var renderer = new FakeGridRenderer();
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, renderer);
-        var platform = new FakePlatformServices();
-        var modifierDetector = new FakeModifierDetector();
         var macroStore = new FakeMacroStore();
         var file = macrosFile ?? new MacrosFile();
         var picker = new FakeMacroPickerWindow();
         var delay = new FakeDelayProvider();
         var playbackWindow = new FakeMacroPlaybackWindow();
 
-        var coordinator = new NavigatorCoordinator(
-            hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
-            NullLogger.Instance, macroStore, file);
+        var (coordinator, hotKey, hook, mouse, overlay, _, platform, _) =
+            CoordinatorTestHelper.CreateCoordinator(configOverride: config, macroStore: macroStore, macrosFile: file);
         coordinator.MacroPickerWindow = picker;
         coordinator.MacroPlaybackWindow = playbackWindow;
         coordinator.DelayProvider = delay;

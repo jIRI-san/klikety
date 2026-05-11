@@ -43,16 +43,16 @@
 | RISK-5 | HWND dual-owner between coordinator and MacroHandler | Medium | High | Overlay Show/Hide exclusively owned by coordinator. MacroHandler fires intent events; coordinator handles actual visibility. MacroHandler stores its own target HWND copy at recording/playback start, independent of coordinator's `_preOverlayHwnd`. | 3.1, 3.3 |
 
 ## Phase 1: Extract DebounceHandler
-<!-- worktree: -->
+<!-- worktree: feature/019-coordinator-decomposition -->
 
 Smallest, most isolated extraction. No dependencies on other helpers.
 
-- [ ] 1.0 Extract shared test helper (REQ-6) `S`
+- [x] 1.0 Extract shared test helper (REQ-6) `S`
   - Extract `CreateCoordinator()` from `NavigatorCoordinatorTests.cs` into `CoordinatorTestHelper.cs` as an `internal static` class
   - All existing test files (`NavigatorCoordinatorTests.cs`, `AppScopeCoordinatorTests.cs`, macro integration tests) use the shared helper
   - `dotnet test` — all tests pass with no helper duplication
 
-- [ ] 1.1 Create `DebounceHandler` class (REQ-1, REQ-8) [after: 1.0] `S`
+- [x] 1.1 Create `DebounceHandler` class (REQ-1, REQ-8) [after: 1.0] `S`
   - File: `src/Klikety/Navigation/DebounceHandler.cs`
   - Constructor takes `IPlatformServices`, `ConfigModel` (for `HotKey` modifiers/key)
   - Methods: `PopulateFromHotKey()` (current `PopulateDebounceKeys`), `StartTimer()` (current `StartDebounceTimer`), `Contains(VKey)`, `Remove(VKey)`, `Clear()`, `StopAndDispose()`, `OnTimerElapsed()` (current `OnDebounceTimerElapsed` reconciliation)
@@ -60,12 +60,12 @@ Smallest, most isolated extraction. No dependencies on other helpers.
   - Implements `IDisposable` for timer cleanup
   - No `[LoggerMessage]` needed — debounce has no log calls currently
 
-- [ ] 1.2 Move debounce tests to `CoordinatorDebounceTests.cs` (REQ-6) [after: 1.0] `S`
+- [x] 1.2 Move debounce tests to `CoordinatorDebounceTests.cs` (REQ-6) [after: 1.0] `S`
   - Tests to move (8 tests): `Debounce_TriggerKeySuppressedUntilReleased`, `Debounce_ModifierKeySuppressedWhenHeld`, `Debounce_KeyUpRemovesFromDebounceSet`, `Debounce_DifferentKeyRemovesTrigger`, `Debounce_TimerReconciles`, `Debounce_MultipleModifiers_AllSuppressed`, `Debounce_KeyUpThenDown_SecondDownProcessed`, `DebounceTimer_ReconcilesClearedKeys`
   - Use shared `CoordinatorTestHelper.CreateCoordinator()`. Tests still exercise debounce through coordinator's public surface.
   - `DeactivateOverlay_ClearsDebounceTimer` stays in coordinator tests (tests `DeactivateOverlay` behavior).
 
-- [ ] 1.3 Wire `DebounceHandler` into coordinator, remove inline debounce code (REQ-1, REQ-7, REQ-8) [after: 1.1, 1.2] `S`
+- [x] 1.3 Wire `DebounceHandler` into coordinator, remove inline debounce code (REQ-1, REQ-7, REQ-8) [after: 1.1, 1.2] `S`
   - Replace `_debounceKeys` HashSet and `_debounceTimer` fields with `DebounceHandler _debounce`
   - Replace `PopulateDebounceKeys()` → `_debounce.PopulateFromHotKey()`
   - Replace `StartDebounceTimer()` → `_debounce.StartTimer()`
@@ -81,7 +81,7 @@ Smallest, most isolated extraction. No dependencies on other helpers.
 
 Session lifecycle pattern used in 6 places. Most impactful extraction for readability.
 
-- [ ] 2.1 Create `SessionManager` class (REQ-2, REQ-8, RISK-1, RISK-4) `M`
+- [x] 2.1 Create `SessionManager` class (REQ-2, REQ-8, RISK-1, RISK-4) `M`
   - File: `src/Klikety/Navigation/SessionManager.cs`
   - Constructor takes `ModeSessionFactory`, `IOverlayWindow`, `ILogger`
   - State: `IModeSession? _activeSession`, `bool _switching`, `bool _modeLocked`, `string _currentModeName`, `Point _origin`, `Rectangle _screenBounds`, `bool _appScoped`, `Rectangle _appScopeBounds`
@@ -104,11 +104,11 @@ Session lifecycle pattern used in 6 places. Most impactful extraction for readab
   - `CA1859` suppression on `_activeSession` moves here
   - Implements `IDisposable`: unsubscribes active session events, deactivates session
 
-- [ ] 2.2 Move mode-switching tests to `CoordinatorModeSwitchingTests.cs` (REQ-6) `S`
+- [x] 2.2 Move mode-switching tests to `CoordinatorModeSwitchingTests.cs` (REQ-6) `S`
   - Tests to move (6 tests): `ChordKey_BeforeLock_SwitchesMode`, `ChordKey_AfterModeLock_ForwardedToSession`, `DisabledMode_ChordKeyIgnored`, `ModeLock_NavKeyLocksMode`, `SwitchMode_FactoryThrows_DeactivatesOverlay`, `SwitchMode_OldSessionDeactivated`
   - Use shared `CoordinatorTestHelper.CreateCoordinator()`. Still exercise mode switching through coordinator surface.
 
-- [ ] 2.3 Wire `SessionManager` into coordinator, remove inline session code (REQ-2, REQ-7, REQ-8, RISK-4) [after: 2.1, 2.2] `M`
+- [x] 2.3 Wire `SessionManager` into coordinator, remove inline session code (REQ-2, REQ-7, REQ-8, RISK-4) [after: 2.1, 2.2] `M`
   - Replace `_activeSession`, `_switching`, `_modeLocked`, `_currentModeName` fields with `SessionManager _sessionManager`
   - Replace all 6 session lifecycle patterns with `SessionManager` method calls
   - Coordinator subscribes to `_sessionManager.ActionRequested` / `.Cancelled` / `.CursorMoveRequested` once in constructor
@@ -122,7 +122,7 @@ Session lifecycle pattern used in 6 places. Most impactful extraction for readab
 
 These two are coupled (action dispatch branches on macro state) — extract together to avoid intermediate breakage.
 
-- [ ] 3.1 Create `ActionDispatcher` and `MacroHandler` classes (REQ-3, REQ-4, REQ-8, RISK-1) `L`
+- [x] 3.1 Create `ActionDispatcher` and `MacroHandler` classes (REQ-3, REQ-4, REQ-8, RISK-1) `L`
   - **`ActionDispatcher`** — File: `src/Klikety/Navigation/ActionDispatcher.cs`
     - Constructor takes `IMouseActionService`, `IModifierDetector`, `IOverlayWindow`, `SessionManager`, `ILogger`, callback `Action` for `DeactivateOverlay`
     - State: `_dragMode`, `_dragStartPoint`
@@ -156,12 +156,12 @@ These two are coupled (action dispatch branches on macro state) — extract toge
       - `ClearStatusTextRequested` — fires when macro handler needs to clear status text
       - `SetRecordingBorderRequested(bool show)` — fires for recording border changes
 
-- [ ] 3.2 Move drag and action dispatch tests to `CoordinatorDragTests.cs` (REQ-6) `S`
+- [x] 3.2 Move drag and action dispatch tests to `CoordinatorDragTests.cs` (REQ-6) `S`
   - Tests to move (10 drag tests): `DragDrop_StartsPhase_ResetsOverlay_ShowsStatusText`, `DragDrop_SecondAction_LeftClick_SendsDrag`, `DragDrop_SecondAction_RightClick_SendsRightDrag`, `DragDrop_SecondAction_WithModifiers_PassesModifiers`, `DragDrop_Escape_AbortsDrag_RestoresCursorToOrigin`, `DragDrop_MoveOnlyInDragMode_Ignored`, `DragDrop_DragDropInDragMode_Ignored`, `DragDrop_StatusTextClearedOnCompletion`, `DragDrop_FocusLoss_AbortsDrag_RestoresCursor`, `DragDrop_Completion_NoIntermediateMoveTo_Origin`
   - Also move action dispatch tests (7 tests): `ActionOutOfBounds_Suppressed`, `ActionOutOfBounds_RestoresCursorAndSuppresses`, `MoveOnly_DeactivatesOverlay_NoClick`, `Modifiers_CapturedAndPassedToSendAction`, `MoveOnly_IgnoresModifiers`, `NoModifiers_PassesNoneToSendAction`, `ClickThroughSafety_HideBeforeSendAction`
   - Use shared `CoordinatorTestHelper.CreateCoordinator()`.
 
-- [ ] 3.3 Wire `ActionDispatcher` and `MacroHandler` into coordinator (REQ-3, REQ-4, REQ-7, REQ-8, RISK-1, RISK-3) [after: 3.1, 3.2] `M`
+- [x] 3.3 Wire `ActionDispatcher` and `MacroHandler` into coordinator (REQ-3, REQ-4, REQ-7, REQ-8, RISK-1, RISK-3) [after: 3.1, 3.2] `M`
   - Coordinator constructor creates `MacroHandler` and `ActionDispatcher`, passes `SessionManager`
   - `OnKeyEvent` macro dispatch: `if (_macroHandler.TryHandleKey(key, _preOverlayHwnd)) return;`
   - `OnSessionActionRequested` delegates to `_actionDispatcher.HandleAction(...)` or `_actionDispatcher.HandleRecordingAction(..., _macroHandler)`
@@ -175,13 +175,13 @@ These two are coupled (action dispatch branches on macro state) — extract toge
 ## Phase 4: Final Cleanup & Verification
 <!-- worktree: -->
 
-- [ ] 4.1 Slim coordinator to final form (REQ-5, RISK-2) [after: 3.3] `S`
+- [x] 4.1 Slim coordinator to final form (REQ-5, RISK-2) [after: 3.3] `S`
   - Verify coordinator is ~300 lines: ctor, `OnHotKeyActivated`, `OnKeyEvent`, `OnFocusLost`, `DeactivateOverlay`, `Dispose`, `GetDefaultModeName`, `IsQwertyLayout`, `ExtractTitlePattern`, remaining log declarations
   - Delete dead method `OnSessionCancelledDuringRecording()` (unreferenced)
   - Remove any other dead code, unused usings
   - `dotnet format` + verify zero warnings
 
-- [ ] 4.2 Full test suite verification (REQ-7, REQ-8) [after: 4.1] `S`
+- [x] 4.2 Full test suite verification (REQ-7, REQ-8) [after: 4.1] `S`
   - `dotnet test` — all 64 coordinator tests + all macro integration tests + all other tests pass
   - `dotnet build` — zero warnings across all projects
   - Verify test file distribution:
@@ -193,7 +193,7 @@ These two are coupled (action dispatch branches on macro state) — extract toge
     - `AppScopeCoordinatorTests.cs` — unchanged
     - `MacroRecordingIntegrationTests.cs` / `MacroPlaybackIntegrationTests.cs` / `MacroPickerIntegrationTests.cs` — unchanged
 
-- [ ] 4.3 Update design notes (REQ-9) [after: 4.1] `S`
+- [x] 4.3 Update design notes (REQ-9) [after: 4.1] `S`
   - `state-machine.design.md`: update globs to include new files, document `SessionManager` and `ActionDispatcher` roles, update "Overlay Lifecycle" section to reflect delegation pattern
   - `macros.design.md`: update globs to include `MacroHandler.cs`, update "Macro State Mutex" and "Key Dispatch Priority" sections to reference `MacroHandler`
   - `.design-notes.md`: update Available Skills table with new file paths in globs

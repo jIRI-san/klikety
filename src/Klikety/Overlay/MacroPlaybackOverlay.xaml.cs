@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Interop;
 
+using Klikety.Interop;
 using Klikety.Services;
 
 namespace Klikety.Overlay;
@@ -9,6 +11,10 @@ public partial class MacroPlaybackOverlay : Window, IMacroPlaybackWindow {
 
     public MacroPlaybackOverlay() {
         InitializeComponent();
+        SourceInitialized += (_, _) => {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            NativeMethods.SetClickThroughExStyle(hwnd);
+        };
     }
 
     void IMacroPlaybackWindow.Show(string macroName, int totalSteps, string? windowContext) {

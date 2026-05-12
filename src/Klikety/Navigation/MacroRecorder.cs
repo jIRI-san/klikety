@@ -269,7 +269,7 @@ public sealed partial class MacroRecorder {
             ScreenWidth = _screenWidth,
             ScreenHeight = _screenHeight,
             DpiScale = _dpiScale,
-            SpeedModifier = 1.0,
+            SpeedModifier = 0.2,
             Steps = [.. _steps],
             PositionMode = _recordingContext is { IsWindowRelative: true }
                 ? MacroPositionMode.WindowRelative

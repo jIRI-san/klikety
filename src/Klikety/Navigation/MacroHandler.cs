@@ -195,6 +195,7 @@ internal sealed partial class MacroHandler : IDisposable {
             && _macrosFile.Macros[directSlot] is { } directMacro) {
             _playbackFromGlobalHotKey = false;
             _hookService.Disable();
+            SuspendOverlayRequested?.Invoke();
             StartPlayback(directMacro, _targetHwnd);
             return true;
         }
@@ -341,24 +342,15 @@ internal sealed partial class MacroHandler : IDisposable {
         // Request coordinator to re-show overlay
         ResumeOverlayRequested?.Invoke();
 
-        // Create new default-mode session
-        var defaultModeName = GetDefaultModeName();
+        // Create new session in the same mode that was active before recording
         try {
-            _sessionManager.ResumeForRecording(defaultModeName, screenBounds, origin,
+            _sessionManager.ResumeForRecording(_sessionManager.CurrentModeName, screenBounds, origin,
                 _recordingAppScoped, _recordingWindowBounds);
 
             SetRecordingBorderRequested?.Invoke(true);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
             CancelRecording();
         }
-    }
-
-    private string GetDefaultModeName() {
-        var modes = _config.Modes;
-        if (modes.LogGrid is { Enabled: true }) {
-            return "LogGrid";
-        }
-        return "UniformGrid";
     }
 
     // --- Recorder event handlers ---
@@ -526,9 +518,8 @@ internal sealed partial class MacroHandler : IDisposable {
         ResumeOverlayRequested?.Invoke();
         _hookService.Enable();
 
-        var defaultModeName = GetDefaultModeName();
         try {
-            _sessionManager.ResumeAfterPlayback(defaultModeName, screenBounds, origin);
+            _sessionManager.ResumeAfterPlayback(_sessionManager.CurrentModeName, screenBounds, origin);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
             DeactivateRequested?.Invoke();
         }

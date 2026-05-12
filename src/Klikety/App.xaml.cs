@@ -248,6 +248,32 @@ public partial class App : Application {
         };
         contextMenu.Items.Add(configFolderItem);
 
+        // Reload Configuration
+        var reloadItem = new System.Windows.Controls.MenuItem { Header = "Reload Configuration" };
+        reloadItem.Click += (_, _) => {
+            _coordinator?.Dispose();
+            _coordinator = null;
+
+            // Unregister all hotkeys before re-bootstrap so ProbeHotKey doesn't
+            // detect a conflict with the currently-registered hotkey.
+            _hotKeyService?.Unregister();
+            _scrollHotKeyService?.Dispose();
+            _scrollHotKeyService = null;
+            _macroHotKeyService?.Dispose();
+            _macroHotKeyService = null;
+
+            var newViolations = BootstrapCoordinator();
+            SetupTrayContextMenu(newViolations, logger);
+
+            if (newViolations.Count > 0) {
+                var msg = string.Join("\n", newViolations);
+                _trayIcon?.ShowNotification("Klikety — Configuration Issues", msg);
+            } else {
+                _trayIcon?.ShowNotification("Klikety", "Configuration reloaded.");
+            }
+        };
+        contextMenu.Items.Add(reloadItem);
+
         // Reset Configuration (visible only when config has blocking violations)
         if (_hasBlockingViolations) {
             var resetItem = new System.Windows.Controls.MenuItem { Header = "Reset Configuration" };
@@ -261,6 +287,11 @@ public partial class App : Application {
                 // Re-bootstrap: dispose old coordinator, re-create
                 _coordinator?.Dispose();
                 _coordinator = null;
+                _hotKeyService?.Unregister();
+                _scrollHotKeyService?.Dispose();
+                _scrollHotKeyService = null;
+                _macroHotKeyService?.Dispose();
+                _macroHotKeyService = null;
 
                 var newViolations = BootstrapCoordinator();
 

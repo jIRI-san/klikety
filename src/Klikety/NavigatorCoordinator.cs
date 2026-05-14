@@ -134,8 +134,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnHotKeyActivated(object? sender, EventArgs e) {
-        // Re-entrant guard: ignore if already active
+        // Toggle: if already active, deactivate cleanly
         if (_sessionManager.IsActive) {
+            DeactivateOverlay();
             return;
         }
 
@@ -400,9 +401,6 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             var savedHwnd = _preOverlayHwnd;
             _preOverlayHwnd = 0;
 
-            _overlayWindow.ClearCanvas();
-            _overlayWindow.ClearStatusText();
-            _overlayWindow.SetAppScopeBorder(false);
             _overlayWindow.Hide();
 
             if (savedHwnd != 0) {
@@ -451,8 +449,6 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     // --- Macro handler overlay-control event handlers ---
 
     private void OnMacroSuspendOverlay() {
-        _overlayWindow.ClearCanvas();
-        _overlayWindow.ClearStatusText();
         _overlayWindow.Hide();
     }
 

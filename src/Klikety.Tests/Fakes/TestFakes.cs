@@ -192,6 +192,12 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     }
 
     public void Hide() {
+        // Mirror real OverlayWindow.Hide(): clear all content on hide
+        ClearCanvasCount++;
+        StatusText = null;
+        ClearStatusTextCount++;
+        RecordingBorderVisible = false;
+        AppScopeBorderVisible = false;
         IsVisible = false;
         HideCount++;
         if (RaiseFocusLostOnHide) {

@@ -19,7 +19,8 @@ globs:
 ## Overlay Lifecycle
 
 - `OverlayWindow` is a WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to primary screen bounds converted to DIPs via `PresentationSource` transform.
-- `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, exception, Quit. It calls `IGridRenderer.ClearCanvas()`, hides the overlay, calls `IKeyboardHookService.DrainAndDisable()`, and clears session/debounce/drag state. Safe to call multiple times.
+- `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, hotkey toggle, exception, Quit. It calls `IOverlayWindow.Hide()` which clears all content and hides the window. Also calls `IKeyboardHookService.DrainAndDisable()` and clears session/debounce/drag state. Safe to call multiple times.
+- **Hotkey toggle**: pressing the activation hotkey while the overlay is active calls `DeactivateOverlay()` (clean dismiss). No re-entrant guard — it's an explicit toggle off.
 - `NavigatorCoordinator` delegates to four helper classes via composition: `SessionManager` (session lifecycle and scope state), `ActionDispatcher` (action dispatch and drag-drop), `MacroHandler` (recording/playback/picker), and `DebounceHandler` (hotkey debounce). Overlay visibility remains exclusively owned by the coordinator.
 - `NavigatorCoordinator` implements `IDisposable`. `Dispose()` unsubscribes from all service events (`Activated`, `KeyEvent`, `FocusLost`), disposes `MacroHandler`, `SessionManager`, and `DebounceHandler`, calls `DeactivateOverlay()`, and closes the overlay window. Called by `App.xaml.cs` on coordinator replacement (config reset) and application quit.
 - `OverlayWindow.Deactivated` event wires to `DeactivateOverlay()` to handle focus loss (Alt+Tab, OS notifications, background app stealing focus).
@@ -27,6 +28,14 @@ globs:
 - Cursor position at `Activate()` time is saved; restored via `IMouseActionService.MoveTo(originPoint)` when Escape is pressed at L1 or focus is lost.
 - Escape from L2/L3 to L1 also restores cursor to origin position (coordinator calls `MoveTo(_origin)` on `ColumnUnhighlighted(1)`).
 - If `IKeyboardHookService.Enable()` returns failure on activation, `DeactivateOverlay()` is called immediately and a tray notification is shown — overlay never becomes visible.
+
+### Stale-content flash prevention (hack)
+
+WPF layered windows (`AllowsTransparency=True`) use `UpdateLayeredWindow` which caches the composited surface bitmap at the DWM level. When the window is hidden and re-shown, DWM displays the cached bitmap for one frame before WPF pushes new content — producing a visible flash of the previous session's grid.
+
+Workaround in `OverlayWindow.Hide()`: shrink the window to 1×1 at (-1,-1) before calling `Hide()`. This forces WPF to discard the full-screen render target. On the next `Show()`, the window is resized back to full-screen which allocates a fresh (blank) render target — so DWM has no stale content to display.
+
+This is a hack. The root cause is that WPF's async render pipeline cannot guarantee a synchronous surface commit before `ShowWindow(SW_HIDE)`. `Dispatcher.Invoke(Render)`, `UpdateLayout()`, and `Opacity=0` all proved insufficient because the media thread→DWM hand-off is asynchronous. The resize approach is the only reliable method found that forces render target invalidation.
 
 ## State Machine
 

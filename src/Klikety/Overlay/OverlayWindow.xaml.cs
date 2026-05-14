@@ -42,7 +42,9 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         var source = PresentationSource.FromVisual(this);
 
         if (source is not null) {
-            // Window was previously shown — pre-set position/size to prevent flash at old bounds
+            // Window was previously shown — pre-set position/size to prevent flash at old bounds.
+            // Hide() shrank the window to 1×1 offscreen, so resizing back forces WPF to
+            // allocate a fresh (blank) render target — no stale content to flash.
             var pre = source.CompositionTarget!.TransformFromDevice;
             var preTopLeft = pre.Transform(new System.Windows.Point(bounds.X, bounds.Y));
             var preBottomRight = pre.Transform(new System.Windows.Point(
@@ -75,6 +77,16 @@ public partial class OverlayWindow : Window, IOverlayWindow {
     }
 
     void IOverlayWindow.Hide() {
+        RootCanvas.Children.Clear();
+        StatusCanvas.Children.Clear();
+        RecordingBorder.Visibility = Visibility.Collapsed;
+        // Shrink to 1×1 offscreen before hiding. This forces WPF to discard the
+        // full-screen render target. On next Show(), a fresh target is allocated
+        // (starting blank), eliminating the DWM stale-surface flash.
+        Left = -1;
+        Top = -1;
+        Width = 1;
+        Height = 1;
         Hide();
     }
 

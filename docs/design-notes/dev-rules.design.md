@@ -22,3 +22,7 @@ globs:
 - **Always use `dotnet format` — never format code by manual edits.** The repo has `.editorconfig` configured and `dotnet format` installed. Run `dotnet format` before committing instead of reformatting code inline.
   - `dotnet format` applies all `.editorconfig` rules consistently.
   - Do not attempt to fix formatting warnings by editing individual lines.
+
+## Git History
+
+- **Never use `git push --force`, `git push --force-with-lease`, or `git commit --amend` on pushed commits.** If a commit needs fixing, create a follow-up commit instead. Force-pushing rewrites shared history and can disrupt CI, other collaborators, and PR references.

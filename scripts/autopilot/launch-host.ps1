@@ -96,9 +96,23 @@ function Invoke-CopilotPhase {
     Write-Host ""
     Write-Host "=== Invoking Copilot CLI for Phase $PhaseNumber (timeout: ${TimeoutMin}m) ==="
 
+    # Resolve copilot CLI executable. Process.Start with UseShellExecute=$false
+    # only finds .exe natively; .bat/.ps1 need explicit resolution.
+    $copilotCmd = Get-Command copilot -ErrorAction SilentlyContinue
+    if (-not $copilotCmd) { throw "Copilot CLI not found in PATH. Install via: npm install -g @github/copilot" }
+    $copilotPath = $copilotCmd.Source
+
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = 'copilot'
-    $psi.Arguments = "-p `"$prompt`" --agent autopilot --no-ask-user --allow-all --share=./$transcriptName"
+    if ($copilotPath -match '\.bat$') {
+        $psi.FileName = 'cmd.exe'
+        $psi.Arguments = "/c `"$copilotPath`" -p `"$prompt`" --agent autopilot --no-ask-user --allow-all --share=./$transcriptName"
+    } elseif ($copilotPath -match '\.ps1$') {
+        $psi.FileName = 'powershell.exe'
+        $psi.Arguments = "-ExecutionPolicy Bypass -File `"$copilotPath`" -p `"$prompt`" --agent autopilot --no-ask-user --allow-all --share=./$transcriptName"
+    } else {
+        $psi.FileName = $copilotPath
+        $psi.Arguments = "-p `"$prompt`" --agent autopilot --no-ask-user --allow-all --share=./$transcriptName"
+    }
     $psi.WorkingDirectory = $Cwd
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true

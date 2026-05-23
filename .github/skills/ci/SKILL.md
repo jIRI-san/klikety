@@ -60,6 +60,10 @@ Detect or ask for execution mode:
 **"Approve each step, or autopilot?"**
 - **Approve** — stop after each step for review before proceeding. Worktree naming: `feature/<plan-slug>-<phase-slug>-<step-N>` (scoped to current step).
 - **Autopilot** — implement all remaining steps with minimal user input. Single worktree for the entire plan, named `feature/<plan-slug>`. All phases and steps execute on this one worktree from start to end. Skip per-step confirmations (Step 4 "Proceed?", Step 10 "Ready to commit?", Step 11 "Continue or stop?"). Still run build, tests, acceptance criteria validation, and code review — but auto-fix unambiguous CR findings and auto-commit without asking. Continue to next phase without confirmation. Only stop for: `@human` steps, ambiguous CR trade-offs, failing tests that can't be auto-fixed, or blocking dependency issues. The user reviews everything at the end.
+- **Host autopilot (autonomous)** — delegate execution to Copilot CLI running autonomously in a host worktree. Invokes `scripts/autopilot/launch.ps1 -PlanSlug <slug> -Mode whole-plan -Runtime host`. The agent runs without user interaction, commits per-step, and pushes on phase completion. After invoking, report that autonomous execution has started and exit the `/ci` flow.
+- **Container autopilot (autonomous)** — same as host autopilot but runs inside a Docker container cloned from remote. Invokes `scripts/autopilot/launch.ps1 -PlanSlug <slug> -Mode whole-plan -Runtime container`. Requires Docker Desktop.
+
+> **Note:** The autonomous options (Host/Container autopilot) are hidden when the environment variable `AUTOPILOT_CONTAINER=true` is set (indicates execution is already inside an autonomous container). Only show Approve and Autopilot in that case.
 
 Remember the chosen mode for the rest of the session.
 
@@ -150,8 +154,8 @@ The agent cannot execute this step directly. Instead:
 ## Step 6: Build and Test
 
 ```
-dotnet build src/Qz/Qz.csproj
-dotnet test src/Qz.Tests/Qz.Tests.csproj [--filter <relevant-filter>]
+dotnet build src/Klikety/Klikety.csproj
+dotnet test src/Klikety.Tests/Klikety.Tests.csproj [--filter <relevant-filter>]
 ```
 
 If a relevant test filter can be identified from the changed subsystem (e.g. `Category=Scheduling`), use it. Otherwise run all tests.

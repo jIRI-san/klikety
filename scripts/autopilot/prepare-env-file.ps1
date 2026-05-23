@@ -67,9 +67,12 @@ if ($AdoToken) {
     if ($Config.adoProject) { $envContent += "ADO_PROJECT=$($Config.adoProject)" }
 }
 
-# Get repo remote URL for container clone
+# Get repo remote URL for container clone (convert SSH to HTTPS for token auth)
 $remote = git remote get-url origin 2>$null
 if ($remote) {
+    if ($remote -match '^git@github\.com:(.+)$') {
+        $remote = "https://github.com/$($Matches[1])"
+    }
     $envContent += "REPO_REMOTE=$remote"
 }
 

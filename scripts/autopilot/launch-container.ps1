@@ -52,7 +52,7 @@ try {
     $buildContext = $RepoRoot
     $actualDockerfile = $dockerfilePath
 
-    if ($Config.dockerfileExtensions -and $Config.dockerfileExtensions.Count -gt 0) {
+    if ($Config.PSObject.Properties.Name -contains 'dockerfileExtensions' -and $Config.dockerfileExtensions -and $Config.dockerfileExtensions.Count -gt 0) {
         Write-Host "Appending dockerfileExtensions to Dockerfile..."
         $tempDockerfile = Join-Path $env:TEMP "autopilot-Dockerfile-extended"
         $baseContent = Get-Content $dockerfilePath -Raw
@@ -83,6 +83,9 @@ try {
     # Start container as background process for timeout enforcement
     $dockerProcess = Start-Process -FilePath 'docker' -ArgumentList $dockerArgs -NoNewWindow -PassThru
 
+    # Brief delay to let docker register the container name
+    Start-Sleep -Seconds 3
+
     # --- Timeout enforcement via polling ---
     $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
     while (-not $dockerProcess.HasExited) {
@@ -101,8 +104,11 @@ try {
             break
         }
 
-        # Check container is still running
+        # Check container is still running (suppress errors during startup race)
+        $prevEAP = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
         $state = docker inspect --format '{{.State.Running}}' $ContainerName 2>$null
+        $ErrorActionPreference = $prevEAP
         if ($state -eq 'false') { break }
 
         Start-Sleep -Seconds 2
@@ -118,15 +124,19 @@ try {
     }
 
     Write-Host "Extracting transcripts..."
-    docker cp "${ContainerName}:/work/session-transcript-phase1.md" $TranscriptsDir 2>$null
-    # Copy all transcript files
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    # Copy all transcript files (ignore errors for missing files)
     for ($i = 1; $i -le 10; $i++) {
         docker cp "${ContainerName}:/work/session-transcript-phase${i}.md" $TranscriptsDir 2>$null
     }
+    $ErrorActionPreference = $prevEAP
 
     # --- Cleanup container ---
     Write-Host "Removing container: $ContainerName"
+    $ErrorActionPreference = 'Continue'
     docker rm $ContainerName 2>$null
+    $ErrorActionPreference = $prevEAP
 
     Write-Host ""
     Write-Host "=== Container-mode execution complete ==="

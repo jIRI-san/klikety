@@ -88,8 +88,12 @@ Write-Host "Runtime: $effectiveRuntime"
 # --- Docker pre-flight (container mode) ---
 if ($effectiveRuntime -eq 'container') {
     Write-Host "Checking Docker daemon..."
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     docker info > $null 2>&1
-    if ($LASTEXITCODE -ne 0) {
+    $dockerExit = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
+    if ($dockerExit -ne 0) {
         Write-Error "Docker daemon not available. Start Docker Desktop or switch to host mode."
         exit 1
     }
@@ -128,15 +132,6 @@ if (Test-Path $envSessionDir) {
     }
 }
 
-# --- Validate authentication ---
-Write-Host "Validating authentication..."
-& (Join-Path $ScriptDir 'validate-auth.ps1') -Config $Config
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Authentication validation failed. Run validate-auth.ps1 manually for details."
-    exit 1
-}
-Write-Host "Auth OK."
-
 # --- Get credentials ---
 Write-Host "Fetching credentials..."
 $credTarget = switch ($Config.copilotAuth) {
@@ -157,6 +152,15 @@ if ($Config.gitProvider -eq 'ado') {
         exit 1
     }
 }
+
+# --- Validate authentication ---
+Write-Host "Validating authentication..."
+& (Join-Path $ScriptDir 'validate-auth.ps1') -Config $Config -Token $Token
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Authentication validation failed. Run validate-auth.ps1 manually for details."
+    exit 1
+}
+Write-Host "Auth OK."
 
 # --- Dispatch ---
 Write-Host ""

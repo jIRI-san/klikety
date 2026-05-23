@@ -1,5 +1,9 @@
 # NNN: Plan Title
 
+<!-- Optional execution metadata — defaults used by /ci mode selection -->
+<!-- execution-mode: manual | host-autopilot | container-autopilot -->
+<!-- scope: step | phase | plan -->
+
 ## Decisions
 <!-- Key decisions made during planning — one bullet per decision -->
 -

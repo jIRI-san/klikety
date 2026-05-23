@@ -149,6 +149,12 @@ Do not proceed to drafting until you have solid answers to all of the following.
 - For `@human` steps: what is the undo procedure? (e.g. "Delete the resource group", "Revert the portal setting to X").
 - For steps with no clean rollback: note this explicitly as a risk.
 
+**Execution mode** (optional — sets defaults for `/ci` mode selection)
+- Should this plan be executed manually (approve each step), autonomously on host, or autonomously in a container?
+- Default is manual. Autonomous modes require `.autopilot.json` and auth setup.
+- If autonomous: whole-plan or phase-at-a-time scope?
+- Record as `<!-- execution-mode: manual | host-autopilot | container-autopilot -->` and `<!-- scope: step | phase | plan -->` metadata in the plan header.
+
 Once all areas are covered, present a structured summary back to the user and ask: **"Does this capture everything? Anything to add or correct?"** — wait for confirmation before drafting.
 
 ## Step 4: Draft Plan

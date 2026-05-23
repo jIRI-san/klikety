@@ -14,7 +14,7 @@ set -euo pipefail
 
 PLAN_SLUG="${1:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
 MODE="${2:?Usage: container-entrypoint.sh <plan-slug> <mode>}"
-BRANCH="feature/${PLAN_SLUG}"
+BRANCH="${REPO_BRANCH:-feature/${PLAN_SLUG}}"
 REPO_REMOTE="${REPO_REMOTE:?REPO_REMOTE env var required}"
 
 echo "=== Autopilot Container Entry-Point ==="
@@ -39,14 +39,22 @@ echo "Cloning ${REPO_REMOTE}..."
 git clone "${REPO_REMOTE}" /work
 cd /work
 
-# Check if remote branch exists for resume
-if git ls-remote --exit-code origin "refs/heads/${BRANCH}" > /dev/null 2>&1; then
-    echo "Remote branch ${BRANCH} exists — resuming..."
+# Determine target branch
+WORK_BRANCH="feature/${PLAN_SLUG}"
+
+if git ls-remote --exit-code origin "refs/heads/${WORK_BRANCH}" > /dev/null 2>&1; then
+    echo "Work branch ${WORK_BRANCH} exists on remote — resuming..."
+    git fetch origin "${WORK_BRANCH}"
+    git checkout "${WORK_BRANCH}"
+elif [ "${BRANCH}" != "${WORK_BRANCH}" ] && git ls-remote --exit-code origin "refs/heads/${BRANCH}" > /dev/null 2>&1; then
+    echo "Starting from branch ${BRANCH}..."
     git fetch origin "${BRANCH}"
     git checkout "${BRANCH}"
+    echo "Creating work branch ${WORK_BRANCH} from ${BRANCH}..."
+    git checkout -b "${WORK_BRANCH}"
 else
-    echo "Creating new branch ${BRANCH}..."
-    git checkout -b "${BRANCH}"
+    echo "Creating new branch ${WORK_BRANCH} from $(git branch --show-current)..."
+    git checkout -b "${WORK_BRANCH}"
 fi
 
 # --- Configure git identity ---

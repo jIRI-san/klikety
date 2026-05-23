@@ -21,7 +21,9 @@ param(
     [Parameter(Mandatory)]
     [string]$Token,
 
-    [string]$AdoToken
+    [string]$AdoToken,
+
+    [string]$Branch
 )
 
 Set-StrictMode -Version Latest
@@ -74,6 +76,11 @@ if ($remote) {
         $remote = "https://github.com/$($Matches[1])"
     }
     $envContent += "REPO_REMOTE=$remote"
+}
+
+# Pass target branch if specified
+if ($Branch) {
+    $envContent += "REPO_BRANCH=$Branch"
 }
 
 Set-Content -Path $envFilePath -Value ($envContent -join "`n") -NoNewline -Encoding UTF8

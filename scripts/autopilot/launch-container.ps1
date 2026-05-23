@@ -29,7 +29,9 @@ param(
     [Parameter(Mandatory)]
     [string]$Token,
 
-    [string]$AdoToken
+    [string]$AdoToken,
+
+    [string]$Branch = "feature/$PlanSlug"
 )
 
 Set-StrictMode -Version Latest
@@ -68,7 +70,7 @@ try {
 
     # --- Prepare env file ---
     Write-Host "Preparing environment file..."
-    $EnvFilePath = & (Join-Path $PSScriptRoot 'prepare-env-file.ps1') -Config $Config -Token $Token -AdoToken $AdoToken
+    $EnvFilePath = & (Join-Path $PSScriptRoot 'prepare-env-file.ps1') -Config $Config -Token $Token -AdoToken $AdoToken -Branch $Branch
 
     # --- Run container ---
     Write-Host "Starting container: $ContainerName"

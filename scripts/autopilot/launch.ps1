@@ -20,7 +20,9 @@ param(
     [string]$Mode,
 
     [ValidateSet('host', 'container')]
-    [string]$Runtime
+    [string]$Runtime,
+
+    [string]$Branch
 )
 
 Set-StrictMode -Version Latest
@@ -175,6 +177,7 @@ $dispatchParams = @{
     Mode     = $Mode
     Config   = $Config
     Token    = $Token
+    Branch   = if ($Branch) { $Branch } else { "feature/$PlanSlug" }
 }
 if ($AdoToken) { $dispatchParams.AdoToken = $AdoToken }
 

@@ -1,0 +1,12 @@
+{
+  "name": "Autopilot Execution",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "../.."
+  },
+  "containerEnv": {
+    "COPILOT_ALLOW_ALL": "true",
+    "AUTOPILOT_CONTAINER": "true"
+  },
+  "remoteUser": "autopilot"
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Per-project autopilot execution config. See docs/design-notes/autopilot-execution.design.md for details.",
+  "runtime": "host",
+  "copilotAuth": "pat",
+  "gitProvider": "github",
+  "gitAuth": "pat-shared",
+  "model": "gpt-5.3-codex",
+  "git": {
+    "name": "autopilot",
+    "email": "autopilot@noreply"
+  },
+  "timeout": 60,
+  "maxIterationsPerStep": 5,
+  "build": "dotnet build src/Klikety/Klikety.csproj",
+  "test": "dotnet test src/Klikety.Tests/Klikety.Tests.csproj"
+}

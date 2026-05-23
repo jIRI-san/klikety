@@ -25,13 +25,15 @@ param(
     [PSCustomObject]$Config,
 
     [Parameter(Mandatory)]
-    [string]$Token
+    [string]$Token,
+
+    [string]$Branch
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$BranchName = "feature/$PlanSlug"
+$BranchName = if ($Branch) { $Branch } else { "feature/$PlanSlug" }
 $RepoRoot = git rev-parse --show-toplevel
 $WorktreeRoot = Join-Path (Split-Path $RepoRoot -Parent) "$((Split-Path $RepoRoot -Leaf)).worktrees"
 $WorktreePath = Join-Path $WorktreeRoot $BranchName.Replace('/', '-')

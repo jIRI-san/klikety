@@ -44,7 +44,7 @@ if (-not (Test-Path $WorktreeRoot)) {
 }
 
 if (Test-Path $WorktreePath) {
-    Write-Host "Worktree already exists at $WorktreePath — resuming."
+    Write-Host "Worktree already exists at $WorktreePath - resuming."
 }
 else {
     Write-Host "Creating worktree: $WorktreePath (branch: $BranchName)"
@@ -158,18 +158,18 @@ for ($phase = 1; $phase -le $totalPhases; $phase++) {
 
     # Simple heuristic: check if phase has uncompleted steps
     # Look for "- [ ]" or "- [~]" between this phase heading and the next
-    $phasePattern = "## Phase $phase.*?(?=## Phase $($phase + 1)|## Known Constraints|$)"
+    $phasePattern = "## Phase ${phase}" + '.*?(?=## Phase ' + "$($phase + 1)" + '|## Known Constraints|$)'
     $phaseSection = [regex]::Match($currentPlan, $phasePattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
 
     if (-not $phaseSection.Success) { continue }
 
     $hasIncomplete = $phaseSection.Value -match '\- \[ \]|\- \[~\]'
     if (-not $hasIncomplete) {
-        Write-Host "Phase $phase: all steps complete — skipping."
+        Write-Host "Phase ${phase}: all steps complete - skipping."
         continue
     }
 
-    Write-Host "Phase $phase: has uncompleted steps — executing."
+    Write-Host "Phase ${phase}: has uncompleted steps - executing."
     $result = Invoke-CopilotPhase -PhaseNumber $phase -CopilotToken $Token -Cwd $WorktreePath -PlanRelPath $PlanPath -TimeoutMin $TimeoutMinutes
 
     $phasesExecuted++
@@ -188,7 +188,7 @@ for ($phase = 1; $phase -le $totalPhases; $phase++) {
     }
 
     if ($Mode -eq 'next-phase') {
-        Write-Host "Mode is 'next-phase' — stopping after Phase $phase."
+        Write-Host "Mode is 'next-phase' - stopping after Phase ${phase}."
         break
     }
 }

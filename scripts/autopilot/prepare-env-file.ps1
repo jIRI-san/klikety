@@ -50,7 +50,7 @@ $acl.AddAccessRule($rule)
 New-Item -ItemType File -Path $envFilePath -Force | Out-Null
 Set-Acl -Path $envFilePath -AclObject $acl
 
-# Write env vars — never log token values
+# Write env vars - never log token values
 $envContent = @(
     "COPILOT_GITHUB_TOKEN=$Token"
     "GH_TOKEN=$Token"

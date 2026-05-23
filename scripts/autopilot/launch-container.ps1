@@ -48,7 +48,7 @@ try {
     Write-Host "Building Docker image: $ImageName"
     $dockerfilePath = Join-Path $RepoRoot '.devcontainer/autopilot/Dockerfile'
 
-    # Handle dockerfileExtensions — generate extended Dockerfile if needed
+    # Handle dockerfileExtensions - generate extended Dockerfile if needed
     $buildContext = $RepoRoot
     $actualDockerfile = $dockerfilePath
 

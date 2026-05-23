@@ -4,8 +4,8 @@
     Reads authentication tokens from Windows Credential Manager for autopilot execution.
 .DESCRIPTION
     Supports multiple credential targets:
-    - 'copilot-autopilot' — Fine-grained PAT for Copilot CLI + git operations
-    - 'copilot-cli' — OAuth token from `copilot login` pre-auth
+    - 'copilot-autopilot' - Fine-grained PAT for Copilot CLI + git operations
+    - 'copilot-cli' - OAuth token from `copilot login` pre-auth
     For ADO: validates `az account show` succeeds (token fetched separately by validate-auth.ps1).
 .PARAMETER Target
     The credential target to retrieve. One of: 'copilot-autopilot', 'copilot-cli', 'ado'.
@@ -67,7 +67,7 @@ Azure CLI not authenticated. Run:
 Then retry.
 "@
         }
-        # Return success indicator — actual token fetched by validate-auth.ps1
+        # Return success indicator - actual token fetched by validate-auth.ps1
         return 'ado-authenticated'
     }
 }

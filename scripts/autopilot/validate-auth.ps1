@@ -28,7 +28,7 @@ $result = @{ Valid = $false; AdoToken = $null }
 # --- GitHub token validation ---
 Write-Host "Validating GitHub token..."
 
-# Probe 1: GET /user — confirms token is valid
+# Probe 1: GET /user - confirms token is valid
 $headers = @{ Authorization = "Bearer $Token"; Accept = 'application/vnd.github+json' }
 try {
     $userResponse = Invoke-RestMethod -Uri 'https://api.github.com/user' -Headers $headers -Method Get
@@ -47,7 +47,7 @@ Re-auth guidance:
 "@
 }
 
-# Probe 2: GET /repos/{owner}/{repo} — confirms Contents access
+# Probe 2: GET /repos/{owner}/{repo} - confirms Contents access
 $remote = git remote get-url origin 2>$null
 if ($remote -match 'github\.com[:/]([^/]+)/([^/.]+)') {
     $owner = $Matches[1]
@@ -81,7 +81,7 @@ try {
 }
 catch {
     Write-Warning "Copilot CLI probe failed: $($_.Exception.Message). Token may lack Copilot Requests permission."
-    # Non-fatal — the token might still work for the actual execution
+    # Non-fatal - the token might still work for the actual execution
 }
 finally {
     Remove-Item Env:\COPILOT_GITHUB_TOKEN -ErrorAction SilentlyContinue

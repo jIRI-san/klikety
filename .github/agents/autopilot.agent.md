@@ -32,7 +32,8 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
 12. **Format** — run the formatter (e.g. `dotnet format`). Stage any formatting changes.
 13. **Validate acceptance criteria** — look up the REQ-N IDs referenced by this step. Verify each acceptance criterion is satisfied.
 14. **Update design notes** — if this step's changes affect patterns, APIs, or conventions documented in `docs/design-notes/`, update the relevant design notes to reflect the new state. Include updated notes in the commit.
-15. **Emit review hints** — before committing, output the following block verbatim so Rubber Duck knows what this project cares about:
+15. **Code review** — invoke the built-in `code-review` subagent on this step's uncommitted changes. It will surface bugs, security vulns, race conditions, memory leaks, and logic errors. For any findings it reports, fix them and re-run build/test.
+16. **Emit review hints for Rubber Duck** — output the following block verbatim so the `rubber-duck` subagent has project-specific context for its second opinion:
 
     ```
     @rubber-duck review-hints:
@@ -44,11 +45,9 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
     - Style: naming/file-organization inconsistencies vs surrounding code, dead code, commented-out code, duplication (>3 occurrences → extract)
     ```
 
-    Then do a quick sanity check: scan your own changes for anything Critical-severity (hardcoded secrets, injection, broken auth, null dereference on happy path). Fix those immediately — don't wait for Rubber Duck. Re-run build/test after fixes.
-
-16. **Fix loop** — if build/test/acceptance/review fails, fix and retry. Maximum iterations from config.
-17. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-NNN step X.Y]`
-18. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
+17. **Fix loop** — if build/test/acceptance/code-review fails, fix and retry. Maximum iterations from config.
+18. **Commit** — stage ONLY the files you directly modified: `git add <file1> <file2> ...`. Include the plan file (with `[x]` mark) in the same commit for atomicity. Commit message: `feat(<scope>): <step title> [plan-NNN step X.Y]`
+19. **Loop or stop** — move to next `[ ]` step in this phase. If all steps in this phase are done, proceed to Phase Completion.
 
 ## On Phase Completion
 
@@ -83,9 +82,40 @@ You receive a prompt like: "Execute docs/implementation-plans/<slug>/plan.md, ph
    - Move folder: `Move-Item docs/implementation-plans/NNN-<slug> docs/implementation-plans/archived/NNN-<slug>`
    - Stage and commit: `git commit -m "chore: archive completed plan NNN"`
 
-3. **Create PR**:
-   - GitHub: `gh pr create --title "feat: <plan-slug>" --body "Autonomous implementation" --head <branch>`
-   - ADO: `az repos pr create --title "feat: <plan-slug>" --source-branch <branch>`
+3. **Create PR** — generate a PR with a structured title and body:
+
+   **Title:** `feat(<primary-scope>): <plan title>`
+   - `primary-scope`: the main subsystem the plan changes (e.g. `scheduling`, `orchestration`, `persistence`)
+
+   **Body** (markdown):
+   ```
+   ## Summary
+   <1-3 sentence description of what this plan implements and why>
+
+   ## Plan
+   `docs/implementation-plans/<NNN-slug>/plan.md`
+
+   ## Changes
+   - <bulleted list of key changes, one per phase or major subsystem touched>
+
+   ## Requirements Crosscheck
+   | REQ | Status | Notes |
+   |-----|--------|-------|
+   | REQ-1 | ✓ | ... |
+   | REQ-N | ✗ | gap: ... |
+
+   ## Risks
+   | RISK | Status | Notes |
+   |------|--------|-------|
+   | RISK-1 | ✓ mitigated | ... |
+
+   ## Test Coverage
+   <brief summary: N new tests, M modified, all passing>
+   ```
+
+   Commands:
+   - GitHub: `gh pr create --title "<title>" --body "<body>" --head <branch>`
+   - ADO: `az repos pr create --title "<title>" --description "<body>" --source-branch <branch>`
 
 ## Absolute Rules
 

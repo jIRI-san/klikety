@@ -8,8 +8,12 @@
   "properties": {
     "runtime": {
       "type": "string",
-      "enum": ["host", "container"],
-      "description": "Execution runtime. 'host' = git worktree on host. 'container' = Docker container clone-from-remote."
+      "enum": [
+        "host",
+        "container",
+        "sandbox"
+      ],
+      "description": "Execution runtime. 'host' = git worktree on host. 'container' = Docker container clone-from-remote. 'sandbox' = Windows Sandbox (isolated Win32/WPF, disposable)."
     },
     "copilotAuth": {
       "type": "string",

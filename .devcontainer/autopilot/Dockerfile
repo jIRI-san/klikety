@@ -44,9 +44,9 @@ RUN curl -sSL https://aka.ms/InstallAzureCLIDeb | bash \
 # Install method: npm package (pinned version for reproducibility)
 # If the package name changes, update here and in RISK-3 mitigation.
 RUN if [ "$COPILOT_CLI_VERSION" = "latest" ]; then \
-        npm install -g @github/copilot-cli; \
+    npm install -g @github/copilot; \
     else \
-        npm install -g "@github/copilot-cli@${COPILOT_CLI_VERSION}"; \
+    npm install -g "@github/copilot@${COPILOT_CLI_VERSION}"; \
     fi
 
 # Container entry-point script

@@ -10,14 +10,14 @@ globs:
 
 # Autonomous Plan Execution
 
-Infrastructure for delegating implementation plan execution to GitHub Copilot CLI running autonomously — either in a host worktree or a Docker container.
+Infrastructure for delegating implementation plan execution to GitHub Copilot CLI running autonomously — in a host worktree, Docker container, or Windows Sandbox.
 
 ## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────┐
 │  /ci skill (VS Code)                            │
-│  ├─ "Host autopilot" or "Container autopilot"   │
+│  ├─ "Host autopilot" / "Container" / "Sandbox"  │
 │  └─ Invokes launch.ps1                          │
 └───────────────────┬─────────────────────────────┘
                     │
@@ -25,21 +25,21 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 │  launch.ps1 (entry point)                        │
 │  ├─ Validates .autopilot.json                    │
 │  ├─ Checks build/test command allowlist          │
-│  ├─ Docker pre-flight (container mode)           │
+│  ├─ Docker/Sandbox pre-flight (mode-specific)    │
 │  ├─ Sweeps stale env files                       │
 │  ├─ Validates auth (validate-auth.ps1)           │
 │  └─ Dispatches to mode-specific orchestrator     │
-└───────┬───────────────────────────┬─────────────┘
-        │                           │
-┌───────▼───────────┐  ┌───────────▼─────────────┐
-│  launch-host.ps1  │  │  launch-container.ps1   │
-│  ├─ git worktree  │  │  ├─ docker build        │
-│  ├─ Per-phase     │  │  ├─ prepare-env-file    │
-│  │   copilot CLI  │  │  ├─ docker run          │
-│  ├─ Live stream   │  │  ├─ Timeout polling     │
-│  └─ Timeout kill  │  │  ├─ docker cp transcripts│
-│                   │  │  └─ docker rm cleanup    │
-└───────────────────┘  └─────────────────────────┘
+└───────┬───────────────────┬─────────┬───────────┘
+        │                   │         │
+┌───────▼───────────┐ ┌────▼────┐ ┌──▼──────────────────┐
+│  launch-host.ps1  │ │container│ │  launch-sandbox.ps1  │
+│  ├─ git worktree  │ │  .ps1   │ │  ├─ Toolchain cache  │
+│  ├─ Per-phase     │ │  ├─ …   │ │  ├─ .wsb generation  │
+│  │   copilot CLI  │ │         │ │  ├─ Bootstrap script  │
+│  ├─ Live stream   │ │         │ │  ├─ Clone from mount  │
+│  └─ Timeout kill  │ │         │ │  ├─ Per-phase CLI     │
+│                   │ │         │ │  └─ Push + PR create  │
+└───────────────────┘ └─────────┘ └──────────────────────┘
 ```
 
 ## Modes
@@ -59,6 +59,41 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 - Container entry point: `container-entrypoint.sh` handles clone, branch, per-phase loops
 - Timeout via `docker inspect` polling + `docker stop`/`docker kill`
 - Transcripts extracted via `docker cp`, container removed after
+
+### Sandbox Mode
+
+Windows Sandbox provides isolation with full Win32/WPF support (unlike Linux containers).
+
+**Architecture:**
+- Repo mounted **read-only** at `C:\repo` → cloned locally to `C:\work` for isolation
+- Toolchain cache at `%LOCALAPPDATA%\autopilot-sandbox-cache` — pre-extracted, mounted read-only
+- Session directory (writable) at `C:\sandbox-session` — receives log, transcripts
+- Host Git installation mounted at `C:\git` (read-only)
+
+**Toolchain cache (version-keyed, auto-invalidates on bump):**
+- `nodejs-<ver>/` — extracted from zip
+- `dotnet-<channel>/` — installed via `dotnet-install.ps1`
+- `gh-<ver>/` — extracted from zip (not MSI — MSI hangs on read-only mount)
+
+**Bootstrap flow (inside sandbox):**
+1. Wait for `C:\sandbox-session` mount availability
+2. Set PATH: `C:\git\cmd` + `C:\dotnet` + `C:\nodejs` + `C:\npm-global` + `C:\gh\bin`
+3. Install Copilot CLI via npm to writable `C:\npm-global` prefix
+4. Read token from session dir, configure `GH_TOKEN` + `gh auth setup-git`
+5. `git clone C:\repo C:\work` (fast local clone from read-only mount)
+6. `git remote set-url origin <https-url>` (SSH→HTTPS conversion for push)
+7. Branch checkout (existing) or creation (new)
+8. Per-phase Copilot CLI invocation loop
+9. `git push` + `gh pr create`
+
+**Key design decisions:**
+- SSH remote converted to HTTPS (`git@github.com:` → `https://github.com/`) because sandbox has no SSH keys; `gh auth setup-git` provides HTTPS credentials
+- `safe.directory '*'` — sandbox user differs from file owner on mounted volumes
+- `--no-checkout` removed from clone — branch operations need populated working tree
+- Sandbox window visible (`cmd /c start "" /max powershell -NoExit`) for debugging
+- Token file written with restrictive ACL, deleted after read inside bootstrap
+
+**Cleanup:** `clean-sandbox-cache.ps1` removes the toolchain cache (~700MB).
 
 ## Auth Setup
 
@@ -108,7 +143,7 @@ Infrastructure for delegating implementation plan execution to GitHub Copilot CL
 ```
 
 Key fields:
-- `runtime`: `host` or `container`
+- `runtime`: `host`, `container`, or `sandbox`
 - `copilotAuth`: `pat` (Credential Manager) or `oauth`
 - `gitProvider`: `github` or `ado`
 - `gitAuth`: `pat-shared`, `oauth`, or `azure-cli`
@@ -139,6 +174,8 @@ Absolute rules enforced:
 | `launch.ps1` | Entry point — validate, pre-flight, dispatch |
 | `launch-host.ps1` | Host-mode orchestrator (worktree + per-phase CLI) |
 | `launch-container.ps1` | Container-mode orchestrator (docker build/run/cp) |
+| `launch-sandbox.ps1` | Sandbox-mode orchestrator (WSB + clone + per-phase CLI) |
+| `clean-sandbox-cache.ps1` | Remove sandbox toolchain cache (~700MB) |
 | `get-credential.ps1` | Read tokens from Windows Credential Manager |
 | `prepare-env-file.ps1` | Create temp env file with restrictive ACL |
 | `validate-auth.ps1` | Probe GitHub/ADO APIs to confirm auth works |
@@ -151,6 +188,7 @@ Absolute rules enforced:
 - **Command allowlist.** `build`/`test` values validated against prefix patterns at launch time.
 - **Env file isolation.** Tokens written to per-session temp file with restrictive ACL; cleaned up in `finally` block.
 - **Container isolation.** Non-root user, no host volume mounts, clone-from-remote only.
+- **Sandbox isolation.** Repo mounted read-only; work happens in local clone at `C:\work`. Token file deleted after bootstrap reads it. Disposable VM — all state destroyed on close.
 
 ## Recovery
 
@@ -162,6 +200,10 @@ The worktree persists at `<repo>/../autopilot-<slug>`. Re-running `launch.ps1` d
 
 If the remote branch exists, container resumes from it (entrypoint checks `git ls-remote`). If the container was killed mid-run, `docker rm` is attempted on next launch.
 
+### Sandbox mode — interrupted run
+
+Sandbox is disposable — closing the window destroys all state. Re-running picks up from the remote branch state (same as container). Toolchain cache persists on host and is reused.
+
 ### Stale env files
 
 `launch.ps1` sweeps env sessions older than 24 hours from `$LOCALAPPDATA/autopilot-sessions/`.
@@ -171,15 +213,20 @@ If the remote branch exists, container resumes from it (entrypoint checks `git l
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | "Docker daemon not available" | Docker Desktop not running | Start Docker Desktop |
+| "Windows Sandbox not available" | Feature not enabled | `Enable-WindowsOptionalFeature -Online -FeatureName 'Containers-DisposableClientVM'` + restart |
 | "Failed to retrieve token" | Credential Manager entry missing | Run `New-StoredCredential` setup |
 | "Build command does not match allowed prefixes" | `.autopilot.json` has unrecognized command | Use a prefix from the schema's pattern |
-| Container timeout | Phase too large for timeout window | Increase `timeout` in config or split phase |
+| Container/sandbox timeout | Phase too large for timeout window | Increase `timeout` in config or split phase |
 | "Auth validation failed" | Token expired or insufficient scope | Regenerate PAT / re-run `az login` |
+| "Host key verification failed" (sandbox) | Remote URL uses SSH | Fixed in code — SSH→HTTPS auto-conversion |
+| "Plan not found" (sandbox) | Clone used `--no-checkout` | Fixed — full checkout now used |
 
 ## Limitations
 
 - **Windows-only orchestrator** — scripts use PowerShell + Windows Credential Manager
-- **WPF apps can't build in containers** — Klikety uses host mode (Linux containers lack WPF SDK)
+- **WPF apps can't build in Linux containers** — Klikety uses host or sandbox mode
+- **Sandbox requires Windows Pro/Enterprise** — `Containers-DisposableClientVM` feature
 - **Docker Desktop required** for container mode
 - **Copilot CLI license required** for the authenticated user
 - **One phase per context window** — prevents context exhaustion but adds invocation overhead
+- **Sandbox is interactive** — no programmatic timeout enforcement (user closes window)

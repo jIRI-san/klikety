@@ -19,7 +19,7 @@ param(
     [ValidateSet('whole-plan', 'next-phase')]
     [string]$Mode,
 
-    [ValidateSet('host', 'container')]
+    [ValidateSet('host', 'container', 'sandbox')]
     [string]$Runtime,
 
     [string]$Branch
@@ -102,6 +102,15 @@ if ($effectiveRuntime -eq 'container') {
     Write-Host "Docker OK."
 }
 
+# --- Sandbox pre-flight ---
+if ($effectiveRuntime -eq 'sandbox') {
+    if (-not (Test-Path 'C:\Windows\System32\WindowsSandbox.exe')) {
+        Write-Error "Windows Sandbox not available. Enable it: Enable-WindowsOptionalFeature -Online -FeatureName 'Containers-DisposableClientVM'"
+        exit 1
+    }
+    Write-Host "Windows Sandbox OK."
+}
+
 # --- Detect partial state ---
 $branchName = "feature/$PlanSlug"
 if ($effectiveRuntime -eq 'host') {
@@ -112,7 +121,8 @@ if ($effectiveRuntime -eq 'host') {
         Write-Host "This indicates a previous run. Will resume from current state."
         Write-Host ""
     }
-} else {
+}
+else {
     # Check if remote branch exists (container mode resume)
     $remoteBranch = git ls-remote --heads origin $branchName 2>$null
     if ($remoteBranch) {
@@ -187,6 +197,9 @@ switch ($effectiveRuntime) {
     }
     'container' {
         & (Join-Path $ScriptDir 'launch-container.ps1') @dispatchParams
+    }
+    'sandbox' {
+        & (Join-Path $ScriptDir 'launch-sandbox.ps1') @dispatchParams
     }
 }
 

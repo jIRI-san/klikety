@@ -205,7 +205,7 @@ if (`$failed.Count -gt 0) {
     Log "INSTALL FAILURES: `$(`$failed -join ', ')"
     Log 'Stopping - fix failures before proceeding.'
     Start-Sleep -Seconds 5
-    exit 1
+    shutdown /s /t 0; exit 1
 }
 
 Log 'All dependencies installed successfully.'
@@ -213,6 +213,8 @@ Log 'All dependencies installed successfully.'
 # --- Read token ---
 `$Token = Get-Content (Join-Path `$SessionPath 'token.txt') -Raw
 Remove-Item (Join-Path `$SessionPath 'token.txt') -Force -ErrorAction SilentlyContinue
+
+try {
 
 # --- Set environment ---
 `$env:COPILOT_GITHUB_TOKEN = `$Token
@@ -255,7 +257,7 @@ Log "On branch: `$(git branch --show-current)"
 if (-not (Test-Path `$PlanPath)) {
     Log "Plan not found: `$PlanPath"
     Start-Sleep -Seconds 5
-    exit 1
+    shutdown /s /t 0; exit 1
 }
 
 `$planContent = Get-Content `$PlanPath -Raw
@@ -307,10 +309,21 @@ Log 'Creating pull request...'
 `$prOut = gh pr create --title "feat: $PlanSlug" --body "Autonomous implementation of plan $PlanSlug" --head `$BranchName 2>&1
 if (`$LASTEXITCODE -eq 0) { Log "PR created: `$prOut" } else { Log "PR: `$prOut" }
 
-Get-ChildItem -Filter 'session-transcript-phase*.md' -ErrorAction SilentlyContinue |
-    Copy-Item -Destination `$SessionPath -Force
-
 Log '=== Sandbox execution complete ==='
+
+} catch {
+    Log "FATAL: `$_"
+} finally {
+    # Copy transcripts and any useful debug output to session dir (survives sandbox teardown)
+    Get-ChildItem -Path C:\work -Filter 'session-transcript-phase*.md' -ErrorAction SilentlyContinue |
+        Copy-Item -Destination `$SessionPath -Force
+    # Copy copilot CLI logs if they exist
+    if (Test-Path "`$env:TEMP\.copilot") {
+        Copy-Item -Path "`$env:TEMP\.copilot" -Destination (Join-Path `$SessionPath 'copilot-logs') -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 3
+    shutdown /s /t 0
+}
 "@
 
 $bootstrapPath = Join-Path $SandboxDir 'bootstrap.ps1'
@@ -387,4 +400,7 @@ Write-Host ""
 Start-Process -FilePath 'C:\Windows\System32\WindowsSandbox.exe' -ArgumentList $wsbPath
 
 Write-Host "Sandbox launched. Monitor progress in the sandbox window."
-Write-Host "Transcripts will appear in: $SandboxDir"
+Write-Host ""
+Write-Host "Session output: $SandboxDir"
+Write-Host "  Log:         $SandboxDir\sandbox-log.txt"
+Write-Host "  Transcripts: $SandboxDir\session-transcript-phase*.md"

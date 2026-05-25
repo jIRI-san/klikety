@@ -283,7 +283,7 @@ for (`$phase = 1; `$phase -le `$totalPhases; `$phase++) {
     `$prompt = "Execute `$PlanPath, phase `$phase"
 
     Log "Invoking Copilot CLI for Phase `${phase}..."
-    & copilot -p "`$prompt" --agent autopilot --no-ask-user --allow-all --share="./`$transcriptName"
+    & copilot -p "`$prompt" --model '$($Config.model)' --agent autopilot --no-ask-user --allow-all --share="./`$transcriptName"
     `$exitCode = `$LASTEXITCODE
 
     if (`$exitCode -eq 42) {

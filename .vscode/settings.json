@@ -35,7 +35,8 @@
     ".github/skills/si/scripts/Get-SiHarvest.ps1": true,
     ".github/skills/si/scripts/Test-SiWriteScope.ps1": true,
     ".github/skills/skalary-config/scripts/Test-AutopilotAuth.ps1": true,
-    ".github/skills/cip/scripts/New-Plan.ps1": true
+    ".github/skills/cip/scripts/New-Plan.ps1": true,
+    ".github/skills/cip/scripts/Set-PlanStage.ps1": true
   },
   "cSpell.words": [
     "Klikety"

@@ -1,0 +1,1261 @@
+{
+  "bootstrap": {
+    "oneLiner": "irm https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1 | iex",
+    "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
+    "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
+  },
+  "generatedAt": "2026-09-08T15:54:15.7074275Z",
+  "plugins": [
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Architecture notes toolkit — skill-first authoring of interface-level architectural contracts and ADRs, with a parallel docs/architecture-notes tier. /can and /uan are thin prompt wrappers over the skill.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "prompts/can.prompt.md",
+          "sha256": "218e281a8286ed4b5a37f28f177921a50a2b48d9408cbb4335e176bd4c6f9ede",
+          "src": "prompts/can.prompt.md"
+        },
+        {
+          "dest": "prompts/uan.prompt.md",
+          "sha256": "3865937c666bc03f7072e43e399889e7753adfc0941aa61190076792e4b83268",
+          "src": "prompts/uan.prompt.md"
+        },
+        {
+          "dest": "skills/architecture-notes/SKILL.md",
+          "sha256": "dfe8654f7f19652d7327334e7666f4ec4142392e8925b4d85e7c3b7009c05644",
+          "src": "skills/architecture-notes/SKILL.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/adr-template.md",
+          "sha256": "eb94447df39a5ee5e802edaed09541d3d47488a4f792e3cafd930457f3d9a7c5",
+          "src": "skills/architecture-notes/assets/adr-template.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/interview-guide.md",
+          "sha256": "199697f554f6fb1626120b40e02a618f00f0751293f31315b2d383ed526bdf05",
+          "src": "skills/architecture-notes/assets/interview-guide.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/templates/architecture-note.template.md",
+          "sha256": "9e335f84de08d0a994c50e5ca3dfdb3856b8754efaa7b28c01d2ab79ac9471e3",
+          "src": "skills/architecture-notes/assets/templates/architecture-note.template.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md",
+          "sha256": "296556dcbe91dcd43a871acf28de0c2f46e01736822928cc59d856b45433068a",
+          "src": "skills/architecture-notes/assets/templates/architecture-notes-index.template.md"
+        },
+        {
+          "dest": "skills/architecture-notes/assets/tier-operations-guide.md",
+          "sha256": "334be8f1d75df6b34951620e8b756174fae179c96407e7165d8796cc6fa682fe",
+          "src": "skills/architecture-notes/assets/tier-operations-guide.md"
+        },
+        {
+          "dest": "skills/architecture-notes/scripts/Copy-ArchScaffold.ps1",
+          "sha256": "4b318a08959a43659cf9d38307cc3a994c8f496f342082bf6bd29b0231071b0f",
+          "src": "scripts/Copy-ArchScaffold.ps1"
+        },
+        {
+          "dest": "skills/architecture-notes/scripts/Get-ArchContractContentHash.ps1",
+          "sha256": "ef239280ad0d23684995a35861adb61d3c983176945211ba200b65630c7a13e1",
+          "src": "scripts/Get-ArchContractContentHash.ps1"
+        },
+        {
+          "dest": "skills/architecture-notes/scripts/Import-ArchAdr.ps1",
+          "sha256": "bc750b9dbb1824d40a2c0fe08d3817a2ec18396bbdd0c777f444b451ebed6863",
+          "src": "scripts/Import-ArchAdr.ps1"
+        },
+        {
+          "dest": "skills/architecture-notes/scripts/New-ArchSeed.ps1",
+          "sha256": "70e6cf99b1b4f520773d8c892a87fdfc06cdea3a14b3923f18b819a4defc9b91",
+          "src": "scripts/New-ArchSeed.ps1"
+        },
+        {
+          "dest": "skills/architecture-notes/scripts/Test-ArchContract.ps1",
+          "sha256": "758727a63e3efdd56a705f88cff4f67cc9ca0d6d31512f2c151f9f061bdea087",
+          "src": "scripts/Test-ArchContract.ps1"
+        }
+      ],
+      "license": "MIT",
+      "name": "architecture-notes",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "Copy-ArchScaffold.ps1",
+          "path": "docs/architecture-notes/.architecture-notes.md",
+          "trigger": "tier scaffold on first run"
+        },
+        {
+          "mode": "literal",
+          "owner": "Import-ArchAdr.ps1",
+          "path": "docs/architecture-notes/.staging",
+          "trigger": "ADR staging"
+        },
+        {
+          "mode": "literal",
+          "owner": "Import-ArchAdr.ps1",
+          "path": "docs/architecture-notes/.staging/ADR-HARVEST.md",
+          "trigger": "ADR harvest at plan finalization"
+        },
+        {
+          "mode": "literal",
+          "owner": "Import-ArchAdr.ps1",
+          "path": "docs/architecture-notes/.staging/adr",
+          "trigger": "ADR harvest at plan finalization"
+        }
+      ],
+      "status": "partial",
+      "tags": [
+        "architecture",
+        "architecture-notes",
+        "prompt",
+        "skill"
+      ],
+      "version": "1.0.11"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [
+        "code-review",
+        "create-implementation-plan"
+      ],
+      "description": "Self-contained direct-workflow autonomous plan executor.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "agents/autopilot.agent.md",
+          "sha256": "b4bcea81f13b06023d564e601c910deecdec8766353d3e5a9abcf17f04c950f3",
+          "src": "agents/autopilot.agent.md"
+        },
+        {
+          "dest": "skills/autopilot/.autopilot.host.json.example",
+          "sha256": "457b97ebafc83d4dd7ef190993adda11bbdf576bc1fafbd542fdb72fd6c872f7",
+          "src": ".autopilot.host.json.example"
+        },
+        {
+          "dest": "skills/autopilot/.autopilot.json.example",
+          "sha256": "5c075ee667834e4f5a18f0f755ad7160f61e914c578be5a39d9558a854c1e537",
+          "src": ".autopilot.json.example"
+        },
+        {
+          "dest": "skills/autopilot/SKILL.md",
+          "sha256": "af27aef8d6a40bda5f9d66af0dcd9a5eae09a9d7db35328025a75c10a97c011f",
+          "src": "skills/autopilot/SKILL.md"
+        },
+        {
+          "dest": "skills/autopilot/assets/design-note-compaction.md",
+          "sha256": "923e91567f70bed9608b0a202586ba910f01f0905838bb7f9f4ef05633889b52",
+          "src": "skills/autopilot/assets/design-note-compaction.md"
+        },
+        {
+          "dest": "skills/autopilot/assets/model-aliases.psd1",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "src": "skills/autopilot/assets/model-aliases.psd1"
+        },
+        {
+          "dest": "skills/autopilot/devcontainer/Dockerfile",
+          "sha256": "d1013e811a3afbc907b5bc97bb10e19b30f74e5d9b6a40ae41ca4db0e870c2c9",
+          "src": "devcontainer/Dockerfile"
+        },
+        {
+          "dest": "skills/autopilot/devcontainer/container-toolchain-smoke.sh",
+          "sha256": "8f38211152754a5677fd83f9fd55ce987d4a7e8bfcbf505d3de1dc1a7e67d3c8",
+          "src": "devcontainer/container-toolchain-smoke.sh"
+        },
+        {
+          "dest": "skills/autopilot/devcontainer/devcontainer.json",
+          "sha256": "213e3fa92cc65a33d62e4853df795e83085d7fea398fbcd8772186a1d9be94ce",
+          "src": "devcontainer/devcontainer.json"
+        },
+        {
+          "dest": "skills/autopilot/devcontainer/toolchain.tsv",
+          "sha256": "1a46d9600b611e58d8a8bf597c28c19ed8589b6ccf1bf1d85d0b2099a7f03a66",
+          "src": "devcontainer/toolchain.tsv"
+        },
+        {
+          "dest": "skills/autopilot/schemas/autopilot.host.schema.json",
+          "sha256": "03c4007e638b12bbe2da1a00af0f7272856b1c1d5661c53f2679e2e24f97125b",
+          "src": "schemas/autopilot.host.schema.json"
+        },
+        {
+          "dest": "skills/autopilot/schemas/autopilot.schema.json",
+          "sha256": "8bc1f7791e4f7927a689d1e073aa84f5640cbfed6cf2324a8112dedb09eced04",
+          "src": "schemas/autopilot.schema.json"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Add-WorkflowNote.ps1",
+          "sha256": "069e479f3419c5241f82d46b3ce49bccb5927b5f5a7131dcc249a4500f0cabde",
+          "src": "skills/autopilot/scripts/Add-WorkflowNote.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Archive-Epic.ps1",
+          "sha256": "380e3f8359bd73845420e59f26277b4cd8df25cd6c754c9f62830d0838d44b52",
+          "src": "skills/autopilot/scripts/Archive-Epic.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/autopilot/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/DirectWorkflow.psm1",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "src": "skills/autopilot/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/EpicAutopilot.psm1",
+          "sha256": "2489dec026567d095bd1b625087cae114cd2babee377634d6e53cfcbcfb4af8d",
+          "src": "skills/autopilot/scripts/EpicAutopilot.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1",
+          "sha256": "4bc3b02844d0ed9005f0f6ae703433c2e4a6c3e9690762a327db0c54d328ded9",
+          "src": "skills/autopilot/scripts/Get-DesignNoteCompactionContext.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1",
+          "sha256": "2d36c9974f5b8ef92b919d92dc3666979784d38f3161607bfdad553096a98a7f",
+          "src": "skills/autopilot/scripts/Get-PhaseExecutionState.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Get-PlanState.ps1",
+          "sha256": "139b36bf0e37bc41654fca513cd27bb9badb7bc01284ebc5125c17386583a499",
+          "src": "skills/autopilot/scripts/Get-PlanState.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1",
+          "sha256": "91397d8fcc02c48f982e0ec18bdd3ae7d26e02d22c1674018e7a7feacc90c2f6",
+          "src": "skills/autopilot/scripts/Invoke-EpicAutopilot.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/New-Epic.ps1",
+          "sha256": "54b65572e3145f51b61005a4c117313626ef287c90724231a61af421d9200214",
+          "src": "skills/autopilot/scripts/New-Epic.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/autopilot/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Record-AiCreditUsage.ps1",
+          "sha256": "9d617e54ea47b49b4b2264fa31b0b1f943c5d288c5ecba13e36757cd9245a7d7",
+          "src": "scripts/Record-AiCreditUsage.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/autopilot/scripts/SecretGuard.psm1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Test-Plan.ps1",
+          "sha256": "735fdc247cf7dbdd792ba500059d9c3ce4a467246053ecec24bee462a2aecb3c",
+          "src": "skills/autopilot/scripts/Test-Plan.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/Write-RecentLearning.ps1",
+          "sha256": "ada218bb8e0120b783289e14cde36a6c5251fd99c7960aabfdb07d58b13960df",
+          "src": "skills/autopilot/scripts/Write-RecentLearning.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/autopilot-dispatch.ps1",
+          "sha256": "d8bf4f5d385d8221b41416ab8392134a4ff106d71e63f8523f10554589575cf2",
+          "src": "scripts/autopilot-dispatch.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/clean-sandbox-cache.ps1",
+          "sha256": "73ac229a4af4ca35e54cac7af5256eb52f7bad0eef5c421708d58f71cee4937a",
+          "src": "scripts/clean-sandbox-cache.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/container-entrypoint.sh",
+          "sha256": "a7739e9e4a3e889314a314e24078f1a5ca5dd0d447c4b7cd38a38843b4317e7c",
+          "src": "scripts/container-entrypoint.sh"
+        },
+        {
+          "dest": "skills/autopilot/scripts/get-credential.ps1",
+          "sha256": "cc5551692ae65882b77024013dd24b6c8088e8aae1be70b9fc3561b789fccf79",
+          "src": "scripts/get-credential.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/host-command.ps1",
+          "sha256": "f3146b41c3929acf47895ba1f0567bb7068b730af9f570ac3f08e7f8e9c3de62",
+          "src": "scripts/host-command.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/launch-container.ps1",
+          "sha256": "e574c968ec231700015d2c504a7a91db314020507e7a5f2da0b0306afab1d91f",
+          "src": "scripts/launch-container.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/launch-host.ps1",
+          "sha256": "9d8437ae64269d50a0c97b830338d3ea729e4ee972388a4bc4e04a678d984d14",
+          "src": "scripts/launch-host.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/launch-sandbox.ps1",
+          "sha256": "b6ee1f58ee4b235655568c99e3d55d39c3ce37e049e047787e1daecf48956570",
+          "src": "scripts/launch-sandbox.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/launch.ps1",
+          "sha256": "6773fdad72c4501a0b5ad2a87c3e5c778759ce824196875464f49245ffe41da0",
+          "src": "scripts/launch.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/plan-dispatch.sh",
+          "sha256": "2251b5f53a77b9cd3328c7ee888ce480f25a5b41c7ae47931ec56330e5bf842a",
+          "src": "scripts/plan-dispatch.sh"
+        },
+        {
+          "dest": "skills/autopilot/scripts/prepare-env-file.ps1",
+          "sha256": "a5cf35edc6507b2ac19a7765b994cba206d7fd7420441c9b99310fd6597fadfd",
+          "src": "scripts/prepare-env-file.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/prepare-packages.ps1",
+          "sha256": "8aa453ecb38d28cf107e46ec116090727ef2fa42b6736495f64733ac22869d53",
+          "src": "scripts/prepare-packages.ps1"
+        },
+        {
+          "dest": "skills/autopilot/scripts/validate-auth.ps1",
+          "sha256": "66a42b829ba8d7909f870d93a3b0d4596634e336409e9e722116f433fa236864",
+          "src": "scripts/validate-auth.ps1"
+        }
+      ],
+      "license": "MIT",
+      "name": "autopilot",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "Write-RecentLearning.ps1",
+          "path": "docs/feedback/recent-learning.md",
+          "trigger": "successful whole-plan completion"
+        }
+      ],
+      "status": "partial",
+      "tags": [
+        "agent",
+        "automation",
+        "autopilot",
+        "skill"
+      ],
+      "version": "1.3.25"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Risk-selected code review with direct advisory Markdown.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "agents/cr.agent.md",
+          "sha256": "2c1f6bc6ac4a169f5012d0af66bdf834d8705a91009a363ba294f15c66dbe861",
+          "src": "agents/cr.agent.md"
+        },
+        {
+          "dest": "agents/scripts/Get-ReviewScope.ps1",
+          "sha256": "44f70bf0216e6247e581247541cf8a84b24b06349ae405c695236f6da1a2da39",
+          "src": "agents/scripts/Get-ReviewScope.ps1"
+        },
+        {
+          "dest": "prompts/cr.prompt.md",
+          "sha256": "1a6a684a0c996ed848ad51a0e6d747a4aaa4e58a0459a633906ce05983ca743f",
+          "src": "prompts/cr.prompt.md"
+        },
+        {
+          "dest": "skills/cr/SKILL.md",
+          "sha256": "6295617f677c4c2b0cb94ec0e422ae6373d86553cb40ab14274efc70ca070068",
+          "src": "skills/cr/SKILL.md"
+        },
+        {
+          "dest": "skills/cr/assets/model-aliases.psd1",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "src": "skills/cr/assets/model-aliases.psd1"
+        },
+        {
+          "dest": "skills/cr/scripts/DirectWorkflow.psm1",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "src": "skills/cr/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
+          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "src": "skills/cr/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
+        },
+        {
+          "dest": "skills/cr/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/cr/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cr/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/cr/scripts/SecretGuard.psm1"
+        }
+      ],
+      "license": "MIT",
+      "name": "code-review",
+      "status": "stable",
+      "tags": [
+        "agent",
+        "prompt",
+        "review"
+      ],
+      "version": "1.0.84"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [
+        "autopilot",
+        "code-review",
+        "create-implementation-plan"
+      ],
+      "description": "Direct plan implementation workflow with Git criteria protection.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/ci/SKILL.md",
+          "sha256": "2322b11bd001209e4882795ef8170b2595e095f0bb5cd2a2b4e7518320a5f84e",
+          "src": "skills/ci/SKILL.md"
+        },
+        {
+          "dest": "skills/ci/assets/model-aliases.psd1",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "src": "skills/ci/assets/model-aliases.psd1"
+        },
+        {
+          "dest": "skills/ci/scripts/DirectWorkflow.psm1",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "src": "skills/ci/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1",
+          "sha256": "4bc3b02844d0ed9005f0f6ae703433c2e4a6c3e9690762a327db0c54d328ded9",
+          "src": "skills/ci/scripts/Get-DesignNoteCompactionContext.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/Get-PlanState.ps1",
+          "sha256": "139b36bf0e37bc41654fca513cd27bb9badb7bc01284ebc5125c17386583a499",
+          "src": "skills/ci/scripts/Get-PlanState.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/ci/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/ci/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/ci/scripts/SecretGuard.psm1"
+        },
+        {
+          "dest": "skills/ci/scripts/Test-Plan.ps1",
+          "sha256": "735fdc247cf7dbdd792ba500059d9c3ce4a467246053ecec24bee462a2aecb3c",
+          "src": "skills/ci/scripts/Test-Plan.ps1"
+        },
+        {
+          "dest": "skills/ci/scripts/Write-RecentLearning.ps1",
+          "sha256": "ada218bb8e0120b783289e14cde36a6c5251fd99c7960aabfdb07d58b13960df",
+          "src": "skills/ci/scripts/Write-RecentLearning.ps1"
+        }
+      ],
+      "license": "MIT",
+      "name": "continue-implementation",
+      "status": "stable",
+      "tags": [
+        "autopilot",
+        "implementation",
+        "skill"
+      ],
+      "version": "1.0.121"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [
+        "design-review"
+      ],
+      "description": "Direct implementation and epic plan creation.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/cep/SKILL.md",
+          "sha256": "d2f2a8584f84b60883c5568ebc45b1ee78251735b48b313037dbda214cf00a25",
+          "src": "skills/cep/SKILL.md"
+        },
+        {
+          "dest": "skills/cep/assets/decision-protocol.md",
+          "sha256": "c4c520876a640db77a3408be880a8a78eaaddab1c07ef83699f66f1290d5845a",
+          "src": "skills/cip/assets/decision-protocol.md"
+        },
+        {
+          "dest": "skills/cep/assets/model-aliases.psd1",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "src": "skills/cip/assets/model-aliases.psd1"
+        },
+        {
+          "dest": "skills/cep/assets/plan-template.md",
+          "sha256": "831bc9fee9e1a9da7b4906881d4cf3e5f321ffe049d9ebd4285509df41a917a1",
+          "src": "skills/cip/assets/plan-template.md"
+        },
+        {
+          "dest": "skills/cep/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/cep/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/DirectWorkflow.psm1",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "src": "skills/cep/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
+          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "src": "skills/cep/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/Get-PlanIndex.ps1",
+          "sha256": "26ce1bb2ae21b8e4ca9516ce6169cd15bdf9dd6bd34fb25876d373b8783dc93b",
+          "src": "skills/cep/scripts/Get-PlanIndex.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/New-Epic.ps1",
+          "sha256": "54b65572e3145f51b61005a4c117313626ef287c90724231a61af421d9200214",
+          "src": "skills/cep/scripts/New-Epic.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/New-Plan.ps1",
+          "sha256": "8baf79da08cd241cc866d22577996abdfa5ce822f4bb27ba1ebc5e8d7de9a022",
+          "src": "skills/cep/scripts/New-Plan.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/cep/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/cep/scripts/SecretGuard.psm1"
+        },
+        {
+          "dest": "skills/cep/scripts/Set-PlanStage.ps1",
+          "sha256": "6e955c945a4434d24ab5ff763a3068b231f8e11d04ad14747e0e5591d1cebc7a",
+          "src": "skills/cep/scripts/Set-PlanStage.ps1"
+        },
+        {
+          "dest": "skills/cep/scripts/Test-Plan.ps1",
+          "sha256": "735fdc247cf7dbdd792ba500059d9c3ce4a467246053ecec24bee462a2aecb3c",
+          "src": "skills/cep/scripts/Test-Plan.ps1"
+        },
+        {
+          "dest": "skills/cip/SKILL.md",
+          "sha256": "7aea85f7a61c71096618617a6081dfd93c8b4409678d2c12a06b40ed176d36a0",
+          "src": "skills/cip/SKILL.md"
+        },
+        {
+          "dest": "skills/cip/assets/decision-protocol.md",
+          "sha256": "c4c520876a640db77a3408be880a8a78eaaddab1c07ef83699f66f1290d5845a",
+          "src": "skills/cip/assets/decision-protocol.md"
+        },
+        {
+          "dest": "skills/cip/assets/model-aliases.psd1",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "src": "skills/cip/assets/model-aliases.psd1"
+        },
+        {
+          "dest": "skills/cip/assets/plan-template.md",
+          "sha256": "831bc9fee9e1a9da7b4906881d4cf3e5f321ffe049d9ebd4285509df41a917a1",
+          "src": "skills/cip/assets/plan-template.md"
+        },
+        {
+          "dest": "skills/cip/scripts/AtomicStore.psm1",
+          "sha256": "da21eb37687185752fc91cf9db6cd6ecbe03557c932b3e8c0111752c59154000",
+          "src": "skills/cip/scripts/AtomicStore.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/DirectWorkflow.psm1",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "src": "skills/cip/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
+          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "src": "skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/Get-PlanIndex.ps1",
+          "sha256": "26ce1bb2ae21b8e4ca9516ce6169cd15bdf9dd6bd34fb25876d373b8783dc93b",
+          "src": "skills/cip/scripts/Get-PlanIndex.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/New-Plan.ps1",
+          "sha256": "8baf79da08cd241cc866d22577996abdfa5ce822f4bb27ba1ebc5e8d7de9a022",
+          "src": "skills/cip/scripts/New-Plan.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/cip/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/cip/scripts/SecretGuard.psm1"
+        },
+        {
+          "dest": "skills/cip/scripts/Set-PlanStage.ps1",
+          "sha256": "6e955c945a4434d24ab5ff763a3068b231f8e11d04ad14747e0e5591d1cebc7a",
+          "src": "skills/cip/scripts/Set-PlanStage.ps1"
+        },
+        {
+          "dest": "skills/cip/scripts/Test-Plan.ps1",
+          "sha256": "735fdc247cf7dbdd792ba500059d9c3ce4a467246053ecec24bee462a2aecb3c",
+          "src": "skills/cip/scripts/Test-Plan.ps1"
+        }
+      ],
+      "license": "MIT",
+      "name": "create-implementation-plan",
+      "scaffolds": [
+        {
+          "confine": "Resolve-ConfinedFolder",
+          "mode": "parameterized",
+          "owner": "New-Plan.ps1",
+          "path": "docs/implementation-plans/<plan>/**",
+          "trigger": "plan scaffold (plan.md plus assets/)"
+        },
+        {
+          "confine": "Resolve-ConfinedFolder",
+          "mode": "parameterized",
+          "owner": "New-Epic.ps1",
+          "path": "docs/implementation-plans/epics/<epic>/**",
+          "trigger": "epic scaffold"
+        }
+      ],
+      "status": "stable",
+      "tags": [
+        "planning",
+        "skill"
+      ],
+      "version": "1.0.105"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Design notes toolkit — the design-notes skill bootstraps the docs/design-notes scaffold from bundled templates and creates/updates notes; /design-notes, /cdn, and /udn are thin prompt shortcuts over it.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "prompts/cdn.prompt.md",
+          "sha256": "adf4314cd46c0588c10596b68d53fed3f1771998bbe978d2d57dff9c53f3f241",
+          "src": "prompts/cdn.prompt.md"
+        },
+        {
+          "dest": "prompts/design-notes.prompt.md",
+          "sha256": "36d3c0fcea806fefd10f25ac048611f0b79c1b13545f341728c7704318170a9b",
+          "src": "prompts/design-notes.prompt.md"
+        },
+        {
+          "dest": "prompts/udn.prompt.md",
+          "sha256": "bac3923fe755b06ecc8bc914e1db5990c2815b183cb069b5527fcbe5690be46c",
+          "src": "prompts/udn.prompt.md"
+        },
+        {
+          "dest": "skills/design-notes/SKILL.md",
+          "sha256": "b800c8b287b183f10f005788ccc087f1d2cd89ea2855adcfa9dec1fe5079beac",
+          "src": "skills/design-notes/SKILL.md"
+        },
+        {
+          "dest": "skills/design-notes/assets/templates/design-note-writing-style.template.md",
+          "sha256": "7fb2698989da5957c946ae306a6df861b9d297d52ca34a9c21dee065618dc157",
+          "src": "skills/design-notes/assets/templates/design-note-writing-style.template.md"
+        },
+        {
+          "dest": "skills/design-notes/assets/templates/design-notes-index.template.md",
+          "sha256": "6c49fbd5ce13198d324073fb0a2c34f2f40fc5d980b99d07c3aa26f5a3c28a9e",
+          "src": "skills/design-notes/assets/templates/design-notes-index.template.md"
+        },
+        {
+          "dest": "skills/design-notes/scripts/Initialize-DesignNotes.ps1",
+          "sha256": "4cb4705a813987c97a937360ffdc0ace5ff27d4149909557d0a14e528b6f035f",
+          "src": "skills/design-notes/scripts/Initialize-DesignNotes.ps1"
+        }
+      ],
+      "license": "MIT",
+      "name": "design-notes",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "Initialize-DesignNotes.ps1",
+          "path": "docs/design-notes/.design-notes.md",
+          "trigger": "tier scaffold on first run"
+        },
+        {
+          "mode": "literal",
+          "owner": "Initialize-DesignNotes.ps1",
+          "path": "docs/design-notes/project",
+          "trigger": "tier scaffold on first run"
+        },
+        {
+          "mode": "literal",
+          "owner": "Initialize-DesignNotes.ps1",
+          "path": "docs/design-notes/project/design-note-writing-style.design.md",
+          "trigger": "tier scaffold on first run"
+        }
+      ],
+      "status": "stable",
+      "tags": [
+        "design-notes",
+        "documentation",
+        "prompt",
+        "skill"
+      ],
+      "version": "1.1.4"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Risk-selected design review with direct advisory Markdown.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "agents/dr.agent.md",
+          "sha256": "ff96a52ebdbc8c2447c2c0b2a17f875679a3ff27b52025d0a5cfe7df2da606c5",
+          "src": "agents/dr.agent.md"
+        },
+        {
+          "dest": "prompts/dr.prompt.md",
+          "sha256": "3ffeee64d469b53be40359a059eebea23856923facff1f4660db95c2b739a152",
+          "src": "prompts/dr.prompt.md"
+        },
+        {
+          "dest": "skills/dr/SKILL.md",
+          "sha256": "3550959066d8381fe98755b7c998d2fa00295113aad730948124add08d178ded",
+          "src": "skills/dr/SKILL.md"
+        },
+        {
+          "dest": "skills/dr/assets/model-aliases.psd1",
+          "sha256": "400e0ef4923a6f206efdbed4c5f05e23d3f180f1b7f07e344a5e67302270f52b",
+          "src": "skills/dr/assets/model-aliases.psd1"
+        },
+        {
+          "dest": "skills/dr/scripts/DirectWorkflow.psm1",
+          "sha256": "eef7c5ed5a6e7274f39de214608a3d68c16d10041951a8bb691879dee883ed60",
+          "src": "skills/dr/scripts/DirectWorkflow.psm1"
+        },
+        {
+          "dest": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1",
+          "sha256": "af571a1643e4845a71a1ff64947d7019556588eb0bbb543d16e598bcc3765002",
+          "src": "skills/dr/scripts/Get-DirectPlanArtifactConsumerContext.ps1"
+        },
+        {
+          "dest": "skills/dr/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/dr/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/dr/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "skills/dr/scripts/SecretGuard.psm1"
+        }
+      ],
+      "license": "MIT",
+      "name": "design-review",
+      "status": "stable",
+      "tags": [
+        "agent",
+        "design-review",
+        "prompt"
+      ],
+      "version": "1.0.83"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Install, uninstall, list, and update skalary plugins through user-invocable skills that wrap the skalary PowerShell scripts.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/install-plugin/SKILL.md",
+          "sha256": "9d62cc3110363b3bd24e87f7906df2af5b24f2197d699a856d3c45351bbd908e",
+          "src": "skills/install-plugin/SKILL.md"
+        },
+        {
+          "dest": "skills/install-plugin/scripts/Install-Plugin.ps1",
+          "sha256": "b99e41eda7ab65e879657341746797f63bac7c6f68785a24c63a404c5186f79a",
+          "src": "skills/install-plugin/scripts/Install-Plugin.ps1"
+        },
+        {
+          "dest": "skills/install-plugin/scripts/Set-ScriptApproval.ps1",
+          "sha256": "68ec5769f188684f8fc114aec9c80341c85512cdb48aa2db1f9b7f5e5eff2249",
+          "src": "skills/install-plugin/scripts/Set-ScriptApproval.ps1"
+        },
+        {
+          "dest": "skills/install-plugin/scripts/_Common.ps1",
+          "sha256": "93a4d7b8630fa51e20560eb32d96e309a38a4fedcc06e85a814e8d8f6383bc5c",
+          "src": "skills/install-plugin/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/SKILL.md",
+          "sha256": "fdb0d413a571edaae5aec02a6d9ead500f56a693e0f3eca164e007877592aa83",
+          "src": "skills/list-plugins/SKILL.md"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/Find-Plugin.ps1",
+          "sha256": "f871b3d5c5038773f29a387d29d787eaf9a247438274f9cc96e6df0cd22911bb",
+          "src": "skills/list-plugins/scripts/Find-Plugin.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/Get-Plugin.ps1",
+          "sha256": "3441c24232d3e35f62c538e831ad1e95d303d9f96e947a40a86fc295db498f63",
+          "src": "skills/list-plugins/scripts/Get-Plugin.ps1"
+        },
+        {
+          "dest": "skills/list-plugins/scripts/_Common.ps1",
+          "sha256": "93a4d7b8630fa51e20560eb32d96e309a38a4fedcc06e85a814e8d8f6383bc5c",
+          "src": "skills/list-plugins/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/SKILL.md",
+          "sha256": "69e342bdc97189833ba2fe36e42632cbf4eeb01a48f4006d4beff6b996f4330f",
+          "src": "skills/uninstall-plugin/SKILL.md"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1",
+          "sha256": "c8a42ce6a23e9cf63786430f8eb66c093f99cad084b563ea4038d60c7e274bc3",
+          "src": "skills/uninstall-plugin/scripts/Remove-Plugin.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1",
+          "sha256": "68ec5769f188684f8fc114aec9c80341c85512cdb48aa2db1f9b7f5e5eff2249",
+          "src": "skills/uninstall-plugin/scripts/Set-ScriptApproval.ps1"
+        },
+        {
+          "dest": "skills/uninstall-plugin/scripts/_Common.ps1",
+          "sha256": "93a4d7b8630fa51e20560eb32d96e309a38a4fedcc06e85a814e8d8f6383bc5c",
+          "src": "skills/uninstall-plugin/scripts/_Common.ps1"
+        },
+        {
+          "dest": "skills/update-plugin/SKILL.md",
+          "sha256": "f2d5501b19eab828e666cebe971381043bea229ceaff0b8d4bf4b13135417f75",
+          "src": "skills/update-plugin/SKILL.md"
+        },
+        {
+          "dest": "skills/update-plugin/scripts/Update-Plugin.ps1",
+          "sha256": "71520ecd57b4fb2824367f5b4d66da5346b171c1200b679ffebe92c8081422cd",
+          "src": "skills/update-plugin/scripts/Update-Plugin.ps1"
+        },
+        {
+          "dest": "skills/update-plugin/scripts/_Common.ps1",
+          "sha256": "93a4d7b8630fa51e20560eb32d96e309a38a4fedcc06e85a814e8d8f6383bc5c",
+          "src": "skills/update-plugin/scripts/_Common.ps1"
+        }
+      ],
+      "license": "MIT",
+      "name": "plugin-manager",
+      "status": "stable",
+      "tags": [
+        "meta",
+        "plugin-management",
+        "skill"
+      ],
+      "version": "1.0.29"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Process PR comments skill for classifying, fixing, and replying to review feedback.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/process-pr-comments/SKILL.md",
+          "sha256": "a1dbcb87672c57b697143527d22f0299b5c8c6be5abe64e9baf176115399a63c",
+          "src": "skills/process-pr-comments/SKILL.md"
+        },
+        {
+          "dest": "skills/process-pr-comments/scripts/GitHubPr.psm1",
+          "sha256": "e26047ffc1a010dd3ef691373017cfa432896f16a66396739990799db19e9f1a",
+          "src": "skills/process-pr-comments/scripts/GitHubPr.psm1"
+        }
+      ],
+      "license": "MIT",
+      "name": "process-pr-comments",
+      "status": "stable",
+      "tags": [
+        "github",
+        "pr",
+        "review",
+        "skill"
+      ],
+      "version": "1.0.2"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [
+        "create-implementation-plan"
+      ],
+      "description": "Stateless post-plan feedback and bounded local self-improvement from the recent-learning handoff.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "prompts/pfb.prompt.md",
+          "sha256": "077fefa01079130bbe04c61887b0c8053eed8ece78f2d1404a65743c30f27b8a",
+          "src": "prompts/pfb.prompt.md"
+        },
+        {
+          "dest": "prompts/si.prompt.md",
+          "sha256": "35369c45789564814192a59b0e9cb372937638ef5b4fad5a6a38c78cba2f6a5e",
+          "src": "prompts/si.prompt.md"
+        },
+        {
+          "dest": "skills/pfb/SKILL.md",
+          "sha256": "8021a9c73b0354f45f9a0fe45bb01ac234c00013c33ea6c6ce49621de0ca801b",
+          "src": "skills/pfb/SKILL.md"
+        },
+        {
+          "dest": "skills/pfb/assets/feedback-guide.md",
+          "sha256": "c659a01d2a6681af67d5ee6ad9c9f4ab6a4a50d1e6e9bec839bbba38364779e9",
+          "src": "skills/pfb/assets/feedback-guide.md"
+        },
+        {
+          "dest": "skills/pfb/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/pfb/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/si/SKILL.md",
+          "sha256": "a950260431d6a44a8b57ad6aad314346fadf600ec8aa3e2d5f224e28e5d68cd4",
+          "src": "skills/si/SKILL.md"
+        },
+        {
+          "dest": "skills/si/assets/harvest-guide.md",
+          "sha256": "3017579f2c865faa626278c2748e7c83da0253c79ac9790026d0939780e66b5f",
+          "src": "skills/si/assets/harvest-guide.md"
+        },
+        {
+          "dest": "skills/si/assets/propose-guide.md",
+          "sha256": "25294888db4775cf118881cf3c607c2c4e066423b8bf3c0c54ca9140ebbbd766",
+          "src": "skills/si/assets/propose-guide.md"
+        },
+        {
+          "dest": "skills/si/scripts/Get-SiHarvest.ps1",
+          "sha256": "29bc6f101b778157fd942133b730e56786e37bcd6acc69a044a8b2e6583c94de",
+          "src": "scripts/Get-SiHarvest.ps1"
+        },
+        {
+          "dest": "skills/si/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/si/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/si/scripts/SecretGuard.psm1",
+          "sha256": "285a4dc8bd1a21d6465325f263a7d55301da2f81882b9113df54e609f9d8ee0b",
+          "src": "scripts/SecretGuard.psm1"
+        },
+        {
+          "dest": "skills/si/scripts/Test-SiWriteScope.ps1",
+          "sha256": "891ad0cb7c910f6f6728913a20ca91f830e2e6a1f141f022edcb0b91d4453c6b",
+          "src": "skills/si/scripts/Test-SiWriteScope.ps1"
+        }
+      ],
+      "license": "MIT",
+      "name": "self-improvement",
+      "status": "stable",
+      "tags": [
+        "feedback",
+        "prompt",
+        "self-improvement",
+        "skill"
+      ],
+      "version": "1.0.84"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Discover Skalary configuration surfaces and safely preview category-scoped changes.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/skalary-config/SKILL.md",
+          "sha256": "2d49dd891d2d0defdd3777bb903594c4bc962abf63a211ffb92c378738f45496",
+          "src": "skills/skalary-config/SKILL.md"
+        },
+        {
+          "dest": "skills/skalary-config/assets/catalog.md",
+          "sha256": "3af3898e1dbfcd777a4e7c02831b241af3d9f5bea705da12360990164fdc1b93",
+          "src": "skills/skalary-config/assets/catalog.md"
+        },
+        {
+          "dest": "skills/skalary-config/scripts/Read-SkalaryConfig.ps1",
+          "sha256": "e1598f96d1b39d6275a2a09f272332247f62513513049a1648a759b3e41e3ddc",
+          "src": "skills/skalary-config/scripts/Read-SkalaryConfig.ps1"
+        },
+        {
+          "dest": "skills/skalary-config/scripts/Set-SkalaryConfig.ps1",
+          "sha256": "ac2c536a3bc09deae94c43eccc184a8fbcecf3d229b0f14c6510065dc8b479af",
+          "src": "skills/skalary-config/scripts/Set-SkalaryConfig.ps1"
+        },
+        {
+          "dest": "skills/skalary-config/scripts/Test-AutopilotAuth.ps1",
+          "sha256": "3ba43b9db55fba365bcd6ab280d042fc49671fb1abb072d9f243c6064e4bc00c",
+          "src": "skills/skalary-config/scripts/Test-AutopilotAuth.ps1"
+        }
+      ],
+      "license": "MIT",
+      "name": "skalary-config",
+      "scaffolds": [
+        {
+          "mode": "literal",
+          "owner": "skalary-config",
+          "path": "docs/review-standards.md",
+          "trigger": "selected local-review-standards bootstrap"
+        },
+        {
+          "mode": "literal",
+          "owner": "skalary-config",
+          "path": "tools/eval-tools.psd1",
+          "trigger": "source-only eval toolchain discovery"
+        },
+        {
+          "mode": "literal",
+          "owner": "skalary-config",
+          "path": "tools/model-allowlist.psd1",
+          "trigger": "source-only model-routing discovery"
+        }
+      ],
+      "status": "stable",
+      "tags": [
+        "configuration",
+        "skalary",
+        "skill"
+      ],
+      "version": "1.0.5"
+    },
+    {
+      "author": "jIRI-san",
+      "dependencies": [],
+      "description": "Synchronize local implementation epics and plans to a deterministic GitHub issue hierarchy with dry-run review, explicit apply confirmation, stable mappings, and conflict refusal.",
+      "evals": {
+        "status": "none"
+      },
+      "files": [
+        {
+          "dest": "skills/work-hierarchy-sync/SKILL.md",
+          "sha256": "254f2df2a00e83a9f4620b1e591da83001cbd1237780c26d9926db1c0fe7e589",
+          "src": "skills/work-hierarchy-sync/SKILL.md"
+        },
+        {
+          "dest": "skills/work-hierarchy-sync/scripts/GitHubWorkHierarchy.psm1",
+          "sha256": "5f117e4d22f65f024f51d3cf4b1f2d7c48f104dd08d43c603d388621bdcf1461",
+          "src": "skills/work-hierarchy-sync/scripts/GitHubWorkHierarchy.psm1"
+        },
+        {
+          "dest": "skills/work-hierarchy-sync/scripts/PlanState.psm1",
+          "sha256": "4a80ea05e7aa20088844bda0b96066ab5c223132aa8cdbe71310f9b18bbc362a",
+          "src": "skills/work-hierarchy-sync/scripts/PlanState.psm1"
+        },
+        {
+          "dest": "skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1",
+          "sha256": "b5a274778d08eac22804b0aaea8ffbbe23231336e1cbf86c7211bffb5d665f42",
+          "src": "skills/work-hierarchy-sync/scripts/WorkHierarchy.psm1"
+        }
+      ],
+      "license": "MIT",
+      "name": "work-hierarchy-sync",
+      "status": "stable",
+      "tags": [
+        "github",
+        "issues",
+        "planning",
+        "skill",
+        "sync"
+      ],
+      "version": "1.0.28"
+    }
+  ],
+  "retiredPlugins": [
+    {
+      "manualResidue": [
+        {
+          "kind": "scaffold",
+          "path": "docs/architecture-notes/arch-test-config.json",
+          "remedy": "Review and remove this obsolete architecture-test runner configuration."
+        },
+        {
+          "kind": "scaffold",
+          "path": "docs/architecture-notes/receipts",
+          "remedy": "Review and remove this obsolete architecture-test receipt directory."
+        },
+        {
+          "kind": "scaffold",
+          "path": "docs/architecture-notes/receipts/<contractId>.arch-receipt.json",
+          "remedy": "Review and remove each obsolete contract receipt; replace <contractId> with the actual contract id."
+        },
+        {
+          "kind": "copilot-cli",
+          "path": "~/.copilot/installed-plugins/skalary/architecture-tests",
+          "remedy": "Run `copilot plugin uninstall architecture-tests`, then remove only this leftover directory if the CLI leaves it behind."
+        },
+        {
+          "kind": "approval-key",
+          "path": ".vscode/settings.json",
+          "remedy": "Remove only the `chat.tools.terminal.autoApprove` key `.github/skills/architecture-tests/scripts/Get-ArchReviewReport.ps1`; keep unrelated approvals."
+        }
+      ],
+      "name": "architecture-tests",
+      "payloadSets": [
+        {
+          "files": [
+            {
+              "dest": "skills/architecture-tests/SKILL.md",
+              "sha256": "76b617bae5d61e60df566dc77c7e11d187d9cf7e824908685f6274f804e9df34"
+            },
+            {
+              "dest": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json",
+              "sha256": "ea948ec9ad4d006749aba6ec244a41ed79b8bf5a2a7c50b8764bbc54148367f1"
+            },
+            {
+              "dest": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json",
+              "sha256": "87e7338ea8b803e130607e0746c953d40617a5bb5196e78f70e93ee69f25d0de"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/ArchReceipt.psm1",
+              "sha256": "a778c930c64101bf317861bbe678bc6dbf28214ee2f41c58df28d708450c6ca0"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/Assert-ArchLock.ps1",
+              "sha256": "b067c8d92c3cde5d7560d8d87a889bb92affefda718df23c9779f69db1098fa1"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/Get-ArchReviewReport.ps1",
+              "sha256": "af4cc3736f182a0bec80bc4f3043ced862e3dd4b98bda65684c6f074d5e0adca"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1",
+              "sha256": "d1231dd0a5064d287e5b1827492f801e40a306351600d0c93c8e6b29dd193d7e"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
+              "sha256": "849dd5ad51bb7e09749fb426ddbda524fb12fd9aa497590cd7f22b41db369798"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/PlanEvidence.psm1",
+              "sha256": "9e20bbdd8b3473d04999cd6c39b83e0e8e236ee3e2f9132f0a9c20b104a7631f"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/adapters/NetArchTest.Adapter.ps1",
+              "sha256": "02291064d6f2c16c30298effd572aa8d6be2763bf734729195ba4197545a50c5"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/adapters/TsArch.Adapter.ps1",
+              "sha256": "1179ec900e8666244c3f731fc0076b9d9d217f69c51184b5191714048a52799e"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/providers/Custom.Provider.ps1",
+              "sha256": "28e747b9bce41ed79bec15be20f0e1960e2c9233b67e15fc55ed05f6ec911327"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/providers/Mock.Provider.ps1",
+              "sha256": "928fa754aa45fceed8982c6843f9856c737403fb14cb73626a1bb8042f365c5b"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/providers/SemanticEvalProvider.ps1",
+              "sha256": "a1eb60dddbe662c5a089b4adb74afbafc49327ce88a30b8342c1005e04120b4b"
+            }
+          ],
+          "ref": "bb0daf9b621ebf9d172aea1cb1ee92b17c6fafc6",
+          "sourceIdentity": "github.com/jiri-san/skalary",
+          "sourceKind": "github",
+          "version": "1.0.20"
+        },
+        {
+          "files": [
+            {
+              "dest": "skills/architecture-tests/SKILL.md",
+              "sha256": "b039f1de913566d7244a9977526bcad368e34b745b6f7abe64e2e8c20224fb82"
+            },
+            {
+              "dest": "skills/architecture-tests/assets/schemas/arch-test-config.schema.json",
+              "sha256": "ea948ec9ad4d006749aba6ec244a41ed79b8bf5a2a7c50b8764bbc54148367f1"
+            },
+            {
+              "dest": "skills/architecture-tests/assets/schemas/arch-test-receipt.schema.json",
+              "sha256": "87e7338ea8b803e130607e0746c953d40617a5bb5196e78f70e93ee69f25d0de"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/ArchReceipt.psm1",
+              "sha256": "654b1bb2584715737008d54f5cd980ab9eb416cd41949bf703c7686eb24968a4"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/Assert-ArchLock.ps1",
+              "sha256": "b067c8d92c3cde5d7560d8d87a889bb92affefda718df23c9779f69db1098fa1"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/Get-ArchReviewReport.ps1",
+              "sha256": "96e4ef0b0d943342daf1337f34206c077e2f5e2d35633c4b0c3c5647b3b43b2f"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/Invoke-ArchAdapter.ps1",
+              "sha256": "d1231dd0a5064d287e5b1827492f801e40a306351600d0c93c8e6b29dd193d7e"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/Invoke-ArchTests.ps1",
+              "sha256": "849dd5ad51bb7e09749fb426ddbda524fb12fd9aa497590cd7f22b41db369798"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/adapters/NetArchTest.Adapter.ps1",
+              "sha256": "02291064d6f2c16c30298effd572aa8d6be2763bf734729195ba4197545a50c5"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/adapters/TsArch.Adapter.ps1",
+              "sha256": "1179ec900e8666244c3f731fc0076b9d9d217f69c51184b5191714048a52799e"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/providers/Custom.Provider.ps1",
+              "sha256": "28e747b9bce41ed79bec15be20f0e1960e2c9233b67e15fc55ed05f6ec911327"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/providers/Mock.Provider.ps1",
+              "sha256": "928fa754aa45fceed8982c6843f9856c737403fb14cb73626a1bb8042f365c5b"
+            },
+            {
+              "dest": "skills/architecture-tests/scripts/providers/SemanticEvalProvider.ps1",
+              "sha256": "a1eb60dddbe662c5a089b4adb74afbafc49327ce88a30b8342c1005e04120b4b"
+            }
+          ],
+          "ref": "30eb9fc421712d2fdfcb0cd9338a126071895930",
+          "sourceIdentity": "github.com/jiri-san/skalary",
+          "sourceKind": "github",
+          "version": "1.0.24"
+        }
+      ],
+      "reason": "The unused architecture-test execution subsystem was retired while preserving human-owned architecture notes and ADRs.",
+      "retiredAt": "2026-08-15T16:16:27Z"
+    }
+  ]
+}
+

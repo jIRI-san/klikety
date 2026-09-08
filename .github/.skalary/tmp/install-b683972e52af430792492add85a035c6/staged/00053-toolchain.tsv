@@ -1,0 +1,22 @@
+# case-id	Debian package	conventional command
+rg-search	ripgrep	rg
+fd-find	fd-find	fd
+bat-render	bat	bat
+tree-list	tree	tree
+less-version	less	less
+file-type	file	file
+zip-create	zip	zip
+unzip-extract	unzip	unzip
+rsync-copy	rsync	rsync
+native-build	build-essential	cc
+python-run	python3	python3
+python-venv	python3-venv	python3
+python-pip	python3-pip	python3
+shellcheck-valid	shellcheck	shellcheck
+process-self	procps	ps
+lsof-open	lsof	lsof
+ip-loopback	iproute2	ip
+dig-version	bind9-dnsutils	dig
+nc-help	netcat-openbsd	nc
+ssh-version	openssh-client	ssh
+sqlite-query	sqlite3	sqlite3

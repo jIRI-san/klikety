@@ -4,7 +4,7 @@
     ".github/agents/scripts/get-diff-branch.ps1": true,
     "/^dotnet --version$/": {
       "approve": true,
-      "matchCommandLine": true,
+      "matchCommandLine": true
     },
     "dotnet build": true,
     "dotnet format": true,
@@ -35,6 +35,7 @@
     ".github/skills/si/scripts/Get-SiHarvest.ps1": true,
     ".github/skills/si/scripts/Test-SiWriteScope.ps1": true,
     ".github/skills/skalary-config/scripts/Test-AutopilotAuth.ps1": true,
+    ".github/skills/cip/scripts/New-Plan.ps1": true
   },
   "cSpell.words": [
     "Klikety"

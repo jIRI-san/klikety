@@ -220,29 +220,18 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         var colorStr = _theme?.AppScopeBorderColor ?? "#4488FF";
         var brush = TryParseBrush(colorStr, new SolidColorBrush(Color.FromRgb(0x44, 0x88, 0xFF)));
 
-        // Convert physical-pixel bounds to DIP coordinates on the full-screen canvas
-        var source = PresentationSource.FromVisual(this);
-        double bx = bounds.X, by = bounds.Y, bw = bounds.Width, bh = bounds.Height;
-        if (source?.CompositionTarget is not null) {
-            var t = source.CompositionTarget.TransformFromDevice;
-            var tl = t.Transform(new System.Windows.Point(bounds.X, bounds.Y));
-            var br = t.Transform(new System.Windows.Point(bounds.Right, bounds.Bottom));
-            bx = tl.X;
-            by = tl.Y;
-            bw = br.X - tl.X;
-            bh = br.Y - tl.Y;
-        }
+        var dip = OverlayDip.ToCanvas(bounds, OverlayDip.WindowOrigin(this), OverlayDip.ScaleOf(this));
 
         var border = new System.Windows.Shapes.Rectangle {
-            Width = bw,
-            Height = bh,
+            Width = dip.Width,
+            Height = dip.Height,
             Stroke = brush,
             StrokeThickness = 2,
             Fill = Brushes.Transparent,
             Tag = "AppScopeBorder",
         };
-        Canvas.SetLeft(border, bx);
-        Canvas.SetTop(border, by);
+        Canvas.SetLeft(border, dip.X);
+        Canvas.SetTop(border, dip.Y);
         StatusCanvas.Children.Add(border);
     }
 

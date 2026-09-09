@@ -108,6 +108,7 @@ public sealed class GridRenderer : IGridRenderer {
     private void EnsureTransform() {
         if (_canvas.IsVisible || PresentationSource.FromVisual(_canvas) is not null) {
             _transformFromDevice = OverlayDip.ScaleOf(_canvas);
+            _physicalOrigin = OverlayDip.WindowOrigin(_canvas);
         }
     }
 
@@ -253,7 +254,6 @@ public sealed class GridRenderer : IGridRenderer {
     /// </summary>
     public void RenderGrid(IReadOnlyList<GridCell> cells) {
         _canvas.Children.Clear();
-        _physicalOrigin = OverlayDip.OriginOf(cells);
         EnsureTransform();
 
         var region = ComputeRegionFromCells(cells);

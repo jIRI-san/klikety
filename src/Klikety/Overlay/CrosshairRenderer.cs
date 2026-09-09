@@ -84,7 +84,6 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     /// </summary>
     public void RenderCross(CrosshairGrid grid) {
         _canvas.Children.Clear();
-        _physicalOrigin = OverlayDip.OriginOf(grid.Cells);
         EnsureTransform();
 
         var region = ComputeRegion(grid);
@@ -347,6 +346,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     private void EnsureTransform() {
         if (_canvas.IsVisible || PresentationSource.FromVisual(_canvas) is not null) {
             _transformFromDevice = OverlayDip.ScaleOf(_canvas);
+            _physicalOrigin = OverlayDip.WindowOrigin(_canvas);
         }
     }
 

@@ -1,5 +1,8 @@
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
+
+using Klikety.Interop;
 
 namespace Klikety.Overlay;
 
@@ -14,6 +17,18 @@ internal static class OverlayDip {
         double sx = dpi.DpiScaleX > 0 ? 1.0 / dpi.DpiScaleX : 1.0;
         double sy = dpi.DpiScaleY > 0 ? 1.0 / dpi.DpiScaleY : 1.0;
         return new Matrix(sx, 0, 0, sy, 0, 0);
+    }
+
+    public static System.Drawing.Point WindowOrigin(Visual visual) {
+        var window = Window.GetWindow(visual);
+        if (window is null) {
+            return System.Drawing.Point.Empty;
+        }
+
+        var hwnd = new WindowInteropHelper(window).Handle;
+        return NativeMethods.TryGetWindowRect(hwnd, out var bounds)
+            ? bounds.Location
+            : System.Drawing.Point.Empty;
     }
 
     public static System.Drawing.Point OriginOf(IReadOnlyList<Grid.GridCell> cells) {

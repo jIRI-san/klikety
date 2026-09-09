@@ -90,7 +90,6 @@ public sealed class LogGridRenderer : ILogGridRenderer {
 
     public void RenderGrid(LogGrid grid) {
         BeginRender();
-        _physicalOrigin = OverlayDip.OriginOf(grid.Cells);
         EnsureTransform();
         RenderCells(grid, highlightCol: -1, highlightCell: null);
         RenderLabelBorders(grid, showCols: true, showRows: false);
@@ -699,6 +698,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         var source = PresentationSource.FromVisual(_canvas);
         if (_canvas.IsVisible || PresentationSource.FromVisual(_canvas) is not null) {
             _transformFromDevice = OverlayDip.ScaleOf(_canvas);
+            _physicalOrigin = OverlayDip.WindowOrigin(_canvas);
         }
     }
 

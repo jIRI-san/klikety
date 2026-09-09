@@ -16,7 +16,7 @@ globs:
 
 ## Overlay placement
 
-`OverlayPlacement.Place` `SetWindowPos`es to physical `rcMonitor`, then sets Width/Height from `VisualTreeHelper.GetDpi` — not `Left`/`Top` (those are DIP of the *previous* monitor and send the HWND off-screen, e.g. −6144). Renderers map physical cells **relative to the overlay origin** (`OverlayDip.ToCanvas`); `TransformFromDevice` of desktop coordinates is not canvas space. Scale is re-read every paint. Session activate waits for `DispatcherPriority.Loaded`. Satellites: `ShowActivated=false`, `SWP_NOACTIVATE`, dim fill ≤35%.
+`OverlayPlacement.Place` `SetWindowPos`es to physical `rcMonitor`, then sets Width/Height from `VisualTreeHelper.GetDpi` — not `Left`/`Top` (those are DIP of the *previous* monitor and send the HWND off-screen, e.g. −6144). Renderers map physical cells **relative to the overlay HWND origin** (`OverlayDip.WindowOrigin`), not the cell union — app-scope grids sit inside the window, not at the monitor’s top-left. `TransformFromDevice` of desktop coordinates is not canvas space. Scale is re-read every paint. Session activate waits for `DispatcherPriority.Loaded`. Satellites: `ShowActivated=false`, `SWP_NOACTIVATE`, dim fill ≤35%.
 
 ## IGridRenderer Interface
 

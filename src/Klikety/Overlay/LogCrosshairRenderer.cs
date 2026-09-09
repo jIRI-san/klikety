@@ -85,7 +85,6 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
     public void RenderCross(LogCrosshairGrid grid) {
         BeginRender();
-        _physicalOrigin = OverlayDip.OriginOf(grid.Cells);
         EnsureTransform();
 
         for (int row = 0; row < grid.Rows; row++) {
@@ -644,6 +643,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
         var source = PresentationSource.FromVisual(_canvas);
         if (_canvas.IsVisible || PresentationSource.FromVisual(_canvas) is not null) {
             _transformFromDevice = OverlayDip.ScaleOf(_canvas);
+            _physicalOrigin = OverlayDip.WindowOrigin(_canvas);
         }
     }
 

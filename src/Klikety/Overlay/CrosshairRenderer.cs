@@ -70,6 +70,11 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
         _typeface = new Typeface(fontFamily, FontStyles.Normal, fontWeight, FontStretches.Normal);
     }
 
+    public void RebuildLabels(IKeyLabelResolver resolver) {
+        _horizLabels.Rebuild(resolver);
+        _vertLabels.Rebuild(resolver);
+    }
+
     public void SetTransform(Matrix transformFromDevice) {
         _transformFromDevice = transformFromDevice;
     }

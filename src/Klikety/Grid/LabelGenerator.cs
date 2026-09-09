@@ -18,6 +18,8 @@ public readonly record struct CellLabel(string First, string Second) {
 public sealed class LabelGenerator {
     private readonly CellLabel[,] _labels;
     private readonly Dictionary<string, (int Row, int Col)> _labelToCell;
+    private readonly VKey[] _firstKeys;
+    private readonly VKey[] _secondKeys;
     private readonly int _rows;
     private readonly int _cols;
 
@@ -28,15 +30,26 @@ public sealed class LabelGenerator {
     /// <param name="secondKeys">Row keys (second-key set).</param>
     /// <param name="resolver">Resolves VKey to display character.</param>
     public LabelGenerator(VKey[] firstKeys, VKey[] secondKeys, IKeyLabelResolver resolver) {
+        _firstKeys = firstKeys;
+        _secondKeys = secondKeys;
         _cols = firstKeys.Length;
         _rows = secondKeys.Length;
         _labels = new CellLabel[_rows, _cols];
         _labelToCell = new Dictionary<string, (int, int)>(StringComparer.OrdinalIgnoreCase);
 
+        Rebuild(resolver);
+    }
+
+    /// <summary>
+    /// Re-resolves all display labels while retaining the configured physical key layout.
+    /// Must be called on the UI dispatcher with rendering.
+    /// </summary>
+    public void Rebuild(IKeyLabelResolver resolver) {
+        _labelToCell.Clear();
         for (int row = 0; row < _rows; row++) {
             for (int col = 0; col < _cols; col++) {
-                string first = resolver.Resolve(firstKeys[col]);
-                string second = resolver.Resolve(secondKeys[row]);
+                string first = resolver.Resolve(_firstKeys[col]);
+                string second = resolver.Resolve(_secondKeys[row]);
 
                 var label = new CellLabel(first, second);
                 _labels[row, col] = label;

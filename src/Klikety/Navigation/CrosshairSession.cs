@@ -32,6 +32,7 @@ public sealed class CrosshairSession : IModeSession {
     private IModeSession? _l2Session;
     private int _lastHorizCol;
     private int _lastVertRow;
+    private Action? _redraw;
 
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action? Cancelled;
@@ -76,11 +77,8 @@ public sealed class CrosshairSession : IModeSession {
         _grid = CrosshairGridCalculator.Calculate(
             screenBounds, _horizKeys.Length, _vertKeys.Length);
 
-        // Reset label offset to this level's base (important on reactivation)
-        _renderer?.SetLabelOffset(_horizLabelBase, _vertLabelBase);
-
         _sm.Activate(_grid, origin);
-        _renderer?.RenderCross(_grid);
+        Render(renderer => renderer.RenderCross(_grid), _horizLabelBase, _vertLabelBase);
     }
 
     public void OnKey(VKey key) {
@@ -92,11 +90,21 @@ public sealed class CrosshairSession : IModeSession {
         _sm.OnKey(key);
     }
 
+    public void Redraw() {
+        if (_l2Session is not null) {
+            _l2Session.Redraw();
+            return;
+        }
+
+        _redraw?.Invoke();
+    }
+
     public void Deactivate() {
         PopL2();
         _sm.Reset();
         _grid = null;
         _renderer?.SetLabelOffset(0, 0);
+        _redraw = null;
     }
 
     private void OnHorizSelected(int col, int keyIndex) {
@@ -106,7 +114,7 @@ public sealed class CrosshairSession : IModeSession {
 
         CursorMoveRequested?.Invoke(
             CrosshairGridCalculator.CenterOf(_grid.CellAt(_grid.CenterRow, col)));
-        _renderer?.HighlightColumn(_grid, col);
+        Render(renderer => renderer.HighlightColumn(_grid, col), _horizLabelBase, _vertLabelBase);
     }
 
     private void OnVertSelected(int row, int keyIndex) {
@@ -116,13 +124,13 @@ public sealed class CrosshairSession : IModeSession {
 
         CursorMoveRequested?.Invoke(
             CrosshairGridCalculator.CenterOf(_grid.CellAt(row, _grid.CenterCol)));
-        _renderer?.HighlightRow(_grid, row);
+        Render(renderer => renderer.HighlightRow(_grid, row), _horizLabelBase, _vertLabelBase);
     }
 
     private void OnCellSelected(GridCell cell) {
         CursorMoveRequested?.Invoke(CrosshairGridCalculator.CenterOf(cell));
         if (_grid is not null) {
-            _renderer?.HighlightCell(_grid, cell);
+            Render(renderer => renderer.HighlightCell(_grid, cell), _horizLabelBase, _vertLabelBase);
         }
     }
 
@@ -146,7 +154,7 @@ public sealed class CrosshairSession : IModeSession {
 
         var cell = _grid.CellAt(row, col);
         CursorMoveRequested?.Invoke(CrosshairGridCalculator.CenterOf(cell));
-        _renderer?.HighlightCell(_grid, cell);
+        Render(renderer => renderer.HighlightCell(_grid, cell), _horizLabelBase, _vertLabelBase);
     }
 
     private void OnSubgridEntered(GridCell parentCell) {
@@ -171,12 +179,11 @@ public sealed class CrosshairSession : IModeSession {
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
             if (_grid is not null) {
-                _renderer?.HighlightCell(_grid, parentCell);
+                Render(renderer => renderer.HighlightCell(_grid, parentCell), _horizLabelBase, _vertLabelBase);
             }
             return;
         }
 
-        // Set cumulative label offset so renderer shows correct labels at any depth
         int newHorizOffset = _horizLabelBase + hReduction.OriginalStartIndex;
         int newVertOffset = _vertLabelBase + vReduction.OriginalStartIndex;
         _renderer?.SetLabelOffset(newHorizOffset, newVertOffset);
@@ -210,7 +217,7 @@ public sealed class CrosshairSession : IModeSession {
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
             if (_grid is not null) {
-                _renderer?.HighlightCell(_grid, parentCell);
+                Render(renderer => renderer.HighlightCell(_grid, parentCell), _horizLabelBase, _vertLabelBase);
             }
             return;
         }
@@ -254,12 +261,9 @@ public sealed class CrosshairSession : IModeSession {
             return;
         }
 
-        // Reset label offset back to this level's base
-        _renderer?.SetLabelOffset(_horizLabelBase, _vertLabelBase);
-
         var cell = _grid.CellAt(_lastVertRow, _lastHorizCol);
-        _renderer?.RenderCross(_grid);
-        _renderer?.HighlightCell(_grid, cell);
+        Render(renderer => renderer.RenderCross(_grid), _horizLabelBase, _vertLabelBase);
+        Render(renderer => renderer.HighlightCell(_grid, cell), _horizLabelBase, _vertLabelBase);
         CursorMoveRequested?.Invoke(CrosshairGridCalculator.CenterOf(cell));
     }
 
@@ -273,5 +277,17 @@ public sealed class CrosshairSession : IModeSession {
         _l2Session.CursorMoveRequested -= OnL2CursorMoveRequested;
         _l2Session.Deactivate();
         _l2Session = null;
+    }
+
+    private void Render(Action<ICrosshairRenderer> render, int horizOffset, int vertOffset) {
+        _redraw = () => {
+            if (_renderer is null) {
+                return;
+            }
+
+            _renderer.SetLabelOffset(horizOffset, vertOffset);
+            render(_renderer);
+        };
+        _redraw();
     }
 }

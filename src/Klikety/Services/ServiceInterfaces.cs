@@ -82,6 +82,7 @@ public interface IMacroHotKeyService : IDisposable {
 public interface IOverlayWindow {
     event EventHandler? FocusLost;
     event EventHandler? DisplayChanged;
+    event EventHandler? KeyboardLayoutChanged;
     void Show();
     void Show(System.Drawing.Rectangle bounds);
     void Hide();
@@ -132,6 +133,7 @@ public interface IClickIndicator {
 /// Abstracts grid rendering for testability.
 /// </summary>
 public interface IGridRenderer {
+    void RebuildLabels(IKeyLabelResolver resolver);
     void SetTransform(System.Windows.Media.Matrix transformFromDevice);
     void SetLabelOffset(int colOffset, int rowOffset);
     void RenderGrid(IReadOnlyList<GridCell> cells);
@@ -147,6 +149,7 @@ public interface IGridRenderer {
 /// Abstracts crosshair-mode rendering for testability.
 /// </summary>
 public interface ICrosshairRenderer {
+    void RebuildLabels(IKeyLabelResolver resolver);
     void SetTransform(System.Windows.Media.Matrix transformFromDevice);
     void SetLabelOffset(int horizOffset, int vertOffset);
     void RenderCross(CrosshairGrid grid);
@@ -163,6 +166,7 @@ public interface ICrosshairRenderer {
 /// with element pooling.
 /// </summary>
 public interface ILogCrosshairRenderer {
+    void RebuildLabels(IKeyLabelResolver resolver);
     void SetTransform(System.Windows.Media.Matrix transformFromDevice);
     void RenderCross(LogCrosshairGrid grid);
     void HighlightColumn(LogCrosshairGrid grid, int col);
@@ -177,6 +181,7 @@ public interface ILogCrosshairRenderer {
 /// with element pooling. Axis-based external labels for small cells.
 /// </summary>
 public interface ILogGridRenderer {
+    void RebuildLabels(IKeyLabelResolver resolver);
     void SetTransform(System.Windows.Media.Matrix transformFromDevice);
     void RenderGrid(LogGrid grid);
     void HighlightColumn(LogGrid grid, int col);
@@ -188,7 +193,7 @@ public interface ILogGridRenderer {
     /// Renders a large single-character indicator in the screen corner opposite
     /// to the current grid center quadrant. Used for first-key feedback.
     /// </summary>
-    void RenderFirstKeyIndicator(LogGrid grid, string label, System.Drawing.Rectangle screenBounds);
+    void RenderFirstKeyIndicator(LogGrid grid, int column, System.Drawing.Rectangle screenBounds);
 
     /// <summary>
     /// Hides the first-key indicator (e.g. after second key or escape).

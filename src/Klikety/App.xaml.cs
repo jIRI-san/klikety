@@ -412,7 +412,11 @@ public partial class App : Application {
 
         var hook = new KeyboardHookService();
         var resolver = new Win32KeyLabelResolver();
-        var processor = new KeyPressProcessor(resolver, PlatformServices.Instance.KeyState, TimeProvider.System);
+        var processor = new KeyPressProcessor(
+            PlatformServices.Instance.KeyState,
+            TimeProvider.System,
+            PlatformServices.Instance.KeyboardLayout,
+            hkl => new Win32KeyLabelResolver(hkl));
         var window = new KeyPressWindow(vizConfig);
         var monitorService = new MonitorService(window);
         var displayManager = new KeyPressDisplayManager(vizConfig, processor, window, monitorService);
@@ -488,4 +492,3 @@ public partial class App : Application {
     }
 #endif
 }
-

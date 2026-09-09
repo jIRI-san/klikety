@@ -162,6 +162,24 @@ public class LogCrosshairSessionTests {
         Assert.Equal("RenderCross", renderer.Calls[^1].Method);
     }
 
+    [Fact]
+    public void Redraw_ReplaysCurrentVisualWithoutEvents() {
+        var (session, renderer) = Create();
+        session.Activate(new Rectangle(0, 0, 1100, 1100), new Point(550, 550));
+        session.OnKey(VKey.A);
+        renderer.Calls.Clear();
+        bool eventRaised = false;
+        session.ActionRequested += (_, _) => eventRaised = true;
+        session.Cancelled += () => eventRaised = true;
+        session.CursorMoveRequested += _ => eventRaised = true;
+
+        session.Redraw();
+
+        Assert.Collection(renderer.Calls,
+            call => Assert.Equal("RenderCross", call.Method));
+        Assert.False(eventRaised);
+    }
+
     // --- Deactivate + re-activate ---
 
     [Fact]

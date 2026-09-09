@@ -110,6 +110,35 @@ public class NavigatorCoordinatorTests {
     }
 
     [Fact]
+    public void KeyboardLayoutChange_RebuildsLabelsAndRedrawsSession() {
+        var (_, hotKey, _, _, overlay, renderer, platform, _) = CreateCoordinator();
+        hotKey.SimulateActivation();
+        renderer.Calls.Clear();
+        int rebuildsBeforeChange = renderer.RebuildLabelsCalls;
+        platform.KeyboardLayout.Layout = 0x04050405;
+
+        overlay.SimulateKeyboardLayoutChange();
+
+        Assert.Equal(rebuildsBeforeChange + 1, renderer.RebuildLabelsCalls);
+        Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
+    }
+
+    [Fact]
+    public void KeyboardLayoutChange_KeyEventFallbackRefreshesLabels() {
+        var (_, hotKey, hook, _, _, renderer, platform, _) = CreateCoordinator();
+        hotKey.SimulateActivation();
+        renderer.Calls.Clear();
+        int rebuildsBeforeChange = renderer.RebuildLabelsCalls;
+        platform.KeyboardLayout.Layout = 0x04050405;
+
+        hook.SimulateKey(VKey.A);
+
+        Assert.Equal(rebuildsBeforeChange + 1, renderer.RebuildLabelsCalls);
+        Assert.Contains(renderer.Calls, c => c.Method == "RenderGrid");
+        Assert.Contains(renderer.Calls, c => c.Method == "HighlightColumn");
+    }
+
+    [Fact]
     public void CellEntered_RendersSubgridOverGrid() {
         var (_, hotKey, hook, _, _, renderer, _, _) = CreateCoordinator();
 

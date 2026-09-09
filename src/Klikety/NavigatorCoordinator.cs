@@ -42,6 +42,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private bool _deactivating;
     private bool _hostBusy;
     private bool _nonQwertyWarningShown;
+    private nint _lastKeyboardLayout;
     private IReadOnlyList<DisplayInfo> _displays = [];
     private DisplayInfo? _navDisplay;
     private IReadOnlyDictionary<string, int> _displayNumbers =
@@ -130,6 +131,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hookService.KeyEvent += OnKeyEvent;
         _overlayWindow.FocusLost += OnFocusLost;
         _overlayWindow.DisplayChanged += OnDisplayChanged;
+        _overlayWindow.KeyboardLayoutChanged += OnKeyboardLayoutChanged;
         _sessionManager.ActionRequested += OnSessionActionRequested;
         _sessionManager.Cancelled += OnSessionCancelled;
         _sessionManager.CursorMoveRequested += OnSessionCursorMoveRequested;
@@ -188,6 +190,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         // Determine default mode, with non-QWERTY fallback
         var defaultModeName = GetDefaultModeName();
+        RefreshKeyboardLayoutIfChanged(redraw: false);
 
         // Populate debounce keys BEFORE hook enable (closes TOCTOU)
         _debounce.PopulateFromHotKey();
@@ -284,6 +287,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         // Trigger-key fast removal: on first keydown for a different key,
         // remove trigger only if no longer physically held
         _debounce.RemoveTriggerIfReleased();
+
+        if (_sessionManager.IsActive) {
+            RefreshKeyboardLayoutIfChanged(redraw: true);
+        }
 
         LogKeyPressed(e.Key);
 
@@ -430,6 +437,23 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private void OnDisplayChanged(object? sender, EventArgs e) {
         if (_sessionManager.IsActive) {
             DeactivateOverlay();
+        }
+    }
+
+    private void OnKeyboardLayoutChanged(object? sender, EventArgs e) =>
+        RefreshKeyboardLayoutIfChanged(redraw: true);
+
+    private void RefreshKeyboardLayoutIfChanged(bool redraw) {
+        var keyboardLayout = _platform.KeyboardLayout.GetActiveKeyboardLayout();
+        if (keyboardLayout == _lastKeyboardLayout) {
+            return;
+        }
+
+        _sessionFactory.RebuildLabels(new Grid.Win32KeyLabelResolver(keyboardLayout));
+        _lastKeyboardLayout = keyboardLayout;
+
+        if (redraw) {
+            _sessionManager.RedrawActiveSession();
         }
     }
 
@@ -637,6 +661,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hookService.KeyEvent -= OnKeyEvent;
         _overlayWindow.FocusLost -= OnFocusLost;
         _overlayWindow.DisplayChanged -= OnDisplayChanged;
+        _overlayWindow.KeyboardLayoutChanged -= OnKeyboardLayoutChanged;
         _sessionManager.ActionRequested -= OnSessionActionRequested;
         _sessionManager.Cancelled -= OnSessionCancelled;
         _sessionManager.CursorMoveRequested -= OnSessionCursorMoveRequested;

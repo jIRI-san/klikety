@@ -23,6 +23,7 @@ public sealed class LogGridSession : IModeSession {
     LogGrid? _grid;
     Rectangle _screenBounds;
     Point _origin;
+    Action? _redraw;
 
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action? Cancelled;
@@ -53,16 +54,21 @@ public sealed class LogGridSession : IModeSession {
         _grid = LogScaleGridCalculator.Calculate(
             origin, screenBounds, _logGridBaseSize, _horizKeys.Length, _vertKeys.Length);
         _sm.Activate(_grid, origin);
-        _renderer?.RenderGrid(_grid);
+        Render(renderer => renderer.RenderGrid(_grid));
     }
 
     public void OnKey(VKey key) {
         _sm.OnKey(key);
     }
 
+    public void Redraw() {
+        _redraw?.Invoke();
+    }
+
     public void Deactivate() {
         _sm.Reset();
         _grid = null;
+        _redraw = null;
     }
 
     void OnFirstKeySelected(int col) {
@@ -71,11 +77,15 @@ public sealed class LogGridSession : IModeSession {
         }
 
         // Show column highlight + first-key indicator in opposite corner
-        _renderer?.HighlightColumn(_grid, col);
-        var label = col < _horizKeys.Length
-            ? _horizKeys[col].ToString()
-            : "?";
-        _renderer?.RenderFirstKeyIndicator(_grid, label, _screenBounds);
+        _redraw = () => {
+            if (_renderer is null || _grid is null) {
+                return;
+            }
+
+            _renderer.HighlightColumn(_grid, col);
+            _renderer.RenderFirstKeyIndicator(_grid, col, _screenBounds);
+        };
+        _redraw();
     }
 
     void OnCellSelected(GridCell cell) {
@@ -112,7 +122,7 @@ public sealed class LogGridSession : IModeSession {
         // Highlight cell but do NOT recenter
         var cell = _grid.CellAt(row, col);
         CursorMoveRequested?.Invoke(CellCenter(cell));
-        _renderer?.HighlightCell(_grid, cell);
+        Render(renderer => renderer.HighlightCell(_grid, cell));
     }
 
     void OnArrowRecenterRequested(GridCell cell) {
@@ -130,9 +140,18 @@ public sealed class LogGridSession : IModeSession {
         _grid = LogScaleGridCalculator.Calculate(
             newCenter, _screenBounds, _logGridBaseSize, _horizKeys.Length, _vertKeys.Length);
         _sm.UpdateGrid(_grid);
-        _renderer?.RenderGrid(_grid);
+        Render(renderer => renderer.RenderGrid(_grid));
     }
 
     static Point CellCenter(GridCell cell) =>
         new(cell.Bounds.X + cell.Bounds.Width / 2, cell.Bounds.Y + cell.Bounds.Height / 2);
+
+    private void Render(Action<ILogGridRenderer> render) {
+        _redraw = () => {
+            if (_renderer is not null) {
+                render(_renderer);
+            }
+        };
+        _redraw();
+    }
 }

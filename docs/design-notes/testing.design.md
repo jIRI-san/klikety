@@ -21,8 +21,8 @@ globs:
 - `FakeHotKeyService` — records Register/Unregister calls, allows manual `Activated` event firing.
 - `FakeKeyboardHookService` (with `SimulateKey`) — programmatically injects key events.
 - `FakeMouseActionService` — records `(physicalX, physicalY, MouseAction)` call list.
-- `FakeOverlayWindow` — tracks show/hide/focus-loss, rendered grid state, `AppScopeBorderVisible`/`AppScopeBorderBounds`.
-- `FakeGridRenderer` — records `RenderCall` list (method name, cells, col) for assertion.
+- `FakeOverlayWindow` — tracks show/hide/focus-loss, rendered grid state, `AppScopeBorderVisible`/`AppScopeBorderBounds`, and can simulate keyboard-layout change events.
+- Renderer fakes record `RenderCall` lists and `RebuildLabelsCalls` so layout refresh and no-event redraw behavior remain hermetic.
 - `FakeForegroundWindowProvider` — configurable `Handle`, `Bounds`, `Title`. Returns configured values for matching handle; empty/default for zero or mismatched handle.
 - `FakeDisplayCatalog` — configurable `DisplayCatalogResult`. Default is one 1920×1080 display (`\\.\DISPLAY1` / `\\?\FAKE#PRIMARY`). Catalog matcher tests inject `EnumeratedMonitor` / `CcdTarget` rows; they do not call Win32.
 - `FakeSatelliteOverlay` — records `Show(bounds, number)` for `OverlayHostTests`.

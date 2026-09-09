@@ -123,4 +123,19 @@ public class LabelGeneratorTests {
 
         Assert.Equal(6, labels.Count);
     }
+
+    [Fact]
+    public void Rebuild_UsesNewResolverAndUpdatesLookup() {
+        var gen = new LabelGenerator([VKey.A], [VKey.Q], Resolver);
+
+        gen.Rebuild(new ConstantLabelResolver("x"));
+
+        Assert.Equal(new CellLabel("x", "x"), gen.LabelFor(0, 0));
+        Assert.Equal((0, 0), gen.CellFor("xx"));
+        Assert.Null(gen.CellFor("AQ"));
+    }
+
+    private sealed class ConstantLabelResolver(string label) : IKeyLabelResolver {
+        public string Resolve(VKey key) => label;
+    }
 }

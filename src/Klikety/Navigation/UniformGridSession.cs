@@ -30,6 +30,7 @@ public sealed class UniformGridSession : IModeSession {
     private IReadOnlyList<GridCell> _l1Cells = [];
     private IReadOnlyList<GridCell>? _subgridCells;
     private IReadOnlyList<GridCell>? _l2SubgridCells;
+    private Action? _redraw;
 
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action? Cancelled;
@@ -85,12 +86,15 @@ public sealed class UniformGridSession : IModeSession {
         _stateMachine.ColumnUnhighlighted += OnColumnUnhighlighted;
 
         _stateMachine.Activate(_l1Cells, origin);
-        _gridRenderer?.SetLabelOffset(_baseLabelColOffset, _baseLabelRowOffset);
-        _gridRenderer?.RenderGrid(_l1Cells);
+        Render(1, renderer => renderer.RenderGrid(_l1Cells));
     }
 
     public void OnKey(VKey key) {
         _stateMachine?.OnKey(key);
+    }
+
+    public void Redraw() {
+        _redraw?.Invoke();
     }
 
     public void Deactivate() {
@@ -110,25 +114,25 @@ public sealed class UniformGridSession : IModeSession {
         _l1Cells = [];
         _subgridCells = null;
         _l2SubgridCells = null;
+        _redraw = null;
     }
 
     // --- SM event handlers (mirror coordinator logic) ---
 
     private void OnColumnHighlighted(int col, IReadOnlyList<GridCell> cells, int level) {
         if (level == 1) {
-            _gridRenderer?.SetLabelOffset(_baseLabelColOffset, _baseLabelRowOffset);
-            _gridRenderer?.HighlightColumn(_l1Cells, col);
+            Render(1, renderer => renderer.HighlightColumn(_l1Cells, col));
         } else {
-            SetLabelOffsetForLevel(level);
-            _gridRenderer?.HighlightColumnOverGrid(_l1Cells, cells, col);
+            Render(level, renderer => renderer.HighlightColumnOverGrid(_l1Cells, cells, col));
         }
     }
 
     private void OnCellHighlighted(GridCell cell) {
         if (_subgridCells == null) {
-            _gridRenderer?.HighlightCell(_l1Cells, cell);
+            Render(1, renderer => renderer.HighlightCell(_l1Cells, cell));
         } else {
-            _gridRenderer?.HighlightCellOverGrid(_l1Cells, _subgridCells, cell);
+            int level = ReferenceEquals(_subgridCells, _l2SubgridCells) ? 2 : 3;
+            Render(level, renderer => renderer.HighlightCellOverGrid(_l1Cells, _subgridCells, cell));
         }
     }
 
@@ -143,12 +147,11 @@ public sealed class UniformGridSession : IModeSession {
             } else if (level == 2) {
                 _subgridCells = subgridCells;
             }
-            SetLabelOffsetForLevel(level + 1);
-            _gridRenderer?.RenderSubgridOverGrid(_l1Cells, subgridCells);
+            Render(level + 1, renderer => renderer.RenderSubgridOverGrid(_l1Cells, subgridCells));
         } else if (_subgridCells != null) {
-            _gridRenderer?.HighlightCellOverGrid(_l1Cells, _subgridCells, cell);
+            Render(level, renderer => renderer.HighlightCellOverGrid(_l1Cells, _subgridCells, cell));
         } else {
-            _gridRenderer?.HighlightCell(_l1Cells, cell);
+            Render(1, renderer => renderer.HighlightCell(_l1Cells, cell));
         }
     }
 
@@ -171,8 +174,7 @@ public sealed class UniformGridSession : IModeSession {
         CursorMoveRequested?.Invoke(center);
 
         _subgridCells = _l2SubgridCells;
-        SetLabelOffsetForLevel(level - 1);
-        _gridRenderer?.RenderSubgridOverGrid(_l1Cells, cells);
+        Render(level - 1, renderer => renderer.RenderSubgridOverGrid(_l1Cells, cells));
     }
 
     private void OnColumnUnhighlighted(int level) {
@@ -180,21 +182,30 @@ public sealed class UniformGridSession : IModeSession {
             CursorMoveRequested?.Invoke(_origin);
             _subgridCells = null;
             _l2SubgridCells = null;
-            _gridRenderer?.SetLabelOffset(_baseLabelColOffset, _baseLabelRowOffset);
-            _gridRenderer?.RenderGrid(_l1Cells);
+            Render(1, renderer => renderer.RenderGrid(_l1Cells));
         } else {
             _subgridCells = _l2SubgridCells;
-            SetLabelOffsetForLevel(level);
             if (_subgridCells != null) {
-                _gridRenderer?.RenderSubgridOverGrid(_l1Cells, _subgridCells);
+                Render(level, renderer => renderer.RenderSubgridOverGrid(_l1Cells, _subgridCells));
             }
         }
     }
 
-    private void SetLabelOffsetForLevel(int level) {
-        if (_stateMachine is not null) {
-            var (col, row) = _stateMachine.GetLabelOffsetForLevel(level);
-            _gridRenderer?.SetLabelOffset(col + _baseLabelColOffset, row + _baseLabelRowOffset);
-        }
+    private void Render(int level, Action<IGridRenderer> render) {
+        var (colOffset, rowOffset) = LabelOffsetForLevel(level);
+        _redraw = () => {
+            if (_gridRenderer is null) {
+                return;
+            }
+
+            _gridRenderer.SetLabelOffset(colOffset, rowOffset);
+            render(_gridRenderer);
+        };
+        _redraw();
+    }
+
+    private (int ColOffset, int RowOffset) LabelOffsetForLevel(int level) {
+        var (col, row) = _stateMachine?.GetLabelOffsetForLevel(level) ?? (0, 0);
+        return (col + _baseLabelColOffset, row + _baseLabelRowOffset);
     }
 }

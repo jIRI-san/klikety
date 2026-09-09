@@ -58,4 +58,19 @@ public class AxisLabelGeneratorTests {
         }
         Assert.Equal(10, labels.Count);
     }
+
+    [Fact]
+    public void Rebuild_UsesNewResolverAndUpdatesLookup() {
+        var gen = new AxisLabelGenerator([VKey.A], Resolver);
+
+        gen.Rebuild(new ConstantLabelResolver("x"));
+
+        Assert.Equal("x", gen.LabelFor(0));
+        Assert.Equal(0, gen.IndexFor("x"));
+        Assert.Null(gen.IndexFor("A"));
+    }
+
+    private sealed class ConstantLabelResolver(string label) : IKeyLabelResolver {
+        public string Resolve(VKey key) => label;
+    }
 }

@@ -42,15 +42,16 @@ interface IModeSession {
     event Action<Point>? CursorMoveRequested;
     void Activate(Rectangle screenBounds, Point origin);
     void OnKey(VKey key);
+    void Redraw();
     void Deactivate();
 }
 ```
 
-All modes implement this interface. `NavigatorCoordinator` owns the active session, subscribing to events on activation and calling `Deactivate()` on teardown. Sessions are stateless between `Deactivate()`→`Activate()` cycles (SM reset internally).
+All modes implement this interface. `NavigatorCoordinator` owns the active session, subscribing to events on activation and calling `Deactivate()` on teardown. Sessions are stateless between `Deactivate()`→`Activate()` cycles (SM reset internally). `Redraw()` replays only the current visual state; it never emits cursor, action, or cancel events. `SessionManager.RedrawActiveSession()` clears the shared canvas before invoking it. Sessions store their last rendering command, including label offsets and indicator state, rather than exposing state-machine internals.
 
 ## `ModeSessionFactory`
 
-Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, ActionMapper, IGridRenderer?, ICrosshairRenderer?, ILogCrosshairRenderer?)`. Renderers are nullable — null when the mode's renderer cannot be constructed (e.g., disabled mode with null keys).
+Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, ActionMapper, IGridRenderer?, ICrosshairRenderer?, ILogCrosshairRenderer?, ILogGridRenderer?)`. Renderers are nullable — null when the mode's renderer cannot be constructed (e.g., disabled mode with null keys). `RebuildLabels(IKeyLabelResolver)` forwards a fresh resolver to every available renderer.
 
 ## Mode Switching (Chord Dispatch)
 
@@ -137,7 +138,7 @@ Result type: `LogGrid` with `Cells`, `Cols`, `Rows`, `CenterPoint`, `ColEdges`, 
 - Action keys: fire `ActionRequested` with current `_actionPoint` from any state.
 - `UpdateGrid(LogGrid)`: replaces grid, resets to `AwaitInput` at grid center. Used after recentering.
 
-**Session** (`LogGridSession`): Wraps SM + renderer + `LogScaleGridCalculator`. Computes grid at `Activate()` and on every recenter. Two-key selection → recenter immediately. Arrow-selected Enter → recenter. Recenter: moves cursor to cell center, recomputes grid centered there, calls `SM.UpdateGrid`, re-renders.
+**Session** (`LogGridSession`): Wraps SM + renderer + `LogScaleGridCalculator`. Computes grid at `Activate()` and on every recenter. Two-key selection → recenter immediately. Arrow-selected Enter → recenter. Recenter: moves cursor to cell center, recomputes grid centered there, calls `SM.UpdateGrid`, re-renders. The first-key indicator receives its column index; `LogGridRenderer` resolves that index through its rebuilt axis label generator.
 
 **Key policy** (`LogGridKeyPolicy`): Maps mode config horizontal/vertical key arrays to grid column/row indices.
 

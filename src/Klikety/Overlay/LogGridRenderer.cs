@@ -84,6 +84,11 @@ public sealed class LogGridRenderer : ILogGridRenderer {
         _typeface = new Typeface(fontFamily, FontStyles.Normal, fontWeight, FontStretches.Normal);
     }
 
+    public void RebuildLabels(IKeyLabelResolver resolver) {
+        _colLabels.Rebuild(resolver);
+        _rowLabels.Rebuild(resolver);
+    }
+
     public void SetTransform(Matrix transformFromDevice) {
         _transformFromDevice = transformFromDevice;
     }
@@ -156,9 +161,10 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     Path? _indicatorOutline;
     Path? _indicatorFill;
 
-    public void RenderFirstKeyIndicator(LogGrid grid, string label, System.Drawing.Rectangle screenBounds) {
+    public void RenderFirstKeyIndicator(LogGrid grid, int column, System.Drawing.Rectangle screenBounds) {
         EnsureTransform();
 
+        var label = _colLabels.LabelFor(column);
         double fontSize = Math.Max(48, _canvas.ActualHeight * 0.08);
         var ft = new FormattedText(
             label,

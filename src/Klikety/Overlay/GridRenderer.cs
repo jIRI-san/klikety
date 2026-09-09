@@ -85,6 +85,8 @@ public sealed class GridRenderer : IGridRenderer {
         _typeface = new Typeface(_fontFamily, FontStyles.Normal, _fontWeight, FontStretches.Normal);
     }
 
+    public void RebuildLabels(IKeyLabelResolver resolver) => _labelGenerator.Rebuild(resolver);
+
     /// <summary>
     /// Sets the device→DIP transform matrix. Call once when overlay is shown.
     /// If never called, auto-initialized from the canvas PresentationSource.

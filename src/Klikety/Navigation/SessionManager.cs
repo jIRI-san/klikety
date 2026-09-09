@@ -276,6 +276,18 @@ internal sealed partial class SessionManager : IDisposable {
         }
     }
 
+    /// <summary>
+    /// Clears the shared canvas then asks the active session to replay its current visual state.
+    /// </summary>
+    public void RedrawActiveSession() {
+        if (_activeSession is null) {
+            return;
+        }
+
+        _overlayWindow.ClearCanvas();
+        _activeSession.Redraw();
+    }
+
     public void Dispose() {
         UnsubscribeAndDeactivateSession();
     }

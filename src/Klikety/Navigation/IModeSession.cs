@@ -17,6 +17,9 @@ public interface IModeSession {
     /// <summary>Forwards a key-down event to the session's state machine.</summary>
     void OnKey(VKey key);
 
+    /// <summary>Replays the current visual state without emitting navigation events.</summary>
+    void Redraw();
+
     /// <summary>
     /// Resets internal state without firing surface events.
     /// Called by the coordinator during deactivation or mode switch.

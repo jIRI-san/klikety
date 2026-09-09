@@ -66,14 +66,26 @@ public sealed class KeyPressProcessor {
     private readonly HashSet<VKey> _heldModifiers = [];
     private readonly IKeyStateProvider _keyStateProvider;
     private readonly TimeProvider _timeProvider;
+    private readonly IKeyboardLayoutProvider _keyboardLayoutProvider;
+    private readonly Func<nint, IKeyLabelResolver> _resolverFactory;
+    private nint _lastKeyboardLayout;
 
-    public KeyPressProcessor(IKeyLabelResolver labelResolver, IKeyStateProvider keyStateProvider, TimeProvider timeProvider) {
+    public KeyPressProcessor(
+        IKeyStateProvider keyStateProvider,
+        TimeProvider timeProvider,
+        IKeyboardLayoutProvider keyboardLayoutProvider,
+        Func<nint, IKeyLabelResolver> resolverFactory) {
         _keyStateProvider = keyStateProvider;
         _timeProvider = timeProvider;
-        BuildLabelCache(labelResolver);
+        _keyboardLayoutProvider = keyboardLayoutProvider;
+        _resolverFactory = resolverFactory;
+        _lastKeyboardLayout = keyboardLayoutProvider.GetActiveKeyboardLayout();
+        BuildLabelCache(resolverFactory(_lastKeyboardLayout));
     }
 
     public KeyPressEntry? ProcessKeyDown(VKey vkey) {
+        RefreshLabelsForActiveLayout();
+
         if (ModifierVKeys.Contains(vkey)) {
             _heldModifiers.Add(vkey);
             return null;
@@ -115,6 +127,16 @@ public sealed class KeyPressProcessor {
     public void RebuildCache(IKeyLabelResolver labelResolver) {
         _labelCache.Clear();
         BuildLabelCache(labelResolver);
+    }
+
+    private void RefreshLabelsForActiveLayout() {
+        var keyboardLayout = _keyboardLayoutProvider.GetActiveKeyboardLayout();
+        if (keyboardLayout == _lastKeyboardLayout) {
+            return;
+        }
+
+        RebuildCache(_resolverFactory(keyboardLayout));
+        _lastKeyboardLayout = keyboardLayout;
     }
 
     private void BuildLabelCache(IKeyLabelResolver labelResolver) {

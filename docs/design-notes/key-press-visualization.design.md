@@ -20,7 +20,7 @@ KeyboardHookService (2nd instance)
     │ KeyEvent
     ▼
 KeyPressDisplayManager
-    ├── KeyPressProcessor (modifier tracking, label cache, repeat detection)
+    ├── KeyPressProcessor (modifier tracking, layout-aware label cache, repeat detection)
     ├── KeyPressWindow (click-through WPF window, outlined text rendering)
     └── MonitorService (active monitor work area, DIP transform)
 ```
@@ -36,8 +36,8 @@ No DI container. All components created/destroyed in App.xaml.cs activation tran
 
 ## KeyPressProcessor
 
-- Accepts `IKeyLabelResolver`, `IKeyStateProvider`, `TimeProvider` — all injectable for testing.
-- **Label cache**: `Dictionary<VKey, string>` built at construction via `IKeyLabelResolver`. Avoids dead-key state corruption during live typing. Special keys (Enter, Tab, arrows, F1–F12, etc.) use a static lookup dictionary.
+- Accepts `IKeyStateProvider`, `TimeProvider`, `IKeyboardLayoutProvider`, and `Func<nint, IKeyLabelResolver>` — all injectable for testing.
+- **Label cache**: `Dictionary<VKey, string>` built at construction via a resolver factory. On every key-down, it compares the provider HKL once; a changed handle rebuilds the cache before the key is resolved. This avoids dead-key state corruption during live typing while keeping post-switch HUD labels current. Special keys (Enter, Tab, arrows, F1–F12, etc.) use a static lookup dictionary.
 - **Modifier tracking**: Tracks Ctrl/Shift/Alt/Win state via key-down/key-up. On each non-modifier key-down, reconciles via `GetAsyncKeyState` to prevent stale "stuck" modifiers.
 - **Repeat detection**: `IsRepeat(current, last, windowMs)` compares label and timestamp. Default window: 400ms.
 - Modifier-only presses (Ctrl, Shift, Alt, Win alone) produce no entry.

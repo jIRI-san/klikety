@@ -19,8 +19,11 @@ namespace Klikety.Overlay;
 public partial class OverlayWindow : Window, IOverlayWindow {
     public event EventHandler? FocusLost;
     public event EventHandler? DisplayChanged;
+    public event EventHandler? KeyboardLayoutChanged;
     private ThemeModel? _theme;
     private bool _displayHookAdded;
+    private HwndSource? _keyboardLayoutSource;
+    private nint _lastKeyboardLayout;
     private ILogger _logger = NullLogger.Instance;
 
     public OverlayWindow() {
@@ -90,6 +93,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         var source = PresentationSource.FromVisual(this)
                      ?? throw new InvalidOperationException("No PresentationSource available.");
         EnsureDisplayChangeHook(source);
+        EnsureKeyboardLayoutHook(source);
         Activate();
         Keyboard.Focus(this);
         LogOverlayState("Show");
@@ -113,8 +117,37 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         return nint.Zero;
     }
 
+    private void EnsureKeyboardLayoutHook(PresentationSource source) {
+        if (_keyboardLayoutSource is not null || source is not HwndSource hwndSource) {
+            return;
+        }
+
+        hwndSource.AddHook(KeyboardLayoutHook);
+        _keyboardLayoutSource = hwndSource;
+    }
+
+    private nint KeyboardLayoutHook(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled) {
+        const int WM_INPUTLANGCHANGE = 0x0051;
+        if (msg == WM_INPUTLANGCHANGE && lParam != _lastKeyboardLayout) {
+            _lastKeyboardLayout = lParam;
+            KeyboardLayoutChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        return nint.Zero;
+    }
+
+    private void RemoveKeyboardLayoutHook() {
+        if (_keyboardLayoutSource is null) {
+            return;
+        }
+
+        _keyboardLayoutSource.RemoveHook(KeyboardLayoutHook);
+        _keyboardLayoutSource = null;
+    }
+
     void IOverlayWindow.Hide() {
         LogOverlayState("Hide");
+        RemoveKeyboardLayoutHook();
         RootCanvas.Children.Clear();
         StatusCanvas.Children.Clear();
         RecordingBorder.Visibility = Visibility.Collapsed;

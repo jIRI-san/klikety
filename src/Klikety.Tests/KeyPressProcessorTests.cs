@@ -8,11 +8,12 @@ namespace Klikety.Tests;
 public sealed class KeyPressProcessorTests {
     private readonly FakeKeyLabelResolver _resolver = new();
     private readonly FakeKeyStateProvider _keyState = new();
+    private readonly FakeKeyboardLayoutProvider _keyboardLayout = new();
     private readonly FakeTimeProvider _time = new();
     private readonly KeyPressProcessor _processor;
 
     public KeyPressProcessorTests() {
-        _processor = new KeyPressProcessor(_resolver, _keyState, _time);
+        _processor = new KeyPressProcessor(_keyState, _time, _keyboardLayout, _ => _resolver);
     }
 
     [Fact]
@@ -243,6 +244,23 @@ public sealed class KeyPressProcessorTests {
 
         var entry2 = _processor.ProcessKeyDown(VKey.A);
         Assert.Equal("x", entry2!.Label);
+    }
+
+    [Fact]
+    public void LayoutChange_RebuildsCacheBeforeResolvingKey() {
+        var processor = new KeyPressProcessor(
+            _keyState,
+            _time,
+            _keyboardLayout,
+            hkl => hkl == 0x04090409 ? _resolver : new CustomLabelResolver("x"));
+
+        _keyboardLayout.Layout = 0x04050405;
+        int readsBeforeKey = _keyboardLayout.GetActiveKeyboardLayoutCalls;
+
+        var entry = processor.ProcessKeyDown(VKey.A);
+
+        Assert.Equal("x", entry!.Label);
+        Assert.Equal(readsBeforeKey + 1, _keyboardLayout.GetActiveKeyboardLayoutCalls);
     }
 
     private sealed class CustomLabelResolver : IKeyLabelResolver {

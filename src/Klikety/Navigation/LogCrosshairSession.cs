@@ -31,6 +31,7 @@ public sealed class LogCrosshairSession : IModeSession {
     CrosshairSession? _l2Session;
     int _lastHorizCol;
     int _lastVertRow;
+    Action? _redraw;
 
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action? Cancelled;
@@ -70,7 +71,7 @@ public sealed class LogCrosshairSession : IModeSession {
         _grid = LogGridCalculator.Calculate(
             origin, screenBounds, _logBaseSize, _horizKeys.Length, _vertKeys.Length);
         _sm.Activate(_grid, origin);
-        _renderer?.RenderCross(_grid);
+        Render(renderer => renderer.RenderCross(_grid));
     }
 
     public void OnKey(VKey key) {
@@ -82,10 +83,16 @@ public sealed class LogCrosshairSession : IModeSession {
         _sm.OnKey(key);
     }
 
+    public void Redraw() {
+        // LogCrosshair's L2 is renderer-free, so retain the parent visual beneath it.
+        _redraw?.Invoke();
+    }
+
     public void Deactivate() {
         PopL2();
         _sm.Reset();
         _grid = null;
+        _redraw = null;
     }
 
     void OnHorizSelected(int col, int keyIndex) {
@@ -111,7 +118,7 @@ public sealed class LogCrosshairSession : IModeSession {
     void OnCellSelected(GridCell cell) {
         CursorMoveRequested?.Invoke(LogGridCalculator.CenterOf(cell));
         if (_grid is not null) {
-            _renderer?.HighlightCell(_grid, cell);
+            Render(renderer => renderer.HighlightCell(_grid, cell));
         }
     }
 
@@ -153,7 +160,7 @@ public sealed class LogCrosshairSession : IModeSession {
         _grid = LogGridCalculator.Calculate(
             newCenter, _screenBounds, _logBaseSize, _horizKeys.Length, _vertKeys.Length);
         _sm.UpdateGrid(_grid, newCenter);
-        _renderer?.RenderCross(_grid);
+        Render(renderer => renderer.RenderCross(_grid));
     }
 
     void OnSubgridEntered(GridCell cell) {
@@ -169,7 +176,7 @@ public sealed class LogCrosshairSession : IModeSession {
 
         if (hReduction.IsDisabled || vReduction.IsDisabled) {
             if (_grid is not null) {
-                _renderer?.HighlightCell(_grid, cell);
+                Render(renderer => renderer.HighlightCell(_grid, cell));
             }
             return;
         }
@@ -212,7 +219,7 @@ public sealed class LogCrosshairSession : IModeSession {
         var newCenter = LogGridCalculator.CenterOf(cell);
         CursorMoveRequested?.Invoke(newCenter);
         RecenterGrid(newCenter);
-        _renderer?.HighlightCell(_grid, _grid.CellAt(_grid.CenterRow, _grid.CenterCol));
+        Render(renderer => renderer.HighlightCell(_grid, _grid.CellAt(_grid.CenterRow, _grid.CenterCol)));
     }
 
     void PopL2() {
@@ -225,5 +232,14 @@ public sealed class LogCrosshairSession : IModeSession {
         _l2Session.CursorMoveRequested -= OnL2CursorMoveRequested;
         _l2Session.Deactivate();
         _l2Session = null;
+    }
+
+    private void Render(Action<ILogCrosshairRenderer> render) {
+        _redraw = () => {
+            if (_renderer is not null) {
+                render(_renderer);
+            }
+        };
+        _redraw();
     }
 }

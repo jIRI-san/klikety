@@ -65,7 +65,11 @@ public sealed class FakeKeyboardLayoutProvider : IKeyboardLayoutProvider {
     /// </summary>
     public nint Layout { get; set; } = 0x04090409;
     public bool Qwerty { get; set; } = true;
-    public nint GetActiveKeyboardLayout() => Layout;
+    public int GetActiveKeyboardLayoutCalls { get; private set; }
+    public nint GetActiveKeyboardLayout() {
+        GetActiveKeyboardLayoutCalls++;
+        return Layout;
+    }
     public bool IsQwertyCompatible() => Qwerty;
 }
 
@@ -205,6 +209,7 @@ public sealed class FakeSatelliteOverlay : ISatelliteOverlay {
 public sealed class FakeOverlayWindow : IOverlayWindow {
     public event EventHandler? FocusLost;
     public event EventHandler? DisplayChanged;
+    public event EventHandler? KeyboardLayoutChanged;
     public bool IsVisible { get; private set; }
     public int ShowCount { get; private set; }
     public int HideCount { get; private set; }
@@ -278,6 +283,10 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public void SimulateDisplayChange() {
         DisplayChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    public void SimulateKeyboardLayoutChange() {
+        KeyboardLayoutChanged?.Invoke(this, EventArgs.Empty);
+    }
 }
 
 public sealed class FakeHotKeyService : IHotKeyService {
@@ -307,7 +316,9 @@ public sealed class FakeGridRenderer : IGridRenderer {
         int? Col = null);
 
     public List<RenderCall> Calls { get; } = [];
+    public int RebuildLabelsCalls { get; private set; }
 
+    public void RebuildLabels(IKeyLabelResolver resolver) => RebuildLabelsCalls++;
     public void SetTransform(System.Windows.Media.Matrix m) { }
 
     public void SetLabelOffset(int colOffset, int rowOffset) { }
@@ -339,7 +350,9 @@ public sealed class FakeCrosshairRenderer : ICrosshairRenderer {
         int? Col = null, int? Row = null, GridCell? Cell = null);
 
     public List<RenderCall> Calls { get; } = [];
+    public int RebuildLabelsCalls { get; private set; }
 
+    public void RebuildLabels(IKeyLabelResolver resolver) => RebuildLabelsCalls++;
     public void SetTransform(System.Windows.Media.Matrix m) { }
 
     public void SetLabelOffset(int horizOffset, int vertOffset) { }
@@ -368,7 +381,9 @@ public sealed class FakeLogCrosshairRenderer : ILogCrosshairRenderer {
         int? Col = null, int? Row = null, GridCell? Cell = null);
 
     public List<RenderCall> Calls { get; } = [];
+    public int RebuildLabelsCalls { get; private set; }
 
+    public void RebuildLabels(IKeyLabelResolver resolver) => RebuildLabelsCalls++;
     public void SetTransform(System.Windows.Media.Matrix m) { }
 
     public void RenderCross(LogCrosshairGrid grid)
@@ -393,7 +408,9 @@ public sealed class FakeLogGridRenderer : ILogGridRenderer {
         System.Drawing.Rectangle? ScreenBounds = null);
 
     public List<RenderCall> Calls { get; } = [];
+    public int RebuildLabelsCalls { get; private set; }
 
+    public void RebuildLabels(IKeyLabelResolver resolver) => RebuildLabelsCalls++;
     public void SetTransform(System.Windows.Media.Matrix m) { }
 
     public void RenderGrid(LogGrid grid)
@@ -411,8 +428,8 @@ public sealed class FakeLogGridRenderer : ILogGridRenderer {
     public void ClearCanvas()
         => Calls.Add(new("ClearCanvas"));
 
-    public void RenderFirstKeyIndicator(LogGrid grid, string label, System.Drawing.Rectangle screenBounds)
-        => Calls.Add(new("RenderFirstKeyIndicator", grid, Label: label, ScreenBounds: screenBounds));
+    public void RenderFirstKeyIndicator(LogGrid grid, int column, System.Drawing.Rectangle screenBounds)
+        => Calls.Add(new("RenderFirstKeyIndicator", grid, Col: column, ScreenBounds: screenBounds));
 
     public void HideFirstKeyIndicator()
         => Calls.Add(new("HideFirstKeyIndicator"));

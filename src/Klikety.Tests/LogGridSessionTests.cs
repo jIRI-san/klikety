@@ -66,6 +66,26 @@ public class LogGridSessionTests {
         Assert.Contains(renderer.Calls, c => c.Method == "RenderFirstKeyIndicator");
     }
 
+    [Fact]
+    public void Redraw_FirstKeyStateReplaysIndicatorWithoutEvents() {
+        var (session, renderer) = Create();
+        session.Activate(ScreenBounds, Origin);
+        session.OnKey(VKey.A);
+        renderer.Calls.Clear();
+        bool eventRaised = false;
+        session.ActionRequested += (_, _) => eventRaised = true;
+        session.Cancelled += () => eventRaised = true;
+        session.CursorMoveRequested += _ => eventRaised = true;
+
+        session.Redraw();
+
+        Assert.Collection(
+            renderer.Calls,
+            call => Assert.Equal("HighlightColumn", call.Method),
+            call => Assert.Equal("RenderFirstKeyIndicator", call.Method));
+        Assert.False(eventRaised);
+    }
+
     // --- Two-key selection ---
 
     [Fact]

@@ -41,6 +41,16 @@ public sealed class ModeSessionFactory {
     public string? LogGridKeyPolicyWarning => _logGridKeyPolicy.Warning;
 
     /// <summary>
+    /// Rebuilds display labels on all configured renderers from a fresh layout resolver.
+    /// </summary>
+    public void RebuildLabels(IKeyLabelResolver resolver) {
+        _gridRenderer?.RebuildLabels(resolver);
+        _crosshairRenderer?.RebuildLabels(resolver);
+        _logCrosshairRenderer?.RebuildLabels(resolver);
+        _logGridRenderer?.RebuildLabels(resolver);
+    }
+
+    /// <summary>
     /// Creates a session for the named mode.
     /// </summary>
     public IModeSession Create(string modeName) => modeName switch {

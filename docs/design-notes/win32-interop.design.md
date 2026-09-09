@@ -150,5 +150,9 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 ## Keyboard layout independence
 
 - All key handling uses VKey codes (physical-position stable across layouts).
+- `IKeyboardLayoutProvider.GetActiveKeyboardLayout()` queries the foreground window's thread. Do not use `GetKeyboardLayout(0)`, which only reports the calling thread's layout.
+- `OverlayWindow` attaches a `WM_INPUTLANGCHANGE` hook after its `HwndSource` is available and removes it in `Hide()`. Its event only signals a changed message HKL; `NavigatorCoordinator` reads the authoritative provider HKL, creates a new immutable `Win32KeyLabelResolver`, rebuilds all renderer labels, then redraws the active session.
+- `NavigatorCoordinator` also compares HKL on each non-debounced overlay key-down. This recovers if a topmost/non-activating overlay does not receive `WM_INPUTLANGCHANGE`; it performs no timer polling.
+- `LabelGenerator` and `AxisLabelGenerator` retain their VKey arrays and rebuild resolved labels and reverse lookups in place. Rebuild runs on the UI dispatcher with WPF rendering, so generators have no concurrent access.
 - `LabelGenerator` derives display characters via `ToUnicode` / `MapVirtualKey` against the active HKL so on-screen labels reflect the user's keyboard layout.
 - Fallback: if `ToUnicode` returns no character (dead key, unmapped), VKey name string is used as the label.

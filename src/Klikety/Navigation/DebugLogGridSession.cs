@@ -22,6 +22,7 @@ internal sealed class DebugLogGridSession : IModeSession {
     const int LogBaseSize = 10;
     const int Cols = 10;
     const int Rows = 10;
+    private LogGrid? _grid;
 
     public event Action<Point, MouseAction>? ActionRequested { add { } remove { } }
     public event Action? Cancelled;
@@ -37,8 +38,8 @@ internal sealed class DebugLogGridSession : IModeSession {
     }
 
     public void Activate(Rectangle screenBounds, Point origin) {
-        var grid = LogScaleGridCalculator.Calculate(origin, screenBounds, LogBaseSize, Cols, Rows);
-        _renderer.RenderGrid(grid);
+        _grid = LogScaleGridCalculator.Calculate(origin, screenBounds, LogBaseSize, Cols, Rows);
+        _renderer.RenderGrid(_grid);
     }
 
     public void OnKey(VKey key) {
@@ -48,8 +49,15 @@ internal sealed class DebugLogGridSession : IModeSession {
         }
     }
 
+    public void Redraw() {
+        if (_grid is not null) {
+            _renderer.RenderGrid(_grid);
+        }
+    }
+
     public void Deactivate() {
         _renderer.ClearCanvas();
+        _grid = null;
     }
 }
 #endif

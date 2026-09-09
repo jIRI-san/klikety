@@ -186,7 +186,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** overlay DIP size ≠ physical / that display’s DPI (tolerance 1 DIP) on mixed-DPI hardware.
 
   </details>
-- [ ] 5.3 Two-display manual check (REQ-1, REQ-2, REQ-4, REQ-5, REQ-6, REQ-8, RISK-1, RISK-4) @human [after: 5.2] `M`
+- [x] 5.3 Two-display manual check (REQ-1, REQ-2, REQ-4, REQ-5, REQ-6, REQ-8, RISK-1, RISK-4) @human [after: 5.2] `M`
   <details><summary>Details</summary>
 
   **Steps:**

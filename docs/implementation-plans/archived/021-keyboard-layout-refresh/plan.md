@@ -1,4 +1,4 @@
-# 021: Keyboard Layout Refresh
+# 021: Keyboard Layout Refresh [DONE]
 <!-- plan-id: 000021 -->
 <!-- cip-stage: drafted -->
 <!-- planning-confirmed: sha256:9ce632d01bf74c5760aeea70dcb008538755e97656dcc3af95f65f8f6feffad5 -->
@@ -74,7 +74,7 @@
 ## Phase 4: Document and manually validate
 
 - [x] 4.1 Update interop, HUD, and test design notes for the layout-refresh lifecycle (REQ-1, REQ-2, REQ-3) [after: 1.3, 2.4, 3.3] `S`
-- [ ] 4.2 Manually switch ENG and CZE layouts in visible overlay and HUD states (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2) @human [after: 4.1] `M`
+- [x] 4.2 Manually switch ENG and CZE layouts in visible overlay and HUD states (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2) @human [after: 4.1] `M`
   <details><summary>Details</summary>
 
   **Steps:**

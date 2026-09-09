@@ -201,6 +201,31 @@ internal static partial class NativeMethods {
             existing | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE);
     }
 
+    private const nint HWND_TOPMOST = -1;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private const uint SWP_SHOWWINDOW = 0x0040;
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool SetWindowPos(
+        nint hWnd, nint hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+    /// <summary>
+    /// Places a window at physical <c>rcMonitor</c> pixels. Avoids DIP/transform mismatch across monitors.
+    /// </summary>
+    public static void SetWindowPhysicalBounds(nint hwnd, Rectangle bounds, bool activate) {
+        if (hwnd == 0 || bounds.Width <= 0 || bounds.Height <= 0) {
+            return;
+        }
+
+        uint flags = SWP_SHOWWINDOW;
+        if (!activate) {
+            flags |= SWP_NOACTIVATE;
+        }
+
+        SetWindowPos(hwnd, HWND_TOPMOST, bounds.X, bounds.Y, bounds.Width, bounds.Height, flags);
+    }
+
     /// <summary>
     /// Returns the HWND of the current foreground window, or zero if unavailable.
     /// </summary>

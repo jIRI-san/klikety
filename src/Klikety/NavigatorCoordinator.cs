@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Windows.Threading;
 
 using Klikety.Config;
 using Klikety.Input;
@@ -147,10 +148,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnHotKeyActivated(object? sender, EventArgs e) {
-        // Toggle: if already active, deactivate cleanly
+        // Toggle: visible overlay → dismiss. Stale session (nav gone, satellite leftover) →
+        // clean up then activate on the cursor display.
         if (_sessionManager.IsActive) {
+            bool visible = _overlayWindow.IsVisible;
             DeactivateOverlay();
-            return;
+            if (visible) {
+                return;
+            }
         }
 
         LogHotkeyActivated();
@@ -192,7 +197,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             DeactivateOverlay();
             return;
         } finally {
-            _hostBusy = false;
+            ReleaseHostBusy();
+        }
+
+        if (!_overlayWindow.IsVisible) {
+            DeactivateOverlay();
+            return;
         }
 
         if (!_hookService.Enable()) {
@@ -372,8 +382,22 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _mouseService.MoveTo(center);
             _sessionManager.RestartOnDisplay(target.MonitorBounds, center);
         } finally {
-            _hostBusy = false;
+            ReleaseHostBusy();
         }
+
+        if (!_overlayWindow.IsVisible) {
+            DeactivateOverlay();
+        }
+    }
+
+    private void ReleaseHostBusy() {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null) {
+            _hostBusy = false;
+            return;
+        }
+
+        dispatcher.InvokeAsync(() => _hostBusy = false, DispatcherPriority.ApplicationIdle);
     }
 
     private void OnDisplayChanged(object? sender, EventArgs e) {

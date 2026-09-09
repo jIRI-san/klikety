@@ -20,7 +20,7 @@ globs:
 
 - `OverlayWindow` is a WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to the **navigation display** `rcMonitor` converted to DIPs via that window’s `PresentationSource` transform.
 - `OverlayHost` owns one nav overlay plus N−1 `SatelliteWindow`s. Satellites: `ShowActivated=False`, `WS_EX_NOACTIVATE | TOOLWINDOW | TRANSPARENT`, never `Activate()`. Shown before nav. Single display: no satellites. `_hostBusy` extends the focus-lost switching guard around host show/hide.
-- Activation uses `IDisplayCatalog`: overlay on the display containing the cursor. `WM_DISPLAYCHANGE` on the nav HWND calls `DeactivateOverlay()`.
+- Activation uses `IDisplayCatalog`: overlay on the display containing the cursor (`FindContaining` is inclusive on `rcMonitor` edges, 2px slop). `WM_DISPLAYCHANGE` on the nav HWND calls `DeactivateOverlay()`. Hotkey toggles only a **visible** overlay; a stale session (nav gone) is cleared then re-activated on the cursor display.
 - While overlay visible, D1–D9 are consumed before `MacroHandler`. Other numbered display → new L1 same mode at target center, cancel app-scope/drag, rebuild satellites, numbers unchanged.
 - `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, hotkey toggle, display change, exception, Quit. It hides the overlay host (satellites + nav). Also calls `IKeyboardHookService.DrainAndDisable()` and clears session/debounce/drag state. Safe to call multiple times.
 - **Hotkey toggle**: pressing the activation hotkey while the overlay is active calls `DeactivateOverlay()` (clean dismiss). No re-entrant guard — it's an explicit toggle off.

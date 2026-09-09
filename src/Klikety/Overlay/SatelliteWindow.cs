@@ -16,53 +16,60 @@ public sealed class SatelliteWindow : Window, ISatelliteOverlay {
     private readonly Canvas _canvas = new();
     private readonly ThemeModel _theme;
     private bool _exStyleApplied;
+    private int? _number;
 
     public SatelliteWindow(ThemeModel theme) {
         _theme = theme;
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
-        Background = Brushes.Transparent;
+        Background = DimBrush(theme);
         Topmost = true;
         ShowInTaskbar = false;
         ShowActivated = false;
         ResizeMode = ResizeMode.NoResize;
+        WindowStartupLocation = WindowStartupLocation.Manual;
         Content = _canvas;
+        SizeChanged += (_, _) => RenderDigit();
     }
 
     public static double DigitFontSize(double dipWidth, double dipHeight) =>
         Math.Clamp(0.4 * Math.Min(dipWidth, dipHeight), 96, 400);
 
     public void Show(System.Drawing.Rectangle physicalBounds, int? number) {
+        _number = number;
+        OverlayPlacement.Place(this, physicalBounds, activate: false);
         if (!_exStyleApplied) {
-            Show();
-            var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
-            NativeMethods.SetClickThroughExStyle(hwnd);
+            NativeMethods.SetClickThroughExStyle(
+                new System.Windows.Interop.WindowInteropHelper(this).Handle);
             _exStyleApplied = true;
         }
 
-        var source = PresentationSource.FromVisual(this);
-        var transform = source?.CompositionTarget?.TransformFromDevice
-            ?? Matrix.Identity;
-        var topLeft = transform.Transform(new Point(physicalBounds.X, physicalBounds.Y));
-        var bottomRight = transform.Transform(new Point(
-            physicalBounds.X + physicalBounds.Width,
-            physicalBounds.Y + physicalBounds.Height));
-        Left = topLeft.X;
-        Top = topLeft.Y;
-        Width = Math.Max(bottomRight.X - topLeft.X, 1);
-        Height = Math.Max(bottomRight.Y - topLeft.Y, 1);
-
-        _canvas.Children.Clear();
-        if (number is int digit) {
-            AddDigit(digit.ToString(CultureInfo.InvariantCulture), Width, Height);
-        }
-
-        Show();
+        UpdateLayout();
+        RenderDigit();
     }
 
     void ISatelliteOverlay.Hide() => Hide();
 
     public void Dispose() => Close();
+
+    private void RenderDigit() {
+        _canvas.Children.Clear();
+        if (_number is not int digit) {
+            return;
+        }
+
+        double dipWidth = ActualWidth > 1 ? ActualWidth : Width;
+        double dipHeight = ActualHeight > 1 ? ActualHeight : Height;
+        AddDigit(digit.ToString(CultureInfo.InvariantCulture), dipWidth, dipHeight);
+    }
+
+    private static SolidColorBrush DimBrush(ThemeModel theme) {
+        var color = (Color)ColorConverter.ConvertFromString(theme.CellBackgroundColor)!;
+        color.A = (byte)Math.Clamp((int)(Math.Min(theme.CellBackgroundOpacity, 0.35) * 255), 20, 90);
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        return brush;
+    }
 
     private void AddDigit(string text, double dipWidth, double dipHeight) {
         double fontSize = DigitFontSize(dipWidth, dipHeight);

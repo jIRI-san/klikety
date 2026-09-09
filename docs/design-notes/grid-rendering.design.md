@@ -14,6 +14,10 @@ globs:
 
 # Grid Rendering
 
+## Overlay placement
+
+`OverlayPlacement.Place` sets DIP size, then `SetWindowPos` to physical `rcMonitor`, then re-applies DIP from that window’s `PresentationSource`. Required when moving between monitors (negative virtual origin, mixed DPI). Satellites use `ShowActivated=false` and `SWP_NOACTIVATE`. Satellite background uses theme cell fill at ≤35% opacity.
+
 ## IGridRenderer Interface
 
 ```csharp

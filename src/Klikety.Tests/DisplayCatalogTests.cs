@@ -105,6 +105,9 @@ public class DisplayCatalogTests {
         Assert.NotNull(found);
         Assert.Equal(@"\\?\DISPLAY#PRIMARY", found.DevicePath);
         Assert.Null(result.Snapshot.FindContaining(new Point(-4000, 0)));
+        var onRightEdge = result.Snapshot.FindContaining(new Point(1920, 100));
+        Assert.NotNull(onRightEdge);
+        Assert.Equal(@"\\?\DISPLAY#PRIMARY", onRightEdge.DevicePath);
     }
 
     private static DisplayCatalog.EnumeratedMonitor Monitor(string gdiName, Rectangle bounds, double dpi = 1.0) =>

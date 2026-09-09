@@ -3,8 +3,8 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Shapes;
 
 using Klikety.Config;
@@ -42,39 +42,9 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             bounds = NativeMethods.GetPrimaryScreenBounds();
         }
 
-        var source = PresentationSource.FromVisual(this);
-
-        if (source is not null) {
-            // Window was previously shown — pre-set position/size to prevent flash at old bounds.
-            // Hide() shrank the window to 1×1 offscreen, so resizing back forces WPF to
-            // allocate a fresh (blank) render target — no stale content to flash.
-            var pre = source.CompositionTarget!.TransformFromDevice;
-            var preTopLeft = pre.Transform(new System.Windows.Point(bounds.X, bounds.Y));
-            var preBottomRight = pre.Transform(new System.Windows.Point(
-                bounds.X + bounds.Width, bounds.Y + bounds.Height));
-            Left = preTopLeft.X;
-            Top = preTopLeft.Y;
-            Width = preBottomRight.X - preTopLeft.X;
-            Height = preBottomRight.Y - preTopLeft.Y;
-
-            Show();
-        } else {
-            // First show — need WPF Show() to create PresentationSource
-            Show();
-
-            source = PresentationSource.FromVisual(this)
+        OverlayPlacement.Place(this, bounds, activate: true);
+        var source = PresentationSource.FromVisual(this)
                      ?? throw new InvalidOperationException("No PresentationSource available.");
-            var transform = source.CompositionTarget!.TransformFromDevice;
-            var topLeft = transform.Transform(new System.Windows.Point(bounds.X, bounds.Y));
-            var bottomRight = transform.Transform(new System.Windows.Point(
-                bounds.X + bounds.Width, bounds.Y + bounds.Height));
-
-            Left = topLeft.X;
-            Top = topLeft.Y;
-            Width = bottomRight.X - topLeft.X;
-            Height = bottomRight.Y - topLeft.Y;
-        }
-
         EnsureDisplayChangeHook(source);
         Activate();
         Keyboard.Focus(this);

@@ -25,13 +25,32 @@ public sealed class DisplaySnapshot {
     public Rectangle VirtualScreen { get; }
 
     public DisplayInfo? FindContaining(Point physicalPoint) {
+        DisplayInfo? nearest = null;
+        long nearestDist = long.MaxValue;
         foreach (var display in Displays) {
-            if (display.MonitorBounds.Contains(physicalPoint)) {
+            var b = display.MonitorBounds;
+            if (ContainsInclusive(b, physicalPoint)) {
                 return display;
+            }
+
+            long dist = DistanceSquared(b, physicalPoint);
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = display;
             }
         }
 
-        return null;
+        // Edge / rounding slop only — do not jump a 1000px gap between monitors.
+        return nearestDist <= 4 ? nearest : null;
+    }
+
+    private static bool ContainsInclusive(Rectangle b, Point p) =>
+        p.X >= b.Left && p.X <= b.Right && p.Y >= b.Top && p.Y <= b.Bottom;
+
+    private static long DistanceSquared(Rectangle b, Point p) {
+        int x = p.X < b.Left ? b.Left - p.X : p.X > b.Right ? p.X - b.Right : 0;
+        int y = p.Y < b.Top ? b.Top - p.Y : p.Y > b.Bottom ? p.Y - b.Bottom : 0;
+        return ((long)x * x) + ((long)y * y);
     }
 }
 

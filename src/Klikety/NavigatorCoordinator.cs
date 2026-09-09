@@ -392,6 +392,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         try {
             _actionDispatcher.CancelDrag();
             _navDisplay = target;
+            _overlayWindow.ClearCanvas();
             _overlayHost.Show(_displays, target, _displayNumbers);
             _mouseService.MoveTo(center);
             AfterHostLayout(() => {

@@ -26,7 +26,7 @@ internal static partial class OverlayPlacement {
 
         var hwnd = new WindowInteropHelper(window).EnsureHandle();
         NativeMethods.SetWindowPhysicalBounds(hwnd, physicalBounds, activate);
-        ApplyDip(window, physicalBounds);
+        ApplyDipSizeOnly(window, physicalBounds);
         NativeMethods.SetWindowPhysicalBounds(hwnd, physicalBounds, activate);
         NativeMethods.TryGetWindowRect(hwnd, out var wr);
         if (logger is not null) {
@@ -46,16 +46,9 @@ internal static partial class OverlayPlacement {
         double left, double top, double dw, double dh,
         int hx, int hy, int hw, int hh, bool activate);
 
-    private static void ApplyDip(Window window, System.Drawing.Rectangle physicalBounds) {
-        var source = PresentationSource.FromVisual(window);
-        var transform = source?.CompositionTarget?.TransformFromDevice ?? Matrix.Identity;
-        var topLeft = transform.Transform(new Point(physicalBounds.X, physicalBounds.Y));
-        var bottomRight = transform.Transform(new Point(
-            physicalBounds.X + physicalBounds.Width,
-            physicalBounds.Y + physicalBounds.Height));
-        window.Left = topLeft.X;
-        window.Top = topLeft.Y;
-        window.Width = Math.Max(bottomRight.X - topLeft.X, 1);
-        window.Height = Math.Max(bottomRight.Y - topLeft.Y, 1);
+    private static void ApplyDipSizeOnly(Window window, System.Drawing.Rectangle physicalBounds) {
+        var scale = OverlayDip.ScaleOf(window);
+        window.Width = Math.Max(physicalBounds.Width * scale.M11, 1);
+        window.Height = Math.Max(physicalBounds.Height * scale.M22, 1);
     }
 }

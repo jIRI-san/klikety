@@ -23,6 +23,7 @@ public sealed class GridRenderer : IGridRenderer {
 
     // DIP transform — auto-initialized from canvas PresentationSource on first render
     private Matrix _transformFromDevice = Matrix.Identity;
+    private System.Drawing.Point _physicalOrigin;
 
     // Label offset for L2/L3 reduced-key grids
     private int _labelColOffset;
@@ -105,9 +106,8 @@ public sealed class GridRenderer : IGridRenderer {
     /// Auto-initializes transform from the canvas's PresentationSource if not set.
     /// </summary>
     private void EnsureTransform() {
-        var source = PresentationSource.FromVisual(_canvas);
-        if (source?.CompositionTarget != null) {
-            _transformFromDevice = source.CompositionTarget.TransformFromDevice;
+        if (_canvas.IsVisible || PresentationSource.FromVisual(_canvas) is not null) {
+            _transformFromDevice = OverlayDip.ScaleOf(_canvas);
         }
     }
 
@@ -119,11 +119,12 @@ public sealed class GridRenderer : IGridRenderer {
     private Rect ComputeRegionFromCells(IReadOnlyList<GridCell> cells) {
         var first = cells[0].Bounds;
         var last = cells[^1].Bounds;
-        var topLeft = _transformFromDevice.Transform(new Point(first.X, first.Y));
-        var bottomRight = _transformFromDevice.Transform(new Point(
-            last.X + last.Width,
-            last.Y + last.Height));
-        return new Rect(topLeft, bottomRight);
+        var union = System.Drawing.Rectangle.FromLTRB(
+            Math.Min(first.X, last.X),
+            Math.Min(first.Y, last.Y),
+            Math.Max(first.Right, last.Right),
+            Math.Max(first.Bottom, last.Bottom));
+        return OverlayDip.ToCanvas(union, _physicalOrigin, _transformFromDevice);
     }
 
     /// <summary>
@@ -252,6 +253,7 @@ public sealed class GridRenderer : IGridRenderer {
     /// </summary>
     public void RenderGrid(IReadOnlyList<GridCell> cells) {
         _canvas.Children.Clear();
+        _physicalOrigin = OverlayDip.OriginOf(cells);
         EnsureTransform();
 
         var region = ComputeRegionFromCells(cells);

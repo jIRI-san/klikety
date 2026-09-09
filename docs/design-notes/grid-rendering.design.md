@@ -16,7 +16,7 @@ globs:
 
 ## Overlay placement
 
-`OverlayPlacement.Place` `SetWindowPos`es to physical `rcMonitor` first, then sets DIP from that window’s `PresentationSource` (never from the previous monitor’s transform). Renderers re-read `TransformFromDevice` on every paint so mixed-DPI switch does not keep the old scale. Session activate waits for `DispatcherPriority.Loaded`. Satellites use `ShowActivated=false` and `SWP_NOACTIVATE`. Satellite background uses theme cell fill at ≤35% opacity.
+`OverlayPlacement.Place` `SetWindowPos`es to physical `rcMonitor`, then sets Width/Height from `VisualTreeHelper.GetDpi` — not `Left`/`Top` (those are DIP of the *previous* monitor and send the HWND off-screen, e.g. −6144). Renderers map physical cells **relative to the overlay origin** (`OverlayDip.ToCanvas`); `TransformFromDevice` of desktop coordinates is not canvas space. Scale is re-read every paint. Session activate waits for `DispatcherPriority.Loaded`. Satellites: `ShowActivated=false`, `SWP_NOACTIVATE`, dim fill ≤35%.
 
 ## IGridRenderer Interface
 

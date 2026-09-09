@@ -25,6 +25,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     readonly double _minLabelFontSize;
 
     Matrix _transformFromDevice = Matrix.Identity;
+    System.Drawing.Point _physicalOrigin;
 
     // Cached brushes
     readonly SolidColorBrush _cellBorderBrush;
@@ -84,6 +85,7 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
     public void RenderCross(LogCrosshairGrid grid) {
         BeginRender();
+        _physicalOrigin = OverlayDip.OriginOf(grid.Cells);
         EnsureTransform();
 
         for (int row = 0; row < grid.Rows; row++) {
@@ -640,17 +642,13 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
     void EnsureTransform() {
         var source = PresentationSource.FromVisual(_canvas);
-        if (source?.CompositionTarget != null) {
-            _transformFromDevice = source.CompositionTarget.TransformFromDevice;
+        if (_canvas.IsVisible || PresentationSource.FromVisual(_canvas) is not null) {
+            _transformFromDevice = OverlayDip.ScaleOf(_canvas);
         }
     }
 
-    Rect DipRect(GridCell cell) {
-        var tl = _transformFromDevice.Transform(new System.Windows.Point(cell.Bounds.X, cell.Bounds.Y));
-        var br = _transformFromDevice.Transform(new System.Windows.Point(
-            cell.Bounds.Right, cell.Bounds.Bottom));
-        return new Rect(tl, br);
-    }
+    Rect DipRect(GridCell cell) =>
+        OverlayDip.ToCanvas(cell.Bounds, _physicalOrigin, _transformFromDevice);
 
     /// <summary>
     /// Computes scaled border thickness based on cell size.

@@ -23,6 +23,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     private readonly double _minLabelFontSize;
 
     private Matrix _transformFromDevice = Matrix.Identity;
+    private System.Drawing.Point _physicalOrigin;
 
     // Label offset for reduced-key L2/L3 grids
     private int _horizLabelOffset;
@@ -83,6 +84,7 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     /// </summary>
     public void RenderCross(CrosshairGrid grid) {
         _canvas.Children.Clear();
+        _physicalOrigin = OverlayDip.OriginOf(grid.Cells);
         EnsureTransform();
 
         var region = ComputeRegion(grid);
@@ -343,27 +345,24 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     // --- Private helpers ---
 
     private void EnsureTransform() {
-        var source = PresentationSource.FromVisual(_canvas);
-        if (source?.CompositionTarget != null) {
-            _transformFromDevice = source.CompositionTarget.TransformFromDevice;
+        if (_canvas.IsVisible || PresentationSource.FromVisual(_canvas) is not null) {
+            _transformFromDevice = OverlayDip.ScaleOf(_canvas);
         }
     }
 
     private Rect ComputeRegion(CrosshairGrid grid) {
         var first = grid.Cells[0].Bounds;
         var last = grid.Cells[^1].Bounds;
-        var topLeft = _transformFromDevice.Transform(new Point(first.X, first.Y));
-        var bottomRight = _transformFromDevice.Transform(new Point(
-            last.X + last.Width, last.Y + last.Height));
-        return new Rect(topLeft, bottomRight);
+        var union = System.Drawing.Rectangle.FromLTRB(
+            Math.Min(first.X, last.X),
+            Math.Min(first.Y, last.Y),
+            Math.Max(first.Right, last.Right),
+            Math.Max(first.Bottom, last.Bottom));
+        return OverlayDip.ToCanvas(union, _physicalOrigin, _transformFromDevice);
     }
 
-    private Rect TransformBounds(System.Drawing.Rectangle bounds) {
-        var topLeft = _transformFromDevice.Transform(new Point(bounds.X, bounds.Y));
-        var bottomRight = _transformFromDevice.Transform(new Point(
-            bounds.X + bounds.Width, bounds.Y + bounds.Height));
-        return new Rect(topLeft, bottomRight);
-    }
+    private Rect TransformBounds(System.Drawing.Rectangle bounds) =>
+        OverlayDip.ToCanvas(bounds, _physicalOrigin, _transformFromDevice);
 
     private static Rect DipRectForCell(int row, int col, Rect region, int totalCols, int totalRows) {
         double cellWidth = region.Width / totalCols;

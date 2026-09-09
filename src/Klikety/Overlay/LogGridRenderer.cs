@@ -27,6 +27,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     readonly double _minLabelFontSize;
 
     Matrix _transformFromDevice = Matrix.Identity;
+    System.Drawing.Point _physicalOrigin;
 
     // Cached brushes
     readonly SolidColorBrush _cellBorderBrush;
@@ -89,6 +90,7 @@ public sealed class LogGridRenderer : ILogGridRenderer {
 
     public void RenderGrid(LogGrid grid) {
         BeginRender();
+        _physicalOrigin = OverlayDip.OriginOf(grid.Cells);
         EnsureTransform();
         RenderCells(grid, highlightCol: -1, highlightCell: null);
         RenderLabelBorders(grid, showCols: true, showRows: false);
@@ -695,19 +697,16 @@ public sealed class LogGridRenderer : ILogGridRenderer {
 
     void EnsureTransform() {
         var source = PresentationSource.FromVisual(_canvas);
-        if (source?.CompositionTarget != null) {
-            _transformFromDevice = source.CompositionTarget.TransformFromDevice;
+        if (_canvas.IsVisible || PresentationSource.FromVisual(_canvas) is not null) {
+            _transformFromDevice = OverlayDip.ScaleOf(_canvas);
         }
     }
 
-    Rect DipRect(GridCell cell) {
-        var tl = _transformFromDevice.Transform(new Point(cell.Bounds.X, cell.Bounds.Y));
-        var br = _transformFromDevice.Transform(new Point(cell.Bounds.Right, cell.Bounds.Bottom));
-        return new Rect(tl, br);
-    }
+    Rect DipRect(GridCell cell) =>
+        OverlayDip.ToCanvas(cell.Bounds, _physicalOrigin, _transformFromDevice);
 
     Point DipPoint(double physX, double physY) =>
-        _transformFromDevice.Transform(new Point(physX, physY));
+        OverlayDip.ToCanvasPoint(physX, physY, _physicalOrigin, _transformFromDevice);
 
     bool IsSmallCell(Rect dipRect) =>
         dipRect.Height < _minLabelFontSize * 1.8 || dipRect.Width / 2 < _minLabelFontSize * 1.6;

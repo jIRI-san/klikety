@@ -71,4 +71,5 @@ public interface IPlatformServices {
     IScreenBoundsProvider Screen { get; }
     IKeyboardLayoutProvider KeyboardLayout { get; }
     IForegroundWindowProvider ForegroundWindow { get; }
+    IDisplayCatalog DisplayCatalog { get; }
 }

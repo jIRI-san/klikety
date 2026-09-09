@@ -28,7 +28,7 @@
 A subfolder is created only when a concern needs more than one file (`assets/decisions/`, `assets/logs/`); single-file concerns stay flat under `assets/`.
 
 ## Phase 1: Display identity and numbering
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: C:\Users\jiri\root\dev\copilot-worktrees\klikety\jiri-san-special-doodle -->
 <!-- Steps with no [after:] annotation can start immediately and run in parallel. -->
 <!-- Roles: @ai-agent (default, not annotated) or @human (explicit).
      Nontrivial AI steps carry a compact details block with Outcome, Likely touchpoints, Constraints,
@@ -36,7 +36,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 <!-- Sizes: S (< 30 min) · M (30 min – 2 h) · L (2 h+) -->
 <!-- Point legend: S=1, M=2, L=3 (phase-budget cap comes from the phase-budget-points marker; default 6) -->
 
-- [ ] 1.1 Display catalog: enumerate monitors, match CCD DevicePath, fail closed (REQ-3, RISK-2, RISK-3) `M`
+- [x] 1.1 Display catalog: enumerate monitors, match CCD DevicePath, fail closed (REQ-3, RISK-2, RISK-3) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `IDisplayCatalog` returns a frozen list of active displays (physical `rcMonitor`, DPI, GDI name, DevicePath, virtual-screen rect, display containing a point) or a hard failure. No partial maps.

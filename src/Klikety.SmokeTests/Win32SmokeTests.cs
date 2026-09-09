@@ -62,6 +62,23 @@ public class Win32SmokeTests {
     }
 
     [Fact]
+    public void DisplayCatalog_GetSnapshot_SucceedsWithDevicePaths() {
+        var result = DisplayCatalog.Instance.GetSnapshot();
+        Assert.True(result.Success, result.FailureReason);
+        Assert.NotNull(result.Snapshot);
+        Assert.NotEmpty(result.Snapshot.Displays);
+        Assert.All(result.Snapshot.Displays, d => {
+            Assert.False(string.IsNullOrWhiteSpace(d.DevicePath));
+            Assert.False(string.IsNullOrWhiteSpace(d.GdiName));
+            Assert.True(d.MonitorBounds.Width > 0);
+            Assert.True(d.MonitorBounds.Height > 0);
+        });
+        Assert.Equal(
+            result.Snapshot.Displays.Select(d => d.DevicePath).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+            result.Snapshot.Displays.Count);
+    }
+
+    [Fact]
     public void StartupValidator_Probe_ReturnsResult() {
         var config = new HotKeyConfig {
             Modifiers = HotKeyModifiers.Control | HotKeyModifiers.Alt | HotKeyModifiers.Shift,

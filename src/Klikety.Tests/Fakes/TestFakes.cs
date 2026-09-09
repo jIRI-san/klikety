@@ -79,6 +79,15 @@ public sealed class FakeForegroundWindowProvider : IForegroundWindowProvider {
     public string GetWindowTitle(nint hwnd) => hwnd == Handle && Handle != 0 ? Title : string.Empty;
 }
 
+public sealed class FakeDisplayCatalog : IDisplayCatalog {
+    public DisplayCatalogResult Result { get; set; } = DisplayCatalogResult.Ok(
+        new DisplaySnapshot(
+            [new DisplayInfo(new Rectangle(0, 0, 1920, 1080), 1.0, @"\\.\DISPLAY1", @"\\?\FAKE#PRIMARY")],
+            new Rectangle(0, 0, 1920, 1080)));
+
+    public DisplayCatalogResult GetSnapshot() => Result;
+}
+
 public sealed class FakePlatformServices : IPlatformServices {
     public FakeKeyStateProvider KeyState { get; } = new();
     public FakeTimerFactory Timers { get; } = new();
@@ -86,6 +95,7 @@ public sealed class FakePlatformServices : IPlatformServices {
     public FakeScreenBoundsProvider Screen { get; } = new();
     public FakeKeyboardLayoutProvider KeyboardLayout { get; } = new();
     public FakeForegroundWindowProvider ForegroundWindow { get; } = new();
+    public FakeDisplayCatalog DisplayCatalog { get; } = new();
 
     IKeyStateProvider IPlatformServices.KeyState => KeyState;
     ITimerFactory IPlatformServices.Timers => Timers;
@@ -93,6 +103,7 @@ public sealed class FakePlatformServices : IPlatformServices {
     IScreenBoundsProvider IPlatformServices.Screen => Screen;
     IKeyboardLayoutProvider IPlatformServices.KeyboardLayout => KeyboardLayout;
     IForegroundWindowProvider IPlatformServices.ForegroundWindow => ForegroundWindow;
+    IDisplayCatalog IPlatformServices.DisplayCatalog => DisplayCatalog;
 }
 
 // --- End Platform Services Fakes ---

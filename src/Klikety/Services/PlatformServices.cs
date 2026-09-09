@@ -18,6 +18,7 @@ public sealed class PlatformServices : IPlatformServices {
     public IScreenBoundsProvider Screen { get; } = new Win32ScreenBoundsProvider();
     public IKeyboardLayoutProvider KeyboardLayout { get; } = new Win32KeyboardLayoutProvider();
     public IForegroundWindowProvider ForegroundWindow { get; } = new Win32ForegroundWindowProvider();
+    public IDisplayCatalog DisplayCatalog { get; } = new DisplayCatalog();
 }
 
 internal sealed partial class Win32KeyStateProvider : IKeyStateProvider {

@@ -20,7 +20,10 @@ interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 interface IScrollHotKeyService { List<string> Register(); void Unregister(); bool IsRegistered; }
 interface IScreenBoundsProvider { Rectangle GetPrimaryScreenBounds(); double GetDpiScale(); }
 interface IForegroundWindowProvider { nint GetForegroundWindowHandle(); Rectangle GetWindowBounds(nint hwnd); string GetWindowTitle(nint hwnd); }
+interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 ```
+
+`IDisplayCatalog` is also on `IPlatformServices`. Identity key is CCD `monitorDevicePath`. Empty/duplicate DevicePath or CCD-active-count ≠ `EnumDisplayMonitors` count → hard failure, no partial map.
 
 ## `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)`
 
@@ -119,6 +122,20 @@ interface IForegroundWindowProvider { nint GetForegroundWindowHandle(); Rectangl
 - P/Invoke to `shcore.dll!GetDpiForMonitor` with `MDT_EFFECTIVE_DPI`.
 - Returns `dpiX / 96.0` for the primary monitor. Fallback: `1.0` if call fails.
 - Exposed via `IScreenBoundsProvider.GetDpiScale()`. Used by macro recording to tag captures with display scale.
+- `GetMonitorDpiScale(hMonitor)` is the same call for an arbitrary `HMONITOR`.
+
+## `IDisplayCatalog` / `DisplayCatalog`
+
+- `EnumDisplayMonitors` + `GetMonitorInfoW` (`MONITORINFOEX.szDevice`, `rcMonitor`) + `GetDpiForMonitor`.
+- CCD: `GetDisplayConfigBufferSizes` / `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)` / `DisplayConfigGetDeviceInfo` for source GDI name and `monitorDevicePath`.
+- Match GDI name (`szDevice` ↔ `viewGdiDeviceName`). Do not pair leftovers.
+- Virtual-screen rect: `GetSystemMetrics(SM_XVIRTUALSCREEN/Y/CX/CY)`.
+- `DisplaySnapshot.FindContaining(point)` uses physical `rcMonitor.Contains`.
+- `DllImport` (not `LibraryImport`) for `EnumDisplayMonitors`, `MONITORINFOEX`, and CCD structs — callbacks and `ByValTStr` are not source-generated.
+
+## `DisplayNumbering.AssignSpatially`
+
+- Unknown fingerprint only: order by `(Left, Top, DevicePath)` ordinal and assign `1..N`. Persistence is the topology store, not this helper.
 
 ## `NativeMethods.SetClickThroughExStyle(hwnd)`
 

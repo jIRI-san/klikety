@@ -260,4 +260,304 @@ internal static partial class NativeMethods {
 
         return new Rectangle(rect.Left, rect.Top, w, h);
     }
+
+    /// <summary>
+    /// Returns the DPI scale factor for the given monitor (1.0 = 96 DPI). Fallback: 1.0.
+    /// </summary>
+    public static double GetMonitorDpiScale(nint hMonitor) {
+        int hr = GetDpiForMonitor(hMonitor, MonitorDpiType.EffectiveDpi, out uint dpiX, out _);
+        if (hr != 0) {
+            return 1.0;
+        }
+
+        return dpiX / 96.0;
+    }
+
+    private const int SM_XVIRTUALSCREEN = 76;
+    private const int SM_YVIRTUALSCREEN = 77;
+    private const int SM_CXVIRTUALSCREEN = 78;
+    private const int SM_CYVIRTUALSCREEN = 79;
+    private const uint QDC_ONLY_ACTIVE_PATHS = 2;
+    private const int ERROR_SUCCESS = 0;
+    private const int ERROR_INSUFFICIENT_BUFFER = 122;
+    private const int CCHDEVICENAME = 32;
+
+    [LibraryImport("user32.dll")]
+    private static partial int GetSystemMetrics(int nIndex);
+
+    /// <summary>
+    /// Virtual-desktop bounds in physical pixels, including negative origin.
+    /// </summary>
+    public static Rectangle GetVirtualScreenBounds() {
+        return new Rectangle(
+            GetSystemMetrics(SM_XVIRTUALSCREEN),
+            GetSystemMetrics(SM_YVIRTUALSCREEN),
+            GetSystemMetrics(SM_CXVIRTUALSCREEN),
+            GetSystemMetrics(SM_CYVIRTUALSCREEN));
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct MONITORINFOEX {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = CCHDEVICENAME)]
+        public string szDevice;
+    }
+
+    private delegate bool MonitorEnumProc(nint hMonitor, nint hdcMonitor, nint lprcMonitor, nint dwData);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumDisplayMonitors(nint hdc, nint lprcClip, MonitorEnumProc lpfnEnum, nint dwData);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMonitorInfoW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfoEx(nint hMonitor, ref MONITORINFOEX lpmi);
+
+    internal readonly record struct EnumeratedMonitorInfo(
+        nint Handle,
+        string GdiName,
+        Rectangle MonitorBounds,
+        double DpiScale);
+
+    internal readonly record struct CcdPathInfo(string GdiName, string DevicePath);
+
+    /// <summary>
+    /// Enumerates attached desktop monitors with GDI name, physical <c>rcMonitor</c>, and DPI.
+    /// Returns false when the API fails or yields no monitors.
+    /// </summary>
+    internal static bool TryEnumerateMonitors(out EnumeratedMonitorInfo[] monitors) {
+        var handles = new List<nint>();
+        MonitorEnumProc callback = (hMonitor, _, _, _) => {
+            handles.Add(hMonitor);
+            return true;
+        };
+        bool enumerated = EnumDisplayMonitors(nint.Zero, nint.Zero, callback, nint.Zero);
+        GC.KeepAlive(callback);
+        if (!enumerated || handles.Count == 0) {
+            monitors = [];
+            return false;
+        }
+
+        monitors = new EnumeratedMonitorInfo[handles.Count];
+        int infoSize = Marshal.SizeOf<MONITORINFOEX>();
+        for (int i = 0; i < handles.Count; i++) {
+            var info = new MONITORINFOEX { cbSize = infoSize };
+            if (!GetMonitorInfoEx(handles[i], ref info)) {
+                monitors = [];
+                return false;
+            }
+
+            var rc = info.rcMonitor;
+            monitors[i] = new EnumeratedMonitorInfo(
+                handles[i],
+                info.szDevice ?? string.Empty,
+                new Rectangle(rc.Left, rc.Top, rc.Right - rc.Left, rc.Bottom - rc.Top),
+                GetMonitorDpiScale(handles[i]));
+        }
+
+        return true;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct LUID {
+        public uint LowPart;
+        public int HighPart;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_RATIONAL {
+        public uint Numerator;
+        public uint Denominator;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_PATH_SOURCE_INFO {
+        public LUID adapterId;
+        public uint id;
+        public uint modeInfoIdx;
+        public uint statusFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_PATH_TARGET_INFO {
+        public LUID adapterId;
+        public uint id;
+        public uint modeInfoIdx;
+        public uint outputTechnology;
+        public uint rotation;
+        public uint scaling;
+        public DISPLAYCONFIG_RATIONAL refreshRate;
+        public uint scanLineOrdering;
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool targetAvailable;
+        public uint statusFlags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_PATH_INFO {
+        public DISPLAYCONFIG_PATH_SOURCE_INFO sourceInfo;
+        public DISPLAYCONFIG_PATH_TARGET_INFO targetInfo;
+        public uint flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential, Size = 64)]
+    private struct DISPLAYCONFIG_MODE_INFO {
+        public uint infoType;
+        public uint id;
+        public LUID adapterId;
+    }
+
+    private enum DISPLAYCONFIG_DEVICE_INFO_TYPE : int {
+        GetSourceName = 1,
+        GetTargetName = 2,
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DISPLAYCONFIG_DEVICE_INFO_HEADER {
+        public DISPLAYCONFIG_DEVICE_INFO_TYPE type;
+        public uint size;
+        public LUID adapterId;
+        public uint id;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct DISPLAYCONFIG_SOURCE_DEVICE_NAME {
+        public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = CCHDEVICENAME)]
+        public string viewGdiDeviceName;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct DISPLAYCONFIG_TARGET_DEVICE_NAME {
+        public DISPLAYCONFIG_DEVICE_INFO_HEADER header;
+        public uint flags;
+        public uint outputTechnology;
+        public ushort edidManufactureId;
+        public ushort edidProductCodeId;
+        public uint connectorInstance;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
+        public string monitorFriendlyDeviceName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string monitorDevicePath;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern int GetDisplayConfigBufferSizes(
+        uint flags,
+        out uint numPathArrayElements,
+        out uint numModeInfoArrayElements);
+
+    [DllImport("user32.dll")]
+    private static extern int QueryDisplayConfig(
+        uint flags,
+        ref uint numPathArrayElements,
+        [Out] DISPLAYCONFIG_PATH_INFO[] pathArray,
+        ref uint numModeInfoArrayElements,
+        [Out] DISPLAYCONFIG_MODE_INFO[] modeInfoArray,
+        nint currentTopologyId);
+
+    [DllImport("user32.dll")]
+    private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_SOURCE_DEVICE_NAME request);
+
+    [DllImport("user32.dll")]
+    private static extern int DisplayConfigGetDeviceInfo(ref DISPLAYCONFIG_TARGET_DEVICE_NAME request);
+
+    /// <summary>
+    /// Active CCD paths as GDI source name plus target <c>monitorDevicePath</c>.
+    /// </summary>
+    internal static bool TryQueryActiveCcdPaths(out CcdPathInfo[] paths, out string failure) {
+        paths = [];
+        int err = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out uint pathCount, out uint modeCount);
+        if (err != ERROR_SUCCESS) {
+            failure = $"GetDisplayConfigBufferSizes failed ({err})";
+            return false;
+        }
+
+        if (pathCount == 0) {
+            failure = "CCD returned zero active paths";
+            return false;
+        }
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            var pathArray = new DISPLAYCONFIG_PATH_INFO[pathCount];
+            var modeArray = new DISPLAYCONFIG_MODE_INFO[Math.Max(modeCount, 1u)];
+            uint pathElements = pathCount;
+            uint modeElements = (uint)modeArray.Length;
+            err = QueryDisplayConfig(
+                QDC_ONLY_ACTIVE_PATHS,
+                ref pathElements,
+                pathArray,
+                ref modeElements,
+                modeArray,
+                nint.Zero);
+            if (err == ERROR_INSUFFICIENT_BUFFER) {
+                pathCount = pathElements == 0 ? pathCount + 4 : pathElements;
+                modeCount = modeElements == 0 ? modeCount + 4 : modeElements;
+                continue;
+            }
+
+            if (err != ERROR_SUCCESS) {
+                failure = $"QueryDisplayConfig failed ({err})";
+                return false;
+            }
+
+            var result = new CcdPathInfo[pathElements];
+            for (uint i = 0; i < pathElements; i++) {
+                var path = pathArray[i];
+                if (!TryGetSourceGdiName(path.sourceInfo.adapterId, path.sourceInfo.id, out string gdiName) ||
+                    !TryGetTargetDevicePath(path.targetInfo.adapterId, path.targetInfo.id, out string devicePath)) {
+                    failure = "DisplayConfigGetDeviceInfo failed";
+                    return false;
+                }
+
+                result[i] = new CcdPathInfo(gdiName, devicePath);
+            }
+
+            paths = result;
+            failure = string.Empty;
+            return true;
+        }
+
+        failure = "QueryDisplayConfig buffer retry exhausted";
+        return false;
+    }
+
+    private static bool TryGetSourceGdiName(LUID adapterId, uint id, out string gdiName) {
+        var request = new DISPLAYCONFIG_SOURCE_DEVICE_NAME {
+            header = new DISPLAYCONFIG_DEVICE_INFO_HEADER {
+                type = DISPLAYCONFIG_DEVICE_INFO_TYPE.GetSourceName,
+                size = (uint)Marshal.SizeOf<DISPLAYCONFIG_SOURCE_DEVICE_NAME>(),
+                adapterId = adapterId,
+                id = id,
+            },
+        };
+        if (DisplayConfigGetDeviceInfo(ref request) != ERROR_SUCCESS) {
+            gdiName = string.Empty;
+            return false;
+        }
+
+        gdiName = request.viewGdiDeviceName ?? string.Empty;
+        return true;
+    }
+
+    private static bool TryGetTargetDevicePath(LUID adapterId, uint id, out string devicePath) {
+        var request = new DISPLAYCONFIG_TARGET_DEVICE_NAME {
+            header = new DISPLAYCONFIG_DEVICE_INFO_HEADER {
+                type = DISPLAYCONFIG_DEVICE_INFO_TYPE.GetTargetName,
+                size = (uint)Marshal.SizeOf<DISPLAYCONFIG_TARGET_DEVICE_NAME>(),
+                adapterId = adapterId,
+                id = id,
+            },
+        };
+        if (DisplayConfigGetDeviceInfo(ref request) != ERROR_SUCCESS) {
+            devicePath = string.Empty;
+            return false;
+        }
+
+        devicePath = request.monitorDevicePath ?? string.Empty;
+        return true;
+    }
 }

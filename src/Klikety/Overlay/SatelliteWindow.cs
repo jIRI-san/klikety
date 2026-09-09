@@ -7,6 +7,9 @@ using System.Windows.Shapes;
 using Klikety.Config;
 using Klikety.Interop;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Klikety.Overlay;
 
 /// <summary>
@@ -15,11 +18,13 @@ namespace Klikety.Overlay;
 public sealed class SatelliteWindow : Window, ISatelliteOverlay {
     private readonly Canvas _canvas = new();
     private readonly ThemeModel _theme;
+    private readonly ILogger _logger;
     private bool _exStyleApplied;
     private int? _number;
 
-    public SatelliteWindow(ThemeModel theme) {
+    public SatelliteWindow(ThemeModel theme, ILogger? logger = null) {
         _theme = theme;
+        _logger = logger ?? NullLogger.Instance;
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = DimBrush(theme);
@@ -37,7 +42,7 @@ public sealed class SatelliteWindow : Window, ISatelliteOverlay {
 
     public void Show(System.Drawing.Rectangle physicalBounds, int? number) {
         _number = number;
-        OverlayPlacement.Place(this, physicalBounds, activate: false);
+        OverlayPlacement.Place(this, physicalBounds, activate: false, _logger);
         if (!_exStyleApplied) {
             NativeMethods.SetClickThroughExStyle(
                 new System.Windows.Interop.WindowInteropHelper(this).Handle);

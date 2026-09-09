@@ -11,6 +11,9 @@ using Klikety.Config;
 using Klikety.Interop;
 using Klikety.Services;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Klikety.Overlay;
 
 public partial class OverlayWindow : Window, IOverlayWindow {
@@ -18,18 +21,58 @@ public partial class OverlayWindow : Window, IOverlayWindow {
     public event EventHandler? DisplayChanged;
     private ThemeModel? _theme;
     private bool _displayHookAdded;
+    private ILogger _logger = NullLogger.Instance;
 
     public OverlayWindow() {
         InitializeComponent();
         if (Debugger.IsAttached) {
             Topmost = false;
         }
-        Deactivated += (_, _) => FocusLost?.Invoke(this, EventArgs.Empty);
+        Deactivated += OnDeactivated;
+        SizeChanged += OnSizeChanged;
+        LocationChanged += OnLocationChanged;
+        DpiChanged += OnDpiChanged;
     }
 
     internal void SetTheme(ThemeModel theme) {
         _theme = theme;
     }
+
+    internal void SetLogger(ILogger logger) {
+        _logger = logger;
+    }
+
+    private void OnDeactivated(object? sender, EventArgs e) {
+        LogOverlayState("Deactivated");
+        FocusLost?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e) =>
+        LogOverlayState("SizeChanged");
+
+    private void OnLocationChanged(object? sender, EventArgs e) =>
+        LogOverlayState("LocationChanged");
+
+    private void OnDpiChanged(object sender, DpiChangedEventArgs e) =>
+        LogOverlayState("DpiChanged");
+
+    private void LogOverlayState(string reason) {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        NativeMethods.TryGetWindowRect(hwnd, out var wr);
+        LogOverlayStateCore(
+            reason, IsVisible, Left, Top, Width, Height, ActualWidth, ActualHeight,
+            wr.X, wr.Y, wr.Width, wr.Height, RootCanvas.Children.Count);
+    }
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Overlay {Reason}: vis={Visible} Left={Left} Top={Top} W={Width} H={Height} Actual={ActualW}x{ActualH} hwndRect={HX},{HY} {HW}x{HH} canvas={Canvas}")]
+    private partial void LogOverlayStateCore(
+        string reason, bool visible, double left, double top, double width, double height,
+        double actualW, double actualH, int hx, int hy, int hw, int hh, int canvas);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Overlay Show requested physical={X},{Y} {W}x{H}")]
+    private partial void LogShowRequested(int x, int y, int w, int h);
 
     bool IOverlayWindow.IsVisible => IsVisible;
 
@@ -42,12 +85,14 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             bounds = NativeMethods.GetPrimaryScreenBounds();
         }
 
-        OverlayPlacement.Place(this, bounds, activate: true);
+        LogShowRequested(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        OverlayPlacement.Place(this, bounds, activate: true, _logger);
         var source = PresentationSource.FromVisual(this)
                      ?? throw new InvalidOperationException("No PresentationSource available.");
         EnsureDisplayChangeHook(source);
         Activate();
         Keyboard.Focus(this);
+        LogOverlayState("Show");
     }
 
     private void EnsureDisplayChangeHook(PresentationSource source) {
@@ -69,6 +114,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
     }
 
     void IOverlayWindow.Hide() {
+        LogOverlayState("Hide");
         RootCanvas.Children.Clear();
         StatusCanvas.Children.Clear();
         RecordingBorder.Visibility = Visibility.Collapsed;

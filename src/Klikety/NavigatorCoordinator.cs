@@ -99,7 +99,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hookService = hookService;
         _mouseService = mouseService;
         _overlayWindow = overlayWindow;
-        _overlayHost = new OverlayHost(overlayWindow, satelliteFactory ?? (() => new NullSatelliteOverlay()));
+        _overlayHost = new OverlayHost(
+            overlayWindow,
+            satelliteFactory ?? (() => new NullSatelliteOverlay()),
+            logger);
         _topologyStore = topologyStore;
         _sessionFactory = sessionFactory;
         _platform = platform;
@@ -168,6 +171,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         var origin = _platform.Cursor.GetCursorPosition();
         var display = catalog.Snapshot.FindContaining(origin);
+        LogActivationTarget(
+            origin.X, origin.Y,
+            display?.GdiName ?? "(none)",
+            display?.MonitorBounds.X ?? 0,
+            display?.MonitorBounds.Y ?? 0,
+            display?.MonitorBounds.Width ?? 0,
+            display?.MonitorBounds.Height ?? 0,
+            catalog.Snapshot.Displays.Count);
         if (display is null) {
             LogCursorOutsideDisplays(origin.X, origin.Y);
             return;
@@ -407,10 +418,16 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnFocusLost(object? sender, EventArgs e) {
-        LogFocusLost();
+        LogFocusLostDetail(
+            _hostBusy,
+            _sessionManager.IsSwitching,
+            _overlayWindow.IsVisible,
+            _sessionManager.IsActive,
+            _macroHandler.State != MacroState.Idle);
 
         // Suppress deactivation during mode/app-scope switching (WPF fires Deactivated on Hide)
         if (_sessionManager.IsSwitching || _hostBusy) {
+            LogFocusLostSuppressed();
             return;
         }
 
@@ -530,6 +547,21 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Overlay focus lost")]
     private partial void LogFocusLost();
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "FocusLost busy={Busy} switching={Switching} visible={Visible} session={Session} rec={Recording}")]
+    private partial void LogFocusLostDetail(
+        bool busy, bool switching, bool visible, bool session, bool recording);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "FocusLost suppressed (host busy or switching)")]
+    private partial void LogFocusLostSuppressed();
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Activate cursor=({X},{Y}) display={Display} bounds={BX},{BY} {BW}x{BH} count={Count}")]
+    private partial void LogActivationTarget(
+        int x, int y, string display, int bx, int by, int bw, int bh, int count);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Navigation cancelled")]
     private partial void LogCancelled();

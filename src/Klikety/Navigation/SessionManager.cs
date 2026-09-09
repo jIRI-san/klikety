@@ -72,6 +72,7 @@ internal sealed partial class SessionManager : IDisposable {
         var session = _sessionFactory.Create(modeName);
         SubscribeSession(session);
         _activeSession = session;
+        LogSessionActivate(modeName, bounds.X, bounds.Y, bounds.Width, bounds.Height, origin.X, origin.Y);
         session.Activate(bounds, origin);
     }
 
@@ -96,6 +97,7 @@ internal sealed partial class SessionManager : IDisposable {
             var session = _sessionFactory.Create(_currentModeName);
             SubscribeSession(session);
             _activeSession = session;
+            LogSessionActivate(_currentModeName, bounds.X, bounds.Y, bounds.Width, bounds.Height, origin.X, origin.Y);
             session.Activate(bounds, origin);
         } finally {
             _switching = false;
@@ -269,6 +271,7 @@ internal sealed partial class SessionManager : IDisposable {
     public void ForwardKey(VKey key) {
         if (_activeSession is not null) {
             _modeLocked = true;
+            LogForwardKey(key, _currentModeName, _screenBounds.Width, _screenBounds.Height);
             _activeSession.OnKey(key);
         }
     }
@@ -308,6 +311,16 @@ internal sealed partial class SessionManager : IDisposable {
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Switching to mode: {Mode}")]
     private partial void LogModeSwitching(string mode);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Session activate {Mode} bounds={X},{Y} {W}x{H} origin={OX},{OY}")]
+    private partial void LogSessionActivate(string mode, int x, int y, int w, int h, int ox, int oy);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "ForwardKey {Key} mode={Mode} screen={W}x{H}")]
+    private partial void LogForwardKey(VKey key, string mode, int w, int h);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Mode switch to {Mode} failed: {Error}")]
     private partial void LogModeSwitchFailed(string mode, string error);

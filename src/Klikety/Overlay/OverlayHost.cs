@@ -2,19 +2,27 @@ using System.Drawing;
 
 using Klikety.Services;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Klikety.Overlay;
 
 /// <summary>
 /// One navigation overlay plus N−1 satellites. Satellites are shown first and never activated.
 /// </summary>
-public sealed class OverlayHost : IDisposable {
+public sealed partial class OverlayHost : IDisposable {
     private readonly IOverlayWindow _nav;
     private readonly Func<ISatelliteOverlay> _createSatellite;
+    private readonly ILogger _logger;
     private readonly List<ISatelliteOverlay> _satellites = [];
 
-    public OverlayHost(IOverlayWindow nav, Func<ISatelliteOverlay> createSatellite) {
+    public OverlayHost(
+        IOverlayWindow nav,
+        Func<ISatelliteOverlay> createSatellite,
+        ILogger? logger = null) {
         _nav = nav;
         _createSatellite = createSatellite;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public int WindowCount => 1 + _satellites.Count;
@@ -33,6 +41,11 @@ public sealed class OverlayHost : IDisposable {
         _lastDisplays = displays;
         _lastNav = navDisplay;
         LastNumbers = new Dictionary<string, int>(numbers, StringComparer.Ordinal);
+        LogHostShow(
+            navDisplay.GdiName,
+            navDisplay.MonitorBounds.X, navDisplay.MonitorBounds.Y,
+            navDisplay.MonitorBounds.Width, navDisplay.MonitorBounds.Height,
+            displays.Count);
 
         foreach (var display in displays) {
             if (string.Equals(display.DevicePath, navDisplay.DevicePath, StringComparison.Ordinal)) {
@@ -76,6 +89,11 @@ public sealed class OverlayHost : IDisposable {
 
         _satellites.Clear();
     }
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Host Show nav={Gdi} {X},{Y} {W}x{H} displays={Count}")]
+    private partial void LogHostShow(string gdi, int x, int y, int w, int h, int count);
 }
 
 internal sealed class NullSatelliteOverlay : ISatelliteOverlay {

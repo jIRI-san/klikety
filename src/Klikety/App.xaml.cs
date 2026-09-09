@@ -104,6 +104,7 @@ public partial class App : Application {
         // Create overlay window
         var overlayWindow = new OverlayWindow();
         overlayWindow.SetTheme(theme);
+        overlayWindow.SetLogger(logger);
 
         // Create label generator
         var resolver = new Win32KeyLabelResolver();
@@ -167,7 +168,7 @@ public partial class App : Application {
             logger,
             _macroStore,
             _macrosFile,
-            () => new SatelliteWindow(theme),
+            () => new SatelliteWindow(theme, logger),
             new DisplayTopologyStore());
 
         // Register hotkey

@@ -226,6 +226,20 @@ internal static partial class NativeMethods {
         SetWindowPos(hwnd, HWND_TOPMOST, bounds.X, bounds.Y, bounds.Width, bounds.Height, flags);
     }
 
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static partial bool GetWindowRect(nint hWnd, out RECT lpRect);
+
+    public static bool TryGetWindowRect(nint hwnd, out Rectangle bounds) {
+        if (hwnd == 0 || !GetWindowRect(hwnd, out var rc)) {
+            bounds = Rectangle.Empty;
+            return false;
+        }
+
+        bounds = new Rectangle(rc.Left, rc.Top, rc.Right - rc.Left, rc.Bottom - rc.Top);
+        return true;
+    }
+
     /// <summary>
     /// Returns the HWND of the current foreground window, or zero if unavailable.
     /// </summary>

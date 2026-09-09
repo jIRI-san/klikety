@@ -64,12 +64,12 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** DevicePath cannot be the store key (RISK-2 stop from 1.1).
 
   </details>
-- [ ] 1.3 Catalog failure unit tests (REQ-3, RISK-2, RISK-3) [after: 1.1] `S`
+- [x] 1.3 Catalog failure unit tests (REQ-3, RISK-2, RISK-3) [after: 1.1] `S`
 
 ## Phase 2: Virtual-desktop mouse, DPI, activation
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: C:\Users\jiri\root\dev\copilot-worktrees\klikety\jiri-san-special-doodle -->
 
-- [ ] 2.1 Virtual-desktop `SendInput` normalization (REQ-8, RISK-5) `M`
+- [x] 2.1 Virtual-desktop `SendInput` normalization (REQ-8, RISK-5) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `MouseActionService` maps physical pixels through virtual-screen metrics with `MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK`. Clicks work when virtual origin is negative.
@@ -83,8 +83,8 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** a click on a display whose origin is negative lands on the wrong display.
 
   </details>
-- [ ] 2.2 Per-Monitor V2 manifest (REQ-1, RISK-4) `S`
-- [ ] 2.3 Platform catalog + activate from any display (REQ-9) [after: 1.1] `M`
+- [x] 2.2 Per-Monitor V2 manifest (REQ-1, RISK-4) `S`
+- [x] 2.3 Platform catalog + activate from any display (REQ-9) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `IPlatformServices` exposes the catalog. Hotkey activation uses the display containing the cursor. Primary-only `Contains` suppress is gone. Single-display path still shows one overlay.

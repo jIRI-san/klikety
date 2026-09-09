@@ -43,7 +43,7 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 
 ## `IMouseActionService` — `SendInput`
 
-- `MoveTo`: normalizes physical-pixel coords to 0–65535 range using primary screen bounds, then sends `MOUSEINPUT` with `MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE`. Guards against zero-dimension screens with `Math.Max(bounds.Width - 1, 1)` divisor.
+- `MoveTo`: normalizes physical-pixel coords to 0–65535 against the virtual desktop (`SM_*VIRTUALSCREEN`), then sends `MOUSEINPUT` with `MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK`. Guards against zero-dimension screens with `Math.Max(bounds.Width - 1, 1)` divisor. `NormalizeAbsolute(point, virtualScreen)` is unit-tested with a negative origin.
 - `SendAction`: calls `MoveTo` first, then sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. `MoveOnly` action returns after `MoveTo` — no click inputs sent. Double-click = two left-click pairs in sequence. When `modifiers != None`, wraps all click pairs in `KEYDOWN`/`KEYUP` for Shift/Ctrl/Alt via a single `SendInput` call.
 - `INPUT` struct uses nested union pattern (`INPUT` → `INPUT_UNION`) for correct x64 alignment. The runtime handles padding between `type` and the union.
 - Partial `SendInput` sends trigger compensating `KEYUP` events to prevent stuck modifiers.

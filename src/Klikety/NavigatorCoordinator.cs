@@ -142,14 +142,20 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         LogHotkeyActivated();
 
-        var screenBounds = _platform.Screen.GetPrimaryScreenBounds();
-        var origin = _platform.Cursor.GetCursorPosition();
-
-        // Multi-monitor guardrail: cursor outside primary screen → suppress
-        if (!screenBounds.Contains(origin)) {
-            LogCursorOutsidePrimary(origin.X, origin.Y);
+        var catalog = _platform.DisplayCatalog.GetSnapshot();
+        if (!catalog.Success || catalog.Snapshot is null) {
+            LogDisplayCatalogFailed(catalog.FailureReason ?? "unknown");
             return;
         }
+
+        var origin = _platform.Cursor.GetCursorPosition();
+        var display = catalog.Snapshot.FindContaining(origin);
+        if (display is null) {
+            LogCursorOutsideDisplays(origin.X, origin.Y);
+            return;
+        }
+
+        var screenBounds = display.MonitorBounds;
 
         // Determine default mode, with non-QWERTY fallback
         var defaultModeName = GetDefaultModeName();
@@ -162,7 +168,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _macroHandler.SetTargetHwnd(_preOverlayHwnd);
 
         try {
-            _overlayWindow.Show();
+            _overlayWindow.Show(screenBounds);
         } catch (InvalidOperationException) {
             LogHookInstallFailed();
             DeactivateOverlay();
@@ -431,8 +437,11 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     [LoggerMessage(Level = LogLevel.Debug, Message = "Navigation cancelled")]
     private partial void LogCancelled();
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Cursor at ({X}, {Y}) is outside primary screen — activation suppressed")]
-    private partial void LogCursorOutsidePrimary(int x, int y);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Display catalog failed: {Reason}")]
+    private partial void LogDisplayCatalogFailed(string reason);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Cursor at ({X}, {Y}) is outside any active display — activation suppressed")]
+    private partial void LogCursorOutsideDisplays(int x, int y);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Non-QWERTY layout detected — falling back to UniformGrid instead of {Mode}")]
     private partial void LogNonQwertyFallback(string mode);

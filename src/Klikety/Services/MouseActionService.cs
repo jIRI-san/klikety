@@ -17,6 +17,7 @@ public sealed partial class MouseActionService : IMouseActionService {
     private const uint INPUT_KEYBOARD = 1;
     private const uint MOUSEEVENTF_MOVE = 0x0001;
     private const uint MOUSEEVENTF_ABSOLUTE = 0x8000;
+    private const uint MOUSEEVENTF_VIRTUALDESK = 0x4000;
     private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
     private const uint MOUSEEVENTF_LEFTUP = 0x0004;
     private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
@@ -78,7 +79,7 @@ public sealed partial class MouseActionService : IMouseActionService {
                 mi = new MOUSEINPUT {
                     dx = nx,
                     dy = ny,
-                    dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+                    dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
                 }
             },
         };
@@ -86,12 +87,17 @@ public sealed partial class MouseActionService : IMouseActionService {
         _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
     }
 
-    private static (int X, int Y) NormalizePoint(Point physicalPoint) {
-        var bounds = NativeMethods.GetPrimaryScreenBounds();
-        int divisorX = Math.Max(bounds.Width - 1, 1);
-        int divisorY = Math.Max(bounds.Height - 1, 1);
-        int normalizedX = (int)((physicalPoint.X - bounds.X) * 65535.0 / divisorX);
-        int normalizedY = (int)((physicalPoint.Y - bounds.Y) * 65535.0 / divisorY);
+    private static (int X, int Y) NormalizePoint(Point physicalPoint) =>
+        NormalizeAbsolute(physicalPoint, NativeMethods.GetVirtualScreenBounds());
+
+    /// <summary>
+    /// Maps a physical pixel through virtual-desktop metrics to the 0–65535 SendInput range.
+    /// </summary>
+    internal static (int X, int Y) NormalizeAbsolute(Point physicalPoint, Rectangle virtualScreen) {
+        int divisorX = Math.Max(virtualScreen.Width - 1, 1);
+        int divisorY = Math.Max(virtualScreen.Height - 1, 1);
+        int normalizedX = (int)((physicalPoint.X - virtualScreen.X) * 65535.0 / divisorX);
+        int normalizedY = (int)((physicalPoint.Y - virtualScreen.Y) * 65535.0 / divisorY);
         return (normalizedX, normalizedY);
     }
 
@@ -252,7 +258,7 @@ public sealed partial class MouseActionService : IMouseActionService {
             mi = new MOUSEINPUT {
                 dx = nx,
                 dy = ny,
-                dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
+                dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK,
             }
         },
     };

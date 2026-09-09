@@ -133,9 +133,13 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 - `DisplaySnapshot.FindContaining(point)` uses physical `rcMonitor.Contains`.
 - `DllImport` (not `LibraryImport`) for `EnumDisplayMonitors`, `MONITORINFOEX`, and CCD structs — callbacks and `ByValTStr` are not source-generated.
 
-## `DisplayNumbering.AssignSpatially`
+## `DisplayNumbering` / `DisplayTopologyStore`
 
-- Unknown fingerprint only: order by `(Left, Top, DevicePath)` ordinal and assign `1..N`. Persistence is the topology store, not this helper.
+- Fingerprint = ordinal-sorted unique CCD DevicePaths. Rects and which display hosts navigation are not part of it.
+- Unknown fingerprint: order by `(Left, Top, DevicePath)` ordinal, assign `1..N`, cap at 9 (remainder unnumbered). Persist `%APPDATA%\Klikety\display-topologies.json` (not `config.json`).
+- Known fingerprint: reuse stored DevicePath → number even if rects moved. Do not rewrite the file.
+- Partial unplug is a new fingerprint (spatial 1..N, no reserved holes).
+- Tests inject the store path. Matcher/numbering tests do not call Win32.
 
 ## `NativeMethods.SetClickThroughExStyle(hwnd)`
 

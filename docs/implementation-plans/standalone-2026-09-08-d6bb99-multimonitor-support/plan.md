@@ -50,7 +50,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** a standard extend topology on the operator machine reports empty DevicePath, duplicates, or CCD/monitor count mismatch.
 
   </details>
-- [ ] 1.2 Topology store: fingerprint, spatial 1..N, persist, cap at 9 (REQ-3, REQ-4, REQ-12, RISK-2) [after: 1.1] `M`
+- [x] 1.2 Topology store: fingerprint, spatial 1..N, persist, cap at 9 (REQ-3, REQ-4, REQ-12, RISK-2) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Unknown fingerprint assigns 1..N by `(Left, Top, DevicePath)` and writes `%APPDATA%\Klikety\display-topologies.json`. Known fingerprint reuses numbers even if rects moved. Fingerprint ignores which display hosts navigation. Displays past 9 are unnumbered.

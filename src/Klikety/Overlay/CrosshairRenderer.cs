@@ -23,7 +23,6 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     private readonly double _minLabelFontSize;
 
     private Matrix _transformFromDevice = Matrix.Identity;
-    private bool _transformInitialized;
 
     // Label offset for reduced-key L2/L3 grids
     private int _horizLabelOffset;
@@ -72,7 +71,6 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
 
     public void SetTransform(Matrix transformFromDevice) {
         _transformFromDevice = transformFromDevice;
-        _transformInitialized = true;
     }
 
     public void SetLabelOffset(int horizOffset, int vertOffset) {
@@ -345,14 +343,9 @@ public sealed class CrosshairRenderer : ICrosshairRenderer {
     // --- Private helpers ---
 
     private void EnsureTransform() {
-        if (_transformInitialized) {
-            return;
-        }
-
         var source = PresentationSource.FromVisual(_canvas);
         if (source?.CompositionTarget != null) {
             _transformFromDevice = source.CompositionTarget.TransformFromDevice;
-            _transformInitialized = true;
         }
     }
 

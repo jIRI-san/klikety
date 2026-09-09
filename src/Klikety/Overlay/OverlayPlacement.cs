@@ -19,7 +19,6 @@ internal static partial class OverlayPlacement {
         }
 
         window.WindowStartupLocation = WindowStartupLocation.Manual;
-        ApplyDip(window, physicalBounds);
 
         if (!window.IsVisible) {
             window.Show();

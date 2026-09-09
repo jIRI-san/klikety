@@ -23,7 +23,6 @@ public sealed class GridRenderer : IGridRenderer {
 
     // DIP transform — auto-initialized from canvas PresentationSource on first render
     private Matrix _transformFromDevice = Matrix.Identity;
-    private bool _transformInitialized;
 
     // Label offset for L2/L3 reduced-key grids
     private int _labelColOffset;
@@ -91,7 +90,6 @@ public sealed class GridRenderer : IGridRenderer {
     /// </summary>
     public void SetTransform(Matrix transformFromDevice) {
         _transformFromDevice = transformFromDevice;
-        _transformInitialized = true;
     }
 
     /// <summary>
@@ -107,14 +105,9 @@ public sealed class GridRenderer : IGridRenderer {
     /// Auto-initializes transform from the canvas's PresentationSource if not set.
     /// </summary>
     private void EnsureTransform() {
-        if (_transformInitialized) {
-            return;
-        }
-
         var source = PresentationSource.FromVisual(_canvas);
         if (source?.CompositionTarget != null) {
             _transformFromDevice = source.CompositionTarget.TransformFromDevice;
-            _transformInitialized = true;
         }
     }
 

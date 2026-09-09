@@ -27,7 +27,6 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     readonly double _minLabelFontSize;
 
     Matrix _transformFromDevice = Matrix.Identity;
-    bool _transformInitialized;
 
     // Cached brushes
     readonly SolidColorBrush _cellBorderBrush;
@@ -86,7 +85,6 @@ public sealed class LogGridRenderer : ILogGridRenderer {
 
     public void SetTransform(Matrix transformFromDevice) {
         _transformFromDevice = transformFromDevice;
-        _transformInitialized = true;
     }
 
     public void RenderGrid(LogGrid grid) {
@@ -696,14 +694,9 @@ public sealed class LogGridRenderer : ILogGridRenderer {
     // --- Helpers ---
 
     void EnsureTransform() {
-        if (_transformInitialized) {
-            return;
-        }
-
         var source = PresentationSource.FromVisual(_canvas);
         if (source?.CompositionTarget != null) {
             _transformFromDevice = source.CompositionTarget.TransformFromDevice;
-            _transformInitialized = true;
         }
     }
 

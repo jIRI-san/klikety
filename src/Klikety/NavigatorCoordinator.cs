@@ -196,6 +196,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _preOverlayHwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
         _macroHandler.SetTargetHwnd(_preOverlayHwnd);
 
+        var layoutPending = false;
         try {
             _hostBusy = true;
             _displays = catalog.Snapshot.Displays;
@@ -203,34 +204,36 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _displayNumbers = _topologyStore?.Resolve(_displays)
                 ?? DisplayNumbering.AssignSpatially(_displays);
             _overlayHost.Show(_displays, display, _displayNumbers);
+
+            if (!_overlayWindow.IsVisible) {
+                DeactivateOverlay();
+                return;
+            }
+
+            if (!_hookService.Enable()) {
+                LogHookInstallFailed();
+                DeactivateOverlay();
+                return;
+            }
+
+            _debounce.StartTimer();
+            layoutPending = true;
+            AfterHostLayout(() => {
+                try {
+                    _sessionManager.ActivateDefaultSession(screenBounds, origin, defaultModeName);
+                } catch (Exception ex) when (
+                    ex is NotSupportedException or ArgumentException or InvalidOperationException) {
+                    LogActivationFailed(defaultModeName, ex.Message);
+                    DeactivateOverlay();
+                }
+            });
         } catch (InvalidOperationException) {
             LogHookInstallFailed();
             DeactivateOverlay();
-            return;
         } finally {
-            ReleaseHostBusy();
-        }
-
-        if (!_overlayWindow.IsVisible) {
-            DeactivateOverlay();
-            return;
-        }
-
-        if (!_hookService.Enable()) {
-            LogHookInstallFailed();
-            DeactivateOverlay();
-            return;
-        }
-
-        // Start debounce timer
-        _debounce.StartTimer();
-
-        // Create and activate default mode session
-        try {
-            _sessionManager.ActivateDefaultSession(screenBounds, origin, defaultModeName);
-        } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
-            LogActivationFailed(defaultModeName, ex.Message);
-            DeactivateOverlay();
+            if (!layoutPending) {
+                _hostBusy = false;
+            }
         }
     }
 
@@ -391,24 +394,36 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _navDisplay = target;
             _overlayHost.Show(_displays, target, _displayNumbers);
             _mouseService.MoveTo(center);
-            _sessionManager.RestartOnDisplay(target.MonitorBounds, center);
-        } finally {
-            ReleaseHostBusy();
-        }
+            AfterHostLayout(() => {
+                if (!_overlayWindow.IsVisible) {
+                    DeactivateOverlay();
+                    return;
+                }
 
-        if (!_overlayWindow.IsVisible) {
-            DeactivateOverlay();
+                _sessionManager.RestartOnDisplay(target.MonitorBounds, center);
+            });
+        } catch {
+            _hostBusy = false;
+            throw;
         }
     }
 
-    private void ReleaseHostBusy() {
+    private void AfterHostLayout(Action action) {
+        void Run() {
+            try {
+                action();
+            } finally {
+                _hostBusy = false;
+            }
+        }
+
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher is null) {
-            _hostBusy = false;
+            Run();
             return;
         }
 
-        dispatcher.InvokeAsync(() => _hostBusy = false, DispatcherPriority.ApplicationIdle);
+        dispatcher.InvokeAsync(Run, DispatcherPriority.Loaded);
     }
 
     private void OnDisplayChanged(object? sender, EventArgs e) {

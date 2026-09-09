@@ -16,7 +16,7 @@ globs:
 
 ## Overlay placement
 
-`OverlayPlacement.Place` sets DIP size, then `SetWindowPos` to physical `rcMonitor`, then re-applies DIP from that window’s `PresentationSource`. Required when moving between monitors (negative virtual origin, mixed DPI). Satellites use `ShowActivated=false` and `SWP_NOACTIVATE`. Satellite background uses theme cell fill at ≤35% opacity.
+`OverlayPlacement.Place` `SetWindowPos`es to physical `rcMonitor` first, then sets DIP from that window’s `PresentationSource` (never from the previous monitor’s transform). Renderers re-read `TransformFromDevice` on every paint so mixed-DPI switch does not keep the old scale. Session activate waits for `DispatcherPriority.Loaded`. Satellites use `ShowActivated=false` and `SWP_NOACTIVATE`. Satellite background uses theme cell fill at ≤35% opacity.
 
 ## IGridRenderer Interface
 

@@ -25,7 +25,6 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     readonly double _minLabelFontSize;
 
     Matrix _transformFromDevice = Matrix.Identity;
-    bool _transformInitialized;
 
     // Cached brushes
     readonly SolidColorBrush _cellBorderBrush;
@@ -81,7 +80,6 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
 
     public void SetTransform(Matrix transformFromDevice) {
         _transformFromDevice = transformFromDevice;
-        _transformInitialized = true;
     }
 
     public void RenderCross(LogCrosshairGrid grid) {
@@ -641,14 +639,9 @@ public sealed class LogCrosshairRenderer : ILogCrosshairRenderer {
     // --- Helpers ---
 
     void EnsureTransform() {
-        if (_transformInitialized) {
-            return;
-        }
-
         var source = PresentationSource.FromVisual(_canvas);
         if (source?.CompositionTarget != null) {
             _transformFromDevice = source.CompositionTarget.TransformFromDevice;
-            _transformInitialized = true;
         }
     }
 

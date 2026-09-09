@@ -149,7 +149,7 @@ public class MacroPlaybackIntegrationTests {
 
         // Start recording
         hook.SimulateKeyDown(VKey.OemPipe);
-        hook.SimulateKeyDown(VKey.D0);
+        hook.SimulateKeyDown(VKey.F1);
 
         // Try helper key while recording
         hook.SimulateKeyDown(VKey.OemTilde);

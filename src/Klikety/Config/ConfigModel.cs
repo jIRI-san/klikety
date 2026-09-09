@@ -117,8 +117,8 @@ public sealed class MacrosConfig {
     public VKey RecordKey { get; init; } = VKey.OemPipe;    // backslash
     public VKey HelperKey { get; init; } = VKey.OemTilde;   // backtick
     public VKey[] SlotKeys { get; init; } = [
-        VKey.D0, VKey.D1, VKey.D2, VKey.D3, VKey.D4,
-        VKey.D5, VKey.D6, VKey.D7, VKey.D8, VKey.D9,
+        VKey.F1, VKey.F2, VKey.F3, VKey.F4, VKey.F5,
+        VKey.F6, VKey.F7, VKey.F8, VKey.F9, VKey.F10,
     ];
     public double SpeedModifier { get; init; } = 1.0;
     public PlaybackIndicatorConfig PlaybackIndicator { get; init; } = new();

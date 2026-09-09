@@ -98,9 +98,9 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   </details>
 
 ## Phase 3: Overlay host and display switch
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: C:\Users\jiri\root\dev\copilot-worktrees\klikety\jiri-san-special-doodle -->
 
-- [ ] 3.1 OverlayHost: one nav window plus satellites, no focus steal (REQ-1, RISK-1) [after: 2.2, 2.3] `M`
+- [x] 3.1 OverlayHost: one nav window plus satellites, no focus steal (REQ-1, RISK-1) [after: 2.2, 2.3] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Two-or-more displays → one WPF window per display. Satellites shown first, never `Activate()`. Nav overlay uses existing `IOverlayWindow.Show(Rectangle)`. Focus-lost switching guard covers host show/hide. Single display: no satellites.
@@ -114,7 +114,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** showing satellites dismisses the nav overlay on a two-display machine.
 
   </details>
-- [ ] 3.2 Satellite digit rendering (REQ-2) [after: 3.1] `M`
+- [x] 3.2 Satellite digit rendering (REQ-2) [after: 3.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Non-nav displays show a centered outlined digit using theme label fill/outline. Font size = 40% of min(DIP width, DIP height), clamped 96–400.
@@ -126,7 +126,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Verify:** `test:SatelliteWindowTests.FontSizeIsFortyPercentClamped` · `file:src/Klikety/Overlay/SatelliteWindow.cs#exists`
 
   </details>
-- [ ] 3.3 Digit dispatch and switch reset (REQ-4, REQ-5, REQ-6) [after: 3.1, 1.2] `M`
+- [x] 3.3 Digit dispatch and switch reset (REQ-4, REQ-5, REQ-6) [after: 3.1, 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** While overlay visible, D1–D9 run before `MacroHandler`. Other numbered display → move nav, new L1 same mode, cursor at target center, cancel app-scope and drag, rebuild satellites, numbers unchanged. Own number no-op. Unused digit consumed, not forwarded to the session.
@@ -140,9 +140,9 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   </details>
 
 ## Phase 4: App-scope, slot keys, display-change
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: C:\Users\jiri\root\dev\copilot-worktrees\klikety\jiri-san-special-doodle -->
 
-- [ ] 4.1 App-scope clips to active nav display (REQ-10) [after: 3.3] `M`
+- [x] 4.1 App-scope clips to active nav display (REQ-10) [after: 3.3] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** App-scope intersection uses the navigation display’s `rcMonitor`. Empty intersection → existing status flash and stay full-display.
@@ -154,7 +154,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Verify:** `test:AppScopeCoordinatorTests.ClipsToActiveNavDisplay` · `test:AppScopeCoordinatorTests.EmptyIntersectionStaysFullDisplay`
 
   </details>
-- [ ] 4.2 Config v7: F1–F10 slot keys, reserve D1–D9 (REQ-11) `M`
+- [x] 4.2 Config v7: F1–F10 slot keys, reserve D1–D9 (REQ-11) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** `VKey` includes F1–F10. Defaults and embedded `config.json` use F1–F10. Version 6→7 migrates only exact D0–D9. Custom slot keys kept. D1–D9 rejected in slotKeys, horizontalKeys, verticalKeys, actionBindings, chord keys.
@@ -166,13 +166,13 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Verify:** `test:ConfigMigratorTests.MigratesDefaultSlotKeysToFKeys` · `test:ConfigMigratorTests.PreservesCustomSlotKeys` · `test:ConfigLoaderTests.RejectsDigitDisplayKeysInSlotKeys` · `file:src/Klikety/Resources/config.json#contains:"F1"`
 
   </details>
-- [ ] 4.3 `WM_DISPLAYCHANGE` dismisses overlay (REQ-7) [after: 3.1] `S`
+- [x] 4.3 `WM_DISPLAYCHANGE` dismisses overlay (REQ-7) [after: 3.1] `S`
 
 ## Phase 5: Docs, integration, manual
-<!-- worktree: (recorded by /ci when worktree is created) -->
+<!-- worktree: C:\Users\jiri\root\dev\copilot-worktrees\klikety\jiri-san-special-doodle -->
 
-- [ ] 5.1 Update design notes and index (REQ-1) [after: 3.1, 4.2] `S`
-- [ ] 5.2 Integration tests and mixed-DPI DIP check (REQ-1, REQ-2, REQ-4, REQ-5, REQ-6, REQ-8, RISK-1, RISK-4) [after: 3.3, 4.1, 4.2, 4.3] `M`
+- [x] 5.1 Update design notes and index (REQ-1) [after: 3.1, 4.2] `S`
+- [x] 5.2 Integration tests and mixed-DPI DIP check (REQ-1, REQ-2, REQ-4, REQ-5, REQ-6, REQ-8, RISK-1, RISK-4) [after: 3.3, 4.1, 4.2, 4.3] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Coordinator/host tests cover multi-display activate, switch, no-renumber, virtual-desk flag present. Overlay DIP vs `GetDpiForMonitor` documented as the RISK-4 stop; unit tests use injected DPI.

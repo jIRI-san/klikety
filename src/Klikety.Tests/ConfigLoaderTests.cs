@@ -909,6 +909,24 @@ public class ConfigLoaderTests {
         } finally { Cleanup(path); }
     }
 
+    [Fact]
+    public void RejectsDigitDisplayKeysInSlotKeys() {
+        var json = """
+        {
+            "configVersion": 7,
+            "macros": {
+                "enabled": true,
+                "slotKeys": ["D1","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
+            }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+            Assert.Contains(result.Violations, v => v.Contains("slotKeys") && v.Contains("D1"));
+        } finally { Cleanup(path); }
+    }
+
     private static string WriteTempFile(string content) {
         var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         File.WriteAllText(path, content);

@@ -31,6 +31,8 @@ public static class ConfigLoader {
         VKey.Escape,
         VKey.Left, VKey.Right, VKey.Up, VKey.Down,
         VKey.Return,
+        VKey.D1, VKey.D2, VKey.D3, VKey.D4, VKey.D5,
+        VKey.D6, VKey.D7, VKey.D8, VKey.D9,
     ];
 
     private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new() {
@@ -420,6 +422,9 @@ public static class ConfigLoader {
 
         // SlotKeys vs RecordKey/HelperKey
         foreach (var sk in macros.SlotKeys) {
+            if (ReservedKeys.Contains(sk)) {
+                violations.Add($"macros.slotKeys contains reserved display-switch key '{sk}'.");
+            }
             if (sk == macros.RecordKey) {
                 violations.Add($"macros: slot key '{sk}' conflicts with recordKey.");
             }

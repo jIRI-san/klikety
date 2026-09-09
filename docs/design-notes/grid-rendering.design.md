@@ -6,6 +6,8 @@ globs:
   - src/Klikety/Overlay/LogGridRenderer.cs
   - src/Klikety/Overlay/OverlayWindow.xaml
   - src/Klikety/Overlay/OverlayWindow.xaml.cs
+  - src/Klikety/Overlay/OverlayHost.cs
+  - src/Klikety/Overlay/SatelliteWindow.cs
   - src/Klikety/Config/ThemeLoader.cs
   - src/Klikety/Config/ThemeModel.cs
 ---

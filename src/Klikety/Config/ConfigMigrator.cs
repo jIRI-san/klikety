@@ -20,7 +20,7 @@ public sealed class MigrationResult {
 /// a JsonDocument pre-pass. Performs atomic writes with .bak backup.
 /// </summary>
 public static class ConfigMigrator {
-    public const int CurrentConfigVersion = 6;
+    public const int CurrentConfigVersion = 7;
 
     private static readonly VKey[] Default8FirstKeys =
         [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
@@ -218,6 +218,13 @@ public static class ConfigMigrator {
                 changed = true;
             }
 
+            // v6 → v7: migrate exact default D0–D9 slotKeys to F1–F10
+            if (version < 7) {
+                MigrateDefaultSlotKeys(obj);
+                obj["configVersion"] = CurrentConfigVersion;
+                changed = true;
+            }
+
             if (changed) {
                 var writeError = AtomicWrite(path, obj);
                 if (writeError is not null) {
@@ -389,13 +396,32 @@ public static class ConfigMigrator {
         },
         ["recordKey"] = "OemPipe",
         ["helperKey"] = "OemTilde",
-        ["slotKeys"] = new JsonArray("D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"),
+        ["slotKeys"] = new JsonArray("F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10"),
         ["speedModifier"] = 1.0,
     };
 
     private static JsonObject CreateDefaultAppScope() => new() {
         ["chordKey"] = "OemPeriod",
     };
+
+    private static void MigrateDefaultSlotKeys(JsonObject obj) {
+        if (obj["macros"] is not JsonObject macros) {
+            return;
+        }
+
+        if (macros["slotKeys"] is not JsonArray slots || slots.Count != 10) {
+            return;
+        }
+
+        string[] exactDefault = ["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9"];
+        for (int i = 0; i < 10; i++) {
+            if (!string.Equals(slots[i]?.GetValue<string>(), exactDefault[i], StringComparison.Ordinal)) {
+                return;
+            }
+        }
+
+        macros["slotKeys"] = new JsonArray("F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10");
+    }
 
     private static bool ContainsVKeyInArray(JsonObject obj, string propertyName, VKey key) {
         if (obj[propertyName] is not JsonArray arr) {

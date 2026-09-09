@@ -17,7 +17,7 @@ globs:
 
 ## `ConfigVersion`
 
-Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added), `2` = v2 (shared axis keys at root), `3` = v3 (LogGrid mode added), `4` = v4 (scroll hotkeys), `5` = v5 (macros), `6` = current (app-scope). Used by the migration pre-pass to detect old configs.
+Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added), `2` = v2 (shared axis keys at root), `3` = v3 (LogGrid mode added), `4` = v4 (scroll hotkeys), `5` = v5 (macros), `6` = v6 (app-scope), `7` = current (F1–F10 slot keys; D1–D9 reserved). Used by the migration pre-pass to detect old configs.
 
 ## Config Migration (`ConfigMigrator`)
 
@@ -33,6 +33,7 @@ Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added)
 - v4→v5: adds `macros` section with enabled defaults if missing. Preserves existing user-added `macros`. Default: `enabled: true`, `globalHotKey: Ctrl+Alt+Shift+M`, `recordKey: OemPipe` (backslash), `helperKey: OemTilde` (backtick), `slotKeys: [D0..D9]`, `speedModifier: 1.0`.
 - v5→v6: adds `appScope` section if missing or null. Conflict-aware: if default chord key (`OemPeriod`) collides with `actionBindings`, `horizontalKeys`, or `verticalKeys`, sets `chordKey: null` (feature auto-disabled) with migration warning. Default: `chordKey: "OemPeriod"`. Preserves existing user-added `appScope`.
 - Atomic write: random temp file (`Path.GetRandomFileName()`) → `.bak` backup → rename. Write errors return `BlockingError`.
+- v6→v7: default `macros.slotKeys` D0–D9 become F1–F10 only when the array is exactly that default. Custom slot keys are kept. D1–D9 are reserved (display switch) in slotKeys, horizontalKeys, verticalKeys, actionBindings, and chord keys. D0 is not reserved.
 - `configVersion` > known → fail-closed with blocking error.
 - Mixed shape (`modes` + `navigationMode`) → `modes` wins.
 - Unknown fields preserved (round-trip).

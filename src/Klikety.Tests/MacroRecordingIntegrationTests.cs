@@ -43,7 +43,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe); // record key
-        hook.SimulateKey(VKey.D0); // slot 0
+        hook.SimulateKey(VKey.F1); // slot 0
 
         Assert.True(overlay.RecordingBorderVisible);
     }
@@ -54,7 +54,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe); // start
-        hook.SimulateKey(VKey.D0); // slot 0
+        hook.SimulateKey(VKey.F1); // slot 0
         Assert.True(overlay.RecordingBorderVisible);
 
         // Navigate and action: A, W, Space = L1 navigation
@@ -79,7 +79,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe); // start
-        hook.SimulateKey(VKey.D5); // slot 5
+        hook.SimulateKey(VKey.F6); // slot 5
 
         Assert.True(overlay.RecordingBorderVisible);
 
@@ -119,7 +119,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe); // start
-        hook.SimulateKey(VKey.D0); // slot 0 (occupied)
+        hook.SimulateKey(VKey.F1); // slot 0 (occupied)
 
         Assert.Contains("Overwrite", overlay.StatusText ?? "", StringComparison.OrdinalIgnoreCase);
     }
@@ -140,7 +140,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe);
-        hook.SimulateKey(VKey.D0);
+        hook.SimulateKey(VKey.F1);
         hook.SimulateKey(VKey.N); // deny
 
         Assert.False(overlay.RecordingBorderVisible);
@@ -163,7 +163,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe);
-        hook.SimulateKey(VKey.D3);
+        hook.SimulateKey(VKey.F4);
         hook.SimulateKey(VKey.Y); // confirm
 
         Assert.True(overlay.RecordingBorderVisible);
@@ -175,7 +175,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe);
-        hook.SimulateKey(VKey.D0);
+        hook.SimulateKey(VKey.F1);
 
         Assert.True(overlay.RecordingBorderVisible);
 
@@ -191,7 +191,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe); // start recording
-        hook.SimulateKey(VKey.D0); // slot 0
+        hook.SimulateKey(VKey.F1); // slot 0
         Assert.True(overlay.RecordingBorderVisible);
 
         // Second record key stops recording (not starts new one)
@@ -217,7 +217,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe);
-        hook.SimulateKey(VKey.D0);
+        hook.SimulateKey(VKey.F1);
 
         // Just stop immediately (empty macro is fine for this test)
         hook.SimulateKey(VKey.OemPipe);
@@ -234,7 +234,7 @@ public class MacroRecordingIntegrationTests {
 
         hotKey.SimulateActivation();
         hook.SimulateKey(VKey.OemPipe); // start
-        hook.SimulateKey(VKey.D0); // slot 0
+        hook.SimulateKey(VKey.F1); // slot 0
 
         // Navigate and action
         hook.SimulateKey(VKey.A);
@@ -264,7 +264,7 @@ public class MacroRecordingIntegrationTests {
 
         // Start recording
         hook.SimulateKey(VKey.OemPipe);
-        hook.SimulateKey(VKey.D0);
+        hook.SimulateKey(VKey.F1);
 
         // Navigate and action
         hook.SimulateKey(VKey.A);
@@ -312,7 +312,7 @@ public class MacroRecordingIntegrationTests {
         hook.SimulateKeyDown(VKey.OemPeriod);
 
         hook.SimulateKey(VKey.OemPipe);
-        hook.SimulateKey(VKey.D0);
+        hook.SimulateKey(VKey.F1);
 
         // Navigate and action
         hook.SimulateKey(VKey.A);
@@ -337,7 +337,7 @@ public class MacroRecordingIntegrationTests {
 
         // Start recording (not in app-scope)
         hook.SimulateKey(VKey.OemPipe);
-        hook.SimulateKey(VKey.D0);
+        hook.SimulateKey(VKey.F1);
 
         hook.SimulateKey(VKey.A);
         hook.SimulateKey(VKey.W);

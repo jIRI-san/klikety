@@ -18,8 +18,11 @@ globs:
 
 ## Overlay Lifecycle
 
-- `OverlayWindow` is a WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to primary screen bounds converted to DIPs via `PresentationSource` transform.
-- `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, hotkey toggle, exception, Quit. It calls `IOverlayWindow.Hide()` which clears all content and hides the window. Also calls `IKeyboardHookService.DrainAndDisable()` and clears session/debounce/drag state. Safe to call multiple times.
+- `OverlayWindow` is a WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to the **navigation display** `rcMonitor` converted to DIPs via that window’s `PresentationSource` transform.
+- `OverlayHost` owns one nav overlay plus N−1 `SatelliteWindow`s. Satellites: `ShowActivated=False`, `WS_EX_NOACTIVATE | TOOLWINDOW | TRANSPARENT`, never `Activate()`. Shown before nav. Single display: no satellites. `_hostBusy` extends the focus-lost switching guard around host show/hide.
+- Activation uses `IDisplayCatalog`: overlay on the display containing the cursor. `WM_DISPLAYCHANGE` on the nav HWND calls `DeactivateOverlay()`.
+- While overlay visible, D1–D9 are consumed before `MacroHandler`. Other numbered display → new L1 same mode at target center, cancel app-scope/drag, rebuild satellites, numbers unchanged.
+- `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, hotkey toggle, display change, exception, Quit. It hides the overlay host (satellites + nav). Also calls `IKeyboardHookService.DrainAndDisable()` and clears session/debounce/drag state. Safe to call multiple times.
 - **Hotkey toggle**: pressing the activation hotkey while the overlay is active calls `DeactivateOverlay()` (clean dismiss). No re-entrant guard — it's an explicit toggle off.
 - `NavigatorCoordinator` delegates to four helper classes via composition: `SessionManager` (session lifecycle and scope state), `ActionDispatcher` (action dispatch and drag-drop), `MacroHandler` (recording/playback/picker), and `DebounceHandler` (hotkey debounce). Overlay visibility remains exclusively owned by the coordinator.
 - `NavigatorCoordinator` implements `IDisposable`. `Dispose()` unsubscribes from all service events (`Activated`, `KeyEvent`, `FocusLost`), disposes `MacroHandler`, `SessionManager`, and `DebounceHandler`, calls `DeactivateOverlay()`, and closes the overlay window. Called by `App.xaml.cs` on coordinator replacement (config reset) and application quit.

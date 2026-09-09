@@ -25,6 +25,7 @@ globs:
 - `FakeGridRenderer` — records `RenderCall` list (method name, cells, col) for assertion.
 - `FakeForegroundWindowProvider` — configurable `Handle`, `Bounds`, `Title`. Returns configured values for matching handle; empty/default for zero or mismatched handle.
 - `FakeDisplayCatalog` — configurable `DisplayCatalogResult`. Default is one 1920×1080 display (`\\.\DISPLAY1` / `\\?\FAKE#PRIMARY`). Catalog matcher tests inject `EnumeratedMonitor` / `CcdTarget` rows; they do not call Win32.
+- `FakeSatelliteOverlay` — records `Show(bounds, number)` for `OverlayHostTests`.
 - `DisplayTopologyStore` tests inject a temp `display-topologies.json` path (same pattern as `MacroStore`).
 
 All fakes live in `Klikety.Tests/Fakes/`.

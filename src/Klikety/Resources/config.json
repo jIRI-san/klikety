@@ -5,7 +5,7 @@
   "$schema": "config.schema.json",
 
   // Config format version. Do not change manually.
-  "configVersion": 6,
+  "configVersion": 7,
   // Global hotkey that activates the navigation overlay.
   // Modifiers: Alt, Control, Shift, Win (comma-separated for combos).
   // Key: a VKey name (physical key, layout-independent). Default: Alt+Space.
@@ -133,16 +133,16 @@
     "recordKey": "OemPipe",
     "helperKey": "OemTilde",
     "slotKeys": [
-      "D0",
-      "D1",
-      "D2",
-      "D3",
-      "D4",
-      "D5",
-      "D6",
-      "D7",
-      "D8",
-      "D9"
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
+      "F7",
+      "F8",
+      "F9",
+      "F10"
     ],
     "speedModifier": 1.0
   },

@@ -65,7 +65,7 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 4. `Recording` → recording control keys (record toggle, Escape, slot/overwrite Y/N)
 5. Record key when `Idle` + overlay open → `StartRecording()`
 6. Helper key when `Idle` + overlay open → open picker
-6b. Direct slot key (D0–D9) when `Idle` + overlay open → play macro directly
+6b. Direct slot key (F1–F10) when `Idle` + overlay open → play macro directly. D1–D9 are display-switch keys and are consumed before `MacroHandler`.
 7. Chord dispatch (existing, if `!_modeLocked`)
 8. Session forwarding (existing)
 
@@ -141,7 +141,7 @@ finally { if (!_disposed) OnPlaybackFinished(result); }
 - `GlobalHotKey` (HotKeyConfig?, default Ctrl+Alt+Shift+M; null → skip registration)
 - `RecordKey` (VKey, default `OemPipe` = backslash)
 - `HelperKey` (VKey, default `OemTilde` = backtick)
-- `SlotKeys` (VKey[10], default `D0`–`D9`)
+- `SlotKeys` (VKey[10], default `F1`–`F10`)
 - `SpeedModifier` (double, default 1.0; 0 → 100ms fixed; negative → clamped to 0)
 - `PlaybackIndicator` (PlaybackIndicatorConfig — fill/stroke color, initial/final radius, animation duration)
 

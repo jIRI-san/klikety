@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Interop;
 using System.Windows.Shapes;
 
 using Klikety.Config;
@@ -14,7 +15,9 @@ namespace Klikety.Overlay;
 
 public partial class OverlayWindow : Window, IOverlayWindow {
     public event EventHandler? FocusLost;
+    public event EventHandler? DisplayChanged;
     private ThemeModel? _theme;
+    private bool _displayHookAdded;
 
     public OverlayWindow() {
         InitializeComponent();
@@ -72,8 +75,27 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             Height = bottomRight.Y - topLeft.Y;
         }
 
+        EnsureDisplayChangeHook(source);
         Activate();
         Keyboard.Focus(this);
+    }
+
+    private void EnsureDisplayChangeHook(PresentationSource source) {
+        if (_displayHookAdded || source is not HwndSource hwndSource) {
+            return;
+        }
+
+        hwndSource.AddHook(DisplayChangeHook);
+        _displayHookAdded = true;
+    }
+
+    private nint DisplayChangeHook(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled) {
+        const int WM_DISPLAYCHANGE = 0x007E;
+        if (msg == WM_DISPLAYCHANGE) {
+            DisplayChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        return nint.Zero;
     }
 
     void IOverlayWindow.Hide() {

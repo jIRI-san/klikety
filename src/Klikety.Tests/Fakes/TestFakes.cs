@@ -4,6 +4,7 @@ using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
+using Klikety.Overlay;
 using Klikety.Services;
 
 namespace Klikety.Tests.Fakes;
@@ -184,8 +185,26 @@ public sealed class FakeModifierDetector : IModifierDetector {
     public ActionModifiers GetCurrentModifiers() => Modifiers;
 }
 
+public sealed class FakeSatelliteOverlay : ISatelliteOverlay {
+    public Rectangle LastBounds { get; private set; }
+    public int? LastNumber { get; private set; }
+    public int ShowCount { get; private set; }
+    public int HideCount { get; private set; }
+
+    public void Show(Rectangle physicalBounds, int? number) {
+        LastBounds = physicalBounds;
+        LastNumber = number;
+        ShowCount++;
+    }
+
+    public void Hide() => HideCount++;
+
+    public void Dispose() { }
+}
+
 public sealed class FakeOverlayWindow : IOverlayWindow {
     public event EventHandler? FocusLost;
+    public event EventHandler? DisplayChanged;
     public bool IsVisible { get; private set; }
     public int ShowCount { get; private set; }
     public int HideCount { get; private set; }
@@ -247,10 +266,17 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
 
     public void SetAppScopeBorder(bool visible, System.Drawing.Rectangle bounds = default) {
         AppScopeBorderVisible = visible;
+        AppScopeBorderBounds = bounds;
     }
+
+    public Rectangle AppScopeBorderBounds { get; private set; }
 
     public void SimulateFocusLoss() {
         FocusLost?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SimulateDisplayChange() {
+        DisplayChanged?.Invoke(this, EventArgs.Empty);
     }
 }
 

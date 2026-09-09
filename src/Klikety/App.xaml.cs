@@ -166,7 +166,9 @@ public partial class App : Application {
             config,
             logger,
             _macroStore,
-            _macrosFile);
+            _macrosFile,
+            () => new SatelliteWindow(theme),
+            new DisplayTopologyStore());
 
         // Register hotkey
         _hotKeyService!.Unregister();

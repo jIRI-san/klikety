@@ -76,6 +76,33 @@ internal sealed partial class SessionManager : IDisposable {
     }
 
     /// <summary>
+    /// New L1 session on another display, same mode name. Clears app-scope.
+    /// </summary>
+    public void RestartOnDisplay(Rectangle bounds, Point origin) {
+        if (_switching) {
+            return;
+        }
+
+        _switching = true;
+        try {
+            UnsubscribeAndDeactivateSession();
+            _overlayWindow.ClearCanvas();
+            _overlayWindow.SetAppScopeBorder(false);
+            _appScoped = false;
+            _appScopeBounds = Rectangle.Empty;
+            _modeLocked = false;
+            _screenBounds = bounds;
+            _origin = origin;
+            var session = _sessionFactory.Create(_currentModeName);
+            SubscribeSession(session);
+            _activeSession = session;
+            session.Activate(bounds, origin);
+        } finally {
+            _switching = false;
+        }
+    }
+
+    /// <summary>
     /// Switches to a different navigation mode. Unsubscribes old session, clears canvas,
     /// creates new session, subscribes, and activates.
     /// </summary>

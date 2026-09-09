@@ -88,7 +88,7 @@ public class MacroPickerIntegrationTests {
 
         // Start recording: press record key → slot 0 → enter recording state
         hook.SimulateKeyDown(VKey.OemPipe);
-        hook.SimulateKeyDown(VKey.D0);
+        hook.SimulateKeyDown(VKey.F1);
 
         // Now try helper key
         hook.SimulateKeyDown(VKey.OemTilde);

@@ -3,6 +3,7 @@ using System.Drawing;
 using Klikety.Config;
 using Klikety.Input;
 using Klikety.Navigation;
+using Klikety.Overlay;
 using Klikety.Services;
 
 using Microsoft.Extensions.Logging;
@@ -30,13 +31,20 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private readonly IKeyboardHookService _hookService;
     private readonly IMouseActionService _mouseService;
     private readonly IOverlayWindow _overlayWindow;
+    private readonly OverlayHost _overlayHost;
+    private readonly DisplayTopologyStore? _topologyStore;
     private readonly ConfigModel _config;
     private readonly ILogger _logger;
     private readonly ModeSessionFactory _sessionFactory;
     private readonly IPlatformServices _platform;
 
     private bool _deactivating;
+    private bool _hostBusy;
     private bool _nonQwertyWarningShown;
+    private IReadOnlyList<DisplayInfo> _displays = [];
+    private DisplayInfo? _navDisplay;
+    private IReadOnlyDictionary<string, int> _displayNumbers =
+        new Dictionary<string, int>(StringComparer.Ordinal);
 
     // App-scope state
     private VKey? _appScopeChordKey;
@@ -83,11 +91,15 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         ConfigModel config,
         ILogger logger,
         IMacroStore? macroStore = null,
-        MacrosFile? macrosFile = null) {
+        MacrosFile? macrosFile = null,
+        Func<ISatelliteOverlay>? satelliteFactory = null,
+        DisplayTopologyStore? topologyStore = null) {
         _hotKeyService = hotKeyService;
         _hookService = hookService;
         _mouseService = mouseService;
         _overlayWindow = overlayWindow;
+        _overlayHost = new OverlayHost(overlayWindow, satelliteFactory ?? (() => new NullSatelliteOverlay()));
+        _topologyStore = topologyStore;
         _sessionFactory = sessionFactory;
         _platform = platform;
         _config = config;
@@ -113,6 +125,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hotKeyService.Activated += OnHotKeyActivated;
         _hookService.KeyEvent += OnKeyEvent;
         _overlayWindow.FocusLost += OnFocusLost;
+        _overlayWindow.DisplayChanged += OnDisplayChanged;
         _sessionManager.ActionRequested += OnSessionActionRequested;
         _sessionManager.Cancelled += OnSessionCancelled;
         _sessionManager.CursorMoveRequested += OnSessionCursorMoveRequested;
@@ -168,11 +181,18 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _macroHandler.SetTargetHwnd(_preOverlayHwnd);
 
         try {
-            _overlayWindow.Show(screenBounds);
+            _hostBusy = true;
+            _displays = catalog.Snapshot.Displays;
+            _navDisplay = display;
+            _displayNumbers = _topologyStore?.Resolve(_displays)
+                ?? DisplayNumbering.AssignSpatially(_displays);
+            _overlayHost.Show(_displays, display, _displayNumbers);
         } catch (InvalidOperationException) {
             LogHookInstallFailed();
             DeactivateOverlay();
             return;
+        } finally {
+            _hostBusy = false;
         }
 
         if (!_hookService.Enable()) {
@@ -243,6 +263,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         LogKeyPressed(e.Key);
 
+        if (_sessionManager.IsActive && TryHandleDisplayDigit(e.Key)) {
+            return;
+        }
+
         // Macro subsystem gets first priority
         if (_macroHandler.TryHandleKey(e.Key)) {
             return;
@@ -309,11 +333,60 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _sessionManager.ForwardKey(e.Key);
     }
 
+    private static int? DisplayNumberFromKey(VKey key) {
+        int n = key - VKey.D1 + 1;
+        return n is >= 1 and <= 9 ? n : null;
+    }
+
+    private bool TryHandleDisplayDigit(VKey key) {
+        if (DisplayNumberFromKey(key) is not int digit) {
+            return false;
+        }
+
+        DisplayInfo? target = null;
+        foreach (var display in _displays) {
+            if (_displayNumbers.TryGetValue(display.DevicePath, out int number) && number == digit) {
+                target = display;
+                break;
+            }
+        }
+
+        if (target is null || _navDisplay is null ||
+            string.Equals(target.DevicePath, _navDisplay.DevicePath, StringComparison.Ordinal)) {
+            return true;
+        }
+
+        SwitchNavigationDisplay(target);
+        return true;
+    }
+
+    private void SwitchNavigationDisplay(DisplayInfo target) {
+        var center = new Point(
+            target.MonitorBounds.X + target.MonitorBounds.Width / 2,
+            target.MonitorBounds.Y + target.MonitorBounds.Height / 2);
+        _hostBusy = true;
+        try {
+            _actionDispatcher.CancelDrag();
+            _navDisplay = target;
+            _overlayHost.Show(_displays, target, _displayNumbers);
+            _mouseService.MoveTo(center);
+            _sessionManager.RestartOnDisplay(target.MonitorBounds, center);
+        } finally {
+            _hostBusy = false;
+        }
+    }
+
+    private void OnDisplayChanged(object? sender, EventArgs e) {
+        if (_sessionManager.IsActive) {
+            DeactivateOverlay();
+        }
+    }
+
     private void OnFocusLost(object? sender, EventArgs e) {
         LogFocusLost();
 
         // Suppress deactivation during mode/app-scope switching (WPF fires Deactivated on Hide)
-        if (_sessionManager.IsSwitching) {
+        if (_sessionManager.IsSwitching || _hostBusy) {
             return;
         }
 
@@ -407,7 +480,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             var savedHwnd = _preOverlayHwnd;
             _preOverlayHwnd = 0;
 
-            _overlayWindow.Hide();
+            _overlayHost.Hide();
 
             if (savedHwnd != 0) {
                 _platform.ForegroundWindow.SetForegroundWindow(savedHwnd);
@@ -458,14 +531,17 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     // --- Macro handler overlay-control event handlers ---
 
     private void OnMacroSuspendOverlay() {
-        _overlayWindow.Hide();
+        _overlayHost.Hide();
     }
 
     private void OnMacroResumeOverlay() {
         try {
-            _overlayWindow.Show();
+            _hostBusy = true;
+            _overlayHost.ShowLast();
         } catch (InvalidOperationException) {
             _macroHandler.CancelRecording();
+        } finally {
+            _hostBusy = false;
         }
     }
 
@@ -488,10 +564,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _hotKeyService.Activated -= OnHotKeyActivated;
         _hookService.KeyEvent -= OnKeyEvent;
         _overlayWindow.FocusLost -= OnFocusLost;
+        _overlayWindow.DisplayChanged -= OnDisplayChanged;
         _sessionManager.ActionRequested -= OnSessionActionRequested;
         _sessionManager.Cancelled -= OnSessionCancelled;
         _sessionManager.CursorMoveRequested -= OnSessionCursorMoveRequested;
         DeactivateOverlay();
+        _overlayHost.Dispose();
         _debounce.Dispose();
         _sessionManager.Dispose();
         _hookService.Dispose();

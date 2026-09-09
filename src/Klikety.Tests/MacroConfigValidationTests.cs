@@ -21,7 +21,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"],
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"],
                 "speedModifier": 1.0
             }
         }
@@ -41,7 +41,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemPipe",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;
@@ -60,7 +60,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;
@@ -87,7 +87,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;
@@ -106,7 +106,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["A","D1","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["A","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;
@@ -124,14 +124,14 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D0","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["F1","F1","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;
         var path = WriteTempFile(json);
         try {
             var result = ConfigLoader.Load(path);
-            Assert.Contains(result.Violations, v => v.Contains("duplicate") && v.Contains("D0"));
+            Assert.Contains(result.Violations, v => v.Contains("duplicate") && v.Contains("F1"));
         } finally { Cleanup(path); }
     }
 
@@ -140,9 +140,9 @@ public class MacroConfigValidationTests {
         var json = BaseConfig + """
             "macros": {
                 "enabled": true,
-                "recordKey": "D0",
+                "recordKey": "F1",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;
@@ -160,7 +160,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"],
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"],
                 "speedModifier": -0.5
             }
         }
@@ -179,7 +179,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"],
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"],
                 "speedModifier": 0
             }
         }
@@ -199,7 +199,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2"]
+                "slotKeys": ["F1","F2","F3"]
             }
         }
         """;
@@ -217,7 +217,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9","Z"]
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10","Z"]
             }
         }
         """;
@@ -236,7 +236,7 @@ public class MacroConfigValidationTests {
                 "globalHotKey": null,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;
@@ -263,7 +263,7 @@ public class MacroConfigValidationTests {
                 "globalHotKey": { "modifiers": "Alt", "key": "Space" },
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;
@@ -309,7 +309,7 @@ public class MacroConfigValidationTests {
                 "enabled": true,
                 "recordKey": "OemPipe",
                 "helperKey": "OemTilde",
-                "slotKeys": ["D0","D1","D2","D3","D4","D5","D6","D7","D8","D9"]
+                "slotKeys": ["F1","F2","F3","F4","F5","F6","F7","F8","F9","F10"]
             }
         }
         """;

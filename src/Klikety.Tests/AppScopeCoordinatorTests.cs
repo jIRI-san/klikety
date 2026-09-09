@@ -119,6 +119,43 @@ public class AppScopeCoordinatorTests {
     }
 
     [Fact]
+    public void ClipsToActiveNavDisplay() {
+        var (_, hotKey, hook, _, overlay, platform) = CreateCoordinator();
+        var primary = new DisplayInfo(new Rectangle(0, 0, 1920, 1080), 1.0, @"\\.\DISPLAY1", @"\\?\A");
+        var secondary = new DisplayInfo(new Rectangle(1920, 0, 1920, 1080), 1.0, @"\\.\DISPLAY2", @"\\?\B");
+        platform.DisplayCatalog.Result = DisplayCatalogResult.Ok(
+            new DisplaySnapshot([primary, secondary], new Rectangle(0, 0, 3840, 1080)));
+        platform.Cursor.Position = new Point(2500, 500);
+        platform.ForegroundWindow.Handle = 0x1234;
+        platform.ForegroundWindow.Bounds = new Rectangle(2000, 100, 1200, 800);
+        hotKey.SimulateActivation();
+
+        hook.SimulateKeyDown(VKey.OemPeriod);
+
+        Assert.True(overlay.AppScopeBorderVisible);
+        Assert.True(overlay.IsVisible);
+    }
+
+    [Fact]
+    public void EmptyIntersectionStaysFullDisplay() {
+        var (_, hotKey, hook, _, overlay, platform) = CreateCoordinator();
+        var primary = new DisplayInfo(new Rectangle(0, 0, 1920, 1080), 1.0, @"\\.\DISPLAY1", @"\\?\A");
+        var secondary = new DisplayInfo(new Rectangle(1920, 0, 1920, 1080), 1.0, @"\\.\DISPLAY2", @"\\?\B");
+        platform.DisplayCatalog.Result = DisplayCatalogResult.Ok(
+            new DisplaySnapshot([primary, secondary], new Rectangle(0, 0, 3840, 1080)));
+        platform.Cursor.Position = new Point(2500, 500);
+        platform.ForegroundWindow.Handle = 0x1234;
+        platform.ForegroundWindow.Bounds = new Rectangle(100, 100, 800, 600);
+        hotKey.SimulateActivation();
+
+        hook.SimulateKeyDown(VKey.OemPeriod);
+
+        Assert.Equal("Window outside screen", overlay.StatusText);
+        Assert.False(overlay.AppScopeBorderVisible);
+        Assert.True(overlay.IsVisible);
+    }
+
+    [Fact]
     public void ChordPress_OriginClamped_CursorOutsideWindowBounds() {
         var (_, hotKey, hook, mouse, overlay, platform) = CreateCoordinator();
         var windowBounds = new Rectangle(200, 200, 400, 300);

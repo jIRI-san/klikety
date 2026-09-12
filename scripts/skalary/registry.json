@@ -4,7 +4,7 @@
     "ref": "d2e691b4b78e08eca9b84f382ba9f448f56d3016",
     "scriptUrl": "https://raw.githubusercontent.com/jIRI-san/skalary/d2e691b4b78e08eca9b84f382ba9f448f56d3016/scripts/skalary/bootstrap.ps1"
   },
-  "generatedAt": "2026-09-08T15:54:15.7074275Z",
+  "generatedAt": "2026-09-12T14:40:17.7102854Z",
   "plugins": [
     {
       "author": "jIRI-san",
@@ -562,7 +562,7 @@
         },
         {
           "dest": "skills/cip/SKILL.md",
-          "sha256": "7aea85f7a61c71096618617a6081dfd93c8b4409678d2c12a06b40ed176d36a0",
+          "sha256": "2d591074c1c9edad7fe74f51ba748387c2d306ad91406044e8c41dd3c3e784ee",
           "src": "skills/cip/SKILL.md"
         },
         {
@@ -579,6 +579,11 @@
           "dest": "skills/cip/assets/plan-template.md",
           "sha256": "831bc9fee9e1a9da7b4906881d4cf3e5f321ffe049d9ebd4285509df41a917a1",
           "src": "skills/cip/assets/plan-template.md"
+        },
+        {
+          "dest": "skills/cip/assets/pre-confirmation-review.md",
+          "sha256": "fee6e7c576e2594e968ccaff52eae495fce3ab1011dce3370b2eebb9a4804d2f",
+          "src": "skills/cip/assets/pre-confirmation-review.md"
         },
         {
           "dest": "skills/cip/scripts/AtomicStore.psm1",
@@ -649,7 +654,7 @@
         "planning",
         "skill"
       ],
-      "version": "1.0.105"
+      "version": "1.0.106"
     },
     {
       "author": "jIRI-san",
@@ -736,7 +741,7 @@
       "files": [
         {
           "dest": "agents/dr.agent.md",
-          "sha256": "ff96a52ebdbc8c2447c2c0b2a17f875679a3ff27b52025d0a5cfe7df2da606c5",
+          "sha256": "f9fc47cd5f1b33db764e6c05b11a592cd367da9b83f389246dd76e7058ce4385",
           "src": "agents/dr.agent.md"
         },
         {
@@ -746,7 +751,7 @@
         },
         {
           "dest": "skills/dr/SKILL.md",
-          "sha256": "3550959066d8381fe98755b7c998d2fa00295113aad730948124add08d178ded",
+          "sha256": "7211b47de6d6cbb98f9ec36bd046f01583733e9db71c83839a9159d78dd5769d",
           "src": "skills/dr/SKILL.md"
         },
         {
@@ -783,7 +788,7 @@
         "design-review",
         "prompt"
       ],
-      "version": "1.0.83"
+      "version": "1.0.85"
     },
     {
       "author": "jIRI-san",

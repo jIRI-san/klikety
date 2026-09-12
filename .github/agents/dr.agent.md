@@ -13,5 +13,6 @@ handoffs:
 # Design Review
 
 Read [the DR skill](../skills/dr/SKILL.md) and follow it end to end. Reviewers remain read-only; `edit`
-may only write the canonical plan-associated direct report described by the skill. Return its advisory
-Markdown, then offer the **Update plan** handoff.
+may only write the canonical plan-associated direct report described by the skill, never for CIP's
+pre-confirmation reviewer role. Return advisory Markdown, then offer the **Update plan** handoff when
+the standalone review has findings.

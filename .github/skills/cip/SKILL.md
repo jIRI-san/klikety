@@ -33,7 +33,13 @@ matrix. For observable background calls, two no-progress checks permit one same-
 most one replacement. Elapsed agent time never cancels work; declared deterministic command timeouts
 remain.
 
-Before final drafting, confirm the current intent, requirements, risks, and decisions together. Persist
+After the complete draft and before final confirmation, run the mandatory planning-owned protocol in
+[`./assets/pre-confirmation-review.md`](./assets/pre-confirmation-review.md). It is exactly one
+`secondary-model-high`/high read-only design pass followed by one `primary-model-high`/high applicability
+pass. Present every finding and recommendation in one operator choice, edit only selected current-plan
+changes, and never rerun the protocol. If either pass fails or is incomplete, stop visibly.
+
+After the selected edits, confirm the current intent, requirements, risks, and decisions together. Persist
 the existing planning-confirmed marker only after that confirmation. Typed evidence remains exactly
 `test:`, `file:`, and `review:`. Draft MVP-first vertical steps and retain script-owned validation/stage
 mutations. Every discovered edge case must resolve to a requirement, risk, or explicit non-goal. Give

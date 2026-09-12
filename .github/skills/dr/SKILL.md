@@ -26,6 +26,13 @@ model panel, or unchanged-scope rerun exists. Every call, retry, and
 replacement counts toward a three-call ceiling; a fourth requires a new operator decision.
 Delegated prompts attach at most three artifacts, target 400 words, and must be narrowed before 800.
 
+When `/cip` explicitly selects the pre-confirmation reviewer role, retain this read-only contract and use
+the caller's required `secondary-model-high`/high pass. Return every evidence-backed design and supplied
+epic-coherency finding as advisory Markdown. Do not edit, require clean, choose applicability, hide
+findings, persist a report, or run another reviewer; `/cip` owns evaluation, operator selection, and
+current-plan mutation. The plan-associated report rule below does not apply to this caller role. This
+caller role does not alter standalone `/dr` routing.
+
 If scope, risk, or correction needs a complex predefined operator choice, provide context, an example,
 benefits, each option's pros/cons, recommendation/default, effort 1-10, and complexity
 1-10; add Mermaid only when relationships or sequencing affect the decision. Pass the same ordered list

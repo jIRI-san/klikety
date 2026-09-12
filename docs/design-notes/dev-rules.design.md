@@ -23,6 +23,13 @@ globs:
   - `dotnet format` applies all `.editorconfig` rules consistently.
   - Do not attempt to fix formatting warnings by editing individual lines.
 
+## Skalary Plugins
+
+- Installed plugins are tracked by `.github/.skalary/receipts/*.json`; their managed payloads live under `.github/`.
+- `scripts/skalary/` contains the bootstrapped plugin-management scripts and registry snapshot.
+- Treat receipt-owned files as generated. Change them in the Skalary source repository, then update the plugin rather than editing the installed copy.
+- After a bulk update, require every receipt to reference the same immutable Skalary commit and verify each installed payload hash against `scripts/skalary/registry.json`.
+
 ## Git History
 
 - **Never use `git push --force`, `git push --force-with-lease`, or `git commit --amend` on pushed commits.** If a commit needs fixing, create a follow-up commit instead. Force-pushing rewrites shared history and can disrupt CI, other collaborators, and PR references.

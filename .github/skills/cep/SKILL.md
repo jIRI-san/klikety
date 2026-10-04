@@ -17,7 +17,9 @@ screening, untrusted framing, accepted-only provenance, and current-intent/contr
 Before drafting, follow the shared planning protocol installed at
 `.github/skills/cep/assets/decision-protocol.md`. It defines host-equivalent complex choices and the
 absolute/fuzzy language confirmation gate. Do not draft an unconfirmed absolute or an unobservable fuzzy
-requirement.
+requirement. Catch consequential interpretation ambiguity before decomposition. Capture epic intent in
+the existing `epic.md` Goal and Decomposition notes, and reconcile relevant plan/epic history through the
+bounded filtered index and reader. A child `/cip` carries only relevant inherited wording and provenance.
 
 After intent confirmation, decompose directly with zero delegated calls. Resolve aliases through
 [`model-aliases.psd1`](./assets/model-aliases.psd1) before passing a host model. If a concrete unresolved

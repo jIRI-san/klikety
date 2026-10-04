@@ -29,7 +29,19 @@ param(
 
     [string]$Branch,
 
-    [string]$StartBranch = (git branch --show-current)
+    [string]$StartBranch = (git branch --show-current),
+
+    [switch]$FactoryRepair,
+
+    [int]$FactoryRepairPhase,
+
+    [string]$FactoryRepairIncidentId,
+
+    [string]$FactoryRepairBuildLineageId,
+
+    [int]$FactoryRepairAttempt,
+
+    [string]$FactoryRepairSourceSha
 )
 
 Set-StrictMode -Version Latest
@@ -97,6 +109,26 @@ $phaseNumbers = @($phaseMatches | ForEach-Object { [int]$_.Groups[1].Value })
 $totalPhases = $phaseNumbers.Count
 $phaseList = $phaseNumbers -join ', '
 Write-Host "Plan has $totalPhases phases (numbers: $phaseList)."
+if ($FactoryRepair) {
+    if ($Mode -ne 'next-phase' -or $FactoryRepairPhase -notin $phaseNumbers -or
+        [string]::IsNullOrWhiteSpace($FactoryRepairIncidentId) -or
+        $FactoryRepairIncidentId -notmatch '^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$' -or
+        [string]::IsNullOrWhiteSpace($FactoryRepairBuildLineageId) -or
+        $FactoryRepairBuildLineageId -notmatch '^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$' -or
+        $FactoryRepairAttempt -notin @(1, 2) -or
+        $FactoryRepairSourceSha -cnotmatch '^[0-9a-f]{40,64}$') {
+        throw 'Factory repair parameters are incomplete or invalid.'
+    }
+    $worktreeHead = (git -C $WorktreePath rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or $worktreeHead -cne $FactoryRepairSourceSha) {
+        throw 'Factory repair worktree does not match the failed PR source SHA.'
+    }
+    $worktreeChanges = @(git -C $WorktreePath status --porcelain --untracked-files=normal)
+    if ($LASTEXITCODE -ne 0 -or $worktreeChanges.Count -gt 0) {
+        throw 'Factory repair worktree is not clean; inspect it before starting a corrective run.'
+    }
+    Assert-FactoryRepairCriteriaBaseline -Root $WorktreePath -PlanReference $PlanSlug
+}
 
 # --- Per-phase execution loop ---
 function ConvertTo-CmdQuotedToken {
@@ -128,6 +160,23 @@ function Get-CanonicalPhaseState {
     return $state
 }
 
+function Assert-FactoryRepairCriteriaBaseline {
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$PlanReference
+    )
+
+    $modulePath = Join-Path $Root '.github/skills/ci/scripts/DirectWorkflow.psm1'
+    if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+        throw 'Factory repair requires the locally bootstrapped CI plan validator.'
+    }
+    Import-Module -Name $modulePath -Force -DisableNameChecking
+    $baseline = Test-PlanCriteriaBaseline -RepoRoot $Root -PlanReference $PlanReference
+    if ([string]$baseline.Status -cne 'ready') {
+        throw 'Factory repair is blocked because the confirmed plan criteria baseline is not ready.'
+    }
+}
+
 function ConvertTo-PowerShellQuotedToken {
     param(
         [Parameter(Mandatory)]
@@ -152,6 +201,10 @@ function Invoke-CopilotPhase {
         [string]$ReasoningEffort,
         [string]$ModelAlias,
         [string]$LedgerPlanFolder,
+        [switch]$FactoryRepair,
+        [string]$FactoryRepairIncidentId,
+        [string]$FactoryRepairBuildLineageId,
+        [int]$FactoryRepairAttempt,
 
         [switch]$Finalization
     )
@@ -173,6 +226,13 @@ function Invoke-CopilotPhase {
         "Finalize completed plan $PlanRelPath. Do not execute checklist phases. Run the explicit completion target, and do not duplicate an unchanged terminal review."
     } else {
         "Execute $PlanRelPath, phase $PhaseNumber only. Do not run plan finalization; the launcher has a separate completion target."
+    }
+    if ($FactoryRepair) {
+        $prompt = @"
+Repair factory-loop build incident '$FactoryRepairIncidentId' on stable build lineage '$FactoryRepairBuildLineageId' (corrective call $FactoryRepairAttempt of 2). Work only on the selected phase's already confirmed scope. Do not edit plan.md, any plan assets, planning-confirmed markers, or phase checklists. Make at most one repair PR. Do not broaden acceptance or alter criteria. The launcher admitted this completed phase only for this bounded repair. Run the repository's required build and test checks and report the exact failing check if the repair cannot be safely completed.
+
+$prompt
+"@
     }
 
     Write-Host ""
@@ -264,6 +324,12 @@ function Invoke-CopilotPhase {
     $psi.EnvironmentVariables['GH_TOKEN'] = $CopilotToken
     $psi.EnvironmentVariables['COPILOT_ALLOW_ALL'] = 'true'
     $psi.EnvironmentVariables['COPILOT_MODEL'] = $Model
+    if ($FactoryRepair) {
+        $psi.EnvironmentVariables['FACTORY_LOOP_REPAIR_MODE'] = 'true'
+        $psi.EnvironmentVariables['FACTORY_LOOP_REPAIR_INCIDENT_ID'] = $FactoryRepairIncidentId
+        $psi.EnvironmentVariables['FACTORY_LOOP_REPAIR_BUILD_LINEAGE_ID'] = $FactoryRepairBuildLineageId
+        $psi.EnvironmentVariables['FACTORY_LOOP_REPAIR_ATTEMPT'] = [string]$FactoryRepairAttempt
+    }
 
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $psi
@@ -292,7 +358,9 @@ function Invoke-CopilotPhase {
     Get-EventSubscriber | Where-Object SourceObject -eq $process | Unregister-Event
 
     $copilotExitCode = $process.ExitCode
-    $target = if ($Finalization) { 'finalization' } else { "phase-$PhaseNumber" }
+    $target = if ($Finalization) { 'finalization' } elseif ($FactoryRepair) {
+        "factory-repair-call-$FactoryRepairAttempt"
+    } else { "phase-$PhaseNumber" }
     try {
         $ledger = & (Join-Path $PSScriptRoot 'Record-AiCreditUsage.ps1') `
             -PlanFolder $LedgerPlanFolder `
@@ -326,34 +394,48 @@ $ledgerPlanFolder = Join-Path $RepoRoot "docs/implementation-plans/$PlanSlug"
 $phasesExecuted = 0
 $executionExitCode = 0
 foreach ($phase in $phaseNumbers) {
-    try {
-        $phaseState = Get-CanonicalPhaseState -StateScript $phaseStateScript `
-            -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath
+    if ($FactoryRepair) {
+        if ($phase -ne $FactoryRepairPhase) { continue }
+        $phaseState = 'factory-repair-admitted'
     }
-    catch {
-        Write-Warning $_
-        $executionExitCode = 3
-        break
+    else {
+        try {
+            $phaseState = Get-CanonicalPhaseState -StateScript $phaseStateScript `
+                -Plan $fullPlanPath -PhaseNumber $phase -Root $WorktreePath
+        }
+        catch {
+            Write-Warning $_
+            $executionExitCode = 3
+            break
+        }
     }
-    if ($phaseState -eq 'closed') {
+    if (-not $FactoryRepair -and $phaseState -eq 'closed') {
         Write-Host "Phase ${phase}: checklist and phase close complete - skipping."
         continue
     }
 
     Write-Host "Phase ${phase}: $phaseState."
-    $result = Invoke-CopilotPhase `
-        -PhaseNumber $phase `
-        -CopilotToken $Token `
-        -Cwd $WorktreePath `
-        -PlanRelPath $PlanPath `
-        -CopilotPath $hostCommand.Path `
-        -CopilotType $hostCommand.Type `
-        -ExtraArgs $hostCommand.ExtraArgs `
-        -Model $Config.model `
-        -ContextTier $Config.context `
-        -ReasoningEffort $Config.reasoningEffort `
-        -ModelAlias $Config.modelAlias `
-        -LedgerPlanFolder $ledgerPlanFolder
+    $phaseArguments = @{
+        PhaseNumber = $phase
+        CopilotToken = $Token
+        Cwd = $WorktreePath
+        PlanRelPath = $PlanPath
+        CopilotPath = $hostCommand.Path
+        CopilotType = $hostCommand.Type
+        ExtraArgs = $hostCommand.ExtraArgs
+        Model = $Config.model
+        ContextTier = $Config.context
+        ReasoningEffort = $Config.reasoningEffort
+        ModelAlias = $Config.modelAlias
+        LedgerPlanFolder = $ledgerPlanFolder
+    }
+    if ($FactoryRepair) {
+        $phaseArguments.FactoryRepair = $true
+        $phaseArguments.FactoryRepairIncidentId = $FactoryRepairIncidentId
+        $phaseArguments.FactoryRepairBuildLineageId = $FactoryRepairBuildLineageId
+        $phaseArguments.FactoryRepairAttempt = $FactoryRepairAttempt
+    }
+    $result = Invoke-CopilotPhase @phaseArguments
 
     $phasesExecuted++
 
@@ -365,6 +447,19 @@ foreach ($phase in $phaseNumbers) {
     if ($result.ExitCode -ne 0) {
         Write-Warning "Phase $phase exited with code $($result.ExitCode). Stopping."
         $executionExitCode = $result.ExitCode
+        break
+    }
+
+    if ($FactoryRepair) {
+        try {
+            Assert-FactoryRepairCriteriaBaseline -Root $WorktreePath -PlanReference $PlanSlug
+        }
+        catch {
+            Write-Warning "Factory repair altered or lost its confirmed criteria baseline: $_"
+            $executionExitCode = 42
+            break
+        }
+        Write-Host 'Factory repair completed without closing or finalizing the plan.'
         break
     }
 

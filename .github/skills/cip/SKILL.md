@@ -9,6 +9,13 @@ context: fork
 
 # Create Implementation Plan
 
+An explicit `/ws` handoff is draft context. Before planning, verify the current branch, worktree
+path/session, and HEAD against the selected variant identity and prototype commit. If any identity
+differs, stop for the operator to open the selected worktree or confirm a deliberate new starting
+point; never silently copy, merge, or continue from another variant. Reconfirm intent and plan the
+remaining production work through the normal process. A prototype, lightweight plan, comparison,
+shortcuts, and checks are not confirmed criteria or completed plan steps; redesign is allowed.
+
 Resolve/scaffold the plan with existing deterministic scripts. Discover prior work only from a filtered
 index or explicit canonical IDs, then load at most three selected current Markdown artifacts through
 `.github/skills/cip/scripts/Get-DirectPlanArtifactConsumerContext.ps1`. Keep confinement, secret
@@ -17,7 +24,10 @@ screening, accepted-only provenance, untrusted framing, and current intent/contr
 Before drafting, follow
 [`./assets/decision-protocol.md`](./assets/decision-protocol.md). It defines host-equivalent complex
 choices and the absolute/fuzzy language confirmation gate. Do not draft an unconfirmed absolute or an
-unobservable fuzzy requirement.
+unobservable fuzzy requirement. Catch consequential interpretation ambiguity before drafting, retain
+selected operator wording separately from confirmed interpretation in the existing intent asset, and reconcile
+relevant historical intent without giving it veto power. Reuse `assets/design.md` as the operator-readable
+lightweight RFC; do not add a parallel authority.
 
 Confirm current intent first and draft directly with zero delegated calls. Resolve aliases through
 [`model-aliases.psd1`](./assets/model-aliases.psd1) before passing a host model. If a concrete unresolved

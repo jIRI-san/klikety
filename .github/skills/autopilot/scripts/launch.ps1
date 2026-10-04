@@ -28,7 +28,12 @@ param(
 
     [string]$ExpectedPullRequestBase,
 
-    [string]$Run
+    [string]$Run,
+
+    [switch]$FactoryRepair,
+
+    [ValidateRange(1, 99)]
+    [int]$FactoryRepairPhase
 )
 
 Set-StrictMode -Version Latest
@@ -167,6 +172,27 @@ if (-not $testAllowed) {
 $effectiveRuntime = if ($Runtime) { $Runtime } else { $Config.runtime }
 Write-Host "Runtime: $effectiveRuntime"
 
+if ($FactoryRepair -and $effectiveRuntime -ne 'host') {
+    Write-Error 'Factory repair mode is supported only by the host runtime.'
+    exit 1
+}
+if ($FactoryRepair -and $Mode -ne 'next-phase') {
+    Write-Error "Factory repair mode requires -Mode 'next-phase'."
+    exit 1
+}
+if (-not $FactoryRepair -and $FactoryRepairPhase) {
+    Write-Error '-FactoryRepairPhase requires -FactoryRepair.'
+    exit 1
+}
+
+$factoryRepairInvocation = $null
+if ($FactoryRepair) {
+    if (-not $FactoryRepairPhase) {
+        Write-Error '-FactoryRepair requires an explicit -FactoryRepairPhase.'
+        exit 1
+    }
+}
+
 if ($expectedStartCommitNormalized -and $effectiveRuntime -ne 'container') {
     Write-Error '-ExpectedStartCommit is supported only by the container runtime.'
     exit 1
@@ -273,6 +299,23 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "Auth OK."
 
+if ($FactoryRepair) {
+    $factoryRuntime = Join-Path $RepoRoot '.github/skills/factory-loop/scripts/FactoryLoop.Runtime.psm1'
+    if (-not (Test-Path -LiteralPath $factoryRuntime -PathType Leaf)) {
+        Write-Error "Factory-loop runtime is missing. Run factory-loop setup first: $factoryRuntime"
+        exit 1
+    }
+    try {
+        Import-Module -Name $factoryRuntime -Force -DisableNameChecking
+        $factoryRepairInvocation = Start-FactoryLoopRepairInvocation `
+            -RepoRoot $RepoRoot -PlanReference $PlanSlug
+    }
+    catch {
+        Write-Error "Factory repair admission failed: $_"
+        exit 1
+    }
+}
+
 # --- Dispatch ---
 Write-Host ""
 Write-Host "=== Launching $effectiveRuntime mode ==="
@@ -287,6 +330,15 @@ $dispatchParams = @{
     Token = $Token
     Branch = "feature/$PlanSlug"
     StartBranch = if ($Branch) { $Branch } else { git branch --show-current }
+}
+if ($factoryRepairInvocation) {
+    $dispatchParams.Branch = [string]$factoryRepairInvocation.branch
+    $dispatchParams.FactoryRepair = $true
+    $dispatchParams.FactoryRepairPhase = $FactoryRepairPhase
+    $dispatchParams.FactoryRepairIncidentId = [string]$factoryRepairInvocation.incidentId
+    $dispatchParams.FactoryRepairBuildLineageId = [string]$factoryRepairInvocation.buildLineageId
+    $dispatchParams.FactoryRepairAttempt = [int]$factoryRepairInvocation.attempt
+    $dispatchParams.FactoryRepairSourceSha = [string]$factoryRepairInvocation.sourceSha
 }
 if ($expectedStartCommitNormalized) {
     $dispatchParams.ExpectedStartCommit = $expectedStartCommitNormalized

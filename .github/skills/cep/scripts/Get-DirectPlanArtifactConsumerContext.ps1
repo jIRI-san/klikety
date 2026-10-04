@@ -10,11 +10,11 @@ secrets, and frames accepted content once as untrusted historical context.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateCount(1, 5)]
+    [ValidateCount(1, 3)]
     [string[]]$PlanId,
 
     [Parameter(Mandatory)]
-    [ValidateCount(1, 6)]
+    [ValidateCount(1, 3)]
     [string[]]$ArtifactKind,
 
     [Parameter(Mandatory)]
@@ -34,8 +34,8 @@ param(
     [ValidateRange(1, 5MB)]
     [int]$MaxTotalBytes = 512KB,
 
-    [ValidateRange(1, 5)]
-    [int]$MaxCandidates = 5
+    [ValidateRange(1, 3)]
+    [int]$MaxCandidates = 3
 )
 
 Set-StrictMode -Version Latest
@@ -48,7 +48,7 @@ Import-Module (Join-Path $PSScriptRoot 'DirectWorkflow.psm1') -DisableNameChecki
 $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
 $root = (Resolve-Path -LiteralPath ([System.IO.Path]::GetFullPath($RepoRoot))).Path
 $corpus = New-PlanCorpusConfinementContext -RepoRoot $root
-$supportedKinds = @('Intent', 'Design', 'Decisions', 'Reviews', 'Learnings')
+$supportedKinds = @('Intent', 'EpicIntent', 'Design', 'Decisions', 'Reviews', 'Learnings')
 $supportedRelationships = @(
     'reuses', 'extends', 'supersedes', 'conflicts', 'dependency', 'sibling', 'operator-selected'
 )
@@ -77,6 +77,8 @@ function New-PublicResult {
         isArchived = $Archived
         isUntrusted = $true
         authority = 'historical-context-only'
+        recordKind = if ($Kind -eq 'EpicIntent') { 'epic' } else { 'plan' }
+        epicId = if ($Kind -eq 'EpicIntent') { $Id } else { $null }
         byteCount = $ByteCount
         content = $Content
         reason = $Reason
@@ -173,6 +175,7 @@ for ($index = 0; $index -lt $PlanId.Count; $index++) {
 }
 
 $inventory = @(Get-PlanInventory -RepoRoot $root -CanonicalIdFilter $ids)
+$epicInventory = @(Get-EpicInventory -RepoRoot $root | Where-Object { $_.Id -cin $ids })
 $candidates = [System.Collections.Generic.List[object]]::new()
 foreach ($id in $ids) {
     if ($id -cnotmatch '^(?:[0-9a-f]{6}|\d{3})$') {
@@ -183,7 +186,9 @@ foreach ($id in $ids) {
         }
         continue
     }
-    $matches = @($inventory | Where-Object Id -CEQ $id)
+    $planMatches = @($inventory | Where-Object Id -CEQ $id)
+    $epicMatches = @($epicInventory | Where-Object Id -CEQ $id)
+    $matches = @($planMatches) + @($epicMatches)
     if ($matches.Count -ne 1) {
         foreach ($kind in $kinds) {
             $candidates.Add((New-PublicResult -Status refused -Id $id -Kind $kind -Path $null `
@@ -194,8 +199,9 @@ foreach ($id in $ids) {
     }
 
     $plan = $matches[0]
+    $isEpic = $null -ne $plan.PSObject.Properties['EpicFile']
     $context = New-PlanConfinementContext -PlanDir $plan.Path -CorpusContext $corpus
-    $layout = Get-PlanLayout -PlanDir $plan.Path
+    $layout = if ($isEpic) { 'epic' } else { Get-PlanLayout -PlanDir $plan.Path }
     foreach ($kind in $kinds) {
         if ($kind -cnotin $supportedKinds) {
             $candidates.Add((New-PublicResult -Status refused -Id $id -Kind $kind -Path $null `
@@ -204,8 +210,26 @@ foreach ($id in $ids) {
             continue
         }
 
+        if ($isEpic -and $kind -cne 'EpicIntent') {
+            $candidates.Add((New-PublicResult -Status refused -Id $id -Kind $kind -Path $null `
+                        -Relation ([string]$relationshipById[$id]) -Layout $layout `
+                        -Archived ([bool]$plan.IsArchived) -ByteCount $null -Content $null `
+                        -Reason 'Epic records expose only their bounded intent artifact.'))
+            continue
+        }
+        if (-not $isEpic -and $kind -ceq 'EpicIntent') {
+            $candidates.Add((New-PublicResult -Status missing -Id $id -Kind $kind `
+                        -Path $null -Relation ([string]$relationshipById[$id]) -Layout $layout `
+                        -Archived ([bool]$plan.IsArchived) -ByteCount $null -Content $null `
+                        -Reason 'Selected ID does not resolve to an epic.'))
+            continue
+        }
+
         $paths = @()
-        if ($kind -eq 'Reviews') {
+        if ($isEpic) {
+            $paths = @($plan.EpicFile)
+        }
+        elseif ($kind -eq 'Reviews') {
             $reviews = Resolve-PlanAssetPath -PlanDir $plan.Path -Kind Reviews -Layout $layout
             if (Test-Path -LiteralPath $reviews -PathType Container) {
                 [void](Resolve-ConfinedPlanPath -Context $context -Path $reviews -PathType Container)
@@ -267,6 +291,8 @@ if ($totalBytes -gt $MaxTotalBytes) {
 $acceptedPayload = @($accepted | ForEach-Object {
         [ordered]@{
             planId = $_.planId
+            recordKind = $_.recordKind
+            epicId = $_.epicId
             artifactKind = $_.artifactKind
             path = $_.path
             relationship = $_.relationship
@@ -282,6 +308,8 @@ $result = [pscustomobject][ordered]@{
     accepted = @($accepted | ForEach-Object {
             [ordered]@{
                 planId = $_.planId
+                recordKind = $_.recordKind
+                epicId = $_.epicId
                 artifactKind = $_.artifactKind
                 path = $_.path
                 relationship = $_.relationship
@@ -296,6 +324,8 @@ $result = [pscustomobject][ordered]@{
     provenance = @($accepted | ForEach-Object {
             [ordered]@{
                 planId = $_.planId
+                recordKind = $_.recordKind
+                epicId = $_.epicId
                 artifactKind = $_.artifactKind
                 path = $_.path
                 relationship = $_.relationship

@@ -35,6 +35,19 @@ $planFolderPath = [System.IO.Path]::GetFullPath($PlanFolder)
 $usageFilePath = [System.IO.Path]::GetFullPath($UsagePath)
 $planPath = Join-Path $planFolderPath 'plan.md'
 if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
+    $plansRoot = Split-Path -Parent $planFolderPath
+    if ((Split-Path -Leaf $plansRoot) -eq 'implementation-plans') {
+        $archivedFolder = Join-Path (Join-Path $plansRoot 'archived') (Split-Path -Leaf $planFolderPath)
+        if (Test-Path -LiteralPath (Join-Path $archivedFolder 'plan.md') -PathType Leaf) {
+            Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+            $root = Split-Path -Parent (Split-Path -Parent $plansRoot)
+            [void](New-PlanConfinementContext -PlanDir $archivedFolder -RepoRoot $root)
+            $planFolderPath = $archivedFolder
+            $planPath = Join-Path $planFolderPath 'plan.md'
+        }
+    }
+}
+if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
     throw "Plan not found: $planPath"
 }
 if (-not (Test-Path -LiteralPath $usageFilePath -PathType Leaf)) {

@@ -1,12 +1,14 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-Emits a deterministic cross-plan index of REQ / RISK / decision records.
+Emits deterministic cross-plan REQ / RISK / decision records and filtered historical intent candidates.
 
 .DESCRIPTION
 `/cip` reconciles a new plan against what earlier plans already required, risked, and decided. Parsing
 every plan for that is expensive and grows with the archive, so this script aggregates the records once
-into an addressable index — markdown for reading, JSON for tooling.
+into an addressable index — markdown for reading, JSON for tooling. A supplied case-insensitive filter
+also searches intent statements in active/archived plans and epic Goal/Decomposition notes, returning
+only bounded, provenance-bearing snippets.
 
 Coverage is the whole corpus: active *and* archived plans, in both the `plan.md` + `assets/` layout and
 the legacy in-`plan.md` layout. Layout resolution is delegated to `Get-PlanMetadata`/`Resolve-PlanSection`
@@ -26,8 +28,8 @@ param(
     [ValidateSet('Markdown', 'Json')]
     [string]$Format = 'Markdown',
 
-    # Regex (case-insensitive) applied to plan titles and record text. The full index across an aged
-    # archive is large; reconciling one topic should not mean reading all of it.
+    # Regex (case-insensitive) applied to plan titles, requirement/risk/decision text, and intent.
+    # The full index across an aged archive is large; reconciling one topic should not mean reading all of it.
     [string]$Filter
 )
 
@@ -35,6 +37,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'PlanState.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'SecretGuard.psm1') -Force -DisableNameChecking
 
 $repoRootPath = [System.IO.Path]::GetFullPath($RepoRoot)
 
@@ -45,6 +48,7 @@ $plansRoot = Join-Path $repoRootPath 'docs/implementation-plans'
 if (-not (Test-Path -LiteralPath $plansRoot -PathType Container)) {
     throw "No plan corpus at '$plansRoot'. Pass -RepoRoot pointing at the repository root; an unresolvable root must not read as an empty index."
 }
+$corpusContext = New-PlanCorpusConfinementContext -RepoRoot $repoRootPath
 
 function ConvertTo-IndexText {
     param([AllowNull()][AllowEmptyString()][string]$Text)
@@ -75,10 +79,124 @@ function Get-PlanTitle {
     return ''
 }
 
+function Get-FilteredIntentCandidate {
+    param(
+        [Parameter(Mandatory)][string]$Kind,
+        [Parameter(Mandatory)][string]$Id,
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][bool]$IsArchived,
+        [Parameter(Mandatory)][string]$Title,
+        [Parameter(Mandatory)][string[]]$SectionNames,
+        [Parameter(Mandatory)][System.Text.RegularExpressions.Regex]$Pattern,
+        [Parameter(Mandatory)][string]$RecordPath
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        if (-not $Pattern.IsMatch($Title)) { return $null }
+        return [pscustomobject][ordered]@{
+            kind = $Kind
+            id = $Id
+            path = $RecordPath
+            isArchived = $IsArchived
+            matchedSection = $null
+            snippets = @()
+            missingContextReason = 'Intent artifact does not exist.'
+        }
+    }
+
+    $context = New-PlanConfinementContext -PlanDir (Split-Path -Parent $Path) `
+        -CorpusContext $corpusContext
+    $confined = Resolve-ConfinedPlanPath -Context $context -Path $Path -PathType Leaf
+    $stream = Open-ConfinedPlanFile -Context $context -Path $confined.Item.FullName
+    try {
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.UTF8Encoding]::new($false, $true), $true)
+        try {
+            $raw = $reader.ReadToEnd()
+        }
+        finally {
+            $reader.Dispose()
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+
+    $lines = Remove-FencedCodeBlocks -Lines (($raw -replace "`r`n", "`n").Split("`n"))
+    $selectedLines = [System.Collections.Generic.List[object]]::new()
+    $activeSection = $null
+    $secretMatchOmitted = $false
+    foreach ($line in $lines) {
+        if ($line -match '^##\s+(?<section>.+?)\s*#*\s*$') {
+            $heading = $Matches.section.Trim()
+            $activeSection = if (@($SectionNames | Where-Object { $_ -ieq $heading }).Count -gt 0) {
+                $heading
+            }
+            else {
+                $null
+            }
+            continue
+        }
+        if ($activeSection -and $Pattern.IsMatch([string]$line)) {
+            $snippet = ConvertTo-IndexText ([string]$line)
+            if ([string]::IsNullOrWhiteSpace($snippet)) { continue }
+            if (@(Find-HighConfidenceSecret -Value $snippet).Count -gt 0) {
+                $secretMatchOmitted = $true
+                continue
+            }
+            if ($snippet.Length -gt 240) { $snippet = $snippet.Substring(0, 240) }
+            $selectedLines.Add([pscustomobject]@{ Section = $activeSection; Snippet = $snippet })
+        }
+    }
+
+    if ($selectedLines.Count -eq 0) {
+        if ($secretMatchOmitted) {
+            return [pscustomobject][ordered]@{
+                kind = $Kind
+                id = $Id
+                path = $RecordPath
+                isArchived = $IsArchived
+                matchedSection = $null
+                snippets = @()
+                missingContextReason = 'Matching intent text was omitted by secret screening.'
+            }
+        }
+        if (-not $Pattern.IsMatch($Title)) { return $null }
+        return [pscustomobject][ordered]@{
+            kind = $Kind
+            id = $Id
+            path = $RecordPath
+            isArchived = $IsArchived
+            matchedSection = $null
+            snippets = @()
+            missingContextReason = 'No matching statement was found in the available intent sections.'
+        }
+    }
+
+    $snippets = @($selectedLines | Select-Object -First 3)
+    $sections = @($snippets | ForEach-Object Section | Select-Object -Unique)
+    return [pscustomobject][ordered]@{
+        kind = $Kind
+        id = $Id
+        path = $RecordPath
+        isArchived = $IsArchived
+        matchedSection = $sections -join ', '
+        snippets = @($snippets | ForEach-Object Snippet)
+        missingContextReason = $null
+    }
+}
+
 $errors = [System.Collections.Generic.List[string]]::new()
 $planRecords = [System.Collections.Generic.List[object]]::new()
+$intentCandidates = [System.Collections.Generic.List[object]]::new()
+$planInventory = @(Get-PlanInventory -RepoRoot $repoRootPath)
+$filterPattern = if (-not [string]::IsNullOrWhiteSpace($Filter)) {
+    [regex]::new($Filter, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+}
+else {
+    $null
+}
 
-foreach ($entry in @(Get-PlanInventory -RepoRoot $repoRootPath)) {
+foreach ($entry in $planInventory) {
     $planFile = Join-Path $entry.Path 'plan.md'
     if (-not (Test-Path -LiteralPath $planFile -PathType Leaf)) {
         $errors.Add("$(ConvertTo-RepoRelativePath $entry.Path): no plan.md")
@@ -87,6 +205,17 @@ foreach ($entry in @(Get-PlanInventory -RepoRoot $repoRootPath)) {
 
     try {
         $metadata = Get-PlanMetadata -Path $planFile -RepoRoot $repoRootPath
+        if ($filterPattern) {
+            $intentPath = Resolve-PlanAssetPath -PlanDir $entry.Path -Kind Intent `
+                -RepoRoot $repoRootPath -Inventory $planInventory
+            $planTitle = Get-PlanTitle -Line $metadata.AllLines
+            $candidate = Get-FilteredIntentCandidate -Kind 'plan' -Id $entry.Id `
+                -Path $intentPath -IsArchived ([bool]$entry.IsArchived) `
+                -Title $planTitle `
+                -SectionNames @('Goal', 'Desired outcome', 'Success signals', 'Non-goals', 'Definition of done') `
+                -Pattern $filterPattern -RecordPath (ConvertTo-RepoRelativePath $intentPath)
+            if ($candidate) { $intentCandidates.Add($candidate) }
+        }
     }
     catch {
         # Repo-relative so the message is identical on any machine — the index stays byte-deterministic
@@ -141,6 +270,31 @@ foreach ($entry in @(Get-PlanInventory -RepoRoot $repoRootPath)) {
     })
 }
 
+if ($filterPattern) {
+    foreach ($epic in @(Get-EpicInventory -RepoRoot $repoRootPath)) {
+        try {
+            $candidate = Get-FilteredIntentCandidate -Kind 'epic' -Id $epic.Id `
+                -Path $epic.EpicFile -IsArchived ([bool]$epic.IsArchived) `
+                -Title ([string]$epic.Title) `
+                -SectionNames @('Goal', 'Decomposition notes') `
+                -Pattern $filterPattern -RecordPath (ConvertTo-RepoRelativePath $epic.EpicFile)
+            if ($candidate) { $intentCandidates.Add($candidate) }
+        }
+        catch {
+            $errors.Add("$(ConvertTo-RepoRelativePath $epic.EpicFile): $(ConvertTo-IndexText ($_.Exception.Message.Replace($repoRootPath, '.')))")
+        }
+    }
+}
+
+$intentCandidates.Sort([System.Comparison[object]] {
+    param($a, $b)
+    $byKind = [string]::CompareOrdinal([string]$a.kind, [string]$b.kind)
+    if ($byKind -ne 0) { return $byKind }
+    $byId = [string]::CompareOrdinal([string]$a.id, [string]$b.id)
+    if ($byId -ne 0) { return $byId }
+    return [string]::CompareOrdinal([string]$a.path, [string]$b.path)
+})
+
 # Ordinal ordering, not Sort-Object: culture-aware comparison would let the same tree index differently on
 # a different machine, which is exactly what the deterministic contract forbids.
 $planRecords.Sort([System.Comparison[object]] {
@@ -153,8 +307,8 @@ $errors.Sort([System.Comparison[string]] { param($a, $b) [string]::CompareOrdina
 
 $plans = @($planRecords | ForEach-Object { $_.Record })
 
-if (-not [string]::IsNullOrWhiteSpace($Filter)) {
-    $pattern = [regex]::new($Filter, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+if ($filterPattern) {
+    $pattern = $filterPattern
     $matched = [System.Collections.Generic.List[object]]::new()
     foreach ($plan in $plans) {
         $titleHit = $pattern.IsMatch([string]$plan.title)
@@ -187,6 +341,7 @@ if ($Format -eq 'Json') {
             decisions    = [int]$decisionCount
         }
         plans   = $plans
+        intentCandidates = @($intentCandidates)
         errors  = @($errors)
     }
     return ($document | ConvertTo-Json -Depth 8)
@@ -202,6 +357,22 @@ $lines.Add("Plans: $($plans.Count) (active $activeCount, archived $archivedCount
 if ($Filter) {
     $lines.Add('')
     $lines.Add("Filtered by ``$Filter`` $dash this is a subset, not the full corpus.")
+    $lines.Add('')
+    $lines.Add('## Historical intent candidates')
+    $lines.Add('')
+    if ($intentCandidates.Count -eq 0) {
+        $lines.Add('No matching plan or epic intent statements were indexed; this does not prove that no historical context exists.')
+    }
+    foreach ($candidate in $intentCandidates) {
+        $state = if ($candidate.isArchived) { 'archived' } else { 'active' }
+        $lines.Add("- $($candidate.kind) $($candidate.id) — ``$($candidate.path)`` — $state — section: $(if ($candidate.matchedSection) { $candidate.matchedSection } else { 'missing' })")
+        foreach ($snippet in $candidate.snippets) {
+            $lines.Add("  - $snippet")
+        }
+        if ($candidate.missingContextReason) {
+            $lines.Add("  - Missing context: $($candidate.missingContextReason)")
+        }
+    }
 }
 
 foreach ($plan in $plans) {

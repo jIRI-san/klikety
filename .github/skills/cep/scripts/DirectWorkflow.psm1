@@ -693,7 +693,7 @@ function Invoke-DirectEvidence {
     )
 
     $results = foreach ($item in $Marker) {
-        $passed = if ($item -match '^test:(?<id>[A-Za-z0-9][A-Za-z0-9._-]*)$') {
+        $passed = if ($item -match '^test:(?<id>[A-Za-z0-9][A-Za-z0-9._-]*(?::[A-Za-z0-9][A-Za-z0-9._-]*)*)$') {
             if (-not $TestResult.ContainsKey($Matches.id)) {
                 $false
             }

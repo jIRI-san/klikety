@@ -49,6 +49,7 @@ internal sealed partial class MacroHandler : IDisposable {
     public bool RecordingAppScoped => _recordingAppScoped;
     public Rectangle RecordingWindowBounds => _recordingWindowBounds;
     public MacroRecorder? Recorder => _macroRecorder;
+    public IReadOnlyList<MacroDefinition?> MacroSlots => _macrosFile.Macros;
 
     public IMacroHotKeyService? MacroHotKeyService {
         get => _macroHotKeyService;
@@ -408,9 +409,16 @@ internal sealed partial class MacroHandler : IDisposable {
             return;
         }
 
+        bool navigationVisible = _sessionManager.IsActive;
         _playbackFromGlobalHotKey = true;
-        _targetHwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
+        if (!navigationVisible) {
+            _targetHwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
+        }
         _macroState = MacroState.Picking;
+        if (navigationVisible) {
+            _hookService.Disable();
+            SuspendOverlayRequested?.Invoke();
+        }
         _macroPickerWindow.Show(_macrosFile.Macros, _config.Macros.SlotKeys);
     }
 

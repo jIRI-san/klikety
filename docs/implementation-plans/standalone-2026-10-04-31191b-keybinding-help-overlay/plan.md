@@ -20,7 +20,7 @@
 
 ## Phase 1: Working help slice
 
-- [ ] 1.1 Add help binding and state-preserving toggle with a minimal split view (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2, RISK-3) `L`
+- [x] 1.1 Add help binding and state-preserving toggle with a minimal split view (REQ-1, REQ-2, REQ-3, RISK-1, RISK-2, RISK-3) `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** default slash or shifted slash opens a visible split help layer; closing it returns to the same selection.
@@ -35,7 +35,7 @@
 
   </details>
 
-- [ ] 1.2 Populate effective mouse, mode, scope, help, and display bindings (REQ-4, RISK-4) [after: 1.1] `M`
+- [x] 1.2 Populate effective mouse, mode, scope, help, and display bindings (REQ-4, RISK-4) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** the split view reflects actual configured/runtime commands, including implicit Space and assigned displays.
@@ -50,7 +50,7 @@
 
 ## Phase 2: Contextual content and readable layout
 
-- [ ] 2.1 Add macro and drag contextual help (REQ-2, REQ-3, REQ-4, REQ-5, RISK-3, RISK-5) [after: 1.2] `M`
+- [x] 2.1 Add macro and drag contextual help (REQ-2, REQ-3, REQ-4, REQ-5, RISK-3, RISK-5) [after: 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** recording prompts, macro slots/names, and drag-target actions have accurate help without changing their state.
@@ -65,7 +65,7 @@
 
   </details>
 
-- [ ] 2.2 Finish split layout, theme, layout glyphs, and viewport fitting (REQ-6, REQ-7, RISK-6) [after: 1.2] `L`
+- [x] 2.2 Finish split layout, theme, layout glyphs, and viewport fitting (REQ-6, REQ-7, RISK-6) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** two staggered keyboard halves sit around the active display's center with a clear gap, readable commands, and dark/light styling.
@@ -82,7 +82,7 @@
 
 ## Phase 3: Verification and documentation
 
-- [ ] 3.1 Complete regression coverage and update help documentation (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6) [after: 2.1, 2.2] `M`
+- [x] 3.1 Complete regression coverage and update help documentation (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, REQ-6, REQ-7, REQ-8, RISK-1, RISK-2, RISK-3, RISK-4, RISK-5, RISK-6) [after: 2.1, 2.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** automated behavior/layout checks pass, existing navigation behavior remains intact, and docs describe the delivered binding and lifecycle.
@@ -97,7 +97,7 @@
 
   </details>
 
-- [ ] 3.2 Verify live keyboard, display, and focus behavior (REQ-1, REQ-2, REQ-3, REQ-5, REQ-6, REQ-7) [after: 3.1] @human `S`
+- [~] 3.2 Verify live keyboard, display, and focus behavior (REQ-1, REQ-2, REQ-3, REQ-5, REQ-6, REQ-7) [after: 3.1] @human `S`
   <details><summary>Live verification</summary>
 
   **Steps:**

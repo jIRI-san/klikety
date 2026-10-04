@@ -14,7 +14,7 @@ All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookServ
 
 ```csharp
 interface IHotKeyService   { event EventHandler Activated; bool Register(HotKeyConfig); void Unregister(); }
-interface IKeyboardHookService { event EventHandler<VKey> KeyPressed; bool Enable(); void Disable(); }
+interface IKeyboardHookService { event EventHandler<KeyHookEventArgs> KeyEvent; bool Enable(); void Disable(); }
 interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None); void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None); }
 interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 interface IScrollHotKeyService { List<string> Register(); void Unregister(); bool IsRegistered; }
@@ -28,7 +28,8 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 ## `IKeyboardHookService` — `SetWindowsHookEx(WH_KEYBOARD_LL)`
 
 - Hook installed only while overlay is visible; uninstalled in `DeactivateOverlay()`.
-- Hook callback reads `VKey` + state from `KBDLLHOOKSTRUCT`, calls `CallNextHookEx` immediately, then posts `VKey` to UI thread via `Dispatcher.InvokeAsync` — no blocking work in callback (OS kills hook after ~300 ms).
+- Hook callback reads `VKey` + state from `KBDLLHOOKSTRUCT`, calls `CallNextHookEx` immediately, then posts `KeyHookEventArgs` to the UI thread via `Dispatcher.InvokeAsync` — no blocking work in callback (OS kills hook after ~300 ms).
+- `KeyHookEventArgs` carries key direction and a separate `HookModifierFlags` snapshot (`Shift`, `Control`, `Alt`, `Win`) captured in the hook callback. This is deliberately separate from mouse `ActionModifiers`; the overlay-local help binding rejects Ctrl/Alt/Win and optionally accepts Shift. Key-up events still reach the coordinator so debounce and help/Escape latches are released without dispatching a command.
 - `KeyEvent` event raised on UI thread only.
 - If `SetWindowsHookEx` returns null, `Enable()` returns `false`; overlay closed + tray notification.
 - `Disable()`: only nulls `_hookProc` (allowing GC) if `UnhookWindowsHookEx` returns success. Prevents crash from collected callback if unhook fails.

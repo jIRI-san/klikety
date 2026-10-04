@@ -49,6 +49,39 @@
         { "Space": "LeftClick", "OemSemicolon": "RightClick", "OemQuotes": "DoubleClick" }
       ]
     },
+    "helpBinding": {
+      "type": "object",
+      "description": "Overlay-local keyboard help toggle. Ctrl, Alt, and Win modifiers are never accepted.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable or disable the help toggle.",
+          "default": true
+        },
+        "key": {
+          "type": "string",
+          "description": "VKey name for the help toggle; defaults to the physical slash/question key.",
+          "default": "OemQuestion",
+          "enum": [
+            "Back", "Tab", "Return", "Shift", "Control", "Menu", "Pause", "Capital", "Escape", "Space",
+            "Prior", "Next", "Left", "Up", "Right", "Down",
+            "LShift", "RShift", "LControl", "RControl", "LMenu", "RMenu", "LWin", "RWin",
+            "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9",
+            "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10",
+            "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+            "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z",
+            "OemSemicolon", "OemPlus", "OemComma", "OemMinus", "OemPeriod",
+            "OemQuestion", "OemTilde", "OemOpenBrackets", "OemPipe", "OemCloseBrackets", "OemQuotes"
+          ]
+        },
+        "requireShift": {
+          "type": "boolean",
+          "description": "Require Shift. When false, both shifted and unshifted presses match.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
     "horizontalKeys": {
       "type": "array",
       "description": "Horizontal axis VKey list (selects grid column). Shared by all navigation modes.",

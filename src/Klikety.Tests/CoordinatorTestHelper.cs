@@ -36,7 +36,8 @@ internal static class CoordinatorTestHelper {
 
         var coordinator = new NavigatorCoordinator(
             hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
-            NullLogger.Instance, macroStore, macrosFile);
+            NullLogger.Instance, macroStore, macrosFile,
+            keyLabelResolverFactory: _ => new FakeKeyLabelResolver());
 
         return (coordinator, hotKey, hook, mouse, overlay, renderer, platform, modifierDetector);
     }

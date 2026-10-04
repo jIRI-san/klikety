@@ -147,12 +147,12 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
         Disable();
     }
 
-    public void SimulateKeyDown(VKey vkey) {
-        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, true));
+    public void SimulateKeyDown(VKey vkey, HookModifierFlags modifiers = HookModifierFlags.None) {
+        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, true, modifiers));
     }
 
-    public void SimulateKeyUp(VKey vkey) {
-        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, false));
+    public void SimulateKeyUp(VKey vkey, HookModifierFlags modifiers = HookModifierFlags.None) {
+        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, false, modifiers));
     }
 
     /// <summary>Convenience: simulates key-down (backward compat for existing tests).</summary>
@@ -210,6 +210,7 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public event EventHandler? FocusLost;
     public event EventHandler? DisplayChanged;
     public event EventHandler? KeyboardLayoutChanged;
+    public event EventHandler<OverlayViewportChangedEventArgs>? ViewportChanged;
     public bool IsVisible { get; private set; }
     public int ShowCount { get; private set; }
     public int HideCount { get; private set; }
@@ -228,6 +229,8 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
 
     public void Hide() {
         // Mirror real OverlayWindow.Hide(): clear all content on hide
+        HelpVisibleAtLastHide = CurrentHelp is not null;
+        HideHelp();
         ClearCanvasCount++;
         StatusText = null;
         ClearStatusTextCount++;
@@ -269,6 +272,30 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
         RecordingBorderVisible = visible;
     }
 
+    public void ShowHelp(HelpOverlayContent content) {
+        CurrentHelp = content;
+        ShowHelpCount++;
+    }
+
+    public void UpdateHelp(HelpOverlayContent content) {
+        CurrentHelp = content;
+        UpdateHelpCount++;
+    }
+
+    public void HideHelp() {
+        CurrentHelp = null;
+        HideHelpCount++;
+    }
+
+    public void RelayoutHelp() => RelayoutHelpCount++;
+
+    public HelpOverlayContent? CurrentHelp { get; private set; }
+    public int ShowHelpCount { get; private set; }
+    public int UpdateHelpCount { get; private set; }
+    public int HideHelpCount { get; private set; }
+    public int RelayoutHelpCount { get; private set; }
+    public bool HelpVisibleAtLastHide { get; private set; }
+
     public void SetAppScopeBorder(bool visible, System.Drawing.Rectangle bounds = default) {
         AppScopeBorderVisible = visible;
         AppScopeBorderBounds = bounds;
@@ -286,6 +313,10 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
 
     public void SimulateKeyboardLayoutChange() {
         KeyboardLayoutChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SimulateViewportChange(double width, double height) {
+        ViewportChanged?.Invoke(this, new OverlayViewportChangedEventArgs(width, height));
     }
 }
 

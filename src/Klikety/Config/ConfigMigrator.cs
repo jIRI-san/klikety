@@ -20,7 +20,7 @@ public sealed class MigrationResult {
 /// a JsonDocument pre-pass. Performs atomic writes with .bak backup.
 /// </summary>
 public static class ConfigMigrator {
-    public const int CurrentConfigVersion = 7;
+    public const int CurrentConfigVersion = 8;
 
     private static readonly VKey[] Default8FirstKeys =
         [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
@@ -225,6 +225,12 @@ public static class ConfigMigrator {
                 changed = true;
             }
 
+            if (version < 8) {
+                MigrateHelpBinding(obj, v1Warnings);
+                obj["configVersion"] = CurrentConfigVersion;
+                changed = true;
+            }
+
             if (changed) {
                 var writeError = AtomicWrite(path, obj);
                 if (writeError is not null) {
@@ -361,6 +367,8 @@ public static class ConfigMigrator {
             }
         }
 
+        MigrateHelpBinding(obj, warnings);
+
         // Remove legacy navigationMode
         obj.Remove("navigationMode");
 
@@ -403,6 +411,123 @@ public static class ConfigMigrator {
     private static JsonObject CreateDefaultAppScope() => new() {
         ["chordKey"] = "OemPeriod",
     };
+
+    private static void MigrateHelpBinding(JsonObject obj, List<string> warnings) {
+        if (obj.ContainsKey("helpBinding")) {
+            return;
+        }
+
+        const VKey defaultKey = VKey.OemQuestion;
+        bool enabled = !HasHelpBindingCollision(obj, defaultKey);
+        obj["helpBinding"] = new JsonObject {
+            ["enabled"] = enabled,
+            ["key"] = defaultKey.ToString(),
+            ["requireShift"] = false,
+        };
+        if (!enabled) {
+            warnings.Add(
+                $"Help key '{defaultKey}' conflicts with an existing overlay binding; help was disabled. " +
+                "Choose a different help key or resolve the conflict in config.json.");
+        }
+    }
+
+    private static bool HasHelpBindingCollision(JsonObject obj, VKey key) {
+        if (key is VKey.Escape or VKey.Left or VKey.Right or VKey.Up or VKey.Down or VKey.Return or
+            VKey.D1 or VKey.D2 or VKey.D3 or VKey.D4 or VKey.D5 or VKey.D6 or VKey.D7 or VKey.D8 or VKey.D9 or VKey.Space ||
+            CollectActionKeys(obj).Contains(key) ||
+            ContainsVKeyInArray(obj, "horizontalKeys", key) ||
+            ContainsVKeyInArray(obj, "verticalKeys", key)) {
+            return true;
+        }
+
+        if (obj["modes"] is JsonObject modes) {
+            foreach (var mode in modes.Select(pair => pair.Value).OfType<JsonObject>()) {
+                if (TryReadVKey(mode["chordKey"], out var chord) && chord == key) {
+                    return true;
+                }
+            }
+        }
+
+        if (obj["appScope"] is JsonObject appScope &&
+            TryReadVKey(appScope["chordKey"], out var scopeKey) && scopeKey == key) {
+            return true;
+        }
+
+        bool macrosEnabled = true;
+        if (obj["macros"] is JsonObject macroConfig) {
+            try {
+                macrosEnabled = macroConfig["enabled"]?.GetValue<bool>() != false;
+            } catch (InvalidOperationException) {
+                macrosEnabled = true;
+            }
+        }
+
+        if (obj["macros"] is JsonObject macros && macrosEnabled) {
+            if (TryReadVKey(macros["recordKey"], out var recordKey) && recordKey == key ||
+                TryReadVKey(macros["helperKey"], out var helperKey) && helperKey == key ||
+                ContainsVKeyInArray(macros, "slotKeys", key)) {
+                return true;
+            }
+        }
+
+        if (HasOverlappingHelpHotKey(obj["hotKey"], key)) {
+            return true;
+        }
+
+        if (obj["scrollHotkeys"] is JsonObject scrollHotkeys &&
+            IsConfiguredEnabled(scrollHotkeys, defaultValue: false) &&
+            (HasOverlappingHelpHotKey(scrollHotkeys["scrollUpKey"], key) ||
+             HasOverlappingHelpHotKey(scrollHotkeys["scrollDownKey"], key))) {
+            return true;
+        }
+
+        if (obj["macros"] is JsonObject macrosForHotKey && macrosEnabled &&
+            HasOverlappingHelpHotKey(macrosForHotKey["globalHotKey"], key)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsConfiguredEnabled(JsonObject config, bool defaultValue) {
+        try {
+            return config["enabled"]?.GetValue<bool>() ?? defaultValue;
+        } catch (Exception ex) when (ex is InvalidOperationException or FormatException) {
+            return true;
+        }
+    }
+
+    private static bool HasOverlappingHelpHotKey(JsonNode? node, VKey helpKey) {
+        if (node is not JsonObject hotKey ||
+            !TryReadVKey(hotKey["key"], out var key) ||
+            key != helpKey) {
+            return false;
+        }
+
+        HotKeyModifiers modifiers = HotKeyModifiers.Alt;
+        if (hotKey["modifiers"] is JsonValue modifierValue) {
+            try {
+                if (!Enum.TryParse(modifierValue.GetValue<string>(), true, out modifiers)) {
+                    return true;
+                }
+            } catch (InvalidOperationException) {
+                return true;
+            }
+        }
+
+        return (modifiers & (HotKeyModifiers.Control | HotKeyModifiers.Alt | HotKeyModifiers.Win)) == 0;
+    }
+
+    private static bool TryReadVKey(JsonNode? node, out VKey key) {
+        key = default;
+        try {
+            return node is JsonValue value &&
+                value.TryGetValue<string>(out var name) &&
+                Enum.TryParse(name, true, out key);
+        } catch (InvalidOperationException) {
+            return false;
+        }
+    }
 
     private static void MigrateDefaultSlotKeys(JsonObject obj) {
         if (obj["macros"] is not JsonObject macros) {

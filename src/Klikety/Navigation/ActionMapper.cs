@@ -29,6 +29,8 @@ public sealed class ActionMapper {
         return _bindings.TryGetValue(vkey, out var action) ? action : null;
     }
 
+    public IReadOnlyDictionary<VKey, MouseAction> Bindings => _bindings;
+
     /// <summary>
     /// Returns true if the given VKey is bound as an action key.
     /// </summary>

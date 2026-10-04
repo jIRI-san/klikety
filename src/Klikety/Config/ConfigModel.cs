@@ -167,8 +167,7 @@ public sealed class ConfigModel {
     public ModesConfig Modes { get; init; } = new();
 
     /// <summary>
-    /// Config schema version for migration detection.
-    /// 0 = legacy (pre-modes), 1 = modes added, 2 = shared axis keys, 3 = LogGrid, 4 = scroll hotkeys, 5 = macros.
+    /// Config schema version for migration detection. Version 8 adds the overlay help binding.
     /// </summary>
     public int ConfigVersion { get; init; }
 
@@ -233,8 +232,19 @@ public sealed class ConfigModel {
     public MacrosConfig Macros { get; init; } = new();
 
     public AppScopeConfig AppScope { get; init; } = new();
+
+    public HelpBindingConfig HelpBinding { get; init; } = new();
 }
 
 public sealed class AppScopeConfig {
     public VKey? ChordKey { get; init; } = VKey.OemPeriod;
+}
+
+/// <summary>
+/// Overlay-local help toggle. Shift is optional unless explicitly required.
+/// </summary>
+public sealed class HelpBindingConfig {
+    public bool Enabled { get; init; } = true;
+    public VKey Key { get; init; } = VKey.OemQuestion;
+    public bool RequireShift { get; init; }
 }

@@ -5,7 +5,7 @@
   "$schema": "config.schema.json",
 
   // Config format version. Do not change manually.
-  "configVersion": 7,
+  "configVersion": 8,
   // Global hotkey that activates the navigation overlay.
   // Modifiers: Alt, Control, Shift, Win (comma-separated for combos).
   // Key: a VKey name (physical key, layout-independent). Default: Alt+Space.
@@ -23,6 +23,13 @@
     "V": "RightClick",
     "B": "MoveOnly",
     "Z": "DragDrop"
+  },
+
+  // Overlay-local help toggle; Shift is optional unless requireShift is true.
+  "helpBinding": {
+    "enabled": true,
+    "key": "OemQuestion",
+    "requireShift": false
   },
 
   // VKey lists for axis navigation. Shared by all modes.

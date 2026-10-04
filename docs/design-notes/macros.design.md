@@ -130,7 +130,7 @@ finally { /* dispose operation CTS; finish only if still current and not dispose
 
 `Dispose()` marks the handler disposed, releases its current-operation reference and initiates cancellation without draining playback. Each operation owns its task/CTS; resource completion and native drag delays do not capture the UI context, so CTS cleanup can finish after the dispatcher stops pumping. A small operation lock serializes cancellation against CTS disposal. Progress/restoration marshal through the captured synchronization context with identity/disposal guards; late callbacks cannot mutate a replacement.
 
-Indicator teardown runs directly when already on its dispatcher, otherwise queues there; cancellation callbacks always queue. Thus quit can stop/hide/unsubscribe before `Shutdown()` without a dispatcher wait. No live WPF/STA harness is required for these ownership rules.
+Indicator teardown runs directly when already on its dispatcher, otherwise queues there. Cancellation callbacks queue active-view cleanup; not-yet-started operations complete cancellation without dispatcher pumping and cannot start later. Thus quit can cancel queued starts and stop/hide/unsubscribe before `Shutdown()` without a dispatcher wait. No live WPF/STA harness is required for these ownership rules.
 
 Recording still stores attempted actions before native dispatch, including failed attempts. Non-macro drag observers log typed failures or task exceptions without changing the existing recording prompt, 200 ms resume scheduling or successful overlay restoration policy.
 

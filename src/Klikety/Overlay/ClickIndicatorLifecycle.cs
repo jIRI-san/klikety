@@ -18,30 +18,52 @@ internal sealed class ClickIndicatorLifecycle(IIndicatorDispatcher dispatcher, I
         public CancellationTokenRegistration Registration;
     }
 
+    private readonly object _gate = new();
+    private readonly HashSet<Operation> _pending = [];
     private Operation? _active;
     private bool _disposed;
 
     public Task ShowAndWait(double x, double y, CancellationToken ct) {
         var operation = new Operation(ct);
+        lock (_gate) {
+            if (_disposed) {
+                return Task.FromException(new ObjectDisposedException(nameof(ClickIndicatorLifecycle)));
+            }
+            _pending.Add(operation);
+            operation.Registration = ct.Register(() => Cancel(operation));
+            if (operation.Completion.Task.IsCompleted) {
+                operation.Registration.Unregister();
+            }
+        }
         dispatcher.Post(() => Start(operation, x, y));
         return operation.Completion.Task;
     }
 
-    private void Start(Operation operation, double x, double y) {
-        if (_disposed) {
-            operation.Completion.TrySetException(new ObjectDisposedException(nameof(ClickIndicatorLifecycle)));
-            return;
+    private void Cancel(Operation operation) {
+        lock (_gate) {
+            if (_pending.Remove(operation)) {
+                operation.Registration.Unregister();
+                operation.Completion.TrySetCanceled(operation.Token);
+                return;
+            }
         }
-        if (operation.Token.IsCancellationRequested) {
-            operation.Completion.TrySetCanceled(operation.Token);
-            return;
+        dispatcher.Post(() => Finish(operation, cancelled: true));
+    }
+
+    private void Start(Operation operation, double x, double y) {
+        lock (_gate) {
+            if (!_pending.Remove(operation)) {
+                return;
+            }
         }
         if (_active is { } previous) {
             Finish(previous, cancelled: true);
         }
         _active = operation;
-        operation.Registration = operation.Token.Register(() =>
-            dispatcher.Post(() => Finish(operation, cancelled: true)));
+        if (operation.Token.IsCancellationRequested) {
+            Finish(operation, cancelled: true);
+            return;
+        }
         try {
             view.Start(x, y, () => dispatcher.Post(() => Finish(operation, cancelled: false)));
         } catch (Exception ex) {
@@ -74,10 +96,17 @@ internal sealed class ClickIndicatorLifecycle(IIndicatorDispatcher dispatcher, I
     }
 
     private void DisposeOnDispatcher() {
-        if (_disposed) {
-            return;
+        lock (_gate) {
+            if (_disposed) {
+                return;
+            }
+            _disposed = true;
+            foreach (var pending in _pending) {
+                pending.Registration.Unregister();
+                pending.Completion.TrySetCanceled(pending.Token);
+            }
+            _pending.Clear();
         }
-        _disposed = true;
         if (_active is { } operation) {
             Finish(operation, cancelled: true);
         }

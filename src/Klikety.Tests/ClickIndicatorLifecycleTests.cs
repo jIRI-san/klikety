@@ -16,6 +16,34 @@ public class ClickIndicatorLifecycleTests {
     }
 
     [Fact]
+    public async Task CancellationBeforeStart_CompletesWithoutDispatcherPumping() {
+        var dispatcher = new Dispatcher();
+        var view = new View();
+        using var lifecycle = new ClickIndicatorLifecycle(dispatcher, view);
+        using var cts = new CancellationTokenSource();
+        var task = lifecycle.ShowAndWait(1, 2, cts.Token);
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.Equal(0, view.Starts);
+        dispatcher.Drain();
+        Assert.Equal(0, view.Starts);
+    }
+
+    [Fact]
+    public async Task DisposeOnDispatcher_CancelsQueuedStartBeforeShutdown() {
+        var dispatcher = new Dispatcher { HasAccess = true };
+        var view = new View();
+        var lifecycle = new ClickIndicatorLifecycle(dispatcher, view);
+        var task = lifecycle.ShowAndWait(1, 2, CancellationToken.None);
+        lifecycle.Dispose();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.Equal(1, view.Closes);
+        dispatcher.Drain();
+        Assert.Equal(0, view.Starts);
+        Assert.Equal(0, view.Stops);
+    }
+
+    [Fact]
     public async Task DisposeOnDispatcher_CleansWithoutAnotherDispatcherTurn() {
         var dispatcher = new Dispatcher { HasAccess = true };
         var view = new View();

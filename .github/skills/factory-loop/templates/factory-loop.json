@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "pollSeconds": 60,
+  "observationSeconds": 300,
+  "consumerRoot": ".",
+  "evidenceBranch": "factory-loop-evidence",
+  "evidenceBranchDeploymentExcluded": false,
+  "mode": "loopback",
+  "allowance": null,
+  "authorization": {
+    "repairEnabled": false,
+    "maxRepairPullRequestsPerIncident": 2,
+    "maxCorrectiveCallsPerBuildLineage": 2
+  },
+  "environments": {
+    "test": {
+      "profile": "test",
+      "acceptanceCommand": "scripts/factory-loop/acceptance/Acceptance.ps1"
+    },
+    "preprod": null,
+    "prod": {
+      "profile": "prod",
+      "acceptanceCommand": "scripts/factory-loop/acceptance/Acceptance.ps1",
+      "readOnly": true
+    }
+  },
+  "commands": {
+    "adapter": "scripts/factory-loop/FactoryLoop.Adapter.ps1"
+  }
+}

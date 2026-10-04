@@ -186,3 +186,12 @@ No operator decisions recorded.
 **Revisit when:** Implementation evidence changes the finding, scope or assumptions; confirm affected criteria before further changes.
 **Evidence:** docs/design-notes/macros.design.md:35; docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
 **Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md
+
+## Delivered corrections
+
+Plan [a5c375](implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md) delivers the four selected corrections; the survey and findings above remain the historical source snapshot.
+
+- **RCS-MACRO-CANCEL-INDICATOR:** pending indicator cancellation now skips input/progress; dispatcher-queued lifecycle cleanup and operation-owned teardown avoid synchronous playback drain. Evidence: `MacroCancellationTests`, `ClickIndicatorLifecycleTests`, `MacroPlaybackTeardownTests`.
+- **RCS-MOUSE-PARTIAL-SEND:** typed requested/sent outcomes suppress clicks after failed movement, track sent-prefix held inputs and attempt one release-only cleanup with explicit cleanup failure. Every caller observes outcomes; failed macros stop as `InputFailed` with one playback error. Drag completion precedes the next unchanged saved interval. Evidence: `MouseInputFailureTests`, `MouseInputSuccessTests`, `MacroInputFailureTests`, `InputFailureCallerTests`, `MacroDragSequencingTests`.
+- **RCS-MACRO-TIMING-CONTRACT:** macro guidance now describes persisted inter-step intervals, including first-step and drag-pair timing. Saved format, values, scaling and floors are unchanged. Evidence: `MacroPlayerTests.Play_SpeedModifier1_CorrectDelays`.
+- **RCS-PLAN-000021-IDENTITY:** [000021](implementation-plans/archived/021-keyboard-layout-refresh/plan.md) remains the historical archived record; its [retained active-path copy 36ef5d](implementation-plans/021-keyboard-layout-refresh/plan.md) has a unique identity and eight faithfully restored assets. Commit `499a708` archived the original and its assets; `cad26e1` recreated the identical active file alone. Both paths/content remain, with no new archival of either target. Evidence: `scripts/Test-KeyboardLayoutPlanRecords.ps1` checks index uniqueness, exact supported full states and affected local links.

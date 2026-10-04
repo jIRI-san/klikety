@@ -73,7 +73,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 ## Phase 3: Repair the duplicated plan record
 
-- [ ] 3.1 Establish historical ownership, repair identities/assets/links, and verify supported lookup (REQ-5, RISK-4) `L`
+- [x] 3.1 Establish historical ownership, repair identities/assets/links, and verify supported lookup (REQ-5, RISK-4) `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** both retained keyboard-layout records have distinct canonical identities; intended assets and historical links resolve; supported lookup for 000021 returns one full state.

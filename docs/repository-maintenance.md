@@ -148,8 +148,8 @@ No operator decisions recorded.
 **Affected scope:** Pending macro dispatch, indicator lifecycle and nonblocking playback teardown
 **Assumptions:** Planning is confirmed; implementation is pending. Preserve confirmed scope, historical material and explicit stop conditions.
 **Revisit when:** Implementation evidence changes the finding, scope or assumptions; confirm affected criteria before further changes.
-**Evidence:** src/Klikety/Navigation/MacroPlayer.cs:200-224; docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
-**Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md
+**Evidence:** src/Klikety/Navigation/MacroPlayer.cs:200-224; docs/implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
+**Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md (historical location; now [archived](implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md))
 
 <!-- rcs-decision: RCS-D-0002 -->
 ### RCS-MOUSE-PARTIAL-SEND - 2026-10-04 - corrective-plan
@@ -160,8 +160,8 @@ No operator decisions recorded.
 **Affected scope:** Typed native input outcomes, release compensation and caller failure handling
 **Assumptions:** Planning is confirmed; implementation is pending. Preserve confirmed scope, historical material and explicit stop conditions.
 **Revisit when:** Implementation evidence changes the finding, scope or assumptions; confirm affected criteria before further changes.
-**Evidence:** src/Klikety/Services/MouseActionService.cs:67-147; docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
-**Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md
+**Evidence:** src/Klikety/Services/MouseActionService.cs:67-147; docs/implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
+**Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md (historical location; now [archived](implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md))
 
 <!-- rcs-decision: RCS-D-0003 -->
 ### RCS-PLAN-000021-IDENTITY - 2026-10-04 - corrective-plan
@@ -172,8 +172,8 @@ No operator decisions recorded.
 **Affected scope:** Retained keyboard-layout plan identities, assets and affected references; no archival
 **Assumptions:** Planning is confirmed; implementation is pending. Preserve confirmed scope, historical material and explicit stop conditions.
 **Revisit when:** Implementation evidence changes the finding, scope or assumptions; confirm affected criteria before further changes.
-**Evidence:** docs/implementation-plans/021-keyboard-layout-refresh/plan.md:2-24; docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
-**Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md
+**Evidence:** docs/implementation-plans/021-keyboard-layout-refresh/plan.md:2-24; docs/implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
+**Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md (historical location; now [archived](implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md))
 
 <!-- rcs-decision: RCS-D-0004 -->
 ### RCS-MACRO-TIMING-CONTRACT - 2026-10-04 - corrective-plan
@@ -184,14 +184,14 @@ No operator decisions recorded.
 **Affected scope:** Inter-step timing guidance; preserve stored values and speed calculation
 **Assumptions:** Planning is confirmed; implementation is pending. Preserve confirmed scope, historical material and explicit stop conditions.
 **Revisit when:** Implementation evidence changes the finding, scope or assumptions; confirm affected criteria before further changes.
-**Evidence:** docs/design-notes/macros.design.md:35; docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
-**Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md
+**Evidence:** docs/design-notes/macros.design.md:35; docs/implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md:1-4
+**Successful handoff:** created: docs/implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md (historical location; now [archived](implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md))
 
 ## Delivered corrections
 
-Plan [a5c375](implementation-plans/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md) delivers the four selected corrections; the survey and findings above remain the historical source snapshot.
+Archived plan [a5c375](implementation-plans/archived/standalone-2026-10-04-a5c375-klikety-maintenance-corrections/plan.md) delivers the four selected corrections; the survey, findings and original handoff locations above remain the historical source snapshot. Final review and recent learning are committed.
 
-- **RCS-MACRO-CANCEL-INDICATOR:** pending indicator cancellation now skips input/progress; dispatcher-queued lifecycle cleanup and operation-owned teardown avoid synchronous playback drain. Evidence: `MacroCancellationTests`, `ClickIndicatorLifecycleTests`, `MacroPlaybackTeardownTests`.
+- **RCS-MACRO-CANCEL-INDICATOR:** pending indicator cancellation now skips input/progress; dispatcher-owned lifecycle cleanup and operation-owned teardown avoid synchronous playback drain, including queued starts and dispatcher shutdown. Evidence: `MacroCancellationTests`, `ClickIndicatorLifecycleTests`, `MacroPlaybackTeardownTests`.
 - **RCS-MOUSE-PARTIAL-SEND:** typed requested/sent outcomes suppress clicks after failed movement, track sent-prefix held inputs and attempt one release-only cleanup with explicit cleanup failure. Every caller observes outcomes; failed macros stop as `InputFailed` with one playback error. Drag completion precedes the next unchanged saved interval. Evidence: `MouseInputFailureTests`, `MouseInputSuccessTests`, `MacroInputFailureTests`, `InputFailureCallerTests`, `MacroDragSequencingTests`.
 - **RCS-MACRO-TIMING-CONTRACT:** macro guidance now describes persisted inter-step intervals, including first-step and drag-pair timing. Saved format, values, scaling and floors are unchanged. Evidence: `MacroPlayerTests.Play_SpeedModifier1_CorrectDelays`.
 - **RCS-PLAN-000021-IDENTITY:** [000021](implementation-plans/archived/021-keyboard-layout-refresh/plan.md) remains the historical archived record; its [retained active-path copy 36ef5d](implementation-plans/021-keyboard-layout-refresh/plan.md) has a unique identity and eight faithfully restored assets. Commit `499a708` archived the original and its assets; `cad26e1` recreated the identical active file alone. Both paths/content remain, with no new archival of either target. Evidence: `scripts/Test-KeyboardLayoutPlanRecords.ps1` checks index uniqueness, exact supported full states and affected local links.

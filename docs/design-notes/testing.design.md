@@ -32,6 +32,13 @@ All fakes live in `Klikety.Tests/Fakes/`.
 
 ## Testing Seam
 
+The settings workshop uses temporary-file `SettingsConfigStoreTests`, never the user's
+AppData config: targeted JSONC preservation, backup/conflict detection, malformed
+input, mode defaults, and validation rejection. One focused coordinator test observes
+Uniform grid chord dispatch when another mode is default. The labeled native demo
+uses a separate fixture path and no global hooks; see
+[settings-prototype.design.md](settings-prototype.design.md).
+
 - All Win32 service interfaces are the seam for testing.
 - Integration tests are hermetic (no real display, no OS hooks, no timing dependencies).
 - Smoke test project (`Klikety.SmokeTests`, `[Trait("Category","Smoke")]`) excluded from CI; covers real Win32 call verification.

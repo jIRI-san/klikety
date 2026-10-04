@@ -50,6 +50,15 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 ## Tray Integration
 
+- **Settings...** opens a reusable native WPF workshop prototype. General, Navigation,
+  and Appearance are real draft editors; other sidebar pages are explicitly unfinished.
+  Save validates through `ConfigLoader.ReadSettings`, patches JSONC leaves with
+  `SettingsConfigStore`, and invokes the same reload/bootstrap path as the tray.
+  Comments/unknown fields are kept; inserted fragments do not preserve original
+  indentation. External-edit checks, atomic replace, previous-file backup, and
+  inline save/apply failures are documented in [settings-prototype.design.md](settings-prototype.design.md).
+  Version 7 only; no parse-default saving or implicit migration in the editor.
+
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.
 - `ShutdownMode=OnExplicitShutdown` — process persists until "Quit" menu item calls `Application.Current.Shutdown()`.
 - Context menu items: **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Show Key Presses** (runtime toggle — creates/destroys visualization resources via activation transaction; see `key-press-visualization.design.md`), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, key press visualization, tray icon, logger factory).

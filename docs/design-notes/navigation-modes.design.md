@@ -55,6 +55,12 @@ Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, Actio
 
 ## Mode Switching (Chord Dispatch)
 
+The settings workshop exposes changing the default mode and explicitly configuring
+the former default's chord. `BuildChordKeyMap` now also includes enabled Uniform grid
+with a configured chord; previously only the other three modes were mapped. Missing
+mode objects are seeded with their effective defaults during targeted settings edits
+to avoid resetting omitted bools. See [settings-prototype.design.md](settings-prototype.design.md).
+
 - Each mode except the default has a `ChordKey` (`VKey?`).
 - Chord keys are processed before the active session when `_modeLocked` is false.
 - After any nav/arrow/action key is pressed, `_modeLocked = true` — subsequent chord keys go to the session (which flashes invalid).

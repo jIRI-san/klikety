@@ -138,6 +138,10 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void BuildChordKeyMap() {
+        if (_config.Modes.UniformGrid is { Enabled: true, ChordKey: { } uniformChord }) {
+            _chordKeyMap[uniformChord] = "UniformGrid";
+        }
+
         if (_config.Modes.Crosshair is { Enabled: true, ChordKey: { } crosshairChord }) {
             _chordKeyMap[crosshairChord] = "Crosshair";
         }

@@ -117,6 +117,12 @@ When external labels are active, no internal cell labels are rendered — cells 
 
 ## Theme System
 
+The settings sidebar workshop edits `theme` and `minLabelFontSize` only, via a draft
+and existing reload/bootstrap. It does not edit theme contents or apply the overlay
+theme to settings chrome. `ThemeLoader.Load` accepts an optional config folder for
+isolated demo fixtures; normal path resolution remains AppData. See
+[settings-prototype.design.md](settings-prototype.design.md).
+
 - `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color (columns); external row label color (rows); connector line color + thickness; label outline color + thickness; small-cell background color + opacity.
 - `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; rooted/absolute paths rejected via `Path.IsPathRooted`; fall back to built-in dark on any error + tray notification.
 - Built-in `dark.theme.json` and `light.theme.json` shipped as embedded resources; extracted to `%APPDATA%\Klikety\themes\` on first run.

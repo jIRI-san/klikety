@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 
 using H.NotifyIcon;
@@ -38,9 +39,41 @@ public partial class App : Application {
 #endif
     private ILoggerFactory? _loggerFactory;
     private bool _hasBlockingViolations;
+    private SettingsWindow? _settingsWindow;
+    private string? _demoConfigPath;
+    private static string UserConfigPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Klikety", "config.json");
 
     protected override void OnStartup(StartupEventArgs e) {
         base.OnStartup(e);
+
+        if (e.Args.Contains("--settings-demo")) {
+            try {
+                var index = Array.IndexOf(e.Args, "--settings-demo");
+                if (index + 1 >= e.Args.Length) {
+                    throw new InvalidDataException("--settings-demo requires an absolute fixture config path.");
+                }
+                var path = e.Args[index + 1];
+                if (!Path.IsPathFullyQualified(path)) {
+                    throw new InvalidDataException("Demo config path must be absolute.");
+                }
+                _demoConfigPath = Path.GetFullPath(path);
+                var userFolder = Path.GetDirectoryName(UserConfigPath)!;
+                if (_demoConfigPath.StartsWith(userFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) {
+                    throw new InvalidDataException("Demo mode refuses the real Klikety AppData directory.");
+                }
+                CreateDemoFixture(_demoConfigPath);
+                _loggerFactory = LoggingSetup.CreateLoggerFactory("Warning", false, 7);
+                SetupTrayIcon([], _loggerFactory.CreateLogger<App>());
+                _trayIcon!.ToolTipText = "Klikety Settings - ISOLATED DEMO";
+                ShowSettings();
+                return;
+            } catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or InvalidOperationException) {
+                MessageBox.Show("Cannot start isolated settings demo: " + ex.Message, "Klikety", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown(1);
+                return;
+            }
+        }
 
         // First-run: extract default config, schemas, and themes
         FirstRunExtractor.EnsureDefaults();
@@ -234,6 +267,29 @@ public partial class App : Application {
     private void SetupTrayContextMenu(List<string> violations, ILogger logger) {
         var contextMenu = new System.Windows.Controls.ContextMenu();
 
+        var settingsItem = new System.Windows.Controls.MenuItem { Header = "Settings..." };
+        settingsItem.Click += (_, _) => ShowSettings();
+        contextMenu.Items.Add(settingsItem);
+
+        if (_demoConfigPath is not null) {
+            var demoInfo = new System.Windows.Controls.MenuItem {
+                Header = "ISOLATED DEMO - no navigation, hooks or registry changes", IsEnabled = false,
+            };
+            contextMenu.Items.Add(demoInfo);
+            var demoQuit = new System.Windows.Controls.MenuItem { Header = "Quit demo" };
+            demoQuit.Click += (_, _) => {
+                _settingsWindow?.Close();
+                if (_settingsWindow is null) {
+                    _trayIcon?.Dispose();
+                    _loggerFactory?.Dispose();
+                    Shutdown();
+                }
+            };
+            contextMenu.Items.Add(demoQuit);
+            _trayIcon!.ContextMenu = contextMenu;
+            return;
+        }
+
         // About
         var aboutItem = new System.Windows.Controls.MenuItem { Header = "About" };
         aboutItem.Click += (_, _) => {
@@ -254,19 +310,7 @@ public partial class App : Application {
         // Reload Configuration
         var reloadItem = new System.Windows.Controls.MenuItem { Header = "Reload Configuration" };
         reloadItem.Click += (_, _) => {
-            _coordinator?.Dispose();
-            _coordinator = null;
-
-            // Unregister all hotkeys before re-bootstrap so ProbeHotKey doesn't
-            // detect a conflict with the currently-registered hotkey.
-            _hotKeyService?.Unregister();
-            _scrollHotKeyService?.Dispose();
-            _scrollHotKeyService = null;
-            _macroHotKeyService?.Dispose();
-            _macroHotKeyService = null;
-
-            var newViolations = BootstrapCoordinator();
-            SetupTrayContextMenu(newViolations, logger);
+            var newViolations = ReloadConfiguration();
 
             if (newViolations.Count > 0) {
                 var msg = string.Join("\n", newViolations);
@@ -332,7 +376,7 @@ public partial class App : Application {
         // Show Key Presses (runtime toggle, always off on startup)
         var keyPressItem = new System.Windows.Controls.MenuItem {
             Header = "Show Key Presses",
-            IsChecked = false,
+            IsChecked = _keyPressHook is not null,
         };
         keyPressItem.Click += (_, _) => {
             if (keyPressItem.IsChecked) {
@@ -383,6 +427,10 @@ public partial class App : Application {
         // Quit
         var quitItem = new System.Windows.Controls.MenuItem { Header = "Quit" };
         quitItem.Click += (_, _) => {
+            _settingsWindow?.Close();
+            if (_settingsWindow is not null) {
+                return;
+            }
             DisableKeyPressVisualization();
             _coordinator?.Dispose();
             _hotKeyService?.Dispose();
@@ -395,6 +443,85 @@ public partial class App : Application {
         contextMenu.Items.Add(quitItem);
 
         _trayIcon!.ContextMenu = contextMenu;
+    }
+
+    private void ShowSettings() {
+        if (_settingsWindow is not null) {
+            if (_settingsWindow.WindowState == WindowState.Minimized) {
+                _settingsWindow.WindowState = WindowState.Normal;
+            }
+            _settingsWindow.Activate();
+            return;
+        }
+        try {
+            _settingsWindow = new SettingsWindow(_demoConfigPath ?? UserConfigPath, _demoConfigPath is not null,
+                ValidateSettingsApply, ApplySettings);
+            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+            _settingsWindow.Show();
+        } catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or InvalidOperationException) {
+            MessageBox.Show("Cannot open Settings. The config has not been changed.\n" + ex.Message,
+                "Klikety Settings", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ValidateSettingsApply(ConfigModel config) {
+        var (_, warning) = ThemeLoader.Load(config.Theme, _demoConfigPath is null ? null : Path.GetDirectoryName(_demoConfigPath));
+        if (warning is not null) {
+            throw new InvalidDataException(warning);
+        }
+        if (_demoConfigPath is null &&
+            (_config is null || _config.HotKey.Key != config.HotKey.Key || _config.HotKey.Modifiers != config.HotKey.Modifiers)) {
+            var failure = StartupValidator.ProbeHotKey(config.HotKey);
+            if (failure is not null) {
+                throw new InvalidDataException(failure);
+            }
+        }
+    }
+
+    private IReadOnlyList<string> ApplySettings() {
+        if (_demoConfigPath is not null) {
+            var result = ConfigLoader.Load(_demoConfigPath);
+            _config = result.Config;
+            return result.Violations;
+        }
+        return ReloadConfiguration();
+    }
+
+    private List<string> ReloadConfiguration() {
+        var hudWasEnabled = _keyPressHook is not null;
+        DisableKeyPressVisualization();
+        _coordinator?.Dispose();
+        _coordinator = null;
+        _hotKeyService?.Unregister();
+        _scrollHotKeyService?.Dispose();
+        _scrollHotKeyService = null;
+        _macroHotKeyService?.Dispose();
+        _macroHotKeyService = null;
+        var violations = BootstrapCoordinator();
+        if (hudWasEnabled && !_hasBlockingViolations && !EnableKeyPressVisualization()) {
+            violations.Add("Could not re-enable key-press display after reload.");
+        }
+        SetupTrayContextMenu(violations, _loggerFactory!.CreateLogger<App>());
+        return violations;
+    }
+
+    private static void CreateDemoFixture(string path) {
+        var folder = Path.GetDirectoryName(path)!;
+        Directory.CreateDirectory(folder);
+        Directory.CreateDirectory(Path.Combine(folder, "themes"));
+        foreach (var (resource, target) in new[] {
+            ("config.json", path),
+            ("dark.theme.json", Path.Combine(folder, "themes", "dark.theme.json")),
+            ("light.theme.json", Path.Combine(folder, "themes", "light.theme.json")),
+        }) {
+            if (File.Exists(target)) {
+                continue;
+            }
+            using var source = typeof(App).Assembly.GetManifestResourceStream("Klikety.Resources." + resource)
+                ?? throw new InvalidDataException($"Missing demo resource: {resource}");
+            using var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            source.CopyTo(output);
+        }
     }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to register global hotkey {Modifiers}+{Key}")]

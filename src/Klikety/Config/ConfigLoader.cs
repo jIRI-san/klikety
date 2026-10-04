@@ -44,6 +44,41 @@ public static class ConfigLoader {
 
     public static ConfigLoadResult Load() => Load(ConfigPath);
 
+    // Settings must never migrate or substitute defaults for an unreadable document.
+    internal static ConfigLoadResult ReadSettings(string json) {
+        using var document = System.Text.Json.JsonDocument.Parse(json, new() {
+            CommentHandling = System.Text.Json.JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        });
+        if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) {
+            throw new InvalidDataException("Settings config must be a JSON object.");
+        }
+        var config = System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions)
+            ?? throw new InvalidDataException("Settings config is null.");
+        if (config.ConfigVersion != 7) {
+            throw new InvalidDataException("This prototype edits version 7 only. Reload/migrate the config before opening Settings.");
+        }
+        if (config.HotKey is null || config.Modes is null ||
+            config.Modes.UniformGrid is null || config.Modes.Crosshair is null ||
+            config.Modes.LogCrosshair is null || config.Modes.LogGrid is null ||
+            config.HorizontalKeys is null || config.VerticalKeys is null ||
+            config.ActionBindings is null || config.ScrollHotKeys is null ||
+            config.ScrollHotKeys.ScrollUpKey is null || config.ScrollHotKeys.ScrollDownKey is null ||
+            config.KeyPressVisualization is null || config.Macros is null ||
+            config.Macros.PlaybackIndicator is null || config.AppScope is null ||
+            config.Theme is null || config.LogLevel is null) {
+            throw new InvalidDataException("Required config sections/values cannot be null.");
+        }
+        var violations = Validate(config);
+        if (!double.IsFinite(config.MinLabelFontSize) || config.MinLabelFontSize <= 0) {
+            violations.Add("Minimum label size must be a finite number greater than zero.");
+        }
+        if (config.Level3CellSizeThreshold < 0) {
+            violations.Add("Level-3 area threshold must be zero or greater.");
+        }
+        return new ConfigLoadResult { Config = config, Violations = violations };
+    }
+
     public static ConfigLoadResult Load(string path) {
         // Run migration pre-pass before deserialization
         var migration = ConfigMigrator.MigrateIfNeeded(path);

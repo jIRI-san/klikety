@@ -10,6 +10,8 @@ namespace Klikety.Config;
 public sealed class ConfigLoadResult {
     public required ConfigModel Config { get; init; }
     public IReadOnlyList<string> Violations { get; init; } = [];
+    public IReadOnlyList<string> SettingsBlockingErrors { get; init; } = [];
+    public IReadOnlyList<string> SettingsWarnings { get; init; } = [];
 }
 
 /// <summary>
@@ -70,13 +72,42 @@ public static class ConfigLoader {
             throw new InvalidDataException("Required config sections/values cannot be null.");
         }
         var violations = Validate(config);
+        if (!Enum.TryParse<Microsoft.Extensions.Logging.LogLevel>(config.LogLevel, ignoreCase: true, out var logLevel) ||
+            !Enum.IsDefined(logLevel)) {
+            violations.Add($"logLevel must be one of Trace, Debug, Information, Warning, Error, Critical, or None (got '{config.LogLevel}').");
+        }
+        if (config.RetainedLogFileCount < 1) {
+            violations.Add($"retainedLogFileCount must be at least 1 (got {config.RetainedLogFileCount}).");
+        }
         if (!double.IsFinite(config.MinLabelFontSize) || config.MinLabelFontSize <= 0) {
             violations.Add("Minimum label size must be a finite number greater than zero.");
         }
         if (config.Level3CellSizeThreshold < 0) {
             violations.Add("Level-3 area threshold must be zero or greater.");
         }
-        return new ConfigLoadResult { Config = config, Violations = violations };
+        var warnings = GetSettingsWarnings(config);
+        return new ConfigLoadResult {
+            Config = config,
+            Violations = violations,
+            SettingsBlockingErrors = violations.Except(warnings).ToArray(),
+            SettingsWarnings = warnings,
+        };
+    }
+
+    private static List<string> GetSettingsWarnings(ConfigModel config) {
+        var warnings = new List<string>();
+        if (config.Modes.LogGrid.Enabled &&
+            LogGridKeyPolicy.Evaluate(config.HorizontalKeys, config.VerticalKeys).Warning is { } keyWarning) {
+            warnings.Add(keyWarning);
+        }
+        if (config.Macros.Enabled && config.Macros.SlotKeys is { } keys) {
+            if (keys.Length < 10) {
+                warnings.Add($"macros.slotKeys has fewer than 10 entries (got {keys.Length}); missing slots will use defaults.");
+            } else if (keys.Length > 10) {
+                warnings.Add($"macros.slotKeys has more than 10 entries (got {keys.Length}); extra entries ignored.");
+            }
+        }
+        return warnings;
     }
 
     public static ConfigLoadResult Load(string path) {

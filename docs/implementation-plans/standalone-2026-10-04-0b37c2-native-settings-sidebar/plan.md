@@ -23,7 +23,7 @@ verification; none of these steps is completed by Workshop approval.
 
 ## Phase 1: MVP document-to-draft slice
 
-- [ ] 1.1 Build strict document validation and scalar JSONC saves (REQ-3, REQ-4, RISK-1, RISK-3, RISK-4) `M`
+- [x] 1.1 Build strict document validation and scalar JSONC saves (REQ-3, REQ-4, RISK-1, RISK-3, RISK-4) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** A candidate can be parsed, validated, previewed and atomically saved against

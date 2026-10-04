@@ -16,6 +16,8 @@ internal sealed class SettingsConfigStore {
     private JsonObject _modeDefaults = [];
 
     public SettingsConfigStore(string path) => _path = path;
+    public string Path => _path;
+    public IReadOnlyList<string> LastWarnings { get; private set; } = [];
 
     public ConfigLoadResult Open() {
         var bytes = File.ReadAllBytes(_path);
@@ -31,6 +33,7 @@ internal sealed class SettingsConfigStore {
         _snapshot = bytes;
         _text = text;
         _bom = bom;
+        LastWarnings = result.SettingsWarnings;
         var options = new JsonSerializerOptions {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             Converters = { new JsonStringEnumConverter() },
@@ -42,6 +45,18 @@ internal sealed class SettingsConfigStore {
             ["logGrid"] = JsonSerializer.SerializeToNode(result.Config.Modes.LogGrid, options),
         };
         return result;
+    }
+
+    public string SchemaReference {
+        get {
+            using var document = JsonDocument.Parse(_text, new JsonDocumentOptions {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true,
+            });
+            return document.RootElement.TryGetProperty("$schema", out var value) && value.ValueKind == JsonValueKind.String
+                ? value.GetString()!
+                : "(not specified)";
+        }
     }
 
     public string Preview(IReadOnlyDictionary<string, JsonNode?> changes) {
@@ -71,10 +86,18 @@ internal sealed class SettingsConfigStore {
     public ConfigModel Save(IReadOnlyDictionary<string, JsonNode?> changes, Action<ConfigModel>? preflight = null) {
         var text = Preview(changes);
         var result = ConfigLoader.ReadSettings(text);
-        if (result.Violations.Count > 0) {
-            throw new InvalidDataException(string.Join(Environment.NewLine, result.Violations));
+        if (result.SettingsBlockingErrors.Count > 0) {
+            throw new InvalidDataException(string.Join(Environment.NewLine, result.SettingsBlockingErrors));
         }
         preflight?.Invoke(result.Config);
+        if (!File.Exists(_path) || !File.ReadAllBytes(_path).AsSpan().SequenceEqual(_snapshot)) {
+            throw new IOException("Config changed on disk. Discard/reopen to load the external edits before saving.");
+        }
+        if (changes.Count == 0 || text == _text) {
+            LastWarnings = result.SettingsWarnings;
+            return result.Config;
+        }
+
         var bytes = Utf8.GetBytes(text);
         if (_bom) {
             bytes = [.. Encoding.UTF8.Preamble, .. bytes];
@@ -85,12 +108,13 @@ internal sealed class SettingsConfigStore {
                 stream.Write(bytes);
                 stream.Flush(flushToDisk: true);
             }
-            if (!File.ReadAllBytes(_path).AsSpan().SequenceEqual(_snapshot)) {
+            if (!File.Exists(_path) || !File.ReadAllBytes(_path).AsSpan().SequenceEqual(_snapshot)) {
                 throw new IOException("Config changed on disk. Discard/reopen to load the external edits before saving.");
             }
             File.Replace(temporary, _path, _path + ".settings.bak");
             _snapshot = bytes;
             _text = text;
+            LastWarnings = result.SettingsWarnings;
             return result.Config;
         } finally {
             if (File.Exists(temporary)) {
@@ -103,6 +127,7 @@ internal sealed class SettingsConfigStore {
         public int Start { get; init; }
         public int End { get; set; }
         public Dictionary<string, SpanNode>? Properties { get; init; }
+        public List<SpanNode>? Elements { get; init; }
     }
 
     private sealed record Edit(int Start, int End, string Text);
@@ -112,7 +137,9 @@ internal sealed class SettingsConfigStore {
             CommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,
         });
-        reader.Read();
+        if (!reader.Read()) {
+            throw new InvalidDataException("Settings config is empty.");
+        }
         var root = ReadValue(ref reader);
         if (reader.Read()) {
             throw new InvalidDataException("Unexpected data after config.");
@@ -124,6 +151,7 @@ internal sealed class SettingsConfigStore {
         var node = new SpanNode {
             Start = checked((int)reader.TokenStartIndex),
             Properties = reader.TokenType == JsonTokenType.StartObject ? new(StringComparer.OrdinalIgnoreCase) : null,
+            Elements = reader.TokenType == JsonTokenType.StartArray ? [] : null,
         };
         if (node.Properties is { } properties) {
             while (reader.Read() && reader.TokenType != JsonTokenType.EndObject) {
@@ -133,6 +161,10 @@ internal sealed class SettingsConfigStore {
                 if (!properties.TryAdd(name, child)) {
                     throw new InvalidDataException($"Duplicate config property '{name}' is ambiguous. Resolve it in the file first.");
                 }
+            }
+        } else if (node.Elements is { } elements) {
+            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray) {
+                elements.Add(ReadValue(ref reader));
             }
         } else {
             reader.Skip();

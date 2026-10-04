@@ -26,6 +26,7 @@ public partial class SettingsWindow : Window {
     private readonly Dictionary<string, Field> _fields = [];
     private readonly List<StackPanel> _pages = [];
     private readonly Win32KeyLabelResolver _labels = new();
+    private SettingsDraft _draft = new(new ConfigModel());
     private bool _loading;
     private bool _dirty;
     private bool _pendingApply;
@@ -49,6 +50,7 @@ public partial class SettingsWindow : Window {
     private void LoadDraft() {
         var result = _store.Open();
         var config = result.Config;
+        _draft = new SettingsDraft(config);
         _loading = true;
         _fields.Clear();
         _pages.Clear();
@@ -60,6 +62,14 @@ public partial class SettingsWindow : Window {
         KeyPicker(hotkey, "Trigger key", "hotKey.key", config.HotKey.Key, nullable: false);
         Hint(hotkey, "Choose named keys from the picker. Collisions are checked before writing.");
         var generalAdvanced = Advanced(general);
+        Choice(generalAdvanced, "Minimum log level", "logLevel", config.LogLevel,
+            ["Trace", "Debug", "Information", "Warning", "Error", "Critical", "None"]);
+        Toggle(generalAdvanced, "Write logs to files", "fileLoggingEnabled", config.FileLoggingEnabled);
+        Number(generalAdvanced, "Retained log files", "retainedLogFileCount", config.RetainedLogFileCount, integer: true);
+        var metadata = Card(generalAdvanced, "Configuration metadata");
+        ReadOnlyValue(metadata, "Config file", _store.Path);
+        ReadOnlyValue(metadata, "Config version", config.ConfigVersion.ToString(CultureInfo.InvariantCulture));
+        ReadOnlyValue(metadata, "$schema", _store.SchemaReference);
         Hint(generalAdvanced, "Start with Windows remains a registry toggle in the tray. It is not saved to JSON.");
 
         var navigation = Page("Navigation", "Pick a starting mode, then choose how each mode responds.");
@@ -110,9 +120,15 @@ public partial class SettingsWindow : Window {
         _loading = false;
         PageHost.Content = _pages[Math.Max(0, Categories.SelectedIndex)];
         RefreshDirty();
-        ShowStatus(result.Violations.Count == 0
-            ? "Ready. Only changed values are written. Save creates config.json.settings.bak."
-            : "Existing config issues (fix before saving):\n" + string.Join("\n", result.Violations), result.Violations.Count > 0);
+        if (result.SettingsBlockingErrors.Count > 0) {
+            ShowStatus("Existing config errors (fix before saving):\n" +
+                string.Join("\n", result.SettingsBlockingErrors), error: true);
+        } else if (result.SettingsWarnings.Count > 0) {
+            ShowStatus("Ready. Compatibility warnings do not block saving:\n" +
+                string.Join("\n", result.SettingsWarnings));
+        } else {
+            ShowStatus("Ready. Only changed values are written. Save creates config.json.settings.bak.");
+        }
     }
 
     private StackPanel Page(string title, string description) {
@@ -157,6 +173,11 @@ public partial class SettingsWindow : Window {
         panel.Children.Add(grid);
     }
 
+    private static void ReadOnlyValue(Panel panel, string label, string value) {
+        var box = new TextBox { Text = value, IsReadOnly = true, IsTabStop = false };
+        Row(panel, label, box);
+    }
+
     private void Track(string path, Func<string> current, Func<JsonNode?> value, string? original = null) =>
         _fields.Add(path, new Field(original ?? current(), current, value));
 
@@ -170,7 +191,7 @@ public partial class SettingsWindow : Window {
     }
 
     private void Choice(Panel panel, string label, string path, string value, string[] choices) {
-        var box = new ComboBox { ItemsSource = choices.Distinct().ToArray(), SelectedItem = value };
+        var box = new ComboBox { ItemsSource = choices.Append(value).Distinct().ToArray(), SelectedItem = value };
         AutomationProperties.SetAutomationId(box, path);
         Row(panel, label, box);
         Track(path, () => (string)box.SelectedItem, () => JsonValue.Create((string)box.SelectedItem));
@@ -223,10 +244,25 @@ public partial class SettingsWindow : Window {
 
     private void RefreshDirty() {
         if (_loading) { return; }
+        UpdateDraft(ignoreInvalid: true);
         _dirty = _fields.Values.Any(f => f.Current() != f.Original);
         DirtyLabel.Text = _dirty ? "Unsaved changes" : _pendingApply ? "Saved · apply pending" : "No unsaved changes";
         SaveButton.IsEnabled = _dirty || _pendingApply;
         DiscardButton.IsEnabled = true; // Also reloads external edits.
+    }
+
+    private void UpdateDraft(bool ignoreInvalid) {
+        foreach (var (path, field) in _fields) {
+            if (field.Current() == field.Original) {
+                _draft.Clear(path);
+                continue;
+            }
+            try {
+                _draft.Set(path, field.Value());
+            } catch (Exception ex) when (ignoreInvalid && (ex is InvalidDataException or FormatException)) {
+                _draft.Clear(path);
+            }
+        }
     }
 
     private void CategoryChanged(object sender, SelectionChangedEventArgs e) {
@@ -239,19 +275,22 @@ public partial class SettingsWindow : Window {
         var persisted = false;
         try {
             if (_dirty) {
-                var changes = _fields.Where(p => p.Value.Current() != p.Value.Original)
-                    .ToDictionary(p => p.Key, p => p.Value.Value());
-                _store.Save(changes, _preflight);
+                UpdateDraft(ignoreInvalid: false);
+                _store.Save(_draft.Changes, _preflight);
                 persisted = true;
                 _pendingApply = true;
                 LoadDraft();
             }
             var issues = _apply();
             _pendingApply = issues.Count > 0;
-            ShowStatus(_pendingApply
+            var status = _pendingApply
                 ? "Saved, but apply reported issues. Correct them or retry Save & apply:\n" + string.Join("\n", issues)
                 : _demo ? "Saved and reloaded demo config. Runtime activation is disabled."
-                : "Saved and applied. Reopening Settings reads these values from disk.", _pendingApply);
+                : "Saved and applied. Reopening Settings reads these values from disk.";
+            if (_store.LastWarnings.Count > 0) {
+                status += "\nCompatibility warnings:\n" + string.Join("\n", _store.LastWarnings);
+            }
+            ShowStatus(status, _pendingApply);
         } catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or
                                     InvalidOperationException or Win32Exception or FormatException) {
             ShowStatus((persisted || _pendingApply ? "Saved, but not fully applied: " : "Not saved: ") + ex.Message, error: true);

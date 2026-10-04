@@ -133,6 +133,68 @@ public sealed class SettingsConfigStoreTests : IDisposable {
         Assert.Single(Directory.GetFiles(_folder));
     }
 
+    [Fact]
+    public void Save_NoOpDoesNotReplaceFileOrCreateBackup() {
+        const string json = "{\"configVersion\":7,\"theme\":\"dark\"}";
+        File.WriteAllText(_path, json);
+        var before = File.ReadAllBytes(_path);
+        var store = Open();
+
+        store.Save(new Dictionary<string, JsonNode?>());
+
+        Assert.Equal(before, File.ReadAllBytes(_path));
+        Assert.False(File.Exists(_path + ".settings.bak"));
+        Assert.Single(Directory.GetFiles(_folder));
+    }
+
+    [Fact]
+    public void Open_RejectsDuplicatePropertiesInsideArrays() {
+        const string json = "{\"configVersion\":7,\"unknown\":[{\"value\":1,\"Value\":2}]}";
+        File.WriteAllText(_path, json);
+
+        var error = Assert.Throws<InvalidDataException>(() => Open());
+
+        Assert.Contains("Duplicate config property 'Value'", error.Message);
+        Assert.Equal(json, File.ReadAllText(_path));
+    }
+
+    [Fact]
+    public void Save_ExternalDeleteDoesNotRecreateConfig() {
+        File.WriteAllText(_path, "{\"configVersion\":7}");
+        var store = Open();
+        File.Delete(_path);
+
+        var error = Assert.Throws<IOException>(() => store.Save(new Dictionary<string, JsonNode?> {
+            ["theme"] = JsonValue.Create("light"),
+        }));
+
+        Assert.Contains("changed on disk", error.Message);
+        Assert.False(File.Exists(_path));
+        Assert.Single(Directory.GetFiles(_folder));
+    }
+
+    [Fact]
+    public void Save_CompatibilityWarningDoesNotBlockUnrelatedEdit() {
+        File.WriteAllText(_path, "{\"configVersion\":7,\"macros\":{\"slotKeys\":[\"F1\"]}}");
+        var store = Open();
+
+        store.Save(new Dictionary<string, JsonNode?> { ["theme"] = JsonValue.Create("light") });
+
+        Assert.Equal("light", new SettingsConfigStore(_path).Open().Config.Theme);
+        Assert.Contains(store.LastWarnings, warning => warning.Contains("fewer than 10 entries", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Open_SeparatesSettingsErrorsFromAdvisoryWarnings() {
+        File.WriteAllText(_path, "{\"configVersion\":7,\"logLevel\":\"verbose\",\"retainedLogFileCount\":0}");
+
+        var result = new SettingsConfigStore(_path).Open();
+
+        Assert.Contains(result.SettingsBlockingErrors, error => error.Contains("logLevel", StringComparison.Ordinal));
+        Assert.Contains(result.SettingsBlockingErrors, error => error.Contains("retainedLogFileCount", StringComparison.Ordinal));
+        Assert.Empty(result.SettingsWarnings);
+    }
+
     private SettingsConfigStore Open() {
         var store = new SettingsConfigStore(_path);
         store.Open();

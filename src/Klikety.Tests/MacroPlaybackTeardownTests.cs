@@ -3,19 +3,21 @@ using Klikety.Navigation;
 using Klikety.Services;
 using Klikety.Tests.Fakes;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Klikety.Tests;
 
 public class MacroPlaybackTeardownTests {
-    internal static MacroHandler CreateHandler(FakeMouseActionService mouse, IMacroPlaybackWindow window, IClickIndicator indicator) {
+    internal static MacroHandler CreateHandler(FakeMouseActionService mouse, IMacroPlaybackWindow window, IClickIndicator indicator,
+        ILogger? logger = null, MacroDefinition? macro = null) {
         var config = new ConfigModel();
         var factory = new ModeSessionFactory(config, new ActionMapper(config.ActionBindings), new FakeGridRenderer());
         var sessions = new SessionManager(factory, new FakeOverlayWindow(), NullLogger.Instance);
         var file = new MacrosFile();
-        file.Macros[0] = MacroCancellationTests.Macro(MacroActionType.LeftClick);
+        file.Macros[0] = macro ?? MacroCancellationTests.Macro(MacroActionType.LeftClick);
         var handler = new MacroHandler(config, new FakePlatformServices(), new FakeKeyboardHookService(), mouse,
-            sessions, NullLogger.Instance, new FakeMacroStore(), file) {
+            sessions, logger ?? NullLogger.Instance, new FakeMacroStore(), file) {
             MacroPlaybackWindow = window,
             ClickIndicator = indicator,
             DelayProvider = new FakeDelayProvider(),

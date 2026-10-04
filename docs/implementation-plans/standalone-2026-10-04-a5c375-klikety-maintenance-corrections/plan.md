@@ -44,7 +44,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 ## Phase 2: Propagate native input failure end to end
 
-- [ ] 2.1 Add typed input outcomes and safe partial-send handling through all callers (REQ-3, REQ-4, RISK-2, RISK-3) [after: 1.1] `L`
+- [x] 2.1 Add typed input outcomes and safe partial-send handling through all callers (REQ-3, REQ-4, RISK-2, RISK-3) [after: 1.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** failed movement suppresses a dependent click; partial input triggers bounded release cleanup; callers receive an explicit failure; macros stop on failed input rather than report completion.
@@ -58,7 +58,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** return-type changes require a new lifecycle/recording policy beyond asynchronous result observation; bring that choice to the operator before altering recording contents or overlay restoration.
 
   </details>
-- [ ] 2.2 Complete regression coverage and update interop/macro/testing notes (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3) [after: 2.1, 1.2] `M`
+- [x] 2.2 Complete regression coverage and update interop/macro/testing notes (REQ-1, REQ-2, REQ-3, REQ-4, RISK-1, RISK-2, RISK-3) [after: 2.1, 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** input safety and failure reporting are demonstrated with hermetic tests and documented API contracts.

@@ -106,9 +106,10 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 - **Per-step drift check** (WindowRelative): before each action step, re-verify foreground HWND matches and window bounds haven't changed. Focus lost → `PlaybackResult.WindowDrift`. Resized → `WindowDrift`. Moved → update bounds for next step (coordinates stay correct).
 - **StartFromCursor** (WindowRelative DragDrop): when `step.StartFromCursor == true`, drag starts from `PlaybackContext.InitialCursorPosition` instead of resolved step position. End point still resolved normally.
 - **PlaybackContext**: record passed to `Play()` with `PositionMode`, `WindowBounds`, `WindowTitle`, `WindowHwnd`, `InitialCursorPosition`. `PlaybackContext.Absolute` for screen-space macros. Built from `_preOverlayHwnd` (captured before overlay opens). **Critical**: `StartPlayback(macro, targetHwnd)` takes an explicit HWND parameter — callers must save `_preOverlayHwnd` before any `_overlayWindow.Hide()` call, because `Hide()` triggers `DeactivateOverlay()` which zeros `_preOverlayHwnd`. Global hotkey path captures HWND at activation time.
-- **PlaybackResultKind**: `Completed`, `Cancelled`, `ScreenMismatch`, `WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`.
+- **PlaybackResultKind**: `Completed`, `Cancelled`, `InputFailed`, `ScreenMismatch`, `WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`. An incomplete native action carries its `InputResult` and diagnostic message, stops later steps and emits no progress for the failed step. The handler logs one playback error, closes progress and returns to idle with the existing overlay restoration; no new tray event.
 - **Speed modifier**: `delay = Math.Max(50, (int)(relativeTimeMs × speedModifier))`. When `speedModifier == 0` → 100ms fixed. 50ms global floor prevents input coalescing. Per-macro `SpeedModifier` overrides global config when ≠ 1.0.
 - **Delay chunking**: delays split into 50ms ticks for live countdown updates. `DelayUpdate(remainingMs, actionType)` event fires each tick.
+- **Drag sequencing**: await the typed drag outcome before reporting progress or starting the next saved inter-step interval. Native drag delays remain 100 ms then 50 ms. This intentionally removes the old fire-and-forget overlap (about 150 ms); serialized intervals, speed scaling and floors remain unchanged.
 - **Click indicator**: `IClickIndicator.ShowAndWait(x, y, ct)` called before each action step (except `MoveOnly`). Non-activating, click-through WPF window. `ClickIndicatorLifecycle` composes dispatcher/view seams; completion, cancellation and disposal stop animations, detach handlers and hide on the dispatcher. Operation identity guards ignore stale completions after reuse. Cancellation callbacks only queue cleanup; they never synchronously invoke the dispatcher.
 - **Cancellation**: `CancellationToken` checked before each step and immediately before input dispatch, after any awaited indicator. Escape via hook cancels the current operation. Cancellation skips pending input and its progress event; it cannot undo input already dispatched.
 - **Progress**: `StepCompleted(completed, total)` event per step → updates `MacroPlaybackOverlay` progress bar.
@@ -122,11 +123,13 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 ```csharp
 try { result = await operation.Player.Play(macro, context, operation.Cancellation.Token); }
 catch (OperationCanceledException) { /* normal cancel */ }
-catch (Exception ex) { _logger.LogError(...); }
+catch (Exception ex) { /* InputFailed with diagnostic; handler logs once */ }
 finally { /* dispose operation CTS; finish only if still current and not disposed */ }
 ```
 
 `Dispose()` marks the handler disposed, initiates cancellation and queues indicator teardown without draining playback. Each playback operation owns its task/CTS and disposes its CTS on eventual completion. Identity guards prevent late progress or completion from restoring or changing a disposed/replaced handler. UI teardown remains dispatcher-owned.
+
+Recording still stores attempted actions before native dispatch, including failed attempts. Non-macro drag observers log typed failures or task exceptions without changing the existing recording prompt, 200 ms resume scheduling or successful overlay restoration policy.
 
 ### Post-Playback Restoration
 

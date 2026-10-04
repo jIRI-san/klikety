@@ -401,7 +401,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _navDisplay = target;
             _overlayWindow.ClearCanvas();
             _overlayHost.Show(_displays, target, _displayNumbers);
-            _mouseService.MoveTo(center);
+            InputResultObserver.Observe(_mouseService.MoveTo(center), _logger);
             AfterHostLayout(() => {
                 if (!_overlayWindow.IsVisible) {
                     DeactivateOverlay();
@@ -532,7 +532,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnSessionCursorMoveRequested(Point point) {
-        _mouseService.MoveTo(point);
+        InputResultObserver.Observe(_mouseService.MoveTo(point), _logger);
     }
 
     /// <summary>
@@ -570,7 +570,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             // Clear modifier keys (Alt/Ctrl/Shift) that may be stuck in the target
             // window's thread — hotkey modifier keydown went to target before overlay
             // opened, but keyup was consumed by overlay.
-            _mouseService.ClearStuckModifiers();
+            InputResultObserver.Observe(_mouseService.ClearStuckModifiers(), _logger);
         } finally {
             _deactivating = false;
         }

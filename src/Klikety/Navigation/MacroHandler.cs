@@ -486,12 +486,14 @@ internal sealed partial class MacroHandler : IDisposable {
         PlaybackResult? result = null;
         try {
             result = await operation.Player.Play(macro, context, operation.Cancellation.Token);
-        } catch (OperationCanceledException) {
+        } catch (OperationCanceledException) when (operation.Cancellation.IsCancellationRequested) {
             result = PlaybackResult.Cancelled;
         } catch (Exception ex) {
-            LogPlaybackFailed(ex.Message);
-            result = PlaybackResult.Cancelled;
+            result = new PlaybackResult { Kind = PlaybackResultKind.InputFailed, Message = ex.Message };
         } finally {
+            if (result?.Kind == PlaybackResultKind.InputFailed) {
+                LogPlaybackFailed(result.Message ?? "Native input failed without diagnostics");
+            }
             operation.Cancellation.Dispose();
             if (ReferenceEquals(_playback, operation)) {
                 _playback = null;

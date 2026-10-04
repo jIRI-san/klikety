@@ -31,9 +31,26 @@ public sealed partial class MouseActionService : IMouseActionService {
     private const ushort VK_MENU = 0x12;
 
     private readonly ILogger _logger;
+    private readonly IInputSender _sender;
+    private readonly Func<Rectangle> _virtualScreen;
+    private readonly IDelayProvider _delay;
+
+    internal readonly record struct NativeSendResult(uint Sent, int? Error);
+
+    internal interface IInputSender {
+        NativeSendResult Send(INPUT[] inputs);
+    }
+
+    private sealed class Win32InputSender : IInputSender {
+        public NativeSendResult Send(INPUT[] inputs) {
+            var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+            var error = Marshal.GetLastPInvokeError();
+            return new NativeSendResult(sent, sent != inputs.Length && error != 0 ? error : null);
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct MOUSEINPUT {
+    internal struct MOUSEINPUT {
         public int dx;
         public int dy;
         public uint mouseData;
@@ -43,7 +60,7 @@ public sealed partial class MouseActionService : IMouseActionService {
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct KEYBDINPUT {
+    internal struct KEYBDINPUT {
         public ushort wVk;
         public ushort wScan;
         public uint dwFlags;
@@ -52,13 +69,13 @@ public sealed partial class MouseActionService : IMouseActionService {
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    private struct INPUT_UNION {
+    internal struct INPUT_UNION {
         [FieldOffset(0)] public MOUSEINPUT mi;
         [FieldOffset(0)] public KEYBDINPUT ki;
     }
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct INPUT {
+    internal struct INPUT {
         public uint type;
         public INPUT_UNION union;
     }
@@ -66,11 +83,17 @@ public sealed partial class MouseActionService : IMouseActionService {
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
 
-    public MouseActionService(ILogger logger) {
+    public MouseActionService(ILogger logger)
+        : this(logger, new Win32InputSender(), NativeMethods.GetVirtualScreenBounds, new TaskDelayProvider()) { }
+
+    internal MouseActionService(ILogger logger, IInputSender sender, Func<Rectangle> virtualScreen, IDelayProvider delay) {
         _logger = logger;
+        _sender = sender;
+        _virtualScreen = virtualScreen;
+        _delay = delay;
     }
 
-    public void MoveTo(Point physicalPoint) {
+    public InputResult MoveTo(Point physicalPoint) {
         var (nx, ny) = NormalizePoint(physicalPoint);
 
         var input = new INPUT {
@@ -84,11 +107,11 @@ public sealed partial class MouseActionService : IMouseActionService {
             },
         };
 
-        _ = SendInput(1, [input], Marshal.SizeOf<INPUT>());
+        return SendBatch([input], InputStage.Move, []);
     }
 
-    private static (int X, int Y) NormalizePoint(Point physicalPoint) =>
-        NormalizeAbsolute(physicalPoint, NativeMethods.GetVirtualScreenBounds());
+    private (int X, int Y) NormalizePoint(Point physicalPoint) =>
+        NormalizeAbsolute(physicalPoint, _virtualScreen());
 
     /// <summary>
     /// Maps a physical pixel through virtual-desktop metrics to the 0–65535 SendInput range.
@@ -101,52 +124,31 @@ public sealed partial class MouseActionService : IMouseActionService {
         return (normalizedX, normalizedY);
     }
 
-    public void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None) {
-        MoveTo(physicalPoint);
+    public InputResult SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None) {
+        var movement = MoveTo(physicalPoint);
 
-        if (action is MouseAction.MoveOnly or MouseAction.DragDrop) {
-            return;
+        if (!movement.Succeeded || action is MouseAction.MoveOnly or MouseAction.DragDrop) {
+            return movement;
         }
 
         var (downFlag, upFlag) = action switch {
             MouseAction.LeftClick or MouseAction.DoubleClick => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
             MouseAction.RightClick => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
             MouseAction.MiddleClick => (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
-            _ => (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
+            _ => throw new ArgumentOutOfRangeException(nameof(action)),
         };
 
         int clickCount = action == MouseAction.DoubleClick ? 2 : 1;
 
-        if (modifiers == ActionModifiers.None) {
-            var clickInputs = new INPUT[clickCount * 2];
-            for (int i = 0; i < clickCount; i++) {
-                clickInputs[i * 2] = MakeMouseInput(downFlag);
-                clickInputs[i * 2 + 1] = MakeMouseInput(upFlag);
-            }
-            _ = SendInput((uint)clickInputs.Length, clickInputs, Marshal.SizeOf<INPUT>());
-        } else {
-            // Modifiers held physically are already active — skip synthetic injection for those.
-            // We inject all requested modifiers to guarantee the target app sees them,
-            // since the overlay just closed and key state may be ambiguous.
-            var modKeyDowns = BuildModifierInputs(modifiers, keyUp: false);
-            var modKeyUps = BuildModifierInputs(modifiers, keyUp: true);
-
-            var inputs = new List<INPUT>(modKeyDowns.Length + clickCount * 2 + modKeyUps.Length);
-            inputs.AddRange(modKeyDowns);
-            for (int i = 0; i < clickCount; i++) {
-                inputs.Add(MakeMouseInput(downFlag));
-                inputs.Add(MakeMouseInput(upFlag));
-            }
-            inputs.AddRange(modKeyUps);
-
-            var inputArray = inputs.ToArray();
-            var sent = SendInput((uint)inputArray.Length, inputArray, Marshal.SizeOf<INPUT>());
-            if (sent < inputArray.Length) {
-                // Compensating KEYUP for any modifiers — extra key-ups for already-up keys are harmless
-                LogPartialSend(sent, inputArray.Length);
-                _ = SendInput((uint)modKeyUps.Length, modKeyUps, Marshal.SizeOf<INPUT>());
-            }
+        var inputs = new List<INPUT>();
+        inputs.AddRange(BuildModifierInputs(modifiers, keyUp: false));
+        for (int i = 0; i < clickCount; i++) {
+            inputs.Add(MakeMouseInput(downFlag));
+            inputs.Add(MakeMouseInput(upFlag));
         }
+        inputs.AddRange(BuildModifierInputs(modifiers, keyUp: true));
+        var click = SendBatch([.. inputs], InputStage.Click, []);
+        return new InputResult([.. movement.Sends, .. click.Sends], click.Cleanup);
     }
 
     private static INPUT MakeMouseInput(uint dwFlags) => new() {
@@ -171,29 +173,24 @@ public sealed partial class MouseActionService : IMouseActionService {
         return [.. inputs];
     }
 
-    public void ClearStuckModifiers() {
+    public InputResult ClearStuckModifiers() {
         INPUT[] keyUps = [
             new() { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_MENU, dwFlags = KEYEVENTF_KEYUP } } },
             new() { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_CONTROL, dwFlags = KEYEVENTF_KEYUP } } },
             new() { type = INPUT_KEYBOARD, union = new INPUT_UNION { ki = new KEYBDINPUT { wVk = VK_SHIFT, dwFlags = KEYEVENTF_KEYUP } } },
         ];
-        _ = SendInput((uint)keyUps.Length, keyUps, Marshal.SizeOf<INPUT>());
+        return SendBatch(keyUps, InputStage.ClearModifiers, []);
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "SendInput partial send: {Sent}/{Total}. Issuing compensating KEYUP.")]
-    private partial void LogPartialSend(uint sent, int total);
-
-    public void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {
-        if (button is MouseAction.MoveOnly or MouseAction.DragDrop) {
-            return;
+    public Task<InputResult> SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {
+        if (button is not (MouseAction.LeftClick or MouseAction.DoubleClick or MouseAction.RightClick or MouseAction.MiddleClick)) {
+            throw new ArgumentOutOfRangeException(nameof(button));
         }
 
-        // Run on a background thread to avoid blocking the WPF dispatcher
-        // with Thread.Sleep delays needed for drag threshold detection.
-        Task.Run(() => SendDragCore(start, end, button, modifiers));
+        return SendDragCore(start, end, button, modifiers);
     }
 
-    private void SendDragCore(Point start, Point end, MouseAction button, ActionModifiers modifiers) {
+    private async Task<InputResult> SendDragCore(Point start, Point end, MouseAction button, ActionModifiers modifiers) {
         var (downFlag, upFlag) = button switch {
             MouseAction.RightClick => (MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_RIGHTUP),
             MouseAction.MiddleClick => (MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_MIDDLEUP),
@@ -212,28 +209,25 @@ public sealed partial class MouseActionService : IMouseActionService {
         phase1.Add(MakeMoveInput(sx, sy));
         phase1.Add(MakeMouseInput(downFlag));
 
-        var p1Array = phase1.ToArray();
-        var sent1 = SendInput((uint)p1Array.Length, p1Array, Marshal.SizeOf<INPUT>());
-        if (sent1 < p1Array.Length) {
-            LogPartialSend(sent1, p1Array.Length);
-            var compensate = new List<INPUT>(1 + modKeyUps.Length);
-            compensate.Add(MakeMouseInput(upFlag));
-            compensate.AddRange(modKeyUps);
-            _ = SendInput((uint)compensate.Count, [.. compensate], Marshal.SizeOf<INPUT>());
-            return;
+        var held = new List<INPUT>();
+        var first = SendBatch([.. phase1], InputStage.DragStart, held);
+        if (!first.Succeeded) {
+            return first;
         }
 
         // Phase 2: small intermediate move to cross the OS drag threshold
         // (SM_CXDRAG/SM_CYDRAG, typically 4px). Without this, the app may treat
         // the button-down as a click rather than a drag initiation.
-        Thread.Sleep(100);
+        await _delay.Delay(100, CancellationToken.None);
         int nudgeDx = ex - sx;
         int nudgeDy = ey - sy;
         int nudgeX = sx + (nudgeDx != 0 ? Math.Sign(nudgeDx) : 0) * (65535 / 500); // ~3-4px nudge toward end
         int nudgeY = sy + (nudgeDy != 0 ? Math.Sign(nudgeDy) : 0) * (65535 / 500);
-        _ = SendInput(1, [MakeMoveInput(nudgeX, nudgeY)], Marshal.SizeOf<INPUT>());
-
-        Thread.Sleep(50);
+        var nudge = SendBatch([MakeMoveInput(nudgeX, nudgeY)], InputStage.DragNudge, held);
+        if (!nudge.Succeeded) {
+            return new InputResult([.. first.Sends, .. nudge.Sends], nudge.Cleanup);
+        }
+        await _delay.Delay(50, CancellationToken.None);
 
         // Phase 3: move-to-end + button-up + [mod-ups]
         var phase3 = new List<INPUT>(2 + modKeyUps.Length);
@@ -241,15 +235,8 @@ public sealed partial class MouseActionService : IMouseActionService {
         phase3.Add(MakeMouseInput(upFlag));
         phase3.AddRange(modKeyUps);
 
-        var p3Array = phase3.ToArray();
-        var sent3 = SendInput((uint)p3Array.Length, p3Array, Marshal.SizeOf<INPUT>());
-        if (sent3 < p3Array.Length) {
-            LogPartialSend(sent3, p3Array.Length);
-            var compensate = new List<INPUT>(1 + modKeyUps.Length);
-            compensate.Add(MakeMouseInput(upFlag));
-            compensate.AddRange(modKeyUps);
-            _ = SendInput((uint)compensate.Count, [.. compensate], Marshal.SizeOf<INPUT>());
-        }
+        var last = SendBatch([.. phase3], InputStage.DragEnd, held);
+        return new InputResult([.. first.Sends, .. nudge.Sends, .. last.Sends], last.Cleanup);
     }
 
     private static INPUT MakeMoveInput(int nx, int ny) => new() {
@@ -263,7 +250,7 @@ public sealed partial class MouseActionService : IMouseActionService {
         },
     };
 
-    public void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
+    public InputResult SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
         var scrollInput = new INPUT {
             type = INPUT_MOUSE,
             union = new INPUT_UNION {
@@ -275,8 +262,7 @@ public sealed partial class MouseActionService : IMouseActionService {
         };
 
         if (modifiers == ActionModifiers.None) {
-            _ = SendInput(1, [scrollInput], Marshal.SizeOf<INPUT>());
-            return;
+            return SendBatch([scrollInput], InputStage.Scroll, []);
         }
 
         var modKeyDowns = BuildModifierInputs(modifiers, keyUp: false);
@@ -285,10 +271,58 @@ public sealed partial class MouseActionService : IMouseActionService {
         modKeyDowns.CopyTo(inputs, 0);
         inputs[modKeyDowns.Length] = scrollInput;
         modKeyUps.CopyTo(inputs, modKeyDowns.Length + 1);
-        var sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
-        if (sent < inputs.Length) {
-            // Compensate: release modifier keys to prevent stuck state
-            _ = SendInput((uint)modKeyUps.Length, modKeyUps, Marshal.SizeOf<INPUT>());
+        return SendBatch(inputs, InputStage.Scroll, []);
+    }
+
+    private InputResult SendBatch(INPUT[] inputs, InputStage stage, List<INPUT> held) {
+        var native = _sender.Send(inputs);
+        var primary = new InputSendOutcome(stage, inputs.Length, native.Sent, native.Error);
+        foreach (var input in inputs.Take((int)Math.Min(native.Sent, (uint)inputs.Length))) {
+            TrackHeld(input, held);
+        }
+        if (primary.Succeeded || held.Count == 0) {
+            return new InputResult([primary]);
+        }
+
+        var releases = held.OrderBy(input => input.type).Select(MakeRelease).ToArray();
+        var cleanupNative = _sender.Send(releases);
+        var cleanup = new InputSendOutcome(InputStage.ReleaseCleanup, releases.Length, cleanupNative.Sent, cleanupNative.Error);
+        if (!cleanup.Succeeded) {
+            LogCleanupFailed(cleanup.ToString());
+        }
+        return new InputResult([primary], cleanup);
+    }
+
+    private static void TrackHeld(INPUT input, List<INPUT> held) {
+        if (input.type == INPUT_KEYBOARD) {
+            if ((input.union.ki.dwFlags & KEYEVENTF_KEYUP) != 0) {
+                held.RemoveAll(item => item.type == INPUT_KEYBOARD && item.union.ki.wVk == input.union.ki.wVk);
+            } else {
+                held.Add(input);
+            }
+        } else {
+            var flags = input.union.mi.dwFlags;
+            if (flags is MOUSEEVENTF_LEFTDOWN or MOUSEEVENTF_RIGHTDOWN or MOUSEEVENTF_MIDDLEDOWN) {
+                held.Add(input);
+            } else if (flags is MOUSEEVENTF_LEFTUP or MOUSEEVENTF_RIGHTUP or MOUSEEVENTF_MIDDLEUP) {
+                held.RemoveAll(item => item.type == INPUT_MOUSE && MakeRelease(item).union.mi.dwFlags == flags);
+            }
         }
     }
+
+    private static INPUT MakeRelease(INPUT held) {
+        if (held.type == INPUT_KEYBOARD) {
+            held.union.ki.dwFlags = KEYEVENTF_KEYUP;
+            return held;
+        }
+        return MakeMouseInput(held.union.mi.dwFlags switch {
+            MOUSEEVENTF_LEFTDOWN => MOUSEEVENTF_LEFTUP,
+            MOUSEEVENTF_RIGHTDOWN => MOUSEEVENTF_RIGHTUP,
+            MOUSEEVENTF_MIDDLEDOWN => MOUSEEVENTF_MIDDLEUP,
+            _ => throw new InvalidOperationException("Only held synthetic buttons can be released."),
+        });
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "SendInput release cleanup failed: {Details}")]
+    private partial void LogCleanupFailed(string details);
 }

@@ -12,7 +12,7 @@ namespace Klikety.Overlay;
 /// <summary>
 /// Non-activating transparent window that shows a shrinking circle at a screen position
 /// before a macro playback click executes. The circle animates from initialRadius to
-/// finalRadius, then fires Completed and hides itself.
+/// finalRadius, then reports completion to its lifecycle owner.
 /// </summary>
 public sealed class ClickIndicatorWindow : Window, IClickIndicatorView {
     private readonly Ellipse _circle;
@@ -51,7 +51,7 @@ public sealed class ClickIndicatorWindow : Window, IClickIndicatorView {
 
     /// <summary>
     /// Shows the indicator centered at the given physical screen coordinates,
-    /// animates the shrink, then fires Completed and hides.
+    /// animates the shrink, then reports completion for dispatcher-owned cleanup.
     /// </summary>
     void IClickIndicatorView.Start(double screenX, double screenY, Action completed) {
         // Apply non-activating style on first show (needs HWND)
@@ -79,7 +79,7 @@ public sealed class ClickIndicatorWindow : Window, IClickIndicatorView {
         Width = initialDiameter;
         Height = initialDiameter;
 
-        // Clear any leftover animations from previous ShowAt calls
+        // Clear any leftover animations from previous invocations
         BeginAnimation(LeftProperty, null);
         BeginAnimation(TopProperty, null);
         _circle.BeginAnimation(WidthProperty, null);
@@ -133,6 +133,7 @@ public sealed class ClickIndicatorWindow : Window, IClickIndicatorView {
 /// </summary>
 public sealed class ClickIndicatorAdapter : IClickIndicator {
     private sealed class WindowDispatcher(ClickIndicatorWindow window) : IIndicatorDispatcher {
+        public bool CheckAccess() => window.Dispatcher.CheckAccess();
         public void Post(Action action) => window.Dispatcher.BeginInvoke(action);
     }
 

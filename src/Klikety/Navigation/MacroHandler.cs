@@ -29,15 +29,41 @@ internal sealed partial class MacroHandler : IDisposable {
 
     // Playback state
     private sealed class PlaybackOperation(MacroPlayer player) {
+        private readonly object _gate = new();
+        private bool _released;
         public MacroPlayer Player { get; } = player;
         public CancellationTokenSource Cancellation { get; } = new();
+        public SynchronizationContext? Context { get; } = SynchronizationContext.Current;
         public Task? Task { get; set; }
+
+        public void Cancel() {
+            lock (_gate) {
+                if (!_released) {
+                    Cancellation.Cancel();
+                }
+            }
+        }
+
+        public void Release() {
+            lock (_gate) {
+                _released = true;
+                Cancellation.Dispose();
+            }
+        }
+
+        public void OnContext(Action action) {
+            if (Context is null || ReferenceEquals(Context, SynchronizationContext.Current)) {
+                action();
+            } else {
+                Context.Post(_ => action(), null);
+            }
+        }
     }
 
     private PlaybackOperation? _playback;
     internal Task? PlaybackTask => _playback?.Task;
     private bool _playbackFromGlobalHotKey;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     // Recording app-scope persistence
     private bool _recordingAppScoped;
@@ -155,7 +181,7 @@ internal sealed partial class MacroHandler : IDisposable {
         // Playing: only Escape cancels playback, all else ignored by hook
         if (_macroState == MacroState.Playing) {
             if (key == VKey.Escape) {
-                _playback?.Cancellation.Cancel();
+                _playback?.Cancel();
             }
             return true;
         }
@@ -469,23 +495,23 @@ internal sealed partial class MacroHandler : IDisposable {
         MacroPlaybackWindow?.Show(macro.Name, macro.Steps.Count, windowContext);
         var operation = new PlaybackOperation(player);
         _playback = operation;
-        player.StepCompleted += (completed, total) => {
+        player.StepCompleted += (completed, total) => operation.OnContext(() => {
             if (!_disposed && ReferenceEquals(_playback, operation)) {
                 MacroPlaybackWindow?.UpdateProgress(completed, total);
             }
-        };
-        player.DelayUpdate += (remainingMs, actionType) => {
+        });
+        player.DelayUpdate += (remainingMs, actionType) => operation.OnContext(() => {
             if (!_disposed && ReferenceEquals(_playback, operation)) {
                 MacroPlaybackWindow?.UpdateDelay(remainingMs, actionType);
             }
-        };
+        });
         operation.Task = RunPlaybackAsync(operation, macro, context);
     }
 
     private async Task RunPlaybackAsync(PlaybackOperation operation, MacroDefinition macro, PlaybackContext context) {
         PlaybackResult? result = null;
         try {
-            result = await operation.Player.Play(macro, context, operation.Cancellation.Token);
+            result = await operation.Player.Play(macro, context, operation.Cancellation.Token).ConfigureAwait(false);
         } catch (OperationCanceledException) when (operation.Cancellation.IsCancellationRequested) {
             result = PlaybackResult.Cancelled;
         } catch (Exception ex) {
@@ -494,12 +520,18 @@ internal sealed partial class MacroHandler : IDisposable {
             if (result?.Kind == PlaybackResultKind.InputFailed) {
                 LogPlaybackFailed(result.Message ?? "Native input failed without diagnostics");
             }
-            operation.Cancellation.Dispose();
-            if (ReferenceEquals(_playback, operation)) {
-                _playback = null;
-                if (!_disposed) {
-                    OnPlaybackFinished(result ?? PlaybackResult.Cancelled);
-                }
+            operation.Release();
+            if (_disposed) {
+                Interlocked.CompareExchange(ref _playback, null, operation);
+            } else {
+                operation.OnContext(() => {
+                    if (ReferenceEquals(_playback, operation)) {
+                        _playback = null;
+                        if (!_disposed) {
+                            OnPlaybackFinished(result ?? PlaybackResult.Cancelled);
+                        }
+                    }
+                });
             }
         }
     }
@@ -577,7 +609,8 @@ internal sealed partial class MacroHandler : IDisposable {
             return;
         }
         _disposed = true;
-        _playback?.Cancellation.Cancel();
+        var operation = Interlocked.Exchange(ref _playback, null);
+        operation?.Cancel();
         ClickIndicator?.Dispose();
         _resumeTimer?.Dispose();
         MacroHotKeyService = null;

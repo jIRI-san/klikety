@@ -12,7 +12,7 @@ internal static partial class InputResultObserver {
     internal static async Task ObserveDragAsync(IMouseActionService mouse, System.Drawing.Point start,
         System.Drawing.Point end, Config.MouseAction button, Config.ActionModifiers modifiers, ILogger logger) {
         try {
-            Observe(await mouse.SendDrag(start, end, button, modifiers), logger);
+            Observe(await mouse.SendDrag(start, end, button, modifiers).ConfigureAwait(false), logger);
         } catch (Exception ex) {
             LogDragFailed(logger, ex);
         }

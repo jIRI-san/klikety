@@ -4,6 +4,8 @@ namespace Klikety.Tests;
 
 public class ClickIndicatorLifecycleTests {
     private sealed class Dispatcher : IIndicatorDispatcher {
+        public bool HasAccess { get; set; }
+        public bool CheckAccess() => HasAccess;
         public Queue<Action> Pending { get; } = new();
         public void Post(Action action) => Pending.Enqueue(action);
         public void Drain() {
@@ -11,6 +13,21 @@ public class ClickIndicatorLifecycleTests {
                 action();
             }
         }
+    }
+
+    [Fact]
+    public async Task DisposeOnDispatcher_CleansWithoutAnotherDispatcherTurn() {
+        var dispatcher = new Dispatcher { HasAccess = true };
+        var view = new View();
+        var lifecycle = new ClickIndicatorLifecycle(dispatcher, view);
+        var task = lifecycle.ShowAndWait(1, 2, CancellationToken.None);
+        dispatcher.Drain();
+        lifecycle.Dispose();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.False(view.Visible);
+        Assert.Null(view.Completion);
+        Assert.Equal(1, view.Closes);
+        Assert.Empty(dispatcher.Pending);
     }
 
     private sealed class View : IClickIndicatorView {

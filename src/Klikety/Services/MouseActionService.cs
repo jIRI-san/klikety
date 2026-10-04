@@ -187,7 +187,7 @@ public sealed partial class MouseActionService : IMouseActionService {
             throw new ArgumentOutOfRangeException(nameof(button));
         }
 
-        return SendDragCore(start, end, button, modifiers);
+        return Task.Run(() => SendDragCore(start, end, button, modifiers));
     }
 
     private async Task<InputResult> SendDragCore(Point start, Point end, MouseAction button, ActionModifiers modifiers) {
@@ -218,7 +218,7 @@ public sealed partial class MouseActionService : IMouseActionService {
         // Phase 2: small intermediate move to cross the OS drag threshold
         // (SM_CXDRAG/SM_CYDRAG, typically 4px). Without this, the app may treat
         // the button-down as a click rather than a drag initiation.
-        await _delay.Delay(100, CancellationToken.None);
+        await _delay.Delay(100, CancellationToken.None).ConfigureAwait(false);
         int nudgeDx = ex - sx;
         int nudgeDy = ey - sy;
         int nudgeX = sx + (nudgeDx != 0 ? Math.Sign(nudgeDx) : 0) * (65535 / 500); // ~3-4px nudge toward end
@@ -227,7 +227,7 @@ public sealed partial class MouseActionService : IMouseActionService {
         if (!nudge.Succeeded) {
             return new InputResult([.. first.Sends, .. nudge.Sends], nudge.Cleanup);
         }
-        await _delay.Delay(50, CancellationToken.None);
+        await _delay.Delay(50, CancellationToken.None).ConfigureAwait(false);
 
         // Phase 3: move-to-end + button-up + [mod-ups]
         var phase3 = new List<INPUT>(2 + modKeyUps.Length);

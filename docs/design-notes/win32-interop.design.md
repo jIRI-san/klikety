@@ -55,7 +55,7 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 - Every send returns `InputSendOutcome` (stage, requested/sent counts, nullable native error). `InputResult` retains all primary phase outcomes plus any release-cleanup outcome. The native sender captures last-error before compensation; zero means diagnostics unavailable, not evidence of success. UIPI rejection may provide no useful error.
 - Incomplete sends track held synthetic buttons/modifiers from the accepted prefix, including earlier drag phases, and attempt one release-only batch (button before modifiers). No click, movement or wheel replay; no extra releases for unsent inputs. Cleanup failure is logged and retained without overwriting the primary failure. This is best effort: Windows can reject releases too, and synthetic key-up can affect physically held keys.
 - `ClearStuckModifiers` retains Alt/Ctrl/Shift release order and reports incomplete release without retry.
-- `SendDrag`: asynchronous three-phase operation: modifier-downs + move-to-start + button-down; 100 ms delay; threshold nudge; 50 ms delay; move-to-end + button-up + modifier-ups. Each phase checks its typed outcome before proceeding. Button mapping remains left/right/middle (`DoubleClick` maps left); invalid drag buttons throw. Delays use `IDelayProvider`, never dispatcher-blocking sleeps. Once dispatched, drag phases finish/release before a macro observes cancellation; cancellation cannot undo sent input.
+- `SendDrag`: an owned background task preserves the original initial-phase dispatch boundary. Three phases: modifier-downs + move-to-start + button-down; 100 ms delay; threshold nudge; 50 ms delay; move-to-end + button-up + modifier-ups. Each phase checks its typed outcome before proceeding. Button mapping remains left/right/middle (`DoubleClick` maps left); invalid drag buttons throw. Delays use `IDelayProvider` without UI-context capture or blocking sleeps. Once dispatched, drag phases finish/release before a macro observes cancellation; cancellation cannot undo sent input.
 - Internal typed `IInputSender`, virtual-screen geometry delegate and delay seams support hermetic tests without exposing native arrays in public app APIs. The Win32 `INPUT` layout is unchanged.
 - All action/coordinator/scroll callers observe results and log failures. Non-macro drag observers await/catch task failures; they do not change recording contents or overlay restoration. Macro playback awaits drag and returns `InputFailed` without progress for the failed step.
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
@@ -102,18 +102,11 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 
 ## `IForegroundWindowProvider` — `DwmGetWindowAttribute` + `IsIconic`
 
-- Two-method API: `GetForegroundWindowHandle()` returns the HWND of the foreground window; `GetWindowBounds(nint hwnd)` returns the window's physical-pixel bounds.
-- `GetWindowBounds` uses `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` for accurate bounds (excludes invisible DWM borders). `Marshal.SizeOf<RECT>()` cached in a static field.
-- `IsIconic(hwnd)` check: minimized windows return `Rectangle.Empty` — callers must validate.
-- Bounds validation: zero or negative width/height → `Rectangle.Empty`.
-- Pre-capture pattern: `NavigatorCoordinator` captures `_preOverlayHwnd` via `GetForegroundWindowHandle()` before showing the overlay (in `OnHotKeyActivated`). The app-scope chord later uses this saved handle to get the target window's bounds — ensuring the overlay's own HWND isn't captured.
-- Real implementation: `Win32ForegroundWindowProvider` wraps `NativeMethods`. Fake: `FakeForegroundWindowProvider` with configurable `Handle` and `Bounds` properties.
-
 - Two-method API: `GetForegroundWindowHandle()` returns the current foreground window HWND; `GetWindowBounds(nint hwnd)` returns physical-pixel bounds for a given HWND.
 - Bounds acquired via `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` — returns the visible window rect excluding invisible Win10+ shadow/border.
 - Minimized detection: `IsIconic(hwnd)` called before DWM query. DWM may return stale restored geometry for minimized windows.
 - Pre-capture pattern: HWND captured in `OnHotKeyActivated` before `Show()` to avoid self-detection (overlay becomes foreground after `Show()`). Bounds retrieved for stored HWND at chord-press time.
-- Failure → `Rectangle.Empty`: null/zero HWND, minimized, DWM failure, or zero-area bounds.
+- Failure → `Rectangle.Empty`: null/zero HWND, minimized, DWM failure, or zero/negative-area bounds; callers validate this result.
 - Production: `Win32ForegroundWindowProvider` wraps `NativeMethods`. Fake: `FakeForegroundWindowProvider` with configurable `Handle` and `Bounds`.
 - Part of `IPlatformServices`; injected via DI.
 - `Marshal.SizeOf<RECT>()` cached in a static `RectSize` field to avoid per-call reflection.

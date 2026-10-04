@@ -9,6 +9,7 @@ globs:
   - src/Klikety/Overlay/MacroPickerOverlay.xaml*
   - src/Klikety/Overlay/MacroPlaybackOverlay.xaml*
   - src/Klikety/Overlay/ClickIndicatorWindow.cs
+  - src/Klikety/Overlay/ClickIndicatorLifecycle.cs
   - src/Klikety/Services/MacroHotKeyService.cs
 ---
 
@@ -122,12 +123,14 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 
 ```csharp
 try { result = await operation.Player.Play(macro, context, operation.Cancellation.Token); }
-catch (OperationCanceledException) { /* normal cancel */ }
+catch (OperationCanceledException) when (operation.Cancellation.IsCancellationRequested) { /* normal cancel */ }
 catch (Exception ex) { /* InputFailed with diagnostic; handler logs once */ }
 finally { /* dispose operation CTS; finish only if still current and not disposed */ }
 ```
 
-`Dispose()` marks the handler disposed, initiates cancellation and queues indicator teardown without draining playback. Each playback operation owns its task/CTS and disposes its CTS on eventual completion. Identity guards prevent late progress or completion from restoring or changing a disposed/replaced handler. UI teardown remains dispatcher-owned.
+`Dispose()` marks the handler disposed, releases its current-operation reference and initiates cancellation without draining playback. Each operation owns its task/CTS; resource completion and native drag delays do not capture the UI context, so CTS cleanup can finish after the dispatcher stops pumping. A small operation lock serializes cancellation against CTS disposal. Progress/restoration marshal through the captured synchronization context with identity/disposal guards; late callbacks cannot mutate a replacement.
+
+Indicator teardown runs directly when already on its dispatcher, otherwise queues there; cancellation callbacks always queue. Thus quit can stop/hide/unsubscribe before `Shutdown()` without a dispatcher wait. No live WPF/STA harness is required for these ownership rules.
 
 Recording still stores attempted actions before native dispatch, including failed attempts. Non-macro drag observers log typed failures or task exceptions without changing the existing recording prompt, 200 ms resume scheduling or successful overlay restoration policy.
 

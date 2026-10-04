@@ -1,6 +1,7 @@
 namespace Klikety.Overlay;
 
 internal interface IIndicatorDispatcher {
+    bool CheckAccess();
     void Post(Action action);
 }
 
@@ -64,7 +65,15 @@ internal sealed class ClickIndicatorLifecycle(IIndicatorDispatcher dispatcher, I
         }
     }
 
-    public void Dispose() => dispatcher.Post(() => {
+    public void Dispose() {
+        if (dispatcher.CheckAccess()) {
+            DisposeOnDispatcher();
+        } else {
+            dispatcher.Post(DisposeOnDispatcher);
+        }
+    }
+
+    private void DisposeOnDispatcher() {
         if (_disposed) {
             return;
         }
@@ -73,5 +82,5 @@ internal sealed class ClickIndicatorLifecycle(IIndicatorDispatcher dispatcher, I
             Finish(operation, cancelled: true);
         }
         view.Close();
-    });
+    }
 }

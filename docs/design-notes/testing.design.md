@@ -20,8 +20,7 @@ globs:
 
 - `FakeHotKeyService` — records Register/Unregister calls, allows manual `Activated` event firing.
 - `FakeKeyboardHookService` (with `SimulateKey`) — programmatically injects key events.
-- `FakeMouseActionService` — records `(physicalX, physicalY, MouseAction)` call list.
-- Its configurable typed `Result` and asynchronous `DragResult` simulate input failure or pending completion for macro and caller tests.
+- `FakeMouseActionService` — records `(physicalX, physicalY, MouseAction)` calls; configurable typed `Result` and asynchronous `DragResult` simulate failure or pending completion.
 - `FakeOverlayWindow` — tracks show/hide/focus-loss, rendered grid state, `AppScopeBorderVisible`/`AppScopeBorderBounds`, and can simulate keyboard-layout change events.
 - Renderer fakes record `RenderCall` lists and `RebuildLabelsCalls` so layout refresh and no-event redraw behavior remain hermetic.
 - `FakeForegroundWindowProvider` — configurable `Handle`, `Bounds`, `Title`. Returns configured values for matching handle; empty/default for zero or mismatched handle.
@@ -38,4 +37,4 @@ All fakes live in `Klikety.Tests/Fakes/`.
 - Smoke test project (`Klikety.SmokeTests`, `[Trait("Category","Smoke")]`) excluded from CI; covers real Win32 call verification.
 - `FakeInputSender` captures native batches and supplies per-call requested/sent/error outcomes; virtual desktop and `IDelayProvider` are injected. `MouseInputSuccessTests` assert unchanged layout, geometry, modifier/button order, wheel data and 100/50 ms drag phases. `MouseInputFailureTests` exercise every incomplete click/scroll/drag prefix, release-only compensation, suppression and failed cleanup.
 - `MacroCancellationTests`, `MacroInputFailureTests` and `MacroDragSequencingTests` verify dispatch/progress boundaries and completion-relative intervals. `InputFailureCallerTests` cover non-macro logging, async faults and unchanged recording contents/restoration.
-- `ClickIndicatorLifecycleTests` use a queued fake dispatcher and view, not WPF/STA, to verify hide/unsubscribe, cancellation/completion races, disposal and stale completions after reuse. `MacroPlaybackTeardownTests` hold a pending indicator to prove nonblocking disposal and late-completion isolation during reload.
+- `ClickIndicatorLifecycleTests` use a queued fake dispatcher and view, not WPF/STA, to verify hide/unsubscribe, cancellation/completion races, dispatcher-owned disposal and stale completions after reuse. `MacroPlaybackTeardownTests` hold a pending indicator to prove nonblocking disposal, shutdown cleanup without context pumping, marshalled progress/restoration and late-completion isolation during reload.

@@ -124,7 +124,7 @@ public sealed class MacroPlayer {
 
             var step = macro.Steps[i];
             var delayMs = ComputeDelay(step.RelativeTimeMs);
-            await DelayWithUpdates(delayMs, step.ActionType.ToString(), ct);
+            await DelayWithUpdates(delayMs, step.ActionType.ToString(), ct).ConfigureAwait(false);
 
             // Per-step drift check for window-relative mode
             if (macro.PositionMode == MacroPositionMode.WindowRelative && _foregroundWindow is not null) {
@@ -134,7 +134,7 @@ public sealed class MacroPlayer {
                 }
             }
 
-            var stepResult = await ExecuteStep(step, macro.PositionMode, windowBounds, context.InitialCursorPosition, ct);
+            var stepResult = await ExecuteStep(step, macro.PositionMode, windowBounds, context.InitialCursorPosition, ct).ConfigureAwait(false);
             if (stepResult is not null) {
                 return stepResult;
             }
@@ -158,7 +158,7 @@ public sealed class MacroPlayer {
 
         while (remaining > 0) {
             var chunk = Math.Min(remaining, DelayTickMs);
-            await _delay.Delay(chunk, ct);
+            await _delay.Delay(chunk, ct).ConfigureAwait(false);
             remaining -= chunk;
             DelayUpdate?.Invoke(remaining, actionType);
         }
@@ -210,7 +210,7 @@ public sealed class MacroPlayer {
 
         // Show click indicator for actions that interact (not MoveOnly)
         if (_clickIndicator != null && step.ActionType != MacroActionType.MoveOnly) {
-            await _clickIndicator.ShowAndWait(point.X, point.Y, ct);
+            await _clickIndicator.ShowAndWait(point.X, point.Y, ct).ConfigureAwait(false);
         }
 
         ct.ThrowIfCancellationRequested();
@@ -234,7 +234,7 @@ public sealed class MacroPlayer {
             case MacroActionType.DragDrop:
                 var startPoint = step.StartFromCursor ? initialCursor : point;
                 var end = ResolvePoint(step.EndX ?? step.X, step.EndY ?? step.Y, mode, windowBounds);
-                input = await _mouseService.SendDrag(startPoint, end, step.DragButton ?? MouseAction.LeftClick, step.Modifiers);
+                input = await _mouseService.SendDrag(startPoint, end, step.DragButton ?? MouseAction.LeftClick, step.Modifiers).ConfigureAwait(false);
                 break;
             case MacroActionType.Scroll:
                 input = _mouseService.SendScroll(step.ScrollDelta ?? 0, step.Modifiers);

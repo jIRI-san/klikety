@@ -1,4 +1,5 @@
 using Klikety.Config;
+using Klikety.Input;
 using Klikety.Navigation;
 using Klikety.Services;
 using Klikety.Tests.Fakes;
@@ -9,6 +10,20 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Klikety.Tests;
 
 public class MacroPlaybackTeardownTests {
+    private sealed class StoppedContext : SynchronizationContext {
+        public override void Post(SendOrPostCallback callback, object? state) { }
+    }
+
+    private sealed class QueuedContext : SynchronizationContext {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<Action> _queue = new();
+        public override void Post(SendOrPostCallback callback, object? state) => _queue.Enqueue(() => callback(state));
+        public void Drain() {
+            while (_queue.TryDequeue(out var action)) {
+                action();
+            }
+        }
+    }
+
     internal static MacroHandler CreateHandler(FakeMouseActionService mouse, IMacroPlaybackWindow window, IClickIndicator indicator,
         ILogger? logger = null, MacroDefinition? macro = null) {
         var config = new ConfigModel();
@@ -41,6 +56,53 @@ public class MacroPlaybackTeardownTests {
             return Completion.Task;
         }
         public void Dispose() => Disposed = true;
+    }
+
+    [Fact]
+    public async Task Quit_OperationCleanupDoesNotRequireDispatcherPumping() {
+        var indicator = new DeferredIndicator();
+        var handler = CreateHandler(new FakeMouseActionService(), new FakeMacroPlaybackWindow(), indicator);
+        var previous = SynchronizationContext.Current;
+        Task task;
+        try {
+            SynchronizationContext.SetSynchronizationContext(new StoppedContext());
+            Start(handler);
+            task = handler.PlaybackTask!;
+            handler.Dispose();
+        } finally {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+        indicator.Completion.SetResult();
+        await task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Null(handler.PlaybackTask);
+        Assert.True(indicator.Disposed);
+    }
+
+    [Fact]
+    public async Task Completion_MarshalsProgressAndRestoration_ReleasedOperationCanStillReceiveEscape() {
+        var indicator = new DeferredIndicator();
+        var window = new FakeMacroPlaybackWindow();
+        using var handler = CreateHandler(new FakeMouseActionService(), window, indicator);
+        var context = new QueuedContext();
+        var previous = SynchronizationContext.Current;
+        Task task;
+        try {
+            SynchronizationContext.SetSynchronizationContext(context);
+            Start(handler);
+            task = handler.PlaybackTask!;
+        } finally {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+        indicator.Completion.SetResult();
+        await task;
+        Assert.Equal(0, window.LastCompletedSteps);
+        Assert.True(window.IsShown);
+        Assert.True(handler.TryHandleKey(VKey.Escape));
+        context.Drain();
+        Assert.Equal(1, window.LastCompletedSteps);
+        Assert.False(window.IsShown);
+        Assert.Equal(MacroState.Idle, handler.State);
+        Assert.Null(handler.PlaybackTask);
     }
 
     [Fact]

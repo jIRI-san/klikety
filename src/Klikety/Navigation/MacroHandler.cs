@@ -568,6 +568,10 @@ internal sealed partial class MacroHandler : IDisposable {
         MacroHotKeyService = null;
         MacroPickerWindow = null;
         MacroPlaybackWindow?.Close();
+        if (ClickIndicator is IDisposable indicator) {
+            indicator.Dispose();
+        }
+        ClickIndicator = null;
         if (_macroRecorder is not null) {
             _macroRecorder.RecordingComplete -= OnRecordingComplete;
             _macroRecorder.RecordingCancelled -= OnRecordingCancelled;

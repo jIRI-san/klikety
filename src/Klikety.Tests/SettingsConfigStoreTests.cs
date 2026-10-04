@@ -159,6 +159,97 @@ public sealed class SettingsConfigStoreTests : IDisposable {
     }
 
     [Fact]
+    public void Save_AxisArrayMovesAddsAndDeletesKeepElementAndOrphanComments() {
+        const string json = """
+        {
+          "configVersion": 7,
+          "horizontalKeys": ["A", /* keep A */ "S", // orphan S
+            "D",],
+        }
+        """;
+        File.WriteAllText(_path, json);
+        var store = Open();
+
+        store.Save(new Dictionary<string, JsonNode?> {
+            ["horizontalKeys"] = new JsonArray("D", "A", "F"),
+        });
+
+        var saved = File.ReadAllText(_path);
+        var array = saved[saved.IndexOf('[')..(saved.IndexOf(']') + 1)];
+        Assert.Contains("/* keep A */", array);
+        Assert.Contains("// orphan S", array);
+        Assert.Equal([VKey.D, VKey.A, VKey.F], new SettingsConfigStore(_path).Open().Config.HorizontalKeys);
+    }
+
+    [Fact]
+    public void Save_ActionBindingDeleteKeepsMemberCommentsInsideObject() {
+        const string json = """
+        {
+          "configVersion": 7,
+          "actionBindings": {
+            "OemOpenBrackets": "leftClick", /* preserve member context */
+            "OemCloseBrackets": /* retain comment inside deleted member */ "rightClick", // orphan deleted-member comment
+          },
+        }
+        """;
+        File.WriteAllText(_path, json);
+        var store = Open();
+
+        store.Save(new Dictionary<string, JsonNode?> {
+            ["actionBindings"] = new JsonObject {
+                ["OemOpenBrackets"] = "leftClick",
+                ["Z"] = "doubleClick",
+            },
+        });
+
+        var saved = File.ReadAllText(_path);
+        var map = saved[saved.IndexOf('{', saved.IndexOf("\"actionBindings\"", StringComparison.Ordinal))..];
+        var close = map.IndexOf('}');
+        Assert.Contains("/* preserve member context */", map[..(close + 1)]);
+        Assert.Contains("/* retain comment inside deleted member */", map[..(close + 1)]);
+        Assert.Contains("// orphan deleted-member comment", map[..(close + 1)]);
+        var config = new SettingsConfigStore(_path).Open().Config;
+        Assert.Equal(2, config.ActionBindings.Count);
+        Assert.Equal(MouseAction.DoubleClick, config.ActionBindings["Z"]);
+        Assert.False(config.ActionBindings.ContainsKey("OemCloseBrackets"));
+    }
+
+    [Fact]
+    public void RestoreLastCommit_RestoresExactOldBytesWithoutReplacingBackup() {
+        const string json = "{\"configVersion\":7,\"theme\":\"dark\"}";
+        File.WriteAllText(_path, json, new UTF8Encoding(true));
+        var original = File.ReadAllBytes(_path);
+        var store = Open();
+        store.Save(new Dictionary<string, JsonNode?> { ["theme"] = JsonValue.Create("light") });
+        var backup = File.ReadAllBytes(_path + ".settings.bak");
+
+        var result = store.RestoreLastCommit();
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(original, File.ReadAllBytes(_path));
+        Assert.Equal(original, backup);
+        Assert.Equal(backup, File.ReadAllBytes(_path + ".settings.bak"));
+        Assert.False(store.HasUnacceptedCommit);
+    }
+
+    [Fact]
+    public void RestoreLastCommit_RefusesToOverwriteExternalBytes() {
+        File.WriteAllText(_path, "{\"configVersion\":7,\"theme\":\"dark\"}");
+        var store = Open();
+        store.Save(new Dictionary<string, JsonNode?> { ["theme"] = JsonValue.Create("light") });
+        var backup = File.ReadAllBytes(_path + ".settings.bak");
+        File.AppendAllText(_path, "\n// external");
+        var external = File.ReadAllBytes(_path);
+
+        var result = store.RestoreLastCommit();
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("Newer external bytes were kept", result.Message);
+        Assert.Equal(external, File.ReadAllBytes(_path));
+        Assert.Equal(backup, File.ReadAllBytes(_path + ".settings.bak"));
+    }
+
+    [Fact]
     public void Save_ExternalDeleteDoesNotRecreateConfig() {
         File.WriteAllText(_path, "{\"configVersion\":7}");
         var store = Open();
@@ -170,7 +261,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
         Assert.Contains("changed on disk", error.Message);
         Assert.False(File.Exists(_path));
-        Assert.Single(Directory.GetFiles(_folder));
+        Assert.Empty(Directory.GetFiles(_folder));
     }
 
     [Fact]
@@ -193,6 +284,47 @@ public sealed class SettingsConfigStoreTests : IDisposable {
         Assert.Contains(result.SettingsBlockingErrors, error => error.Contains("logLevel", StringComparison.Ordinal));
         Assert.Contains(result.SettingsBlockingErrors, error => error.Contains("retainedLogFileCount", StringComparison.Ordinal));
         Assert.Empty(result.SettingsWarnings);
+    }
+
+    [Fact]
+    public void Save_PreservesUntouchedLegacyIndicatorFloorsButRejectsEditingBelowThem() {
+        File.WriteAllText(_path, """
+        {"configVersion":7,"macros":{"playbackIndicator":{"initialRadius":0.5,"finalRadius":0.75,"animationDurationMs":50}}}
+        """);
+        var store = Open();
+        var opened = store.Open();
+        Assert.Empty(opened.SettingsBlockingErrors);
+        Assert.Equal(3, opened.SettingsWarnings.Count);
+
+        store.Save(new Dictionary<string, JsonNode?> { ["theme"] = JsonValue.Create("light") });
+        var beforeRejectedEdit = File.ReadAllBytes(_path);
+        Assert.Throws<InvalidDataException>(() => store.Save(
+            new Dictionary<string, JsonNode?> { ["macros.playbackIndicator.initialRadius"] = JsonValue.Create(0.5) }));
+        Assert.Equal(beforeRejectedEdit, File.ReadAllBytes(_path));
+
+        var corrected = store.Save(new Dictionary<string, JsonNode?> {
+            ["macros.playbackIndicator.initialRadius"] = JsonValue.Create(1),
+            ["macros.playbackIndicator.finalRadius"] = JsonValue.Create(1),
+            ["macros.playbackIndicator.animationDurationMs"] = JsonValue.Create(100),
+        });
+        Assert.Equal(1, corrected.Macros.PlaybackIndicator.InitialRadius);
+        Assert.Equal(100, corrected.Macros.PlaybackIndicator.AnimationDurationMs);
+    }
+
+    [Fact]
+    public void Save_RejectsUnsafeIndicatorAndNegativeSpeedEvenWhenMacrosAreDisabled() {
+        File.WriteAllText(_path, """
+        {"configVersion":7,"macros":{"enabled":false,"speedModifier":-0.1,"playbackIndicator":{"fillColor":"not-a-color"}}}
+        """);
+        var store = Open();
+        var opened = store.Open();
+        Assert.Contains(opened.SettingsBlockingErrors, error => error.Contains("speedModifier", StringComparison.Ordinal));
+        Assert.Contains(opened.SettingsBlockingErrors, error => error.Contains("fillColor", StringComparison.Ordinal));
+        var original = File.ReadAllBytes(_path);
+
+        Assert.Throws<InvalidDataException>(() => store.Save(
+            new Dictionary<string, JsonNode?> { ["theme"] = JsonValue.Create("light") }));
+        Assert.Equal(original, File.ReadAllBytes(_path));
     }
 
     private SettingsConfigStore Open() {

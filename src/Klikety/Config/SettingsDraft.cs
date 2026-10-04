@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -7,7 +8,7 @@ namespace Klikety.Config;
 internal sealed class SettingsDraft {
     private static readonly JsonSerializerOptions Options = new() {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+        Converters = { new JsonStringEnumConverter() },
     };
     private JsonObject _baseline = [];
     private readonly Dictionary<string, JsonNode?> _changes = new(StringComparer.Ordinal);

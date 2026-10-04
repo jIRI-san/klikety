@@ -107,7 +107,7 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 - **StartFromCursor** (WindowRelative DragDrop): when `step.StartFromCursor == true`, drag starts from `PlaybackContext.InitialCursorPosition` instead of resolved step position. End point still resolved normally.
 - **PlaybackContext**: record passed to `Play()` with `PositionMode`, `WindowBounds`, `WindowTitle`, `WindowHwnd`, `InitialCursorPosition`. `PlaybackContext.Absolute` for screen-space macros. Built from `_preOverlayHwnd` (captured before overlay opens). **Critical**: `StartPlayback(macro, targetHwnd)` takes an explicit HWND parameter — callers must save `_preOverlayHwnd` before any `_overlayWindow.Hide()` call, because `Hide()` triggers `DeactivateOverlay()` which zeros `_preOverlayHwnd`. Global hotkey path captures HWND at activation time.
 - **PlaybackResultKind**: `Completed`, `Cancelled`, `ScreenMismatch`, `WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`.
-- **Speed modifier**: `delay = Math.Max(50, (int)(relativeTimeMs × speedModifier))`. When `speedModifier == 0` → 100ms fixed. 50ms global floor prevents input coalescing. Per-macro `SpeedModifier` overrides global config when ≠ 1.0.
+- **Speed modifier**: `delay = Math.Max(50, (int)(relativeTimeMs × speedModifier))`. When `speedModifier == 0` → 100ms fixed. 50ms global floor prevents input coalescing. Per-macro `SpeedModifier` overrides global config when ≠ 1.0. The global Settings value must be finite and ≥ 0; negative values are rejected rather than silently clamped.
 - **Delay chunking**: delays split into 50ms ticks for live countdown updates. `DelayUpdate(remainingMs, actionType)` event fires each tick.
 - **Click indicator**: `IClickIndicator.ShowAndWait(x, y)` called before each action step (except `MoveOnly`). Non-activating, click-through WPF window. Shrinking circle animation (configurable via `PlaybackIndicatorConfig`). Waits for animation to complete before executing the click.
 - **Cancellation**: `CancellationToken` checked before each step. Escape via hook → cancel CTS.
@@ -142,8 +142,10 @@ finally { if (!_disposed) OnPlaybackFinished(result); }
 - `RecordKey` (VKey, default `OemPipe` = backslash)
 - `HelperKey` (VKey, default `OemTilde` = backtick)
 - `SlotKeys` (VKey[10], default `F1`–`F10`)
-- `SpeedModifier` (double, default 1.0; 0 → 100ms fixed; negative → clamped to 0)
-- `PlaybackIndicator` (PlaybackIndicatorConfig — fill/stroke color, initial/final radius, animation duration)
+- `SpeedModifier` (double, default 1.0; finite and ≥ 0; 0 → 100ms fixed)
+- `PlaybackIndicator` (`fillColor`, `strokeColor`, `strokeThickness`, `initialRadius`, `finalRadius`, `animationDurationMs`). Settings requires finite/safe colors and dimensions; edited radii must be ≥ 1 DIP and duration ≥ 100 ms. Untouched legacy values below these schema floors are warned and preserved. Invalid runtime construction is reported, not silently replaced with a red brush.
+
+The production Settings window edits these values without touching `macros.json`; recorded definitions remain isolated in that separate file. See [settings-prototype.design.md](settings-prototype.design.md) for draft, JSONC, and apply/recovery behavior.
 
 Config version: v4→v5 migration adds `macros` section. Key collision matrix validates all macro keys against reserved/action/nav/chord/scroll/hotkey sets.
 

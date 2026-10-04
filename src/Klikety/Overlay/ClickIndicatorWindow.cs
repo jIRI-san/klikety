@@ -1,3 +1,5 @@
+using System.IO;
+
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -22,6 +24,16 @@ public sealed class ClickIndicatorWindow : Window {
     public event Action? Completed;
 
     public ClickIndicatorWindow(PlaybackIndicatorConfig config) {
+        if (!double.IsFinite(config.InitialRadius) || config.InitialRadius <= 0 ||
+            !double.IsFinite(config.FinalRadius) || config.FinalRadius <= 0) {
+            throw new InvalidDataException("Playback indicator radii must be finite and greater than 0 DIP.");
+        }
+        if (!double.IsFinite(config.StrokeThickness) || config.StrokeThickness < 0) {
+            throw new InvalidDataException("Playback indicator strokeThickness must be finite and at least 0.");
+        }
+        if (config.AnimationDurationMs <= 0) {
+            throw new InvalidDataException("Playback indicator animationDurationMs must be greater than 0.");
+        }
         _config = config;
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -36,8 +48,8 @@ public sealed class ClickIndicatorWindow : Window {
         Height = diameter;
 
         _circle = new Ellipse {
-            Fill = BrushFromHex(config.FillColor),
-            Stroke = BrushFromHex(config.StrokeColor),
+            Fill = BrushFromHex(config.FillColor, "fillColor"),
+            Stroke = BrushFromHex(config.StrokeColor, "strokeColor"),
             StrokeThickness = config.StrokeThickness,
             Width = diameter,
             Height = diameter,
@@ -104,14 +116,14 @@ public sealed class ClickIndicatorWindow : Window {
         _circle.BeginAnimation(HeightProperty, heightAnim);
     }
 
-    private static SolidColorBrush BrushFromHex(string hex) {
+    private static SolidColorBrush BrushFromHex(string hex, string property) {
         try {
             var color = (Color)ColorConverter.ConvertFromString(hex);
             var brush = new SolidColorBrush(color);
             brush.Freeze();
             return brush;
-        } catch {
-            return Brushes.Red;
+        } catch (Exception ex) when (ex is FormatException or InvalidOperationException or NotSupportedException or ArgumentException) {
+            throw new InvalidDataException($"Playback indicator {property} must be a valid color.", ex);
         }
     }
 }
@@ -120,10 +132,12 @@ public sealed class ClickIndicatorWindow : Window {
 /// Bridges <see cref="ClickIndicatorWindow"/> to <see cref="IClickIndicator"/>
 /// by dispatching to the UI thread and awaiting animation completion.
 /// </summary>
-public sealed class ClickIndicatorAdapter : IClickIndicator {
+public sealed class ClickIndicatorAdapter : IClickIndicator, IDisposable {
     private readonly ClickIndicatorWindow _window;
 
     public ClickIndicatorAdapter(ClickIndicatorWindow window) => _window = window;
+
+    public void Dispose() => _window.Close();
 
     public Task ShowAndWait(double screenX, double screenY) {
         var tcs = new TaskCompletionSource();

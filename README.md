@@ -66,14 +66,46 @@ Config file: `%APPDATA%\Klikety\config.json` (JSONC — comments allowed).
 
 First run extracts default config and theme files automatically.
 
+### Settings window
+
+Choose **Settings...** from the tray to edit General, Navigation, Key bindings, Appearance,
+Scrolling, Macros, or Key-press HUD. Edits remain in a draft while switching pages.
+**Save & apply** validates and applies the complete candidate while navigation and macro
+activity are idle; invalid input, external edits, or activation failures are reported in
+the window. Failed apply keeps the draft for correction or retry.
+
+The editor patches only changed values in `config.json`. It preserves comments, unknown
+properties, the UTF-8 BOM, and untouched value text; changed fragments may be reformatted.
+The previous exact config bytes are kept in `config.json.settings.bak`. If another process
+edits the file, Settings refuses to overwrite it; choose **Discard** to reload those edits.
+The final file comparison and replacement are separate filesystem operations, so a
+non-cooperating writer can still race that last boundary.
+
+Startup registration remains the **Start with Windows** tray toggle, and HUD enablement
+remains a runtime-only tray toggle. Macro recordings stay in `macros.json`; theme contents
+stay in their separate theme files. Shortcut capture is focused on the selected field,
+does not install a global hook, and can be cancelled with Escape or by moving focus.
+
+For isolated native apply/registration checks, use a fixture directory outside Klikety's
+AppData folder:
+
+```powershell
+dotnet run --project src\Klikety\Klikety.csproj -c Release -- --settings-runtime-fixture C:\temp\KliketySettingsFixture
+```
+
+This test mode confines config, logs, macros, themes, and display topology to that
+directory, disables the registry toggle, and uses Ctrl+Alt+Shift+F12/F11 for the main and
+macro hotkeys. It registers real system hotkeys; do not continue if either registration
+conflicts with another application. The fixture is not automatically deleted.
+
 ### Configuration Reference
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `hotKey.modifiers` | string (flags) | `"Alt"` | Modifier keys: `Alt`, `Control`, `Shift`, `Win` (combine with `,`) |
 | `hotKey.key` | string (VKey) | `"Space"` | Trigger key (any VKey name) |
-| `firstKeys` | VKey[] | `["A","S","D","F","J","K","L","OemSemicolon"]` | Column selection keys (8 keys = 8 columns) |
-| `secondKeys` | VKey[] | `["W","E","R","T","Y","U","I","O"]` | Row selection keys (8 keys = 8 rows) |
+| `horizontalKeys` | VKey[] | `["A","S","D","F","G","H","J","K","L","OemSemicolon"]` | Ordered column-selection keys |
+| `verticalKeys` | VKey[] | `["Q","W","E","R","T","Y","U","I","O","P"]` | Ordered row-selection keys |
 | `actionBindings` | object | `{}` | Map VKey names to actions: `LeftClick`, `RightClick`, `DoubleClick`, `MiddleClick`, `MoveOnly`, `DragDrop` |
 | `scrollHotkeys.enabled` | bool | `false` | Enable global scroll hotkeys |
 | `scrollHotkeys.scrollUpKey` | HotKeyConfig | Ctrl+Alt+PageUp | Scroll up hotkey |
@@ -81,7 +113,7 @@ First run extracts default config and theme files automatically.
 | `scrollHotkeys.scrollAmount` | int | `3` | Wheel ticks per hotkey press (1–100) |
 | `level3CellSizeThreshold` | int | `0` | Cell area (px²) above which level-3 subgrid activates. 0 = always active. |
 | `modes` | object | see below | Navigation mode config. Each mode has `enabled`, `default`, `chordKey`, `twoKey`, `arrowKeys`. |
-| `modes.logCrosshair.logBaseSize` | int | `20` | Base cell size (px) for LogCrosshair center cell. Range: 2–50. |
+| `modes.logCrosshair.logBaseSize` | int | `10` | Base cell size (px) for LogCrosshair center cell. Range: 2–50. |
 | `modes.logGrid.logGridBaseSize` | int | `10` | Base cell size (px) for LogGrid center cells. Range: 2–50. |
 | `navigationMode` | string | `"both"` | Legacy field. Migrated to `modes.uniformGrid` on first load. |
 | `theme` | string | `"dark"` | Theme name or relative path to `.theme.json` |
@@ -103,7 +135,7 @@ First run extracts default config and theme files automatically.
 | `macros.enabled` | bool | `true` | Enable macro recording and playback. |
 | `macros.globalHotKey` | HotKeyConfig | Ctrl+Alt+Shift+M | Global hotkey to open macro picker (null to disable). |
 | `macros.recordKey` | string (VKey) | `"OemPipe"` | Key to start/stop macro recording while overlay is active. |
-| `macros.speedModifier` | double | `1.0` | Global playback speed multiplier (0.1–10.0). Per-macro override takes precedence. |
+| `macros.speedModifier` | double | `1.0` | Finite global playback speed multiplier; `0` uses the existing 100 ms fixed delay. Per-macro override takes precedence. |
 
 ### Example: Custom Action Bindings
 

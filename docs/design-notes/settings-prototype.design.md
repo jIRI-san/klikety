@@ -1,97 +1,111 @@
 ---
-description: Workshop-only native WPF settings sidebar, draft editing, targeted JSONC persistence, and isolated demo.
+description: Production native WPF settings editor, typed draft, targeted JSONC persistence, and isolated runtime verification.
 globs:
   - src/Klikety/SettingsWindow.*
   - src/Klikety/Config/SettingsConfigStore.cs
-  - src/Klikety.Tests/SettingsConfigStoreTests.cs
+  - src/Klikety/Config/SettingsDraft.cs
+  - src/Klikety/Config/SettingsApplyModels.cs
+  - src/Klikety/Config/AppPaths.cs
+  - src/Klikety.Tests/Settings*Tests.cs
 ---
 
-# Settings Sidebar Workshop Prototype
+# Settings Sidebar
 
-This is one approved exploratory vertical slice, not production delivery. Native WPF,
-850 x 650 DIP, single reusable modeless window opened by the real tray **Settings...**
-entry. Common controls precede collapsed Advanced expanders; pages scroll independently
-of the persistent sidebar/footer.
+The seven-category native WPF editor grew from the exploratory sidebar prototype.
+The prototype established layout direction only; it is not evidence of production
+runtime behavior. Settings is opened from the real tray entry and reuses one modeless
+window. Common controls precede collapsed Advanced sections; General diagnostics and
+indicator visuals are Advanced. Each page scrolls independently of the persistent
+sidebar/footer.
 
-## Implemented scope
+## Coverage and runtime-only boundaries
 
-- General: activation modifiers and trigger-key picker.
-- Navigation: enabled modes, default mode, arrow/two-key toggles, mode chord pickers,
-  optional app-scope chord; advanced log center sizes and level-3 area threshold.
-- Appearance: built-in theme selection (current custom name retained) and minimum
-  overlay label font size. Does not edit theme contents or theme the settings window.
-- Key bindings, Scrolling, Macros, Key-press HUD: explicitly unfinished information
-  pages, with no pretend functional controls. Existing JSON remains untouched.
-- Startup is still a registry tray toggle; HUD enablement is still runtime-only.
-  Macro recordings are not part of the config editor.
+- **General**: main activation shortcut, log level, file logging, retained file count,
+  plus read-only config path/version/schema metadata.
+- **Navigation**: all four mode enabled/default/chord/two-key/arrow values, each mode's
+  LogCrosshair and LogGrid sizes, optional app-scope chord, and Level-3 threshold.
+- **Key bindings**: action mapping editor and ordered horizontal/vertical key lists.
+- **Appearance**: theme reference and label-size floor. Theme file contents remain separate.
+- **Scrolling**: enablement, up/down shortcuts, and amount. Pause is runtime-only.
+- **Macros**: enablement, nullable global hotkey, record/helper/slot keys, speed, and all
+  playback-indicator properties. Macro recordings remain in `macros.json`.
+- **Key-press HUD**: every visual/timing property. HUD enablement remains runtime-only.
 
-Controls use standard WPF keyboard interaction, focus indicators, labels/automation IDs,
-and layout-aware key labels plus stable VKey names. The picker does not capture a
-global key combination. Default selection does not auto-enable modes or invent chord
-keys: enabled non-default modes require distinct chords under existing validation.
-Uniform grid chord dispatch is wired in `NavigatorCoordinator.BuildChordKeyMap` so
-making another mode the default does not strand an enabled Uniform grid.
+Startup registration is still a tray registry toggle, never JSON. No settings control
+activates a hook while editing. Shortcut capture is focused on a picker, uses stable
+`VKey` values, ignores modifier-only/repeat events, and cancels on Escape or focus loss.
+Unsupported keys remain selectable from the readable picker.
 
-## Real integration
+## Draft and validation
 
-`App.SetupTrayContextMenu` -> `ShowSettings` -> `SettingsWindow` local draft ->
-`SettingsConfigStore.Preview` -> `ConfigLoader.ReadSettings` -> theme/hotkey preflight ->
-`SettingsConfigStore.Save` -> `App.ApplySettings` -> `ReloadConfiguration` ->
-`BootstrapCoordinator` -> existing `ConfigLoader.Load`, renderers, services, registrations.
+`SettingsDraft` holds the loaded `ConfigModel` baseline and changed JSON leaves. Page
+switching does not discard draft state; changed-back values clear their dirty state.
+Save/Discard/close feedback is inline and the status text is a polite live region.
+Save errors retain the candidate; successful apply rebases the editor. Failed apply
+retains the draft and separately reports disk and runtime recovery outcomes.
 
-Production path remains `%APPDATA%\Klikety\config.json`. `ConfigModel` stays init-only.
-`ReadSettings` uses the loader's deserializer and binding rules but never runs migration,
-returns parse-default fallbacks, or saves malformed input. Version 7 is required;
-required null sections, ambiguous duplicate object properties, and invalid UTF-8 are
-rejected. Existing violations are visible; all must be resolved before save.
+`ConfigLoader.ReadSettings` is strict and never migrates or substitutes parse defaults.
+Version 7 is required; malformed JSON/UTF-8, required nulls, duplicate properties (also
+inside arrays), unsupported versions, and save-blocking validation prevent replacement.
+Existing LogGrid-axis and macro slot-count compatibility warnings stay advisory.
+Settings additionally requires valid log-level text, retained count >= 1, finite positive
+label sizing, finite macro speed >= 0, safe HUD/indicator values, and collision-free keys.
+Zero macro speed preserves the existing 100 ms fixed-delay behavior.
 
-Dirty state compares controls to their loaded values. Switching pages retains the draft.
-Discard confirms when dirty, then reads the latest disk state. Closing/quit confirms
-unsaved changes or pending apply. Save reports validation, I/O, and apply errors inline.
-After a successful write, an apply issue leaves **Save & apply** enabled for retry
-without rewriting the file. Save failure retains the draft.
+Playback-indicator radii and animation duration below schema floors are advisory for
+untouched legacy values. Editing those fields requires radii >= 1 DIP and duration >=
+100 ms. Non-finite values, invalid colors, nonpositive radii/duration, and negative stroke
+thickness are unsafe and block Settings saving. Runtime construction reports invalid
+indicator values instead of silently substituting a red brush.
 
-## JSONC persistence and draft trade-offs
+## JSONC persistence
 
-The writer tokenizes UTF-8 into byte spans, replacing changed scalar values only.
-Unknown members, untouched values, comments, trailing commas, and BOM are retained.
-Missing members are inserted after the last member value, before its trailing
-comma/comments. Newly inserted mode objects materialize their effective defaults:
-otherwise creating an init-only `ModeConfig` from a partial object resets omitted
-booleans to false. There is no blind serialization of the root model.
+`SettingsConfigStore` works from the original UTF-8 byte snapshot, including a possible
+BOM. It tokenizes nested objects/arrays and patches only changed scalar leaves, inserting
+new members with safe defaults. It does not serialize `ConfigModel` wholesale.
 
-**Comment/format limitation:** replaced scalar spelling/escaping is normalized;
-new members/sections use generated compact JSON and LF indentation, not the original
-formatting style. Comments remain in place but are not interpreted or re-associated
-with inserted members. Existing file comments are not globally rewritten.
+Changed collections retain matched raw item text and ordering, preserve comments inside
+the same array/object after add/move/delete, and keep unknown fields. Comment
+re-association with a deleted entry is not promised. Changed/new fragments may normalize
+spacing/escaping; untouched scalar text, unknown fragments, and BOM remain byte-stable.
+No-op saves do not replace the file or create a backup.
 
-Save uses a random same-directory temporary file, flushed to disk, then `File.Replace`
-with `config.json.settings.bak`. Snapshot bytes are compared just before replace;
-external edits are rejected rather than merged. This is optimistic conflict detection,
-not a filesystem compare-and-swap: a competing writer at the final check/replace
-boundary remains a production-hardening gap. Backup is the previous exact file.
+Save writes a same-directory temporary file, flushes it, compares the live file with the
+accepted snapshot, then atomically replaces it with `config.json.settings.bak` containing
+the exact previous bytes. External edits/deletion are rejected rather than merged.
+The compare and replace are separate filesystem operations; this optimistic conflict
+check cannot prevent a final race from a non-cooperating writer.
 
-Apply uses existing teardown/bootstrap, not a rollback transaction. A saved file
-remains saved if registration/bootstrap fails, and the UI distinguishes that state.
-The backup allows manual recovery. Reload recreates an active HUD with current values;
-the tray reflects its state. Existing scroll pause state is not a persisted setting.
+After an unaccepted apply failure, guarded recovery restores previous bytes only if disk
+still matches the candidate written by Settings. Recovery never overwrites
+`.settings.bak`; newer external bytes are retained and reported as a conflict.
 
-## Isolated native demo
+## Runtime apply and fixtures
 
-```powershell
-dotnet run --project src\Klikety\Klikety.csproj -c Release --no-build -- --settings-demo C:\path\outside\KliketyAppData\config.json
-```
+The real tray flow is `App.SetupTrayContextMenu` -> `ShowSettings` -> typed draft ->
+strict store preview/save -> idle and theme/hotkey preflight -> captured-model bootstrap
+-> status/recovery. Busy Save, tray Reload, and Reset are rejected before disk mutation.
+Runtime and disk baselines are captured independently. Failed candidate composition is
+cleaned up; recovery attempts the previous runtime config and independently reports
+runtime/disk success. HUD enabled state and paused scroll registrations are preserved.
+Logger factories remain alive through teardown/recovery reporting, and click-indicator
+windows are closed when their owning coordinator is disposed.
 
-Demo creates only absent embedded config/dark/light fixtures under the given directory.
-It refuses the real Klikety AppData directory and skips first-run extraction,
-registry UI, global hotkeys, keyboard hooks, macro store, and coordinator bootstrap.
-The tray and window are labeled **ISOLATED DEMO**. Save, JSONC persistence, theme
-validation, and config reload are real; runtime navigation/apply is intentionally
-disabled, not mocked as successful. The demo may coexist with the user's Klikety.
+`AppPaths` roots config, logs, macros, themes, and display-topology files. The hook-free
+`--settings-demo <absolute-config-path>` remains useful for visual editing but is not
+runtime evidence. `--settings-runtime-fixture <absolute-directory>` starts the actual
+application/services against a dedicated fixture, refuses the real AppData directory
+and reparse-point paths, skips first-run extraction and the registry toggle, and sets
+Ctrl+Alt+Shift+F12/F11 as main/macro test hotkeys. This mode performs real registration;
+confirm those combinations are available before continuing. Do not use it if it could
+interfere with the user's running app. It does not clean its fixture automatically.
 
-Focused checks: `SettingsConfigStoreTests` and
-`CoordinatorModeSwitchingTests.SettingsUniformGridChord_BeforeLock_RendersUniformGrid`.
-These cover comments/unknowns/BOM/backup, missing sections/default semantics, malformed
-input, binding/mode/size rejection, external-edit detection, preflight failure, reload,
-and the newly exposed chord dispatch. They do not establish live global registration,
-full reload rollback, all accessibility/DPI combinations, or production readiness.
+## Evidence and known limits
+
+Automated fixtures cover JSONC preservation, comments/unknowns/BOM, backup and guarded
+restore, no-op/conflict/deleted-file behavior, draft retention, all seven pages, action
+binding save/reopen, focused key capture, fixture paths, and injected apply failure.
+Focused tests do not establish live tray reuse, real registration/recovery, or the
+100/150/200% DPI matrix. Those are native checks that require a separate, isolated
+Windows display/runtime; leave each unavailable row unverified rather than treating the
+demo or simulated layout as proof.

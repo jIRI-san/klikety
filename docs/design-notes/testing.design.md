@@ -32,12 +32,17 @@ All fakes live in `Klikety.Tests/Fakes/`.
 
 ## Testing Seam
 
-The settings workshop uses temporary-file `SettingsConfigStoreTests`, never the user's
-AppData config: targeted JSONC preservation, backup/conflict detection, malformed
-input, mode defaults, and validation rejection. One focused coordinator test observes
-Uniform grid chord dispatch when another mode is default. The labeled native demo
-uses a separate fixture path and no global hooks; see
-[settings-prototype.design.md](settings-prototype.design.md).
+Settings tests use temporary fixture files and never the user's AppData config.
+`SettingsConfigStoreTests` cover targeted JSONC preservation, collection comments,
+backup/conflict/guarded-restore behavior, malformed input, mode defaults, compatibility
+warnings, and validation rejection. `SettingsDraftTests`, `SettingsWindowTests`, and
+`AppPathsTests` cover changed/reverted values, page draft retention, injected apply
+failure, seven-page construction, action-binding save/reopen, focused key capture, and
+fixture-root path composition. The hook-free settings demo is not evidence of runtime
+registration. `--settings-runtime-fixture` is the isolated native host for registration
+and recovery checks; use it only after confirming the fixture path and test hotkeys.
+Live tray reuse, display scaling, and the native layout matrix remain manual checks.
+See [settings-prototype.design.md](settings-prototype.design.md).
 
 - All Win32 service interfaces are the seam for testing.
 - Integration tests are hermetic (no real display, no OS hooks, no timing dependencies).

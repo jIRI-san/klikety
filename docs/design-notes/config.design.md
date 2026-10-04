@@ -11,9 +11,9 @@ globs:
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.
 - Written on first run from embedded `config.json` template if absent. **Not overwritten on subsequent runs** — changing defaults in the embedded template does not affect existing installs. When a config or theme default changes during development, the user's `%APPDATA%\Klikety\config.json` and `%APPDATA%\Klikety\themes\*.theme.json` must be updated manually (or the files deleted to trigger re-extraction).
-- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `firstKeys`/`secondKeys` (flat VKey arrays), `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`, `scrollHotkeys`, `keyPressVisualization`, `macros`, `appScope`.
+- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), ordered `horizontalKeys`/`verticalKeys` arrays, `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`, `scrollHotkeys`, `keyPressVisualization`, `macros`, `appScope`.
 - `navigationMode` is a legacy field — migrated to `modes.uniformGrid.twoKey/arrowKeys` on first load. Kept in schema for backward compatibility. `ConfigModel` no longer has a `NavigationMode` property (dead code removed); the enum is only used internally by `NavigatorStateMachine` and `UniformGridSession`.
-- Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; hotkey modifier VKeys checked against nav/action key sets; cross-set disjointness (`firstKeys ∩ secondKeys = ∅`); per-set duplicate check; scroll hotkey validation (`scrollAmount` ∈ [1, 100], scroll keys vs reserved/action/chord/nav keys, duplicate up/down rejection); macro key validation (full collision matrix: record/helper/slot keys vs reserved/action/nav/chord/scroll/hotkey; intra-macro uniqueness; speed modifier ≥ 0; slot keys array length); app-scope chord key validation (vs reserved/action/nav/hotkey/mode chord/scroll/macro keys; null chord → feature disabled); all violations collected and surfaced via tray notification list.
+- Validation includes reserved-key/collision checks for action, navigation, mode, scroll, macro, and app-scope bindings. Settings separates blocking errors from existing advisory warnings (including LogGrid axis policy and macro slot-list length). Macro speed must be finite and ≥ 0; zero retains the existing 100 ms fixed-delay behavior. Settings requires a named log level, retained log count ≥ 1, finite positive label size, and safe indicator colors/numbers. Existing playback-indicator radius/duration values below the schema floor remain warnings until edited; edited values must meet radius ≥ 1 DIP and duration ≥ 100 ms.
 
 ## `ConfigVersion`
 
@@ -50,14 +50,23 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 ## Tray Integration
 
-- **Settings...** opens a reusable native WPF workshop prototype. General, Navigation,
-  and Appearance are real draft editors; other sidebar pages are explicitly unfinished.
-  Save validates through `ConfigLoader.ReadSettings`, patches JSONC leaves with
-  `SettingsConfigStore`, and invokes the same reload/bootstrap path as the tray.
-  Comments/unknown fields are kept; inserted fragments do not preserve original
-  indentation. External-edit checks, atomic replace, previous-file backup, and
-  inline save/apply failures are documented in [settings-prototype.design.md](settings-prototype.design.md).
-  Version 7 only; no parse-default saving or implicit migration in the editor.
+- **Settings...** opens one reusable native WPF seven-category editor. Each page writes to a
+  typed draft; focused key capture is local to its picker and does not install a global hook.
+  Save validates the full candidate through `ConfigLoader.ReadSettings`, patches changed
+  JSONC leaves/collections with `SettingsConfigStore`, then reloads a captured model only
+  while navigation and macro work are idle. Disk and runtime recovery outcomes are reported
+  separately; drafts survive validation/apply/recovery failures. Comments, unknown members,
+  BOM, untouched scalar spelling, collection order, and orphan comments within their
+  original container are retained. The previous exact file is kept in `.settings.bak`;
+  external edits block saving and a final compare/replace race remains. Version 7 only;
+  no parse-default saving or implicit migration in the editor. Full behavior and limits are
+  in [settings-prototype.design.md](settings-prototype.design.md).
+
+- **Isolated runtime fixture** (`--settings-runtime-fixture <absolute-directory>`) uses
+  `AppPaths` to confine config, logs, macros, themes, and topology to a fixture folder.
+  It avoids first-run extraction and registry toggles, applies real runtime registrations,
+  and uses dedicated Ctrl+Alt+Shift+F12/F11 hotkeys. Verify registration availability before
+  relying on the fixture; the hook-free `--settings-demo` is not runtime evidence.
 
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.
 - `ShutdownMode=OnExplicitShutdown` — process persists until "Quit" menu item calls `Application.Current.Shutdown()`.
@@ -67,7 +76,7 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 ## Logging
 
 - `Microsoft.Extensions.Logging` with rolling file sink → `%APPDATA%\Klikety\logs\`.
-- Config: `logLevel` (default `Debug`), `fileLoggingEnabled` (default `true`), `retainedLogFileCount` (default `7`).
+- Config: `logLevel` (default `Warning`), `fileLoggingEnabled` (default `false`), `retainedLogFileCount` (default `7`).
 - Debug-level logging in `NavigatorCoordinator`:
   - Every mapped keystroke: key name + state before processing.
   - State transitions: `{before} → {after}` when state changes.

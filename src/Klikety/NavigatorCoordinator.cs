@@ -81,6 +81,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         get => _macroHandler.DelayProvider;
         set => _macroHandler.DelayProvider = value;
     }
+    public bool IsIdle => !_hostBusy && !_sessionManager.IsActive && !_macroHandler.IsPlayingOrRecording();
 
     public NavigatorCoordinator(
         IHotKeyService hotKeyService,

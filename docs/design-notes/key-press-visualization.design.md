@@ -91,7 +91,7 @@ public sealed class KeyPressVisualizationConfig {
 }
 ```
 
-Validation in `ConfigLoader.ValidateKeyPressVisualization`: FontSize > 0, OutlineThickness ≥ 0, Margin ≥ 0, hex color format, FadeTimeoutMs ≥ 0, FadeDurationMs > 0, MaxVisibleKeys ∈ [1, 10], Corner enum, RepeatWindowMs ∈ [50, 1000].
+Validation in `ConfigLoader.ValidateKeyPressVisualization`: FontSize is finite and > 0, OutlineThickness and Margin are finite and ≥ 0, both colors use the supported hex format, FadeTimeoutMs ≥ 0, FadeDurationMs > 0, MaxVisibleKeys ∈ [1, 10], Corner enum, RepeatWindowMs ∈ [50, 1000]. The production Settings window edits every visual/timing field but does not add a persisted HUD enable toggle; activation remains tray-controlled and is preserved across an idle settings reload. See [settings-prototype.design.md](settings-prototype.design.md).
 
 ## Activation Transaction (App.xaml.cs)
 

@@ -83,6 +83,13 @@ TBD
 
 TBD
 
+### Selected operator wording and confirmed interpretation
+
+- Source/date: TBD
+- Operator wording: TBD
+- Confirmed interpretation: TBD
+- Scope/exception: TBD
+
 ## Success signals
 
 - TBD
@@ -90,6 +97,11 @@ TBD
 ## Non-goals
 
 - TBD
+
+### Delegated discretion and deferred choices
+
+- Authorized choice and bounds: TBD
+- Deferred choice, owner, and resolve-or-stop condition: TBD
 
 ## Definition of done
 
@@ -120,9 +132,14 @@ TBD
 # Approved Design
 
 <!--
-Describe the agreed program shape, not implementation detail. Replace every TBD and confirm the result with
-the operator before detailed plan drafting. A Mermaid program flow is required. Call stacks are optional.
+Lightweight RFC for operator review: outcome, proposed behavior, boundaries, important flows, tradeoffs, and
+open choices. Requirements and decisions remain in their own assets and are linked, not duplicated.
+Replace every TBD and confirm the result with the operator before detailed plan drafting.
 -->
+
+## Outcome and proposed behavior
+
+- TBD
 
 ## Components and boundaries
 
@@ -134,6 +151,10 @@ the operator before detailed plan drafting. A Mermaid program flow is required. 
 flowchart TD
     A[TBD] --> B[TBD]
 ```
+
+## Tradeoffs and open choices
+
+- TBD
 
 ## Optional call stacks
 

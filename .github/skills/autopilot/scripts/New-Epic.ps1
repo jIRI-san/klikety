@@ -149,7 +149,10 @@ function Get-EpicScaffold {
 
 ## Goal
 
-TBD
+<!-- Capture selected operator wording separately from the confirmed interpretation. Record source/date when known. -->
+
+- Selected operator wording: TBD
+- Confirmed interpretation: TBD
 
 ## Child plans
 
@@ -165,7 +168,9 @@ child plan.
 
 ## Decomposition notes
 
-TBD
+<!-- Record only epic-level boundaries, delegated discretion, deferred choices, and relevant history with provenance. -->
+
+- TBD
 "@
 }
 

@@ -102,25 +102,34 @@ if ($refreshScript.Count -ne 1) {
     throw "Cannot archive epic '$($resolved.Id)': New-Epic.ps1 is unavailable for child-table refresh."
 }
 
-& $refreshScript[0] -Epic $resolved.Id -RepoRoot $repoRootPath | Out-Null
-
-if ($PSCmdlet.ShouldProcess($sourcePath, "Move completed epic to '$destinationPath'")) {
-    if (-not (Test-Path -LiteralPath $archiveRoot -PathType Container)) {
-        [void](New-Item -ItemType Directory -Path $archiveRoot -Force)
+if (-not $PSCmdlet.ShouldProcess(
+        $sourcePath,
+        "Refresh the child table and move the completed epic to '$destinationPath'"
+    )) {
+    return [pscustomobject]@{
+        Status = if ($WhatIfPreference) { 'what-if' } else { 'declined' }
+        EpicId = $resolved.Id
+        Path = $sourcePath
+        EpicFile = $resolved.EpicFile
     }
-    if (-not [string]::Equals(
-            (Resolve-PhysicalRepoPath -Path $archiveRoot),
-            [System.IO.Path]::GetFullPath($archiveRoot),
-            $comparison
-        )) {
-        throw "Epic archive root '$archiveRoot' resolves through a link or reparse point."
-    }
-
-    [System.IO.Directory]::Move($sourcePath, $destinationPath)
 }
 
+& $refreshScript[0] -Epic $resolved.Id -RepoRoot $repoRootPath | Out-Null
+if (-not (Test-Path -LiteralPath $archiveRoot -PathType Container)) {
+    [void](New-Item -ItemType Directory -Path $archiveRoot -Force)
+}
+if (-not [string]::Equals(
+        (Resolve-PhysicalRepoPath -Path $archiveRoot),
+        [System.IO.Path]::GetFullPath($archiveRoot),
+        $comparison
+    )) {
+    throw "Epic archive root '$archiveRoot' resolves through a link or reparse point."
+}
+
+[System.IO.Directory]::Move($sourcePath, $destinationPath)
+
 return [pscustomobject]@{
-    Status = if ($WhatIfPreference) { 'what-if' } else { 'archived' }
+    Status = 'archived'
     EpicId = $resolved.Id
     Path = $destinationPath
     EpicFile = Join-Path $destinationPath 'epic.md'

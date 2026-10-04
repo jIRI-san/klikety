@@ -32,7 +32,7 @@ MacrosFile
 
 - `MacroActionType`: `LeftClick`, `RightClick`, `MiddleClick`, `DoubleClick`, `MoveOnly`, `DragDrop`, `Scroll`.
 - `MacroPositionMode`: `Absolute` (default, screen coordinates), `WindowRelative` (offsets from target window top-left).
-- `RelativeTimeMs`: delay before this step (relative to recording start, not previous step).
+- `RelativeTimeMs`: persisted inter-step interval. The first step measures from recording start; later steps measure from the preceding recorder timer reset, not an absolute timestamp. A drag pair stores the interval captured at its start; selecting its endpoint resets the timer again, so the following step measures from endpoint selection. Saved values and format are unchanged.
 - `SpeedModifier`: per-macro speed multiplier (default 1.0). Overrides global `config.macros.speedModifier` when ≠ 1.0.
 - `StartFromCursor`: `bool` on `MacroStep`, default `false`. Only valid on `DragDrop` steps. `[JsonIgnore(Condition = WhenWritingDefault)]` suppresses serialization when false.
 - `WindowRelative` fields: `WindowWidth`/`WindowHeight` = recorded window dimensions, `WindowTitlePattern` = substring for title matching at playback.
@@ -109,8 +109,8 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 - **PlaybackResultKind**: `Completed`, `Cancelled`, `ScreenMismatch`, `WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`.
 - **Speed modifier**: `delay = Math.Max(50, (int)(relativeTimeMs × speedModifier))`. When `speedModifier == 0` → 100ms fixed. 50ms global floor prevents input coalescing. Per-macro `SpeedModifier` overrides global config when ≠ 1.0.
 - **Delay chunking**: delays split into 50ms ticks for live countdown updates. `DelayUpdate(remainingMs, actionType)` event fires each tick.
-- **Click indicator**: `IClickIndicator.ShowAndWait(x, y)` called before each action step (except `MoveOnly`). Non-activating, click-through WPF window. Shrinking circle animation (configurable via `PlaybackIndicatorConfig`). Waits for animation to complete before executing the click.
-- **Cancellation**: `CancellationToken` checked before each step. Escape via hook → cancel CTS.
+- **Click indicator**: `IClickIndicator.ShowAndWait(x, y, ct)` called before each action step (except `MoveOnly`). Non-activating, click-through WPF window. `ClickIndicatorLifecycle` composes dispatcher/view seams; completion, cancellation and disposal stop animations, detach handlers and hide on the dispatcher. Operation identity guards ignore stale completions after reuse. Cancellation callbacks only queue cleanup; they never synchronously invoke the dispatcher.
+- **Cancellation**: `CancellationToken` checked before each step and immediately before input dispatch, after any awaited indicator. Escape via hook cancels the current operation. Cancellation skips pending input and its progress event; it cannot undo input already dispatched.
 - **Progress**: `StepCompleted(completed, total)` event per step → updates `MacroPlaybackOverlay` progress bar.
 
 ### Playback Overlay
@@ -120,13 +120,13 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 ### Async Lifecycle
 
 ```csharp
-try { result = await _player.Play(macro, _playbackCts.Token); }
+try { result = await operation.Player.Play(macro, context, operation.Cancellation.Token); }
 catch (OperationCanceledException) { /* normal cancel */ }
 catch (Exception ex) { _logger.LogError(...); }
-finally { if (!_disposed) OnPlaybackFinished(result); }
+finally { /* dispose operation CTS; finish only if still current and not disposed */ }
 ```
 
-`Dispose()`: cancel CTS → `_playbackTask.Wait()` (drain) → `_disposed = true` → existing teardown.
+`Dispose()` marks the handler disposed, initiates cancellation and queues indicator teardown without draining playback. Each playback operation owns its task/CTS and disposes its CTS on eventual completion. Identity guards prevent late progress or completion from restoring or changing a disposed/replaced handler. UI teardown remains dispatcher-owned.
 
 ### Post-Playback Restoration
 

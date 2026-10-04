@@ -125,8 +125,8 @@ public interface IMacroPlaybackWindow {
 /// <summary>
 /// Abstracts the click indicator animation for testability.
 /// </summary>
-public interface IClickIndicator {
-    Task ShowAndWait(double screenX, double screenY);
+public interface IClickIndicator : IDisposable {
+    Task ShowAndWait(double screenX, double screenY, CancellationToken ct);
 }
 
 /// <summary>

@@ -1,6 +1,6 @@
 # a5c375: Klikety maintenance corrections
 <!-- plan-id: a5c375 -->
-<!-- cip-stage: drafted -->
+<!-- cip-stage: implementing -->
 <!-- planning-confirmed: sha256:9124e6ecb7f0e898ad13d5d0dc07023674c5421d7912f642cb38ffea76e05942 -->
 <!-- execution-mode: manual -->
 <!-- scope: phase -->
@@ -26,7 +26,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
 
 ## Phase 1: Cancel pending macro input and clarify timing
 
-- [ ] 1.1 Make indicator cancellation prevent pending dispatch, with regression coverage and docs (REQ-1, RISK-1) `L`
+- [x] 1.1 Make indicator cancellation prevent pending dispatch, with regression coverage and docs (REQ-1, RISK-1) `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** cancelling a pending indicator completes playback as cancelled, skips that action and progress notification, hides the indicator and releases its subscriptions. Playback teardown initiates cancellation without synchronously draining on the dispatcher; operation-owned cleanup releases CTS/task state and stale completions cannot mutate a replacement operation.
@@ -40,7 +40,7 @@ A subfolder is created only when a concern needs more than one file (`assets/dec
   **Stop/escalate when:** resource disposal cannot be made nonblocking with operation-owned completion without changing another confirmed lifecycle contract. Do not retain the known synchronous drain or hide it with timeouts.
 
   </details>
-- [ ] 1.2 Correct RelativeTimeMs documentation without changing saved-format semantics (REQ-2) `S`
+- [x] 1.2 Correct RelativeTimeMs documentation without changing saved-format semantics (REQ-2) `S`
 
 ## Phase 2: Propagate native input failure end to end
 

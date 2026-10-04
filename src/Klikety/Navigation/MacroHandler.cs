@@ -28,9 +28,14 @@ internal sealed partial class MacroHandler : IDisposable {
     private IDebounceTimer? _resumeTimer;
 
     // Playback state
-    private MacroPlayer? _macroPlayer;
-    private CancellationTokenSource? _playbackCts;
-    private Task? _playbackTask;
+    private sealed class PlaybackOperation(MacroPlayer player) {
+        public MacroPlayer Player { get; } = player;
+        public CancellationTokenSource Cancellation { get; } = new();
+        public Task? Task { get; set; }
+    }
+
+    private PlaybackOperation? _playback;
+    internal Task? PlaybackTask => _playback?.Task;
     private bool _playbackFromGlobalHotKey;
     private bool _disposed;
 
@@ -150,7 +155,7 @@ internal sealed partial class MacroHandler : IDisposable {
         // Playing: only Escape cancels playback, all else ignored by hook
         if (_macroState == MacroState.Playing) {
             if (key == VKey.Escape) {
-                _playbackCts?.Cancel();
+                _playback?.Cancellation.Cancel();
             }
             return true;
         }
@@ -445,7 +450,7 @@ internal sealed partial class MacroHandler : IDisposable {
         _macroState = MacroState.Playing;
         _hookService.Enable();
 
-        _macroPlayer = new MacroPlayer(_mouseService, _platform.Screen, DelayProvider,
+        var player = new MacroPlayer(_mouseService, _platform.Screen, DelayProvider,
             macro.SpeedModifier != 1.0 ? macro.SpeedModifier : _config.Macros.SpeedModifier,
             ClickIndicator, _platform.ForegroundWindow);
 
@@ -462,27 +467,37 @@ internal sealed partial class MacroHandler : IDisposable {
         var windowContext = macro.PositionMode == MacroPositionMode.WindowRelative
             ? macro.WindowTitlePattern : null;
         MacroPlaybackWindow?.Show(macro.Name, macro.Steps.Count, windowContext);
-        _macroPlayer.StepCompleted += (completed, total) =>
-            MacroPlaybackWindow?.UpdateProgress(completed, total);
-        _macroPlayer.DelayUpdate += (remainingMs, actionType) =>
-            MacroPlaybackWindow?.UpdateDelay(remainingMs, actionType);
-
-        _playbackCts = new CancellationTokenSource();
-        _playbackTask = RunPlaybackAsync(macro, context, _playbackCts.Token);
+        var operation = new PlaybackOperation(player);
+        _playback = operation;
+        player.StepCompleted += (completed, total) => {
+            if (!_disposed && ReferenceEquals(_playback, operation)) {
+                MacroPlaybackWindow?.UpdateProgress(completed, total);
+            }
+        };
+        player.DelayUpdate += (remainingMs, actionType) => {
+            if (!_disposed && ReferenceEquals(_playback, operation)) {
+                MacroPlaybackWindow?.UpdateDelay(remainingMs, actionType);
+            }
+        };
+        operation.Task = RunPlaybackAsync(operation, macro, context);
     }
 
-    private async Task RunPlaybackAsync(MacroDefinition macro, PlaybackContext context, CancellationToken ct) {
+    private async Task RunPlaybackAsync(PlaybackOperation operation, MacroDefinition macro, PlaybackContext context) {
         PlaybackResult? result = null;
         try {
-            result = await _macroPlayer!.Play(macro, context, ct);
+            result = await operation.Player.Play(macro, context, operation.Cancellation.Token);
         } catch (OperationCanceledException) {
             result = PlaybackResult.Cancelled;
         } catch (Exception ex) {
             LogPlaybackFailed(ex.Message);
             result = PlaybackResult.Cancelled;
         } finally {
-            if (!_disposed) {
-                OnPlaybackFinished(result ?? PlaybackResult.Cancelled);
+            operation.Cancellation.Dispose();
+            if (ReferenceEquals(_playback, operation)) {
+                _playback = null;
+                if (!_disposed) {
+                    OnPlaybackFinished(result ?? PlaybackResult.Cancelled);
+                }
             }
         }
     }
@@ -492,10 +507,6 @@ internal sealed partial class MacroHandler : IDisposable {
         MacroPlaybackWindow?.Close();
         _hookService.Disable();
         _macroState = MacroState.Idle;
-        _playbackCts?.Dispose();
-        _playbackCts = null;
-        _playbackTask = null;
-        _macroPlayer = null;
 
         if (result.Kind is PlaybackResultKind.ScreenMismatch
                 or PlaybackResultKind.WindowMismatch
@@ -560,10 +571,12 @@ internal sealed partial class MacroHandler : IDisposable {
     private partial void LogPlaybackFinished(PlaybackResultKind result);
 
     public void Dispose() {
+        if (_disposed) {
+            return;
+        }
         _disposed = true;
-        _playbackCts?.Cancel();
-        _playbackTask?.GetAwaiter().GetResult();
-        _playbackCts?.Dispose();
+        _playback?.Cancellation.Cancel();
+        ClickIndicator?.Dispose();
         _resumeTimer?.Dispose();
         MacroHotKeyService = null;
         MacroPickerWindow = null;

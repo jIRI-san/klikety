@@ -532,8 +532,11 @@ public sealed class FakeMacroPlaybackWindow : IMacroPlaybackWindow {
 public sealed class FakeClickIndicator : IClickIndicator {
     public List<(double X, double Y)> ShownPositions { get; } = [];
 
-    public Task ShowAndWait(double screenX, double screenY) {
+    public Task ShowAndWait(double screenX, double screenY, CancellationToken ct) {
+        ct.ThrowIfCancellationRequested();
         ShownPositions.Add((screenX, screenY));
         return Task.CompletedTask;
     }
+
+    public void Dispose() { }
 }

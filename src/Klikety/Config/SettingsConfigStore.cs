@@ -9,18 +9,24 @@ namespace Klikety.Config;
 /// <summary>Applies targeted edits to a captured JSONC document without serializing the model back.</summary>
 internal sealed class SettingsConfigStore {
     private static readonly UTF8Encoding Utf8 = new(false, true);
+    private static readonly JsonSerializerOptions ModelOptions = new() {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() },
+    };
     private readonly string _path;
+    private readonly Action<string>? _fault;
     private byte[] _snapshot = [];
     private string _text = "";
     private bool _bom;
-    private JsonObject _modeDefaults = [];
+    private JsonObject _effectiveDefaults = [];
     private byte[]? _lastCommitOriginal;
     private byte[]? _lastCommitCandidate;
 
-    public SettingsConfigStore(string path) => _path = path;
+    public SettingsConfigStore(string path, Action<string>? fault = null) { _path = path; _fault = fault; }
     public string FilePath => _path;
     public IReadOnlyList<string> LastWarnings { get; private set; } = [];
     public bool HasUnacceptedCommit => _lastCommitOriginal is not null && _lastCommitCandidate is not null;
+    public bool RequiresReload { get; private set; }
 
     public ConfigLoadResult Open() {
         var bytes = File.ReadAllBytes(_path);
@@ -34,19 +40,11 @@ internal sealed class SettingsConfigStore {
         var result = ConfigLoader.ReadSettings(text);
         ReadTree(Utf8.GetBytes(text)); // Reject ambiguous duplicate properties before editing.
         _snapshot = bytes;
+        RequiresReload = false;
         _text = text;
         _bom = bom;
         LastWarnings = result.SettingsWarnings;
-        var options = new JsonSerializerOptions {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            Converters = { new JsonStringEnumConverter() },
-        };
-        _modeDefaults = new JsonObject {
-            ["uniformGrid"] = JsonSerializer.SerializeToNode(result.Config.Modes.UniformGrid, options),
-            ["crosshair"] = JsonSerializer.SerializeToNode(result.Config.Modes.Crosshair, options),
-            ["logCrosshair"] = JsonSerializer.SerializeToNode(result.Config.Modes.LogCrosshair, options),
-            ["logGrid"] = JsonSerializer.SerializeToNode(result.Config.Modes.LogGrid, options),
-        };
+        _effectiveDefaults = JsonSerializer.SerializeToNode(result.Config, ModelOptions)!.AsObject();
         return result;
     }
 
@@ -93,9 +91,7 @@ internal sealed class SettingsConfigStore {
             throw new InvalidDataException(string.Join(Environment.NewLine, result.SettingsBlockingErrors));
         }
         preflight?.Invoke(result.Config);
-        if (!File.Exists(_path) || !File.ReadAllBytes(_path).AsSpan().SequenceEqual(_snapshot)) {
-            throw new IOException("Config changed on disk. Discard/reopen to load the external edits before saving.");
-        }
+        EnsureSnapshotUnchanged();
         if (changes.Count == 0 || text == _text) {
             LastWarnings = result.SettingsWarnings;
             return result.Config;
@@ -111,9 +107,8 @@ internal sealed class SettingsConfigStore {
                 stream.Write(bytes);
                 stream.Flush(flushToDisk: true);
             }
-            if (!File.Exists(_path) || !File.ReadAllBytes(_path).AsSpan().SequenceEqual(_snapshot)) {
-                throw new IOException("Config changed on disk. Discard/reopen to load the external edits before saving.");
-            }
+            EnsureSnapshotUnchanged();
+            _fault?.Invoke("disk-save");
             File.Replace(temporary, _path, _path + ".settings.bak");
             _lastCommitOriginal = _snapshot;
             _lastCommitCandidate = bytes;
@@ -149,9 +144,11 @@ internal sealed class SettingsConfigStore {
                 stream.Flush(flushToDisk: true);
             }
             if (!File.Exists(_path) || !File.ReadAllBytes(_path).AsSpan().SequenceEqual(candidate)) {
+                RequiresReload = true;
                 outcome = new SettingsDiskRecoveryOutcome(false,
                     "Config changed after Settings saved it. Newer external bytes were kept; reload before retrying.");
             } else {
+                _fault?.Invoke("disk-restore");
                 File.Replace(temporary, _path, null);
                 _snapshot = original;
                 var hasBom = original.AsSpan().StartsWith(Encoding.UTF8.Preamble);
@@ -170,7 +167,15 @@ internal sealed class SettingsConfigStore {
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
             outcome = outcome with { Message = outcome.Message + $" Temporary-file cleanup failed: {ex.Message}" };
         }
+        RequiresReload = !outcome.Succeeded;
         return outcome;
+    }
+
+    private void EnsureSnapshotUnchanged() {
+        if (RequiresReload || !File.Exists(_path) || !File.ReadAllBytes(_path).AsSpan().SequenceEqual(_snapshot)) {
+            RequiresReload = true;
+            throw new IOException("Config changed on disk. Discard/reopen to load the external edits before saving.");
+        }
     }
 
     private sealed class SpanNode {
@@ -246,9 +251,12 @@ internal sealed class SettingsConfigStore {
             } else {
                 JsonNode? addition = value;
                 if (value is JsonObject objectPatch) {
-                    // A newly inserted ModeConfig would otherwise reset omitted bools to false.
-                    var defaults = childPath == "modes" ? _modeDefaults
-                        : path == "modes" ? _modeDefaults[name] as JsonObject : null;
+                    // Preserve effective defaults when inserting a previously absent object.
+                    JsonNode? defaultsNode = _effectiveDefaults;
+                    foreach (var segment in childPath.Split('.')) {
+                        defaultsNode = (defaultsNode as JsonObject)?[segment];
+                    }
+                    var defaults = defaultsNode as JsonObject;
                     if (defaults is not null) {
                         var merged = (JsonObject)defaults.DeepClone();
                         Merge(merged, objectPatch);

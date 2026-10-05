@@ -42,6 +42,24 @@ public static class ThemeLoader {
         }
     }
 
+    internal static void ValidateSettingsReference(string candidate, string? previous, string configFolder) {
+        if (string.Equals(candidate, previous, StringComparison.OrdinalIgnoreCase)) { return; }
+        try {
+            var path = ResolvePath(candidate, configFolder)
+                ?? throw new InvalidDataException("Theme reference must be a name or a relative .theme.json path.");
+            using var document = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path), new() {
+                CommentHandling = System.Text.Json.JsonCommentHandling.Skip, AllowTrailingCommas = true,
+            });
+            if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) {
+                throw new InvalidDataException("Theme must be a JSON object.");
+            }
+            _ = System.Text.Json.JsonSerializer.Deserialize<ThemeModel>(document.RootElement.GetRawText(), JsonOptions)
+                ?? throw new InvalidDataException("Theme cannot be null.");
+        } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException) {
+            throw new InvalidDataException($"theme: cannot load '{candidate}': {ex.Message}", ex);
+        }
+    }
+
     private static string? ResolvePath(string themeValue, string? configFolder) {
         var themesFolder = configFolder is null ? ThemesFolder : Path.Combine(configFolder, "themes");
         if (string.IsNullOrWhiteSpace(themeValue)) {

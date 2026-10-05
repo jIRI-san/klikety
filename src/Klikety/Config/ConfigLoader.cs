@@ -58,7 +58,7 @@ public static class ConfigLoader {
         var config = System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions)
             ?? throw new InvalidDataException("Settings config is null.");
         if (config.ConfigVersion != 7) {
-            throw new InvalidDataException("This prototype edits version 7 only. Reload/migrate the config before opening Settings.");
+            throw new InvalidDataException("Settings edits version 7 only. Reload/migrate the config before opening Settings.");
         }
         if (config.HotKey is null || config.Modes is null ||
             config.Modes.UniformGrid is null || config.Modes.Crosshair is null ||
@@ -72,8 +72,7 @@ public static class ConfigLoader {
             throw new InvalidDataException("Required config sections/values cannot be null.");
         }
         var violations = Validate(config);
-        if (!Enum.TryParse<Microsoft.Extensions.Logging.LogLevel>(config.LogLevel, ignoreCase: true, out var logLevel) ||
-            !Enum.IsDefined(logLevel)) {
+        if (!Enum.GetNames<Microsoft.Extensions.Logging.LogLevel>().Contains(config.LogLevel, StringComparer.OrdinalIgnoreCase)) {
             violations.Add($"logLevel must be one of Trace, Debug, Information, Warning, Error, Critical, or None (got '{config.LogLevel}').");
         }
         if (config.RetainedLogFileCount < 1) {
@@ -85,6 +84,7 @@ public static class ConfigLoader {
         if (config.Level3CellSizeThreshold < 0) {
             violations.Add("Level-3 area threshold must be zero or greater.");
         }
+        ValidateSettingsFields(config, violations);
         var changed = editedPaths?.ToArray() ?? [];
         var warnings = GetSettingsWarnings(config, changed);
         return new ConfigLoadResult {
@@ -94,6 +94,44 @@ public static class ConfigLoader {
                 !warnings.Contains(error, StringComparer.Ordinal) && !IsUneditedLegacyFloor(config, error, changed)).ToArray(),
             SettingsWarnings = warnings,
         };
+    }
+
+    private static void ValidateSettingsFields(ConfigModel config, List<string> errors) {
+        void Key(string path, VKey key) {
+            if (!Enum.IsDefined(key)) { errors.Add($"{path}: unrecognized physical key."); }
+        }
+        void Hotkey(string path, HotKeyConfig hotkey) {
+            Key(path + ".key", hotkey.Key);
+            if (((int)hotkey.Modifiers & ~15) != 0) { errors.Add($"{path}.modifiers: invalid modifier flags."); }
+        }
+        Hotkey("hotKey", config.HotKey);
+        Hotkey("scrollHotkeys.scrollUpKey", config.ScrollHotKeys.ScrollUpKey);
+        Hotkey("scrollHotkeys.scrollDownKey", config.ScrollHotKeys.ScrollDownKey);
+        if (config.ScrollHotKeys.ScrollAmount is < 1 or > 100) {
+            errors.Add("scrollHotkeys.scrollAmount must be between 1 and 100.");
+        }
+        foreach (var (name, mode) in new[] {
+            ("uniformGrid", config.Modes.UniformGrid), ("crosshair", config.Modes.Crosshair),
+            ("logCrosshair", config.Modes.LogCrosshair), ("logGrid", config.Modes.LogGrid),
+        }) {
+            if (mode.ChordKey is { } chord) { Key($"modes.{name}.chordKey", chord); }
+            if (mode.LogBaseSize is < 2 or > 50) { errors.Add($"modes.{name}.logBaseSize must be between 2 and 50."); }
+            if (mode.LogGridBaseSize is < 2 or > 50) { errors.Add($"modes.{name}.logGridBaseSize must be between 2 and 50."); }
+        }
+        if (config.AppScope.ChordKey is { } scope) { Key("appScope.chordKey", scope); }
+        foreach (var key in config.HorizontalKeys) { Key("horizontalKeys", key); }
+        foreach (var key in config.VerticalKeys) { Key("verticalKeys", key); }
+        foreach (var (name, action) in config.ActionBindings) {
+            if (!Enum.TryParse<VKey>(name, true, out var key) || !Enum.IsDefined(key)) {
+                errors.Add($"actionBindings: unrecognized key '{name}'.");
+            }
+            if (!Enum.IsDefined(action)) { errors.Add($"actionBindings: unrecognized action for '{name}'."); }
+        }
+        Key("macros.recordKey", config.Macros.RecordKey);
+        Key("macros.helperKey", config.Macros.HelperKey);
+        if (config.Macros.GlobalHotKey is { } global) { Hotkey("macros.globalHotKey", global); }
+        if (config.Macros.SlotKeys is null) { errors.Add("macros.slotKeys cannot be null."); }
+        else { foreach (var key in config.Macros.SlotKeys) { Key("macros.slotKeys", key); } }
     }
 
     private static List<string> GetSettingsWarnings(ConfigModel config, IReadOnlyCollection<string>? editedPaths = null) {
@@ -110,11 +148,11 @@ public static class ConfigLoader {
             }
         }
         var indicator = config.Macros.PlaybackIndicator;
-        AddLegacyFloorWarning("macros.playbackIndicator.initialRadius", indicator.InitialRadius < 1,
+        AddLegacyFloorWarning("macros.playbackIndicator.initialRadius", indicator.InitialRadius is > 0 and < 1,
             IndicatorFloorError("macros.playbackIndicator.initialRadius", "1 DIP", indicator.InitialRadius), editedPaths);
-        AddLegacyFloorWarning("macros.playbackIndicator.finalRadius", indicator.FinalRadius < 1,
+        AddLegacyFloorWarning("macros.playbackIndicator.finalRadius", indicator.FinalRadius is > 0 and < 1,
             IndicatorFloorError("macros.playbackIndicator.finalRadius", "1 DIP", indicator.FinalRadius), editedPaths);
-        AddLegacyFloorWarning("macros.playbackIndicator.animationDurationMs", indicator.AnimationDurationMs < 100,
+        AddLegacyFloorWarning("macros.playbackIndicator.animationDurationMs", indicator.AnimationDurationMs is > 0 and < 100,
             IndicatorFloorError("macros.playbackIndicator.animationDurationMs", "100 ms", indicator.AnimationDurationMs), editedPaths);
         return warnings;
 
@@ -604,12 +642,12 @@ public static class ConfigLoader {
         if (!double.IsFinite(indicator.StrokeThickness) || indicator.StrokeThickness < 0) {
             violations.Add("macros.playbackIndicator.strokeThickness must be a finite number greater than or equal to 0.");
         }
-        if (!double.IsFinite(indicator.InitialRadius) || indicator.InitialRadius <= 0) {
+        if (!double.IsFinite(indicator.InitialRadius * 2) || indicator.InitialRadius <= 0) {
             violations.Add("macros.playbackIndicator.initialRadius must be a finite number greater than 0.");
         } else if (indicator.InitialRadius < 1) {
             violations.Add(IndicatorFloorError("macros.playbackIndicator.initialRadius", "1 DIP", indicator.InitialRadius));
         }
-        if (!double.IsFinite(indicator.FinalRadius) || indicator.FinalRadius <= 0) {
+        if (!double.IsFinite(indicator.FinalRadius * 2) || indicator.FinalRadius <= 0) {
             violations.Add("macros.playbackIndicator.finalRadius must be a finite number greater than 0.");
         } else if (indicator.FinalRadius < 1) {
             violations.Add(IndicatorFloorError("macros.playbackIndicator.finalRadius", "1 DIP", indicator.FinalRadius));

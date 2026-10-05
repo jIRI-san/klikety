@@ -54,8 +54,9 @@ public sealed partial class MacroHotKeyService : IMacroHotKeyService {
         }
 
         if (_registered) {
-            UnregisterHotKey(_hwndSource.Handle, MacroHotKeyId);
-            _registered = false;
+            if (HotKeyRegistrationCleanup.Release(ref _registered, () => UnregisterHotKey(_hwndSource.Handle, MacroHotKeyId)) is { } error) {
+                throw new InvalidOperationException("Macro hotkey cleanup failed: " + error);
+            }
         }
     }
 

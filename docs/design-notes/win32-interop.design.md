@@ -32,6 +32,7 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 - `KeyEvent` event raised on UI thread only.
 - If `SetWindowsHookEx` returns null, `Enable()` returns `false`; overlay closed + tray notification.
 - `Disable()`: only nulls `_hookProc` (allowing GC) if `UnhookWindowsHookEx` returns success. Prevents crash from collected callback if unhook fails.
+- `Dispose()` reports a failed unhook and remains retryable; settings resource owners retain failed cleanup callbacks. Main/scroll/macro hotkey cleanup clears registration flags only after successful native unregistration and reports failures, attempting both scroll releases independently.
 - Constructor accepts optional `ILogger? logger = null`. Logs at Debug level: "Keyboard hook enabled", "Keyboard hook disabled", "Keyboard hook enable failed". Uses `[LoggerMessage]` source generator. Does not log captured key values.
 - Supports multiple instances per process (e.g. overlay hook + key press display hook). Each instance owns its own `WH_KEYBOARD_LL` hook and `_generation` counter.
 

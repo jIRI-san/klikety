@@ -34,16 +34,18 @@ public partial class App : Application {
     private KeyPressProcessor? _keyPressProcessor;
     private KeyPressWindow? _keyPressWindow;
     private KeyPressDisplayManager? _keyPressDisplayManager;
+    private SettingsRuntimeResources? _hudResources;
 
 #if DEBUG
     private HotKeyService? _debugHotKeyService;
     private OverlayWindow? _debugOverlay;
 #endif
     private ILoggerFactory? _loggerFactory;
-    private readonly List<ILoggerFactory> _retainedLoggerFactories = [];
+    private readonly SettingsLoggerLifetime _loggerLifetime = new();
     private readonly List<string> _bootstrapActivationErrors = [];
-    private KeyboardHookService? _pendingBootstrapHook;
-    private OverlayWindow? _pendingBootstrapOverlay;
+    private SettingsRuntimeResources? _runtimeResources;
+    private SettingsFixtureFaults? _fixtureFaults;
+    private readonly SettingsOperationGate _settingsGate;
     private bool _hasBlockingViolations;
     private SettingsWindow? _settingsWindow;
     private string? _demoConfigPath;
@@ -51,6 +53,13 @@ public partial class App : Application {
     private AppPaths _paths = AppPaths.User;
     private static string UserConfigPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Klikety", "config.json");
+
+    public App() {
+        _settingsGate = new SettingsOperationGate(() => {
+            if (_runtimeFixtureRoot is not null || _demoConfigPath is not null) { _paths.ValidateFixture(); }
+            return _coordinator?.IsIdle != false;
+        });
+    }
 
     protected override void OnStartup(StartupEventArgs e) {
         base.OnStartup(e);
@@ -66,7 +75,7 @@ public partial class App : Application {
                     throw new InvalidDataException("Runtime fixture directory must be absolute.");
                 }
                 _runtimeFixtureRoot = Path.GetFullPath(root);
-                _paths = new AppPaths(_runtimeFixtureRoot);
+                _paths = AppPaths.ForFixture(_runtimeFixtureRoot);
                 var userFolder = Path.GetDirectoryName(UserConfigPath)!;
                 var fullUserFolder = Path.GetFullPath(userFolder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
                 if (_paths.Root.StartsWith(fullUserFolder, StringComparison.OrdinalIgnoreCase) ||
@@ -78,6 +87,7 @@ public partial class App : Application {
                 EnsureFixturePathHasNoReparsePoints(_paths.Root);
                 CreateDemoFixture(_paths.ConfigPath);
                 ConfigureRuntimeFixture(_paths.ConfigPath);
+                _fixtureFaults = new SettingsFixtureFaults(_paths);
                 _hotKeyService = new HotKeyService();
                 var runtimeViolations = BootstrapCoordinatorSafely();
                 SetupTrayIcon(runtimeViolations, _loggerFactory!.CreateLogger<App>());
@@ -102,7 +112,7 @@ public partial class App : Application {
                     throw new InvalidDataException("Demo config path must be absolute.");
                 }
                 _demoConfigPath = Path.GetFullPath(path);
-                _paths = new AppPaths(Path.GetDirectoryName(_demoConfigPath)!);
+                _paths = AppPaths.ForFixture(Path.GetDirectoryName(_demoConfigPath)!);
                 var userFolder = Path.GetDirectoryName(UserConfigPath)!;
                 if (_demoConfigPath.StartsWith(userFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) {
                     throw new InvalidDataException("Demo mode refuses the real Klikety AppData directory.");
@@ -138,30 +148,13 @@ public partial class App : Application {
     /// Creates (or re-creates) the coordinator from current config on disk.
     /// Returns the list of violations for tray notification.
     /// </summary>
-    private List<string> BootstrapCoordinator(ConfigModel? capturedConfig = null) {
+    private List<string> BootstrapCoordinator(ConfigModel? capturedConfig = null, ConfigLoadResult? prepared = null) {
         _bootstrapActivationErrors.Clear();
-        // Load config
-        var configResult = capturedConfig is null
+        var configResult = prepared ?? (capturedConfig is null
             ? ConfigLoader.Load(_paths.ConfigPath)
-            : new ConfigLoadResult { Config = capturedConfig };
+            : new ConfigLoadResult { Config = capturedConfig });
         var config = configResult.Config;
-        _config = config;
-
-        // Keep the previous factory alive until the replacement runtime is known to work.
-        _loggerFactory = LoggingSetup.CreateLoggerFactory(
-            config.LogLevel, config.FileLoggingEnabled, config.RetainedLogFileCount, _paths.LogsFolder);
-        var logger = _loggerFactory.CreateLogger<App>();
-
-        // Probe hotkey for conflicts
-        var hotKeyViolation = StartupValidator.ProbeHotKey(config.HotKey);
-
-        // Collect all violations
         var violations = new List<string>(configResult.Violations);
-        if (hotKeyViolation is not null) {
-            violations.Add(hotKeyViolation);
-        }
-
-        // Check for blocking violations (migration errors)
         _hasBlockingViolations = configResult.Violations.Any(v =>
             v.Contains("newer than supported") ||
             v.Contains("could not be parsed") ||
@@ -174,132 +167,105 @@ public partial class App : Application {
 
         if (_hasBlockingViolations) {
             _bootstrapActivationErrors.AddRange(violations);
+            _loggerFactory ??= LoggingSetup.CreateLoggerFactory("Warning", false, 7, _paths.LogsFolder);
             return violations;
         }
 
-        // Load theme
         var (theme, themeWarning) = ThemeLoader.Load(config.Theme, _paths.Root);
         if (themeWarning is not null) {
             violations.Add(themeWarning);
         }
-
-        // Create services
-        var hookService = new KeyboardHookService();
-        _pendingBootstrapHook = hookService;
-        var mouseService = new MouseActionService(logger);
-
-        // Create overlay window
-        var overlayWindow = new OverlayWindow();
-        _pendingBootstrapOverlay = overlayWindow;
-        overlayWindow.SetTheme(theme);
-        overlayWindow.SetLogger(logger);
-
-        // Create label generator
-        var resolver = new Win32KeyLabelResolver();
-        var labelGenerator = new LabelGenerator(config.HorizontalKeys, config.VerticalKeys, resolver);
-        var gridRenderer = new GridRenderer(overlayWindow.Canvas, theme, labelGenerator, config.MinLabelFontSize);
-
-        // Create crosshair renderer (only if mode is enabled)
-        CrosshairRenderer? crosshairRenderer = null;
-        var crosshairMode = config.Modes.Crosshair;
-        if (crosshairMode is { Enabled: true }) {
-            var horizLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
-            var vertLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
-            crosshairRenderer = new CrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels, config.MinLabelFontSize);
+        ILoggerFactory? candidateLogger = null;
+        NavigatorCoordinator? coordinator = null;
+        ScrollHotKeyService? scroll = null;
+        MacroHotKeyService? macro = null;
+        MacroPickerOverlay? picker = null;
+        MacroStore? macroStore = null;
+        MacrosFile? macrosFile = null;
+        Win32KeyLabelResolver? resolver = null;
+        SettingsRuntimeResources resources;
+        try {
+            candidateLogger = LoggingSetup.CreateLoggerFactory(
+                config.LogLevel, config.FileLoggingEnabled, config.RetainedLogFileCount, _paths.LogsFolder);
+            var logger = candidateLogger.CreateLogger<App>();
+            resources = SettingsRuntimeResources.Create(owner => {
+                owner.Checkpoint("logger");
+                var hook = owner.Own("navigation hook", new KeyboardHookService());
+                var mouse = new MouseActionService(logger);
+                var overlay = new OverlayWindow();
+                owner.Own("overlay", overlay.Close);
+                owner.Checkpoint("overlay");
+                overlay.SetTheme(theme);
+                overlay.SetLogger(logger);
+                resolver = new Win32KeyLabelResolver();
+                var labels = new LabelGenerator(config.HorizontalKeys, config.VerticalKeys, resolver);
+                var grid = new GridRenderer(overlay.Canvas, theme, labels, config.MinLabelFontSize);
+                var horizontal = new AxisLabelGenerator(config.HorizontalKeys, resolver);
+                var vertical = new AxisLabelGenerator(config.VerticalKeys, resolver);
+                var crosshair = config.Modes.Crosshair.Enabled
+                    ? new CrosshairRenderer(overlay.Canvas, theme, horizontal, vertical, config.MinLabelFontSize) : null;
+                var logCrosshair = config.Modes.LogCrosshair.Enabled
+                    ? new LogCrosshairRenderer(overlay.Canvas, theme, horizontal, vertical, config.MinLabelFontSize) : null;
+                var logGrid = config.Modes.LogGrid.Enabled
+                    ? new LogGridRenderer(overlay.Canvas, theme, horizontal, vertical, config.MinLabelFontSize) : null;
+                var sessions = new ModeSessionFactory(config, new ActionMapper(config.ActionBindings),
+                    grid, crosshair, logCrosshair, logGrid);
+                if (sessions.LogGridKeyPolicyWarning is { } warning) { violations.Add(warning); }
+                macroStore = new MacroStore(_paths.MacrosPath);
+                var loadedMacros = macroStore.Load();
+                macrosFile = loadedMacros.File;
+                violations.AddRange(loadedMacros.Errors);
+                coordinator = owner.Own("coordinator", new NavigatorCoordinator(_hotKeyService!, hook,
+                    mouse, overlay, sessions, PlatformServices.Instance, new ModifierDetector(), config,
+                    logger, macroStore, macrosFile, () => new SatelliteWindow(theme, logger),
+                    new DisplayTopologyStore(_paths.DisplayTopologyPath)));
+                owner.Transfer("navigation hook");
+                owner.Checkpoint("coordinator");
+                owner.Own("main hotkey", _hotKeyService!.Unregister);
+                if (!_hotKeyService.Register(config.HotKey)) {
+                    throw new InvalidOperationException("hotKey: failed to register the application shortcut.");
+                }
+                owner.Checkpoint("main");
+                scroll = owner.Own("scroll hotkeys", new ScrollHotKeyService(config.ScrollHotKeys, mouse, logger,
+                    owner.Checkpoint));
+                if (config.ScrollHotKeys.Enabled) {
+                    var failures = scroll.Register();
+                    if (failures.Count > 0) { throw new InvalidOperationException(string.Join("\n", failures)); }
+                }
+                owner.Checkpoint("scroll");
+                picker = new MacroPickerOverlay();
+                owner.Own("macro picker", picker.Close);
+                if (config.Macros.Enabled && config.Macros.GlobalHotKey is { } macroHotkey) {
+                    macro = owner.Own("macro hotkey", new MacroHotKeyService(macroHotkey, logger));
+                    if (macro.Register() is { } failure) { throw new InvalidOperationException(failure); }
+                }
+                owner.Checkpoint("macro");
+                coordinator.MacroHotKeyService = macro;
+                coordinator.MacroPickerWindow = picker;
+                var playback = new MacroPlaybackOverlay();
+                owner.Own("macro playback overlay", playback.Close);
+                coordinator.MacroPlaybackWindow = playback;
+                coordinator.ClickIndicator = new ClickIndicatorAdapter(new ClickIndicatorWindow(config.Macros.PlaybackIndicator));
+                owner.ReleaseFirst("coordinator");
+                owner.Checkpoint("indicator");
+            }, stage => _fixtureFaults?.Check(stage), pending => _runtimeResources = pending);
+        } catch {
+            if (candidateLogger is not null) { _loggerLifetime.Retain(candidateLogger); }
+            throw;
         }
-
-        // Create log-crosshair renderer (only if mode is enabled)
-        LogCrosshairRenderer? logCrosshairRenderer = null;
-        var logCrosshairMode = config.Modes.LogCrosshair;
-        if (logCrosshairMode is { Enabled: true }) {
-            var horizLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
-            var vertLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
-            logCrosshairRenderer = new LogCrosshairRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels, config.MinLabelFontSize);
-        }
-
-        // Create log-grid renderer (only if mode is enabled)
-        LogGridRenderer? logGridRenderer = null;
-        var logGridMode = config.Modes.LogGrid;
-        if (logGridMode is { Enabled: true }) {
-            var horizLabels = new AxisLabelGenerator(config.HorizontalKeys, resolver);
-            var vertLabels = new AxisLabelGenerator(config.VerticalKeys, resolver);
-            logGridRenderer = new LogGridRenderer(overlayWindow.Canvas, theme, horizLabels, vertLabels, config.MinLabelFontSize);
-        }
-
-        // Create action mapper and session factory
-        var actionMapper = new ActionMapper(config.ActionBindings);
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer, logCrosshairRenderer, logGridRenderer);
-
-        // LogGrid key-policy warning (trim or unavailability)
-        if (sessionFactory.LogGridKeyPolicyWarning is { } logGridWarning) {
-            violations.Add(logGridWarning);
-        }
-
-        // Load macros
-        _macroStore = new MacroStore(_paths.MacrosPath);
-        var macroResult = _macroStore.Load();
-        _macrosFile = macroResult.File;
-        foreach (var macroError in macroResult.Errors) {
-            violations.Add(macroError);
-        }
-
-        // Create coordinator
-        _coordinator = new NavigatorCoordinator(
-            _hotKeyService!,
-            hookService,
-            mouseService,
-            overlayWindow,
-            sessionFactory,
-            PlatformServices.Instance,
-            new ModifierDetector(),
-            config,
-            logger,
-            _macroStore,
-            _macrosFile,
-            () => new SatelliteWindow(theme, logger),
-            new DisplayTopologyStore(_paths.DisplayTopologyPath));
-        _pendingBootstrapHook = null;
-        _pendingBootstrapOverlay = null;
-
-        // Register hotkey
-        _hotKeyService!.Unregister();
-        if (!_hotKeyService.Register(config.HotKey)) {
-            LogHotkeyRegistrationFailed(logger, config.HotKey.Modifiers, config.HotKey.Key);
-            var failure = $"Failed to register global hotkey {config.HotKey.Modifiers}+{config.HotKey.Key}.";
-            violations.Add(failure);
-            _bootstrapActivationErrors.Add(failure);
-        }
-
-        // Scroll hotkeys
-        _scrollHotKeyService?.Dispose();
-        _scrollHotKeyService = new ScrollHotKeyService(config.ScrollHotKeys, mouseService, logger);
+        _runtimeResources = resources;
+        _loggerFactory = candidateLogger;
+        _config = config;
+        _coordinator = coordinator;
+        _scrollHotKeyService = scroll;
         _scrollHotKeysConfigEnabled = config.ScrollHotKeys.Enabled;
-        if (_scrollHotKeysConfigEnabled) {
-            var scrollFailures = _scrollHotKeyService.Register();
-            violations.AddRange(scrollFailures);
-            _bootstrapActivationErrors.AddRange(scrollFailures);
-        }
-
-        // Macro hotkey + picker
-        _macroHotKeyService?.Dispose();
-        _macroPickerOverlay ??= new MacroPickerOverlay();
-        if (config.Macros.Enabled && config.Macros.GlobalHotKey is { } macroHotKey) {
-            _macroHotKeyService = new MacroHotKeyService(macroHotKey, logger);
-            var macroFailure = _macroHotKeyService.Register();
-            if (macroFailure is not null) {
-                violations.Add(macroFailure);
-                _bootstrapActivationErrors.Add(macroFailure);
-            }
-        }
-
-        _coordinator.MacroHotKeyService = _macroHotKeyService;
-        _coordinator.MacroPickerWindow = _macroPickerOverlay;
-        _coordinator.MacroPlaybackWindow = new MacroPlaybackOverlay();
-        _coordinator.ClickIndicator = new ClickIndicatorAdapter(
-            new ClickIndicatorWindow(config.Macros.PlaybackIndicator));
+        _macroHotKeyService = macro;
+        _macroPickerOverlay = picker;
+        _macroStore = macroStore;
+        _macrosFile = macrosFile;
 
 #if DEBUG
-        SetupDebugLogGridSession(config, theme, resolver);
+        if (_runtimeFixtureRoot is null) { SetupDebugLogGridSession(config, theme, resolver!); }
 #endif
 
         return violations;
@@ -390,35 +356,20 @@ public partial class App : Application {
         if (_hasBlockingViolations) {
             var resetItem = new System.Windows.Controls.MenuItem { Header = "Reset Configuration" };
             resetItem.Click += (_, _) => {
-                if (_coordinator is { IsIdle: false }) {
-                    _trayIcon?.ShowNotification("Klikety", "Reset is only available while navigation and macro activity are idle.");
-                    return;
-                }
-                var error = ConfigResetter.ResetToDefaults(_paths.ConfigPath);
-                if (error is not null) {
-                    _trayIcon?.ShowNotification("Klikety — Reset Failed", error);
-                    return;
-                }
-
-                // Re-bootstrap: dispose old coordinator, re-create
-                _coordinator?.Dispose();
-                _coordinator = null;
-                _hotKeyService?.Unregister();
-                _scrollHotKeyService?.Dispose();
-                _scrollHotKeyService = null;
-                _macroHotKeyService?.Dispose();
-                _macroHotKeyService = null;
-
-                var newViolations = BootstrapCoordinatorSafely();
-
-                // Rebuild tray menu to reflect new state
-                SetupTrayContextMenu(newViolations, logger);
-
-                if (newViolations.Count > 0) {
-                    var msg = string.Join("\n", newViolations);
-                    _trayIcon?.ShowNotification("Klikety — Configuration Issues", msg);
-                } else {
-                    _trayIcon?.ShowNotification("Klikety", "Configuration reset to defaults.");
+                try {
+                    using var operation = _settingsGate.Enter();
+                    var error = ConfigResetter.ResetToDefaults(_paths.ConfigPath);
+                    if (error is not null) {
+                        _trayIcon?.ShowNotification("Klikety — Reset Failed", error);
+                        return;
+                    }
+                    if (_runtimeFixtureRoot is not null) { ConfigureRuntimeFixture(_paths.ConfigPath); }
+                    var newViolations = ReloadConfigurationCore();
+                    CompleteRuntimeOperation();
+                    _trayIcon?.ShowNotification("Klikety",
+                        newViolations.Count > 0 ? string.Join("\n", newViolations) : "Configuration reset to defaults.");
+                } catch (Exception ex) when (ex is InvalidOperationException or IOException or UnauthorizedAccessException) {
+                    _trayIcon?.ShowNotification("Klikety — Reset Failed", ex.Message);
                 }
             };
             contextMenu.Items.Add(resetItem);
@@ -431,6 +382,42 @@ public partial class App : Application {
                 Header = "ISOLATED RUNTIME FIXTURE - config, logs, macros, themes and topology use this folder",
                 IsEnabled = false,
             });
+            var faults = new System.Windows.Controls.MenuItem { Header = "Fixture: fail next operation" };
+            foreach (var stage in SettingsFixtureFaults.Stages) {
+                if (stage != "disk-restore") {
+                    var fail = new System.Windows.Controls.MenuItem { Header = "Candidate " + stage };
+                    fail.Click += (_, _) => ArmFixtureFault(stage, false);
+                    faults.Items.Add(fail);
+                }
+                if (stage is not ("disk-save" or "external-edit")) {
+                    var recover = new System.Windows.Controls.MenuItem { Header = "Recovery " + stage };
+                    recover.Click += (_, _) => ArmFixtureFault(stage, true);
+                    faults.Items.Add(recover);
+                }
+            }
+            contextMenu.Items.Add(faults);
+            var conflict = new System.Windows.Controls.MenuItem {
+                Header = "Fixture: reserve Ctrl+Alt+Shift+Backspace conflict",
+                IsCheckable = true,
+                IsChecked = _fixtureFaults!.HasConflict,
+            };
+            conflict.Click += (_, _) => {
+                try {
+                    if (_fixtureFaults.HasConflict) {
+                        var failures = _fixtureFaults.ReleaseConflict();
+                        if (failures.Count > 0) { throw new InvalidOperationException(string.Join("\n", failures)); }
+                    } else {
+                        _fixtureFaults.ReserveConflict(() => new HotKeyService());
+                    }
+                    _trayIcon?.ShowNotification("Klikety fixture", _fixtureFaults.HasConflict
+                        ? "Test shortcut reserved. Choose Ctrl+Alt+Shift+Backspace in Settings to exercise conflict refusal."
+                        : "Test conflict shortcut released.");
+                } catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or UnauthorizedAccessException) {
+                    _trayIcon?.ShowNotification("Klikety fixture conflict failed", ex.Message);
+                }
+                conflict.IsChecked = _fixtureFaults.HasConflict;
+            };
+            contextMenu.Items.Add(conflict);
         } else {
             var startupItem = new System.Windows.Controls.MenuItem {
                 Header = "Start with Windows",
@@ -451,21 +438,25 @@ public partial class App : Application {
         // Show Key Presses (runtime toggle, always off on startup)
         var keyPressItem = new System.Windows.Controls.MenuItem {
             Header = "Show Key Presses",
-            IsChecked = _keyPressHook is not null,
+            IsChecked = _keyPressHook is not null || _hudResources?.HasResources == true,
         };
         keyPressItem.Click += (_, _) => {
-            if (keyPressItem.IsChecked) {
-                DisableKeyPressVisualization();
-                keyPressItem.IsChecked = false;
-                _trayIcon!.ToolTipText = _runtimeFixtureRoot is null ? "Klikety" : "Klikety - ISOLATED RUNTIME FIXTURE";
-            } else {
-                if (EnableKeyPressVisualization()) {
-                    keyPressItem.IsChecked = true;
-                    _trayIcon!.ToolTipText = _runtimeFixtureRoot is null
-                        ? "Klikety (Key Display Active)"
-                        : "Klikety - ISOLATED RUNTIME FIXTURE (Key Display Active)";
+            try {
+                if (keyPressItem.IsChecked) {
+                    DisableKeyPressVisualization();
+                    _trayIcon!.ToolTipText = _runtimeFixtureRoot is null ? "Klikety" : "Klikety - ISOLATED RUNTIME FIXTURE";
+                } else {
+                    if (EnableKeyPressVisualization()) {
+                        _trayIcon!.ToolTipText = _runtimeFixtureRoot is null
+                            ? "Klikety (Key Display Active)"
+                            : "Klikety - ISOLATED RUNTIME FIXTURE (Key Display Active)";
+                    }
                 }
+            } catch (InvalidOperationException ex) {
+                _trayIcon?.ShowNotification("Klikety HUD cleanup failed", ex.Message);
+                LogSettingsActivationFailed(logger, ex.Message);
             }
+            keyPressItem.IsChecked = _keyPressHook is not null || _hudResources?.HasResources == true;
         };
         contextMenu.Items.Add(keyPressItem);
 
@@ -475,16 +466,20 @@ public partial class App : Application {
                 Header = _scrollHotKeyService.IsRegistered ? "Pause Scroll Keys" : "Resume Scroll Keys",
             };
             scrollItem.Click += (_, _) => {
-                if (_scrollHotKeyService.IsRegistered) {
-                    _scrollHotKeyService.Unregister();
-                    scrollItem.Header = "Resume Scroll Keys";
-                } else {
-                    var failures = _scrollHotKeyService.Register();
-                    if (failures.Count > 0) {
-                        _trayIcon?.ShowNotification("Klikety", string.Join("\n", failures));
+                try {
+                    if (_scrollHotKeyService.IsRegistered) {
+                        _scrollHotKeyService.Unregister();
+                    } else {
+                        var failures = _scrollHotKeyService.Register();
+                        if (failures.Count > 0) {
+                            _trayIcon?.ShowNotification("Klikety", string.Join("\n", failures));
+                        }
                     }
-                    scrollItem.Header = "Pause Scroll Keys";
+                } catch (Exception ex) when (ex is InvalidOperationException or IOException) {
+                    _trayIcon?.ShowNotification("Klikety scroll keys failed", ex.Message);
+                    LogSettingsActivationFailed(logger, ex.Message);
                 }
+                scrollItem.Header = _scrollHotKeyService.IsRegistered ? "Pause Scroll Keys" : "Resume Scroll Keys";
             };
             contextMenu.Items.Add(scrollItem);
         }
@@ -508,11 +503,12 @@ public partial class App : Application {
             if (_settingsWindow is not null) {
                 return;
             }
-            DisableKeyPressVisualization();
-            _coordinator?.Dispose();
-            _hotKeyService?.Dispose();
-            _scrollHotKeyService?.Dispose();
-            _macroHotKeyService?.Dispose();
+            var cleanup = ReleaseSettingsRuntime().ToList();
+            cleanup.AddRange(_fixtureFaults?.ReleaseConflict() ?? []);
+            try { _hotKeyService?.Dispose(); } catch (InvalidOperationException ex) { cleanup.Add(ex.Message); }
+            if (cleanup.Count > 0) {
+                MessageBox.Show(string.Join("\n", cleanup), "Klikety cleanup", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
             _trayIcon?.Dispose();
             DisposeLoggerFactories();
             Shutdown();
@@ -522,33 +518,27 @@ public partial class App : Application {
         _trayIcon!.ContextMenu = contextMenu;
     }
 
+    private void ArmFixtureFault(string stage, bool recovery) {
+        try {
+            _fixtureFaults!.Arm(stage, recovery);
+            _trayIcon?.ShowNotification("Klikety fixture", $"Armed {(recovery ? "recovery" : "candidate")} {stage}");
+        } catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException) {
+            _trayIcon?.ShowNotification("Klikety fixture fault could not be armed", ex.Message);
+        }
+    }
+
     private void DisposeLoggerFactories() {
         _loggerFactory?.Dispose();
         _loggerFactory = null;
-        foreach (var loggerFactory in _retainedLoggerFactories) {
-            loggerFactory.Dispose();
-        }
-        _retainedLoggerFactories.Clear();
+        _loggerLifetime.Complete(null);
     }
 
-    private List<string> BootstrapCoordinatorSafely(ConfigModel? capturedConfig = null) {
+    private List<string> BootstrapCoordinatorSafely(ConfigModel? capturedConfig = null, ConfigLoadResult? prepared = null) {
         try {
-            return BootstrapCoordinator(capturedConfig);
+            return BootstrapCoordinator(capturedConfig, prepared);
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or
                                     Win32Exception or ArgumentException or NotSupportedException or JsonException) {
-            _coordinator?.Dispose();
-            _coordinator = null;
-            _macroHotKeyService?.Dispose();
-            _macroHotKeyService = null;
-            _scrollHotKeyService?.Dispose();
-            _scrollHotKeyService = null;
-            _hotKeyService?.Unregister();
-            _pendingBootstrapOverlay?.Close();
-            _pendingBootstrapOverlay = null;
-            _pendingBootstrapHook?.Dispose();
-            _pendingBootstrapHook = null;
-            _macroPickerOverlay?.Close();
-            _macroPickerOverlay = null;
+            _loggerFactory ??= LoggingSetup.CreateLoggerFactory("Warning", false, 7, _paths.LogsFolder);
             _hasBlockingViolations = true;
             _bootstrapActivationErrors.Add(ex.Message);
             return [ex.Message];
@@ -565,7 +555,8 @@ public partial class App : Application {
         }
         try {
             _settingsWindow = new SettingsWindow(_demoConfigPath ?? UserConfigPath, _demoConfigPath is not null,
-                ValidateSettingsApply, CaptureSettingsRuntime, ApplySettings, RestoreSettingsRuntime);
+                ValidateSettingsApply, CaptureSettingsRuntime, ApplySettings, RestoreSettingsRuntime,
+                _settingsGate, CompleteRuntimeOperation, stage => _fixtureFaults?.Check(stage));
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Show();
         } catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or InvalidOperationException) {
@@ -578,16 +569,12 @@ public partial class App : Application {
         if (_demoConfigPath is null && _coordinator is { IsIdle: false }) {
             throw new InvalidOperationException("Settings can only be applied while navigation and macro activity are idle.");
         }
-        var (_, warning) = ThemeLoader.Load(config.Theme, _paths.Root);
-        if (warning is not null && !string.Equals(_config?.Theme, config.Theme, StringComparison.OrdinalIgnoreCase)) {
-            throw new InvalidDataException(warning);
-        }
-        if (_demoConfigPath is null &&
-            (_config is null || _config.HotKey.Key != config.HotKey.Key || _config.HotKey.Modifiers != config.HotKey.Modifiers)) {
-            var failure = StartupValidator.ProbeHotKey(config.HotKey);
-            if (failure is not null) {
-                throw new InvalidDataException(failure);
-            }
+        ThemeLoader.ValidateSettingsReference(config.Theme, _settingsWindow?.LoadedTheme ?? _config?.Theme, _paths.Root);
+        if (_demoConfigPath is null) {
+            var owned = _config is null ? [] : SettingsShortcutInventory.From(_config,
+                _scrollHotKeysConfigEnabled && _scrollHotKeyService is { IsRegistered: false });
+            SettingsShortcutInventory.Preflight(config, _hotKeyService?.IsRegistered == true ? owned : [],
+                StartupValidator.ProbeHotKey);
         }
     }
 
@@ -608,10 +595,16 @@ public partial class App : Application {
             return SettingsApplyOutcome.Success;
         }
         try {
-            var issues = ReloadConfiguration(candidate);
-            return _bootstrapActivationErrors.Count == 0
+            _fixtureFaults?.SetRecovery(false);
+            _fixtureFaults?.Check("external-edit");
+            var issues = ReloadConfigurationCore(candidate);
+            var result = _bootstrapActivationErrors.Count == 0
                 ? new SettingsApplyOutcome(true, issues)
                 : new SettingsApplyOutcome(false, _bootstrapActivationErrors.ToArray());
+            if (!result.Succeeded && _loggerFactory is { } factory) {
+                LogSettingsActivationFailed(factory.CreateLogger<App>(), string.Join("; ", result.Issues));
+            }
+            return result;
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or
                                     Win32Exception or ArgumentException or NotSupportedException or JsonException) {
             return new SettingsApplyOutcome(false, [ex.Message]);
@@ -624,67 +617,82 @@ public partial class App : Application {
             return SettingsApplyOutcome.Success;
         }
         try {
-            var issues = ReloadConfiguration(snapshot.Config, allowBusy: true);
+            _fixtureFaults?.SetRecovery(true);
+            var issues = ReloadConfigurationCore(snapshot.Config, snapshot);
             if (_bootstrapActivationErrors.Count > 0) {
                 return new SettingsApplyOutcome(false, _bootstrapActivationErrors.ToArray());
             }
-            if (snapshot.HudEnabled && _keyPressHook is null && !EnableKeyPressVisualization()) {
-                return new SettingsApplyOutcome(false, ["Could not restore the previously enabled key-press HUD."]);
-            }
-            if (!snapshot.HudEnabled && _keyPressHook is not null) {
-                DisableKeyPressVisualization();
-            }
-            if (snapshot.ScrollPaused && _scrollHotKeysConfigEnabled && _scrollHotKeyService?.IsRegistered == true) {
-                _scrollHotKeyService.Unregister();
-            }
-            SetupTrayContextMenu(issues, _loggerFactory!.CreateLogger<App>());
             return new SettingsApplyOutcome(true, issues);
         } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or
                                     Win32Exception or ArgumentException or NotSupportedException or JsonException) {
             return new SettingsApplyOutcome(false, [ex.Message]);
+        } finally {
+            _fixtureFaults?.SetRecovery(false);
         }
     }
 
-    private List<string> ReloadConfiguration(ConfigModel? capturedConfig = null, bool allowBusy = false) {
-        if (!allowBusy && _demoConfigPath is null && _coordinator is { IsIdle: false }) {
-            throw new InvalidOperationException("Configuration reload is only available while navigation and macro activity are idle.");
-        }
-        var hudWasEnabled = _keyPressHook is not null;
-        var scrollWasPaused = _scrollHotKeysConfigEnabled && _scrollHotKeyService is { IsRegistered: false };
-        var previousLogger = _loggerFactory;
-        DisableKeyPressVisualization();
-        _coordinator?.Dispose();
+    private List<string> ReloadConfiguration() {
+        using var operation = _settingsGate.Enter();
+        var issues = ReloadConfigurationCore();
+        CompleteRuntimeOperation();
+        return issues;
+    }
+
+    private IReadOnlyList<string> ReleaseRuntime() {
+        var failures = _runtimeResources?.Release() ?? [];
+        if (failures.Count == 0) { _runtimeResources = null; }
         _coordinator = null;
-        _hotKeyService?.Unregister();
-        _scrollHotKeyService?.Dispose();
         _scrollHotKeyService = null;
-        _macroHotKeyService?.Dispose();
         _macroHotKeyService = null;
-        List<string> violations;
-        violations = BootstrapCoordinatorSafely(capturedConfig);
-        if (hudWasEnabled && !_hasBlockingViolations && !EnableKeyPressVisualization()) {
-            var failure = "Could not re-enable key-press display after reload.";
-            violations.Add(failure);
-            _bootstrapActivationErrors.Add(failure);
-        }
-        if (scrollWasPaused && _scrollHotKeysConfigEnabled && _scrollHotKeyService?.IsRegistered == true) {
-            _scrollHotKeyService.Unregister();
-        }
-        if (_bootstrapActivationErrors.Count == 0) {
-            if (previousLogger is not null && !ReferenceEquals(previousLogger, _loggerFactory)) {
-                previousLogger.Dispose();
-            }
-            foreach (var loggerFactory in _retainedLoggerFactories) {
-                if (!ReferenceEquals(loggerFactory, _loggerFactory)) {
-                    loggerFactory.Dispose();
+        _macroPickerOverlay = null;
+        return failures;
+    }
+
+    private IReadOnlyList<string> ReleaseSettingsRuntime() {
+        var failures = new List<string>();
+        try { DisableKeyPressVisualization(); } catch (InvalidOperationException ex) { failures.Add(ex.Message); }
+        failures.AddRange(ReleaseRuntime());
+        return failures;
+    }
+
+    private List<string> ReloadConfigurationCore(ConfigModel? capturedConfig = null, SettingsRuntimeSnapshot? restoredState = null) {
+        var previous = new SettingsRuntimeSnapshot(_config ?? new ConfigModel(),
+            _keyPressHook is not null, _scrollHotKeysConfigEnabled && _scrollHotKeyService is { IsRegistered: false });
+        var previousLogger = _loggerFactory;
+        var prepared = capturedConfig is null ? ConfigLoader.Load(_paths.ConfigPath) : null;
+        var candidate = capturedConfig ?? prepared!.Config;
+        var violations = new List<string>();
+        var result = SettingsRuntimeReplacement.Activate(restoredState ?? previous, candidate,
+            ReleaseSettingsRuntime,
+            model => {
+                violations = BootstrapCoordinatorSafely(model, prepared);
+                return new(_bootstrapActivationErrors.Count == 0, violations);
+            },
+            (hudEnabled, scrollPaused) => {
+                if (hudEnabled && !EnableKeyPressVisualization()) {
+                    return new(false, ["Could not re-enable key-press display after reload."]);
                 }
-            }
-            _retainedLoggerFactories.Clear();
-        } else if (previousLogger is not null && !ReferenceEquals(previousLogger, _loggerFactory)) {
-            _retainedLoggerFactories.Add(previousLogger);
+                if (scrollPaused) { _scrollHotKeyService?.Unregister(); }
+                return SettingsApplyOutcome.Success;
+            });
+        _bootstrapActivationErrors.Clear();
+        if (!result.Succeeded) {
+            _bootstrapActivationErrors.AddRange(result.Issues);
+            _config = previous.Config;
+            _hasBlockingViolations = true;
         }
-        SetupTrayContextMenu(violations, _loggerFactory!.CreateLogger<App>());
-        return violations;
+        if (previousLogger is not null && !ReferenceEquals(previousLogger, _loggerFactory)) {
+            _loggerLifetime.Retain(previousLogger);
+        }
+        SetupTrayContextMenu(result.Issues.ToList(), _loggerFactory!.CreateLogger<App>());
+        return result.Issues.ToList();
+    }
+
+    private void CompleteRuntimeOperation() {
+        if (_hasBlockingViolations && (_runtimeResources?.HasResources == true || _hudResources?.HasResources == true)) {
+            return;
+        }
+        _loggerLifetime.Complete(_loggerFactory);
     }
 
     private static void CreateDemoFixture(string path) {
@@ -712,22 +720,14 @@ public partial class App : Application {
             AllowTrailingCommas = true,
         }) as JsonObject
             ?? throw new InvalidDataException("Runtime fixture config must be a JSON object.");
-        root["hotKey"] = new JsonObject { ["modifiers"] = "Control, Alt, Shift", ["key"] = "F12" };
+        root["hotKey"] = new JsonObject { ["modifiers"] = "Control, Alt, Shift", ["key"] = "F11" };
         var macros = root["macros"] as JsonObject ?? new JsonObject();
         root["macros"] = macros;
-        macros["globalHotKey"] = new JsonObject { ["modifiers"] = "Control, Alt, Shift", ["key"] = "F11" };
+        macros["globalHotKey"] = new JsonObject { ["modifiers"] = "Control, Alt, Shift", ["key"] = "Pause" };
         File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    private static void EnsureFixturePathHasNoReparsePoints(string path) {
-        var directory = new DirectoryInfo(path);
-        while (directory is not null) {
-            if (directory.Exists && (directory.Attributes & FileAttributes.ReparsePoint) != 0) {
-                throw new InvalidDataException("Runtime fixture paths cannot traverse symbolic links or junctions.");
-            }
-            directory = directory.Parent;
-        }
-    }
+    private static void EnsureFixturePathHasNoReparsePoints(string path) => AppPaths.ForFixture(path);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to register global hotkey {Modifiers}+{Key}")]
     private static partial void LogHotkeyRegistrationFailed(ILogger logger, HotKeyModifiers modifiers, Input.VKey key);
@@ -740,54 +740,60 @@ public partial class App : Application {
     /// Returns false (and cleans up) if the hook fails to install.
     /// </summary>
     private bool EnableKeyPressVisualization() {
+        if (_keyPressHook is not null) { return true; }
         var vizConfig = _config!.KeyPressVisualization;
-
-        var hook = new KeyboardHookService();
-        var resolver = new Win32KeyLabelResolver();
-        var processor = new KeyPressProcessor(
-            PlatformServices.Instance.KeyState,
-            TimeProvider.System,
-            PlatformServices.Instance.KeyboardLayout,
-            hkl => new Win32KeyLabelResolver(hkl));
-        var window = new KeyPressWindow(vizConfig);
-        var monitorService = new MonitorService(window);
-        var displayManager = new KeyPressDisplayManager(vizConfig, processor, window, monitorService);
-
-        if (!hook.Enable()) {
-            displayManager.Dispose();
-            window.Close();
-            _trayIcon?.ShowNotification("Klikety", "Failed to enable key press display.");
+        try {
+            if (_hudResources?.HasResources == true) {
+                throw new InvalidOperationException("Previous HUD cleanup is incomplete; retry disabling it before enabling another hook.");
+            }
+            _hudResources = SettingsRuntimeResources.Create(owner => {
+                var hook = owner.Own("HUD hook", new KeyboardHookService());
+                var processor = new KeyPressProcessor(PlatformServices.Instance.KeyState,
+                    TimeProvider.System, PlatformServices.Instance.KeyboardLayout, hkl => new Win32KeyLabelResolver(hkl));
+                var window = new KeyPressWindow(vizConfig);
+                owner.Own("HUD window", window.Close);
+                var manager = owner.Own("HUD manager", new KeyPressDisplayManager(vizConfig, processor,
+                    window, new MonitorService(window)));
+                if (!hook.Enable()) { throw new InvalidOperationException("HUD hook could not be enabled."); }
+                hook.KeyEvent += (_, e) => manager.HandleKeyEvent(e);
+                owner.Checkpoint("hud");
+                window.Show();
+                _keyPressHook = hook;
+                _keyPressProcessor = processor;
+                _keyPressWindow = window;
+                _keyPressDisplayManager = manager;
+            }, stage => _fixtureFaults?.Check(stage), pending => _hudResources = pending);
+            return true;
+        } catch (InvalidOperationException ex) {
+            _trayIcon?.ShowNotification("Klikety", "Failed to enable key press display: " + ex.Message);
+            if (_loggerFactory is { } factory) { LogHudActivationFailed(factory.CreateLogger<App>(), ex); }
             return false;
         }
-
-        hook.KeyEvent += (_, e) => displayManager.HandleKeyEvent(e);
-        window.Show();
-
-        _keyPressHook = hook;
-        _keyPressProcessor = processor;
-        _keyPressWindow = window;
-        _keyPressDisplayManager = displayManager;
-        return true;
     }
 
     /// <summary>
     /// Disables and disposes all key press visualization resources. Safe to call when already disabled.
     /// </summary>
     private void DisableKeyPressVisualization() {
-        if (_keyPressHook is null) {
+        if (_hudResources is null) {
             return;
         }
 
-        _keyPressHook.Disable();
         _keyPressProcessor?.ResetModifierState();
-        _keyPressDisplayManager?.Dispose();
-        _keyPressWindow?.Close();
-
+        var failures = _hudResources?.Release() ?? [];
+        if (failures.Count > 0) { throw new InvalidOperationException(string.Join("\n", failures)); }
+        _hudResources = null;
         _keyPressHook = null;
         _keyPressProcessor = null;
         _keyPressWindow = null;
         _keyPressDisplayManager = null;
     }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "HUD activation failed")]
+    private static partial void LogHudActivationFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Settings activation failed: {Issue}")]
+    private static partial void LogSettingsActivationFailed(ILogger logger, string issue);
 
 #if DEBUG
     private void SetupDebugLogGridSession(ConfigModel config, Config.ThemeModel theme, Win32KeyLabelResolver resolver) {

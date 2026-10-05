@@ -94,9 +94,12 @@ dotnet run --project src\Klikety\Klikety.csproj -c Release -- --settings-runtime
 ```
 
 This test mode confines config, logs, macros, themes, and display topology to that
-directory, disables the registry toggle, and uses Ctrl+Alt+Shift+F12/F11 for the main and
+directory, disables the registry toggle, and uses Ctrl+Alt+Shift+F11/Pause for the main and
 macro hotkeys. It registers real system hotkeys; do not continue if either registration
 conflicts with another application. The fixture is not automatically deleted.
+Its **Fixture: fail next operation** tray submenu provides one-shot candidate/recovery
+faults and an external-edit case, all restricted to fixture files. Use a separate safe
+host/display for these native checks; see the [operator procedure](docs/design-notes/settings.design.md#native-operator-procedure-plan-53-not-automated-evidence).
 
 ### Configuration Reference
 

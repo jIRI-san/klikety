@@ -42,7 +42,15 @@ fixture-root path composition. The hook-free settings demo is not evidence of ru
 registration. `--settings-runtime-fixture` is the isolated native host for registration
 and recovery checks; use it only after confirming the fixture path and test hotkeys.
 Live tray reuse, display scaling, and the native layout matrix remain manual checks.
-See [settings-prototype.design.md](settings-prototype.design.md).
+`SettingsApplyTests`/`SettingsRecoveryTests` exercise the same operation gate, candidate
+resource/replacement engine, shortcut inventory and recovery transaction used by App.
+The explicit editable-field map drives store and real editor round trips; focused
+validation/isolation/capture/migration tests cover errors and compatibility boundaries.
+`SettingsAccessibilityTests` checks names, collapsed Advanced and logical bounds without
+showing a window; it is not native DPI evidence. WPF UI tests share one xUnit collection
+to avoid competing focus checks.
+See [settings.design.md](settings.design.md) for the fixture-only fault controls and
+native operator procedure.
 
 - All Win32 service interfaces are the seam for testing.
 - Integration tests are hermetic (no real display, no OS hooks, no timing dependencies).

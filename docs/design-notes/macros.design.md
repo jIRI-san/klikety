@@ -145,7 +145,7 @@ finally { if (!_disposed) OnPlaybackFinished(result); }
 - `SpeedModifier` (double, default 1.0; finite and ≥ 0; 0 → 100ms fixed)
 - `PlaybackIndicator` (`fillColor`, `strokeColor`, `strokeThickness`, `initialRadius`, `finalRadius`, `animationDurationMs`). Settings requires finite/safe colors and dimensions; edited radii must be ≥ 1 DIP and duration ≥ 100 ms. Untouched legacy values below these schema floors are warned and preserved. Invalid runtime construction is reported, not silently replaced with a red brush.
 
-The production Settings window edits these values without touching `macros.json`; recorded definitions remain isolated in that separate file. See [settings-prototype.design.md](settings-prototype.design.md) for draft, JSONC, and apply/recovery behavior.
+The production Settings window edits these values without touching `macros.json`; recorded definitions remain isolated in that separate file. See [settings.design.md](settings.design.md) for draft, JSONC, and apply/recovery behavior.
 
 Config version: v4→v5 migration adds `macros` section. Key collision matrix validates all macro keys against reserved/action/nav/chord/scroll/hotkey sets.
 

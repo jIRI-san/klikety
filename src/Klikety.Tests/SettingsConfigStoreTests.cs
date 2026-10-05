@@ -9,6 +9,25 @@ using Klikety.Input;
 namespace Klikety.Tests;
 
 public sealed class SettingsConfigStoreTests : IDisposable {
+    [Theory]
+    [InlineData("hotKey.key", "\"Pause\"")]
+    [InlineData("macros.globalHotKey.key", "\"Pause\"")]
+    [InlineData("scrollHotkeys.enabled", "true")]
+    [InlineData("macros.playbackIndicator.strokeThickness", "2.5")]
+    [InlineData("keyPressVisualization.margin", "50")]
+    [InlineData("appScope.chordKey", "null")]
+    [InlineData("modes.uniformGrid.logBaseSize", "11")]
+    [InlineData("modes.logGrid.logGridBaseSize", "15")]
+    public void InsertedNestedObjectsKeepEveryOtherEffectiveDefault(string path, string json) {
+        File.WriteAllText(_path, "{\"configVersion\":7}");
+        var store = Open();
+        var expected = SettingsFieldCases.Serialize(new SettingsConfigStore(_path).Open().Config);
+        SettingsValidationTests.Set(expected, path, JsonNode.Parse(json));
+        store.Save(new Dictionary<string, JsonNode?> { [path] = JsonNode.Parse(json) });
+        var actual = SettingsFieldCases.Serialize(new SettingsConfigStore(_path).Open().Config);
+        Assert.True(JsonNode.DeepEquals(expected, actual), path);
+    }
+
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "Klikety-settings-tests-" + Guid.NewGuid());
     private readonly string _path;
 

@@ -60,7 +60,7 @@ the former default's chord. `BuildChordKeyMap` includes enabled Uniform grid wit
 configured chord. Missing mode objects are seeded with their effective defaults during
 targeted settings edits to avoid resetting omitted bools. Settings shows both logarithmic
 size fields in each mode's Advanced section and explains that only the matching mode uses
-each value. See [settings-prototype.design.md](settings-prototype.design.md).
+each value. See [settings.design.md](settings.design.md).
 
 - Each mode except the default has a `ChordKey` (`VKey?`).
 - Chord keys are processed before the active session when `_modeLocked` is false.

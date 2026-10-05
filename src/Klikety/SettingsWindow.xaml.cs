@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -22,10 +23,9 @@ public partial class SettingsWindow : Window {
         public override string ToString() => Label;
     }
     private readonly SettingsConfigStore _store;
-    private readonly Action<ConfigModel> _preflight;
-    private readonly Func<SettingsRuntimeSnapshot> _captureRuntime;
-    private readonly Func<ConfigModel, SettingsApplyOutcome> _apply;
-    private readonly Func<SettingsRuntimeSnapshot, SettingsApplyOutcome> _restoreRuntime;
+    private readonly SettingsSaveTransaction _transaction;
+    private readonly Action _completeRuntimeOperation;
+    private readonly Func<string, bool> _confirmDiscard;
     private readonly bool _demo;
     private readonly Dictionary<string, Field> _fields = [];
     private readonly Dictionary<string, ComboBox> _modifierChoices = [];
@@ -36,6 +36,8 @@ public partial class SettingsWindow : Window {
     private bool _loading;
     private bool _dirty;
     private bool _pendingApply;
+    private bool _requiresReload;
+    internal string LoadedTheme => _loadedConfig.Theme;
 
     internal SettingsWindow(
         string path,
@@ -43,13 +45,18 @@ public partial class SettingsWindow : Window {
         Action<ConfigModel> preflight,
         Func<SettingsRuntimeSnapshot> captureRuntime,
         Func<ConfigModel, SettingsApplyOutcome> apply,
-        Func<SettingsRuntimeSnapshot, SettingsApplyOutcome> restoreRuntime) {
+        Func<SettingsRuntimeSnapshot, SettingsApplyOutcome> restoreRuntime,
+        SettingsOperationGate? operationGate = null,
+        Action? completeRuntimeOperation = null,
+        Action<string>? fault = null,
+        Func<string, bool>? confirmDiscard = null) {
         InitializeComponent();
-        _store = new SettingsConfigStore(path);
-        _preflight = preflight;
-        _captureRuntime = captureRuntime;
-        _apply = apply;
-        _restoreRuntime = restoreRuntime;
+        _store = new SettingsConfigStore(path, fault);
+        _transaction = new SettingsSaveTransaction(_store, operationGate ?? new SettingsOperationGate(() => true),
+            preflight, captureRuntime, apply, restoreRuntime);
+        _completeRuntimeOperation = completeRuntimeOperation ?? (() => { });
+        _confirmDiscard = confirmDiscard ?? (message => MessageBox.Show(this, message, "Klikety Settings",
+            MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
         _demo = demo;
         if (demo) {
             Title = "Klikety Settings - ISOLATED DEMO (no global hooks)";
@@ -65,6 +72,8 @@ public partial class SettingsWindow : Window {
         var result = _store.Open();
         var config = result.Config;
         _loadedConfig = config;
+        _requiresReload = false;
+        _pendingApply = false;
         _draft = new SettingsDraft(config);
         _loading = true;
         _fields.Clear();
@@ -117,6 +126,7 @@ public partial class SettingsWindow : Window {
             Number(modeAdvanced, "Log crosshair center (px)", prefix + ".logBaseSize", modes[i].LogBaseSize, integer: true);
             Number(modeAdvanced, "Log grid center (px)", prefix + ".logGridBaseSize", modes[i].LogGridBaseSize, integer: true);
             Hint(modeAdvanced, "Only the matching logarithmic mode uses each value.");
+            Hint(modeAdvanced, "Disabled modes keep their values. Size fields are inert outside the matching logarithmic mode.");
         }
         var scope = Card(navigation, "Current-window scope");
         KeyPicker(scope, "Scope chord", "appScope.chordKey", config.AppScope.ChordKey, nullable: true);
@@ -146,14 +156,14 @@ public partial class SettingsWindow : Window {
         HotKeyEditor(scrolling, "Scroll up", "scrollHotkeys.scrollUpKey", config.ScrollHotKeys.ScrollUpKey);
         HotKeyEditor(scrolling, "Scroll down", "scrollHotkeys.scrollDownKey", config.ScrollHotKeys.ScrollDownKey);
         Number(scrolling, "Scroll amount", "scrollHotkeys.scrollAmount", config.ScrollHotKeys.ScrollAmount, integer: true);
-        Hint(scrolling, "Changing these values does not pause/resume the tray runtime control.");
+        Hint(scrolling, "Pause is kept while scrolling remains enabled. Disabling removes scroll registrations and pause state.");
 
         var macros = Page("Macros", "Edit macro hotkeys and playback visuals. Recorded macro data stays in macros.json.");
         Toggle(macros, "Enable macro controls", "macros.enabled", config.Macros.Enabled);
         NullableHotKeyEditor(macros, "Global macro hotkey", "macros.globalHotKey", config.Macros.GlobalHotKey);
         KeyPicker(macros, "Record key", "macros.recordKey", config.Macros.RecordKey, nullable: false);
         KeyPicker(macros, "Helper key", "macros.helperKey", config.Macros.HelperKey, nullable: false);
-        KeyListEditor(macros, "Ordered slot keys", "macros.slotKeys", config.Macros.SlotKeys);
+        KeyListEditor(macros, "Ordered slot keys", "macros.slotKeys", config.Macros.SlotKeys ?? []);
         Number(macros, "Playback speed modifier", "macros.speedModifier", config.Macros.SpeedModifier, integer: false);
         var playback = Advanced(macros);
         TextEntry(playback, "Indicator fill color", "macros.playbackIndicator.fillColor", config.Macros.PlaybackIndicator.FillColor);
@@ -265,10 +275,11 @@ public partial class SettingsWindow : Window {
             SelectedItem = modifiersValue.ToString(),
             IsEnabled = value is not null,
         };
-        var keyChoices = KeyChoices();
+        var keyChoices = KeyChoices(keyValue);
         var key = new ComboBox {
             ItemsSource = keyChoices,
             DisplayMemberPath = nameof(KeyChoice.Label),
+            SelectedValuePath = nameof(KeyChoice.Key),
             SelectedItem = keyChoices.First(choice => choice.Key == keyValue),
             IsEnabled = value is not null,
         };
@@ -322,10 +333,11 @@ public partial class SettingsWindow : Window {
             rows.Children.Clear();
             for (var i = 0; i < values.Count; i++) {
                 var index = i;
-                var choices = KeyChoices();
+                var choices = KeyChoices(values[index]);
                 var picker = new ComboBox {
                     ItemsSource = choices,
                     DisplayMemberPath = nameof(KeyChoice.Label),
+                    SelectedValuePath = nameof(KeyChoice.Key),
                     SelectedItem = choices.First(choice => choice.Key == values[index]),
                     MinWidth = 190,
                 };
@@ -343,12 +355,27 @@ public partial class SettingsWindow : Window {
                     }
                 };
                 var up = new Button { Content = "Move up", IsEnabled = index > 0 };
-                up.Click += (_, _) => { (values[index - 1], values[index]) = (values[index], values[index - 1]); Render(); RefreshDirty(); };
+                AutomationProperties.SetAutomationId(up, $"{path}.item.{index}.up");
+                AutomationProperties.SetName(up, $"Move {label} item {index + 1} up");
+                up.Click += (_, _) => {
+                    (values[index - 1], values[index]) = (values[index], values[index - 1]);
+                    Render(); RefreshDirty(); FocusEditor(rows, $"{path}.item.{index - 1}");
+                };
                 var down = new Button { Content = "Move down", IsEnabled = index + 1 < values.Count };
-                down.Click += (_, _) => { (values[index + 1], values[index]) = (values[index], values[index + 1]); Render(); RefreshDirty(); };
+                AutomationProperties.SetAutomationId(down, $"{path}.item.{index}.down");
+                AutomationProperties.SetName(down, $"Move {label} item {index + 1} down");
+                down.Click += (_, _) => {
+                    (values[index + 1], values[index]) = (values[index], values[index + 1]);
+                    Render(); RefreshDirty(); FocusEditor(rows, $"{path}.item.{index + 1}");
+                };
                 var remove = new Button { Content = "Remove" };
-                remove.Click += (_, _) => { values.RemoveAt(index); Render(); RefreshDirty(); };
-                var row = new StackPanel { Orientation = Orientation.Horizontal };
+                AutomationProperties.SetAutomationId(remove, $"{path}.item.{index}.remove");
+                AutomationProperties.SetName(remove, $"Remove {label} item {index + 1}");
+                remove.Click += (_, _) => {
+                    values.RemoveAt(index); Render(); RefreshDirty();
+                    FocusEditor(rows, values.Count == 0 ? path + ".add.key" : $"{path}.item.{Math.Min(index, values.Count - 1)}");
+                };
+                var row = new WrapPanel();
                 row.Children.Add(picker);
                 row.Children.Add(capture);
                 row.Children.Add(up);
@@ -359,6 +386,7 @@ public partial class SettingsWindow : Window {
             var addPicker = new ComboBox {
                 ItemsSource = KeyChoices(),
                 DisplayMemberPath = nameof(KeyChoice.Label),
+                SelectedValuePath = nameof(KeyChoice.Key),
                 SelectedIndex = 0,
                 MinWidth = 190,
             };
@@ -367,14 +395,17 @@ public partial class SettingsWindow : Window {
             var addCapture = CaptureButton($"{path}.add.capture", addPicker, selected =>
                 addPicker.SelectedItem = ((IEnumerable<KeyChoice>)addPicker.ItemsSource!).First(choice => choice.Key == selected));
             var add = new Button { Content = "Add key" };
+            AutomationProperties.SetAutomationId(add, $"{path}.add");
+            AutomationProperties.SetName(add, $"Add {label} key");
             add.Click += (_, _) => {
                 if (addPicker.SelectedItem is KeyChoice { Key: { } selected }) {
                     values.Add(selected);
                     Render();
                     RefreshDirty();
+                    FocusEditor(rows, $"{path}.item.{values.Count - 1}");
                 }
             };
-            var addRow = new StackPanel { Orientation = Orientation.Horizontal };
+            var addRow = new WrapPanel();
             addRow.Children.Add(addPicker);
             addRow.Children.Add(addCapture);
             addRow.Children.Add(add);
@@ -395,25 +426,27 @@ public partial class SettingsWindow : Window {
             var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var (key, action) in entries) {
                 if (!keys.Add(key)) {
-                    throw new InvalidDataException($"Action key '{key}' is assigned more than once.");
+                    throw new InvalidDataException($"actionBindings: key '{key}' is assigned more than once.");
                 }
                 result[key] = JsonValue.Create(action.ToString());
             }
             return result;
         }
-        Track("actionBindings", () => CurrentValue().ToJsonString(), () => CurrentValue());
+        string CurrentText() => new JsonArray(entries.Select(entry => (JsonNode)new JsonArray(entry.Key, entry.Value.ToString())).ToArray()).ToJsonString();
+        Track("actionBindings", CurrentText, () => CurrentValue());
 
         void Render() {
             rows.Children.Clear();
             for (var i = 0; i < entries.Count; i++) {
                 var index = i;
                 var key = entries[index].Key;
-                var line = new StackPanel { Orientation = Orientation.Horizontal };
+                var line = new WrapPanel();
                 if (Enum.TryParse<VKey>(key, ignoreCase: true, out var selectedKey) && Enum.IsDefined(selectedKey)) {
                     var choices = KeyChoices();
                     var picker = new ComboBox {
                         ItemsSource = choices,
                         DisplayMemberPath = nameof(KeyChoice.Label),
+                        SelectedValuePath = nameof(KeyChoice.Key),
                         SelectedItem = choices.First(choice => choice.Key == selectedKey),
                         MinWidth = 190,
                     };
@@ -423,13 +456,9 @@ public partial class SettingsWindow : Window {
                     line.Children.Add(CaptureButton($"actionBindings.item.{index}.capture", picker, selected =>
                         picker.SelectedItem = choices.First(choice => choice.Key == selected)));
                     picker.SelectionChanged += (_, _) => {
-                        if (picker.SelectedItem is KeyChoice { Key: { } selected } &&
-                            !entries.Where((_, itemIndex) => itemIndex != index)
-                                .Any(entry => string.Equals(entry.Key, selected.ToString(), StringComparison.OrdinalIgnoreCase))) {
+                        if (picker.SelectedItem is KeyChoice { Key: { } selected }) {
                             entries[index] = (selected.ToString(), entries[index].Value);
                             RefreshDirty();
-                        } else {
-                            ShowStatus($"The key is already used by another action.", error: true);
                         }
                     };
                 } else {
@@ -453,7 +482,12 @@ public partial class SettingsWindow : Window {
                 };
                 line.Children.Add(actionPicker);
                 var remove = new Button { Content = "Remove" };
-                remove.Click += (_, _) => { entries.RemoveAt(index); Render(); RefreshDirty(); };
+                AutomationProperties.SetAutomationId(remove, $"actionBindings.item.{index}.remove");
+                AutomationProperties.SetName(remove, $"Remove action binding {index + 1}");
+                remove.Click += (_, _) => {
+                    entries.RemoveAt(index); Render(); RefreshDirty();
+                    FocusEditor(rows, entries.Count == 0 ? "actionBindings.add.key" : $"actionBindings.item.{Math.Min(index, entries.Count - 1)}.action");
+                };
                 line.Children.Add(remove);
                 rows.Children.Add(line);
             }
@@ -479,11 +513,12 @@ public partial class SettingsWindow : Window {
                     entries.Add((key.ToString(), action));
                     Render();
                     RefreshDirty();
+                    FocusEditor(rows, $"actionBindings.item.{entries.Count - 1}.action");
                 } else {
                     ShowStatus("Choose an action key that is not already assigned.", error: true);
                 }
             };
-            var addRow = new StackPanel { Orientation = Orientation.Horizontal };
+            var addRow = new WrapPanel();
             addRow.Children.Add(addKey);
             addRow.Children.Add(capture);
             addRow.Children.Add(addAction);
@@ -494,43 +529,44 @@ public partial class SettingsWindow : Window {
         Render();
     }
 
-    private List<KeyChoice> KeyChoices() => Enum.GetValues<VKey>()
-        .Select(key => new KeyChoice(key, KeyLabel(key))).ToList();
+    private List<KeyChoice> KeyChoices(VKey? existing = null) {
+        var choices = Enum.GetValues<VKey>().Select(key => new KeyChoice(key, KeyLabel(key))).ToList();
+        if (existing is { } value && !Enum.IsDefined(value)) {
+            choices.Add(new KeyChoice(value, $"Unrecognized physical key ({(int)value})"));
+        }
+        return choices;
+    }
 
     private Button CaptureButton(string automationId, ComboBox picker, Action<VKey> captured) {
         var button = new Button { Content = "Capture key", Margin = new Thickness(6, 0, 0, 0) };
         AutomationProperties.SetAutomationId(button, automationId);
-        var waiting = false;
+        var capture = new SettingsKeyCapture();
+        AutomationProperties.SetName(button, $"Capture {AutomationProperties.GetName(picker)}");
         void StopCapture(string message) {
-            waiting = false;
+            capture.Cancel();
             button.Content = "Capture key";
             if (message.Length > 0) { ShowStatus(message); }
         }
         button.Click += (_, _) => {
-            waiting = true;
+            capture.Begin();
             button.Content = "Press a key (Esc cancels)";
             ShowStatus("Focused capture is active. Press Esc to cancel or choose a key; moving focus cancels.");
             picker.Focus();
         };
         picker.PreviewKeyDown += (_, e) => {
-            if (!waiting) { return; }
             var key = e.Key == Key.System ? e.SystemKey : e.Key;
-            if (key == Key.Escape) {
+            var result = capture.Process(key, e.IsRepeat, Keyboard.Modifiers);
+            if (result.Kind == SettingsCaptureKind.Inactive) { return; }
+            if (result.Kind == SettingsCaptureKind.Cancelled) {
                 StopCapture("Key capture cancelled.");
                 e.Handled = true;
                 return;
             }
-            if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt or
-                Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin) {
+            if (result.Kind == SettingsCaptureKind.Ignored) {
                 e.Handled = true;
                 return;
             }
-            if (e.IsRepeat) {
-                e.Handled = true;
-                return;
-            }
-            var virtualKey = KeyInterop.VirtualKeyFromKey(key);
-            if (!Enum.IsDefined(typeof(VKey), virtualKey)) {
+            if (result.Kind == SettingsCaptureKind.Unsupported) {
                 ShowStatus("This key is not supported by Klikety; choose a key from the picker.", error: true);
                 e.Handled = true;
                 return;
@@ -539,25 +575,16 @@ public partial class SettingsWindow : Window {
                 ? automationId[..^".key.capture".Length] + ".modifiers"
                 : null;
             if (modifiersPath is not null && _modifierChoices.TryGetValue(modifiersPath, out var modifiers)) {
-                modifiers.SelectedItem = CapturedModifiers(Keyboard.Modifiers).ToString();
+                modifiers.SelectedItem = result.Modifiers.ToString();
             }
-            captured((VKey)virtualKey);
+            captured(result.Key!.Value);
             StopCapture("Key captured.");
             e.Handled = true;
         };
         picker.LostKeyboardFocus += (_, _) => {
-            if (waiting) { StopCapture("Key capture cancelled because focus moved."); }
+            if (capture.IsActive) { StopCapture("Key capture cancelled because focus moved."); }
         };
         return button;
-    }
-
-    private static HotKeyModifiers CapturedModifiers(ModifierKeys modifiers) {
-        var result = HotKeyModifiers.None;
-        if (modifiers.HasFlag(ModifierKeys.Control)) { result |= HotKeyModifiers.Control; }
-        if (modifiers.HasFlag(ModifierKeys.Shift)) { result |= HotKeyModifiers.Shift; }
-        if (modifiers.HasFlag(ModifierKeys.Alt)) { result |= HotKeyModifiers.Alt; }
-        if (modifiers.HasFlag(ModifierKeys.Windows)) { result |= HotKeyModifiers.Win; }
-        return result;
     }
 
     private void Track(string path, Func<string> current, Func<JsonNode?> value, string? original = null) =>
@@ -566,6 +593,7 @@ public partial class SettingsWindow : Window {
     private void Toggle(Panel panel, string label, string path, bool value) {
         var box = new CheckBox { Content = label, IsChecked = value };
         AutomationProperties.SetAutomationId(box, path);
+        AutomationProperties.SetName(box, label);
         panel.Children.Add(box);
         Track(path, () => (box.IsChecked == true).ToString(), () => JsonValue.Create(box.IsChecked == true));
         box.Checked += (_, _) => RefreshDirty();
@@ -584,13 +612,14 @@ public partial class SettingsWindow : Window {
     }
 
     private void KeyPicker(Panel panel, string label, string path, VKey? value, bool nullable) {
-        var choices = Enum.GetValues<VKey>().Select(k => new KeyChoice(k, KeyLabel(k))).ToList();
+        var choices = KeyChoices(value);
         if (nullable) {
             choices.Insert(0, new KeyChoice(null, "None"));
         }
-        var box = new ComboBox { ItemsSource = choices, DisplayMemberPath = "Label", SelectedItem = choices.First(c => c.Key == value) };
+        var box = new ComboBox { ItemsSource = choices, DisplayMemberPath = "Label",
+            SelectedValuePath = nameof(KeyChoice.Key), SelectedItem = choices.First(c => c.Key == value) };
         AutomationProperties.SetAutomationId(box, path);
-        var input = new StackPanel { Orientation = Orientation.Horizontal };
+        var input = new WrapPanel();
         input.Children.Add(box);
         input.Children.Add(CaptureButton(path + ".capture", box, selected =>
             box.SelectedItem = choices.First(choice => choice.Key == selected)));
@@ -636,7 +665,7 @@ public partial class SettingsWindow : Window {
         UpdateDraft(ignoreInvalid: true);
         _dirty = _fields.Values.Any(f => f.Current() != f.Original);
         DirtyLabel.Text = _dirty ? "Unsaved changes" : _pendingApply ? "Saved · apply pending" : "No unsaved changes";
-        SaveButton.IsEnabled = _dirty || _pendingApply;
+        SaveButton.IsEnabled = !_requiresReload && (_dirty || _pendingApply);
         DiscardButton.IsEnabled = true; // Also reloads external edits.
     }
 
@@ -661,33 +690,16 @@ public partial class SettingsWindow : Window {
     }
 
     private void SaveClicked(object sender, RoutedEventArgs e) {
-        var persisted = false;
         try {
-            var previousRuntime = _captureRuntime();
-            var candidate = _loadedConfig;
-            if (_dirty) {
-                UpdateDraft(ignoreInvalid: false);
-                candidate = _store.Save(_draft.Changes, _preflight);
-                persisted = _store.HasUnacceptedCommit;
-                _pendingApply = true;
-            }
-            var outcome = _apply(candidate);
+            if (_requiresReload) { throw new InvalidOperationException("Reload the external config before retrying."); }
+            UpdateDraft(ignoreInvalid: false);
+            var outcome = _transaction.Execute(_draft.Changes);
             if (outcome.Succeeded) {
-                _store.AcceptLastCommit();
-                _pendingApply = false;
-            } else {
-                var disk = persisted
-                    ? _store.RestoreLastCommit()
-                    : new SettingsDiskRecoveryOutcome(true, "No config replacement needed restoration.");
-                var runtime = _restoreRuntime(previousRuntime);
-                _pendingApply = !disk.Succeeded || !runtime.Succeeded;
-                var status = "Apply failed. The draft is retained.\n" +
-                    string.Join("\n", outcome.Issues) + "\nDisk: " + disk.Message + "\nRuntime: " +
-                    (runtime.Succeeded ? "previous runtime restored." : string.Join("; ", runtime.Issues));
-                ShowStatus(status, error: true);
-            }
-            if (outcome.Succeeded && persisted) {
                 LoadDraft();
+            } else {
+                _requiresReload = outcome.RequiresReload;
+                _pendingApply = true;
+                ShowStatus(string.Join("\n", outcome.Issues), error: true);
             }
             if (outcome.Succeeded) {
                 var status = _demo ? "Saved and reloaded demo config. Runtime activation is disabled."
@@ -702,15 +714,21 @@ public partial class SettingsWindow : Window {
             }
         } catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or
                                     InvalidOperationException or Win32Exception or FormatException) {
-            ShowStatus((persisted || _pendingApply ? "Saved, but not fully applied: " : "Not saved: ") + ex.Message, error: true);
+            _requiresReload = _store.RequiresReload;
+            ShowStatus("Not saved: " + ex.Message, error: true);
             FocusReportedField(ex.Message);
+        } finally {
+            try { _completeRuntimeOperation(); }
+            catch (InvalidOperationException ex) {
+                _pendingApply = true;
+                ShowStatus("Runtime cleanup failed: " + ex.Message, error: true);
+            }
         }
         RefreshDirty();
     }
 
     private void DiscardClicked(object sender, RoutedEventArgs e) {
-        if (_dirty && MessageBox.Show(this, "Discard unsaved changes and reload from disk?", "Klikety Settings",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) {
+        if ((_dirty || _pendingApply) && !_confirmDiscard("Discard unsaved changes and reload from disk?")) {
             return;
         }
         try {
@@ -721,9 +739,8 @@ public partial class SettingsWindow : Window {
     }
 
     private void ConfirmClose(object? sender, CancelEventArgs e) {
-        if ((_dirty || _pendingApply) && MessageBox.Show(this,
-                _dirty ? "Discard unsaved changes and close?" : "Settings are saved, but apply has issues. Close anyway?",
-                "Klikety Settings", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) {
+        if ((_dirty || _pendingApply) && !_confirmDiscard(
+                _dirty ? "Discard unsaved changes and close?" : "Settings are saved, but apply has issues. Close anyway?")) {
             e.Cancel = true;
         }
     }
@@ -732,6 +749,9 @@ public partial class SettingsWindow : Window {
         Status.Text = text;
         AutomationProperties.SetName(Status, text);
         Status.Foreground = error ? Brushes.DarkRed : new SolidColorBrush(Color.FromRgb(85, 92, 102));
+        if (AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged)) {
+            UIElementAutomationPeer.CreatePeerForElement(Status)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
+        }
     }
 
     private void FocusReportedField(string message) {
@@ -779,6 +799,11 @@ public partial class SettingsWindow : Window {
                 if (element.Focus()) { return; }
             }
         }
+    }
+
+    private static void FocusEditor(FrameworkElement root, string id) {
+        root.UpdateLayout();
+        FindAutomationElement(root, id)?.Focus();
     }
 
     private static void ExpandAdvancedAncestors(FrameworkElement element) {

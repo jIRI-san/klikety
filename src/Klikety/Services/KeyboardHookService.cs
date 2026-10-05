@@ -89,6 +89,8 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
                 if (_logger is not null) {
                     LogHookDisabled(_logger);
                 }
+            } else if (_logger is not null) {
+                LogHookDisableFailed(_logger);
             }
         }
     }
@@ -144,8 +146,11 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
 
     public void Dispose() {
         if (!_disposed) {
-            _disposed = true;
             Disable();
+            if (_hookId != 0) {
+                throw new InvalidOperationException("Keyboard hook cleanup failed; its callback remains owned for retry.");
+            }
+            _disposed = true;
         }
     }
 
@@ -154,6 +159,9 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Keyboard hook enable failed")]
     private static partial void LogHookEnableFailed(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Keyboard hook disable failed")]
+    private static partial void LogHookDisableFailed(ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Keyboard hook disabled")]
     private static partial void LogHookDisabled(ILogger logger);

@@ -2,6 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Text.Json.Nodes;
+using System.Windows.Automation;
+using System.Windows.Automation.Peers;
 
 using Klikety;
 using Klikety.Config;
@@ -10,6 +13,7 @@ using MouseAction = Klikety.Config.MouseAction;
 
 namespace Klikety.Tests;
 
+[Collection("Settings UI")]
 public sealed class SettingsWindowTests {
     private static readonly string[][] EditableIds = [
         ["hotKey.modifiers", "hotKey.key", "logLevel", "fileLoggingEnabled", "retainedLogFileCount", "metadata.configPath", "metadata.configVersion", "metadata.schemaReference"],
@@ -53,11 +57,12 @@ public sealed class SettingsWindowTests {
                 _ = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
                 var snapshot = new SettingsRuntimeSnapshot(new ConfigModel(), false, false);
                 var applySucceeds = false;
+                var confirmDiscard = false;
                 var window = new SettingsWindow(path, true, _ => { }, () => snapshot,
                     _ => applySucceeds
                         ? SettingsApplyOutcome.Success
                         : new SettingsApplyOutcome(false, ["Injected runtime activation failure."]),
-                    _ => SettingsApplyOutcome.Success);
+                    _ => SettingsApplyOutcome.Success, confirmDiscard: _ => confirmDiscard);
                 window.Show();
 
                 var categories = Assert.IsType<ListBox>(window.FindName("Categories"));
@@ -96,6 +101,29 @@ public sealed class SettingsWindowTests {
                 trigger.RaiseEvent(cancelEvent);
                 Assert.Equal("Space", trigger.SelectedItem?.ToString());
                 Assert.Contains("cancelled", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                window.UpdateLayout();
+                trigger.Focus();
+                capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                modifiers.Focus();
+                Assert.Contains("focus moved", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                Assert.Equal("Space", trigger.SelectedValue?.ToString());
+                var selectedCategory = Assert.IsType<ListBoxItem>(categories.SelectedItem);
+                selectedCategory.Focus();
+                var selectedPage = categories.SelectedIndex;
+                selectedCategory.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Down) {
+                    RoutedEvent = Keyboard.KeyDownEvent,
+                });
+                Assert.Equal(selectedPage + 1, categories.SelectedIndex);
+                Assert.IsType<ListBoxItem>(categories.SelectedItem).RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Up) {
+                    RoutedEvent = Keyboard.KeyDownEvent,
+                });
+                Assert.Equal(selectedPage, categories.SelectedIndex);
+                window.UpdateLayout();
+                Assert.True(trigger.Focus());
+                Assert.True(trigger.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+                Assert.True(capture.IsKeyboardFocused);
+                Assert.True(capture.MoveFocus(new TraversalRequest(FocusNavigationDirection.Previous)));
+                Assert.True(trigger.IsKeyboardFocused);
                 modifiers.SelectedItem = "Control";
                 Assert.True(save.IsEnabled);
                 categories.SelectedIndex = 1;
@@ -134,14 +162,124 @@ public sealed class SettingsWindowTests {
                 Assert.True(save.IsEnabled);
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.Equal(MouseAction.DragDrop, new SettingsConfigStore(path).Open().Config.ActionBindings["OemOpenBrackets"]);
+
+                foreach (var field in SettingsFieldCases.All) {
+                    categories.SelectedIndex = field.Page;
+                    if (field.Path.EndsWith(".default", StringComparison.Ordinal)) {
+                        Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "defaultMode")).SelectedIndex = 1;
+                        continue;
+                    }
+                    var desired = JsonNode.Parse(field.Json);
+                    if (field.Path == "actionBindings") {
+                        while (FindByAutomationId<Button>(pageHost.Content!, "actionBindings.item.0.remove") is { } remove) {
+                            remove.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        }
+                        foreach (var (key, action) in desired!.AsObject()) {
+                            Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "actionBindings.add.key"))
+                                .SelectedValue = Enum.Parse<VKey>(key);
+                            Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "actionBindings.add.action"))
+                                .SelectedItem = Enum.Parse<MouseAction>(action!.GetValue<string>());
+                            Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, "actionBindings.add"))
+                                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        }
+                        continue;
+                    }
+                    if (desired is JsonArray desiredKeys) {
+                        while (FindByAutomationId<Button>(pageHost.Content!, field.Path + ".item.0.remove") is { } remove) {
+                            remove.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        }
+                        foreach (var key in desiredKeys) {
+                            Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, field.Path + ".add.key"))
+                                .SelectedValue = Enum.Parse<VKey>(key!.GetValue<string>());
+                            Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, field.Path + ".add"))
+                                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        }
+                        var first = Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, field.Path + ".item.0"));
+                        var firstValue = first.SelectedValue;
+                        Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, field.Path + ".item.0.down"))
+                            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, field.Path + ".item.1.up"))
+                            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        Assert.Equal(firstValue, Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, field.Path + ".item.0")).SelectedValue);
+                        continue;
+                    }
+                    var control = Assert.IsAssignableFrom<FrameworkElement>(FindByAutomationId<FrameworkElement>(pageHost.Content!, field.Path));
+                    if (control is TextBox text) {
+                        text.Text = desired is JsonValue value && value.TryGetValue<string>(out var stringValue)
+                            ? stringValue : desired!.ToJsonString();
+                    } else if (control is CheckBox toggle) {
+                        toggle.IsChecked = desired!.GetValue<bool>();
+                    } else if (control is ComboBox choice) {
+                        if (choice.SelectedValuePath.Length > 0) {
+                            choice.SelectedValue = desired is null ? null : Enum.Parse<VKey>(desired.GetValue<string>());
+                        } else { choice.SelectedItem = desired!.GetValue<string>(); }
+                    }
+                    Assert.False(string.IsNullOrWhiteSpace(UIElementAutomationPeer.CreatePeerForElement(control)?.GetName()), field.Path);
+                }
+                categories.SelectedIndex = 2;
+                var collisionKey = Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "actionBindings.item.0.key"));
+                collisionKey.SelectedValue = VKey.X;
+                var beforeDuplicateSave = File.ReadAllBytes(path);
+                save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Contains("assigned more than once", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                Assert.Equal(beforeDuplicateSave, File.ReadAllBytes(path));
+                collisionKey.SelectedValue = VKey.Z;
+                save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Contains("Saved", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                Assert.False(save.IsEnabled);
+                var savedAll = SettingsFieldCases.Serialize(new SettingsConfigStore(path).Open().Config);
+                foreach (var field in SettingsFieldCases.All) {
+                    Assert.True(JsonNode.DeepEquals(JsonNode.Parse(field.Json), SettingsFieldCases.At(savedAll, field.Path)), field.Path);
+                }
+
+                categories.SelectedIndex = 6;
+                window.UpdateLayout();
+                var fade = Assert.IsType<TextBox>(FindByAutomationId<TextBox>(pageHost.Content!, "keyPressVisualization.fadeDurationMs"));
+                fade.Text = "-1";
+                var beforeInvalidHudSave = File.ReadAllBytes(path);
+                save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.True(fade.IsKeyboardFocused);
+                Assert.Equal("-1", fade.Text);
+                Assert.Equal(beforeInvalidHudSave, File.ReadAllBytes(path));
+                fade.Text = "300";
+                Assert.False(save.IsEnabled);
+
+                categories.SelectedIndex = 3;
+                var theme = Assert.IsType<TextBox>(FindByAutomationId<TextBox>(pageHost.Content!, "theme"));
+                theme.Text = "unsaved";
+                Assert.IsType<Button>(window.FindName("DiscardButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal("unsaved", theme.Text);
                 window.Close();
+                Assert.True(window.IsVisible);
+                confirmDiscard = true;
+                Assert.IsType<Button>(window.FindName("DiscardButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal("custom", Assert.IsType<TextBox>(FindByAutomationId<TextBox>(pageHost.Content!, "theme")).Text);
+                Assert.False(save.IsEnabled);
+                Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(Assert.IsType<TextBlock>(window.FindName("Status"))));
+                window.Close();
+
+                File.WriteAllText(path, "{\"configVersion\":7,\"hotKey\":{\"key\":9999},\"macros\":{\"slotKeys\":null}}");
+                var invalidBefore = File.ReadAllBytes(path);
+                var repairWindow = new SettingsWindow(path, true, _ => { }, () => snapshot,
+                    _ => SettingsApplyOutcome.Success, _ => SettingsApplyOutcome.Success, confirmDiscard: _ => true);
+                Assert.Equal(invalidBefore, File.ReadAllBytes(path));
+                var repairCategories = Assert.IsType<ListBox>(repairWindow.FindName("Categories"));
+                var repairPage = Assert.IsType<ContentControl>(repairWindow.FindName("PageHost"));
+                Assert.Contains("Existing config errors", Assert.IsType<TextBlock>(repairWindow.FindName("Status")).Text);
+                Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(repairPage.Content!, "hotKey.key")).SelectedValue = VKey.Space;
+                repairCategories.SelectedIndex = 5;
+                Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(repairPage.Content!, "macros.slotKeys.add.key")).SelectedValue = VKey.F1;
+                Assert.IsType<Button>(FindByAutomationId<Button>(repairPage.Content!, "macros.slotKeys.add")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.IsType<Button>(repairWindow.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Empty(new SettingsConfigStore(path).Open().SettingsBlockingErrors);
+                repairWindow.Close();
             } catch (Exception ex) {
                 failure = ex;
             }
         });
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        thread.Join();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "WPF editor check timed out.");
 
         try {
             if (failure is not null) {

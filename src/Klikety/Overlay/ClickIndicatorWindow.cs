@@ -24,8 +24,8 @@ public sealed class ClickIndicatorWindow : Window {
     public event Action? Completed;
 
     public ClickIndicatorWindow(PlaybackIndicatorConfig config) {
-        if (!double.IsFinite(config.InitialRadius) || config.InitialRadius <= 0 ||
-            !double.IsFinite(config.FinalRadius) || config.FinalRadius <= 0) {
+        if (!double.IsFinite(config.InitialRadius * 2) || config.InitialRadius <= 0 ||
+            !double.IsFinite(config.FinalRadius * 2) || config.FinalRadius <= 0) {
             throw new InvalidDataException("Playback indicator radii must be finite and greater than 0 DIP.");
         }
         if (!double.IsFinite(config.StrokeThickness) || config.StrokeThickness < 0) {

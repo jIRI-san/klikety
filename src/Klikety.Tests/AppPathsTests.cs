@@ -7,6 +7,14 @@ namespace Klikety.Tests;
 
 public sealed class AppPathsTests {
     [Fact]
+    public void FixtureAdmissionRejectsRelativeUserAndAncestorPathsWithoutReadingOrWritingThem() {
+        Assert.Throws<InvalidDataException>(() => AppPaths.ForFixture("relative"));
+        Assert.Throws<InvalidDataException>(() => AppPaths.ForFixture(AppPaths.User.Root));
+        Assert.Throws<InvalidDataException>(() => AppPaths.ForFixture(Path.Combine(AppPaths.User.Root, "child")));
+        Assert.Throws<InvalidDataException>(() => AppPaths.ForFixture(Path.GetDirectoryName(AppPaths.User.Root)!));
+    }
+
+    [Fact]
     public void FixtureRootConfinesAllAppOwnedPaths() {
         var root = Path.Combine(Path.GetTempPath(), "Klikety-fixture-" + Guid.NewGuid());
         var paths = new AppPaths(root);
@@ -33,10 +41,11 @@ public sealed class AppPathsTests {
             App.ConfigureRuntimeFixture(configPath);
             var config = JsonNode.Parse(File.ReadAllText(configPath))!.AsObject();
             Assert.Equal("light", config["theme"]!.GetValue<string>());
-            Assert.Equal("F12", config["hotKey"]!["key"]!.GetValue<string>());
+            Assert.Equal("F11", config["hotKey"]!["key"]!.GetValue<string>());
             Assert.Equal("Control, Alt, Shift", config["hotKey"]!["modifiers"]!.GetValue<string>());
-            Assert.Equal("F11", config["macros"]!["globalHotKey"]!["key"]!.GetValue<string>());
+            Assert.Equal("Pause", config["macros"]!["globalHotKey"]!["key"]!.GetValue<string>());
             Assert.False(config["macros"]!["enabled"]!.GetValue<bool>());
+            Assert.Empty(ConfigLoader.ReadSettings(File.ReadAllText(configPath)).SettingsBlockingErrors);
         } finally {
             foreach (var file in Directory.GetFiles(root)) { File.Delete(file); }
             Directory.Delete(root);

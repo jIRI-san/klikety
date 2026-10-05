@@ -60,12 +60,12 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
   original container are retained. The previous exact file is kept in `.settings.bak`;
   external edits block saving and a final compare/replace race remains. Version 7 only;
   no parse-default saving or implicit migration in the editor. Full behavior and limits are
-  in [settings-prototype.design.md](settings-prototype.design.md).
+  in [settings.design.md](settings.design.md).
 
 - **Isolated runtime fixture** (`--settings-runtime-fixture <absolute-directory>`) uses
   `AppPaths` to confine config, logs, macros, themes, and topology to a fixture folder.
   It avoids first-run extraction and registry toggles, applies real runtime registrations,
-  and uses dedicated Ctrl+Alt+Shift+F12/F11 hotkeys. Verify registration availability before
+  and uses dedicated Ctrl+Alt+Shift+F11/Pause hotkeys. Verify registration availability before
   relying on the fixture; the hook-free `--settings-demo` is not runtime evidence.
 
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.

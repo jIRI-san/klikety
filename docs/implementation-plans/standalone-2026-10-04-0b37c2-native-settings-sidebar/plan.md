@@ -68,7 +68,7 @@ verification; none of these steps is completed by Workshop approval.
 
 ## Phase 2: MVP real save, apply and recovery
 
-- [ ] 2.1 Make runtime composition return typed apply/recovery outcomes (REQ-5, RISK-2, RISK-3, RISK-5, RISK-9) [after: 1.1] `L`
+- [x] 2.1 Make runtime composition return typed apply/recovery outcomes (REQ-5, RISK-2, RISK-3, RISK-5, RISK-9) [after: 1.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Given a validated captured config, attempt idle-only runtime activation,
@@ -102,6 +102,7 @@ verification; none of these steps is completed by Workshop approval.
   do not claim a guaranteed rollback.
 
   </details>
+
 - [ ] 2.2 Connect Save & apply end-to-end and retain drafts on failure (REQ-1, REQ-5, RISK-2, RISK-5) [after: 1.2, 2.1] `M`
   <details><summary>Implementation contract</summary>
 
@@ -337,3 +338,10 @@ verification; none of these steps is completed by Workshop approval.
   path/runtime ownership; links resolve and limits/recovery failure are explicit.
 
   </details>
+
+## Execution evidence
+
+[Pre-human implementation checkpoint](assets/evidence.md) records the source commit,
+focused Release results, direct evidence, completed automation and remaining native
+requirements. Only 1.1 and 2.1 are closed. Other steps retain their prerequisite/native
+gates; implementation of their safe automated portions does not close those steps.

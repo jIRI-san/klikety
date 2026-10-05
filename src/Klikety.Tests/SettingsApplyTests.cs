@@ -200,6 +200,29 @@ public sealed class SettingsApplyTests {
     }
 
     [Fact]
+    public void FailedHookDisposalStopsDispatchToDisposedConsumersAndRemainsRetryable() {
+        var fail = true;
+        var releases = 0;
+        var hook = new KeyboardHookService((nint)123, handle => {
+            Assert.Equal((nint)123, handle);
+            releases++;
+            return !fail;
+        });
+        var dispatched = 0;
+        hook.KeyEvent += (_, _) => dispatched++;
+        hook.DispatchKey(new(VKey.A, true), 0);
+        Assert.Equal(1, dispatched);
+        Assert.Throws<InvalidOperationException>(hook.Dispose);
+        hook.DispatchKey(new(VKey.A, true), 1);
+        Assert.Equal(1, dispatched);
+        Assert.Throws<ObjectDisposedException>(() => hook.Enable());
+        fail = false;
+        hook.Dispose();
+        hook.Dispose();
+        Assert.Equal(2, releases);
+    }
+
+    [Fact]
     public void OwnershipTransferReleasesCoordinatorBeforeItsWindowsAndDoesNotDoubleDisposeHook() {
         var released = new List<string>();
         var owner = new SettingsRuntimeResources();

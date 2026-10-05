@@ -23,6 +23,7 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
     private const int LLKHF_INJECTED = 0x10;
     private const int FLAGS_OFFSET = 8; // offset of 'flags' in KBDLLHOOKSTRUCT
     private bool _disposed;
+    private bool _disposeRequested;
 
     private delegate nint LowLevelKeyboardProc(int nCode, nint wParam, nint lParam);
 
@@ -43,6 +44,7 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
     private LowLevelKeyboardProc? _hookProc; // prevent GC
     private readonly Dispatcher _dispatcher;
     private readonly ILogger? _logger;
+    private readonly Func<nint, bool> _unhook = UnhookWindowsHookEx;
     private int _generation; // incremented on Enable/Disable to discard stale events
     private bool _draining; // drain mode: suppress all keys without dispatching, auto-disable on keyup
 
@@ -53,7 +55,15 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
         _logger = logger;
     }
 
+    internal KeyboardHookService(nint heldHook, Func<nint, bool> unhook) : this() {
+        ArgumentNullException.ThrowIfNull(unhook);
+        if (heldHook == 0) { throw new ArgumentOutOfRangeException(nameof(heldHook)); }
+        _hookId = heldHook;
+        _unhook = unhook;
+    }
+
     public bool Enable() {
+        ObjectDisposedException.ThrowIf(_disposeRequested, this);
         _draining = false;
         if (_hookId != 0) {
             return true; // already hooked
@@ -83,7 +93,7 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
         _draining = false;
         _generation++;
         if (_hookId != 0) {
-            if (UnhookWindowsHookEx(_hookId)) {
+            if (_unhook(_hookId)) {
                 _hookId = 0;
                 _hookProc = null;
                 if (_logger is not null) {
@@ -101,6 +111,7 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
     }
 
     private nint HookCallback(int nCode, nint wParam, nint lParam) {
+        if (_disposeRequested) { return CallNextHookEx(_hookId, nCode, wParam, lParam); }
         if (nCode >= 0) {
             bool isDown = wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN;
             bool isUp = wParam == WM_KEYUP || wParam == WM_SYSKEYUP;
@@ -127,11 +138,7 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
                 var vkey = (VKey)(uint)Marshal.ReadInt32(lParam);
                 var args = new KeyHookEventArgs(vkey, isDown);
                 var gen = _generation;
-                _dispatcher.InvokeAsync(() => {
-                    if (gen == _generation) {
-                        KeyEvent?.Invoke(this, args);
-                    }
-                });
+                _dispatcher.InvokeAsync(() => DispatchKey(args, gen));
 
                 // Suppress regular keys so they never reach the focused window.
                 // System keys (WM_SYSKEYDOWN/UP) pass through for Alt+Tab etc.
@@ -144,8 +151,13 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
         return CallNextHookEx(_hookId, nCode, wParam, lParam);
     }
 
+    internal void DispatchKey(KeyHookEventArgs args, int generation) {
+        if (!_disposeRequested && generation == _generation) { KeyEvent?.Invoke(this, args); }
+    }
+
     public void Dispose() {
         if (!_disposed) {
+            _disposeRequested = true;
             Disable();
             if (_hookId != 0) {
                 throw new InvalidOperationException("Keyboard hook cleanup failed; its callback remains owned for retry.");

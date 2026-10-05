@@ -106,7 +106,9 @@ registrations; owned shortcuts are deferred to activation, never unregistered ju
 ownership to the coordinator, and closes overlay/picker/playback windows. Cleanup failures
 are reported while remaining resources are still released. Failed cleanups retain their
 owners for retry, including native hook callbacks; failed unregistration cannot masquerade
-as released ownership. `SettingsRuntimeReplacement`
+as released ownership. A hook being disposed stops consumer dispatch/key suppression
+even when unhook fails, so disposed HUD/navigation consumers receive no subsequent keys.
+`SettingsRuntimeReplacement`
 applies the captured config and preserves HUD state and pause only while scrolling stays
 enabled; failed HUD creation releases the candidate. `SettingsLoggerLifetime` retains
 previous factories through teardown, recovery, and outcome reporting.

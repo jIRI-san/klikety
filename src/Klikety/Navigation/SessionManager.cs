@@ -1,5 +1,6 @@
 using System.Drawing;
 
+using Klikety.Automation;
 using Klikety.Config;
 using Klikety.Input;
 using Klikety.Services;
@@ -50,12 +51,15 @@ internal sealed partial class SessionManager : IDisposable {
     public bool AppScoped => _appScoped;
     public Rectangle AppScopeBounds => _appScopeBounds;
     public Rectangle ActiveBounds => _appScoped ? _appScopeBounds : _screenBounds;
+    public ElementTargetContext? TargetContext { get; set; }
 
     // --- Events (forwarded from active session) ---
 
     public event Action<Point, MouseAction>? ActionRequested;
     public event Action? Cancelled;
     public event Action<Point>? CursorMoveRequested;
+    public event Action? GridFallbackRequested;
+    public event Action<string>? FailureReported;
 
     // --- Session lifecycle methods ---
 
@@ -69,7 +73,7 @@ internal sealed partial class SessionManager : IDisposable {
         _currentModeName = modeName;
         _modeLocked = false;
 
-        var session = _sessionFactory.Create(modeName);
+        var session = _sessionFactory.Create(modeName, TargetContext);
         SubscribeSession(session);
         _activeSession = session;
         LogSessionActivate(modeName, bounds.X, bounds.Y, bounds.Width, bounds.Height, origin.X, origin.Y);
@@ -94,7 +98,7 @@ internal sealed partial class SessionManager : IDisposable {
             _modeLocked = false;
             _screenBounds = bounds;
             _origin = origin;
-            var session = _sessionFactory.Create(_currentModeName);
+            var session = _sessionFactory.Create(_currentModeName, TargetContext);
             SubscribeSession(session);
             _activeSession = session;
             LogSessionActivate(_currentModeName, bounds.X, bounds.Y, bounds.Width, bounds.Height, origin.X, origin.Y);
@@ -108,7 +112,7 @@ internal sealed partial class SessionManager : IDisposable {
     /// Switches to a different navigation mode. Unsubscribes old session, clears canvas,
     /// creates new session, subscribes, and activates.
     /// </summary>
-    public void SwitchMode(string targetModeName) {
+    public void SwitchMode(string targetModeName, Point? origin = null) {
         if (_switching) {
             return;
         }
@@ -120,11 +124,11 @@ internal sealed partial class SessionManager : IDisposable {
             UnsubscribeAndDeactivateSession();
             _overlayWindow.ClearCanvas();
 
-            var session = _sessionFactory.Create(targetModeName);
+            var session = _sessionFactory.Create(targetModeName, TargetContext);
             SubscribeSession(session);
             _activeSession = session;
             _currentModeName = targetModeName;
-            session.Activate(ActiveBounds, _origin);
+            session.Activate(ActiveBounds, origin ?? _origin);
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
             LogModeSwitchFailed(targetModeName, ex.Message);
             throw;
@@ -148,7 +152,7 @@ internal sealed partial class SessionManager : IDisposable {
             UnsubscribeAndDeactivateSession();
             _overlayWindow.ClearCanvas();
 
-            var session = _sessionFactory.Create(_currentModeName);
+            var session = _sessionFactory.Create(_currentModeName, TargetContext);
             SubscribeSession(session);
             _activeSession = session;
             _modeLocked = false;
@@ -192,9 +196,10 @@ internal sealed partial class SessionManager : IDisposable {
                 _overlayWindow.SetAppScopeBorder(false);
             }
 
-            var session = _sessionFactory.Create(defaultModeName);
+            var session = _sessionFactory.Create(defaultModeName, TargetContext);
             SubscribeSession(session);
             _activeSession = session;
+            _currentModeName = defaultModeName;
 
             if (recordingAppScoped) {
                 session.Activate(recordingWindowBounds, dragStartPoint);
@@ -221,9 +226,11 @@ internal sealed partial class SessionManager : IDisposable {
         _modeLocked = false;
         _origin = origin;
 
-        var session = _sessionFactory.Create(defaultModeName);
+        UnsubscribeAndDeactivateSession();
+        var session = _sessionFactory.Create(defaultModeName, TargetContext);
         SubscribeSession(session);
         _activeSession = session;
+        _currentModeName = defaultModeName;
 
         if (appScoped) {
             session.Activate(appScopeBounds, origin);
@@ -244,9 +251,11 @@ internal sealed partial class SessionManager : IDisposable {
         _origin = origin;
         _screenBounds = bounds;
 
-        var session = _sessionFactory.Create(defaultModeName);
+        UnsubscribeAndDeactivateSession();
+        var session = _sessionFactory.Create(defaultModeName, TargetContext);
         SubscribeSession(session);
         _activeSession = session;
+        _currentModeName = defaultModeName;
         session.Activate(bounds, origin);
     }
 
@@ -298,16 +307,31 @@ internal sealed partial class SessionManager : IDisposable {
         session.ActionRequested += OnSessionActionRequested;
         session.Cancelled += OnSessionCancelled;
         session.CursorMoveRequested += OnSessionCursorMoveRequested;
+        if (session is ElementHintsSession hints) {
+            hints.GridFallbackRequested += OnGridFallbackRequested;
+            hints.FailureReported += OnFailureReported;
+        }
     }
 
     private void UnsubscribeAndDeactivateSession() {
         if (_activeSession is not null) {
+            if (_activeSession is ElementHintsSession hints) {
+                hints.GridFallbackRequested -= OnGridFallbackRequested;
+            }
             _activeSession.ActionRequested -= OnSessionActionRequested;
             _activeSession.Cancelled -= OnSessionCancelled;
             _activeSession.CursorMoveRequested -= OnSessionCursorMoveRequested;
             _activeSession.Deactivate();
+            if (_activeSession is ElementHintsSession retired) {
+                _ = UnsubscribeFailureAfterRetirementAsync(retired, retired.Retirement);
+            }
             _activeSession = null;
         }
+    }
+
+    private async Task UnsubscribeFailureAfterRetirementAsync(ElementHintsSession hints, Task retirement) {
+        await retirement;
+        hints.FailureReported -= OnFailureReported;
     }
 
     private void OnSessionActionRequested(Point point, MouseAction action) =>
@@ -318,6 +342,14 @@ internal sealed partial class SessionManager : IDisposable {
 
     private void OnSessionCursorMoveRequested(Point point) =>
         CursorMoveRequested?.Invoke(point);
+    private void OnGridFallbackRequested() => GridFallbackRequested?.Invoke();
+    private void OnFailureReported(string reason) => FailureReported?.Invoke(reason);
+    public void SuspendElementHints() {
+        if (_activeSession is ElementHintsSession hints) { hints.Suspend(); }
+    }
+    public void ResumeElementHints() {
+        if (_activeSession is ElementHintsSession hints) { hints.Activate(ActiveBounds, _origin); }
+    }
 
     // --- Log messages ---
 

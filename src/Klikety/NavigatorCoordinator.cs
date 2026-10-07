@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Windows.Threading;
 
+using Klikety.Automation;
 using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
@@ -40,6 +41,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private readonly ModeSessionFactory _sessionFactory;
     private readonly IPlatformServices _platform;
     private readonly Func<nint, IKeyLabelResolver> _keyLabelResolverFactory;
+    private readonly IElementPointGuard _elementPointGuard;
+    private CancellationTokenSource? _pendingElementAction;
+    private ActionModifiers _eventModifiers;
+    public event Action<string>? RuntimeNotification;
+    public event Action<bool>? ElementValidationChanged;
+    public bool IsElementValidationPending => _pendingElementAction is not null;
 
     private bool _deactivating;
     private bool _hostBusy;
@@ -101,7 +108,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         MacrosFile? macrosFile = null,
         Func<ISatelliteOverlay>? satelliteFactory = null,
         DisplayTopologyStore? topologyStore = null,
-        Func<nint, IKeyLabelResolver>? keyLabelResolverFactory = null) {
+        Func<nint, IKeyLabelResolver>? keyLabelResolverFactory = null,
+        IElementPointGuard? elementPointGuard = null) {
         _hotKeyService = hotKeyService;
         _hookService = hookService;
         _mouseService = mouseService;
@@ -113,6 +121,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _topologyStore = topologyStore;
         _sessionFactory = sessionFactory;
         _platform = platform;
+        _elementPointGuard = elementPointGuard ?? new ElementPointGuard();
         _config = config;
         _logger = logger;
         _keyLabelResolverFactory = keyLabelResolverFactory ?? (layout => new Win32KeyLabelResolver(layout));
@@ -148,9 +157,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _sessionManager.ActionRequested += OnSessionActionRequested;
         _sessionManager.Cancelled += OnSessionCancelled;
         _sessionManager.CursorMoveRequested += OnSessionCursorMoveRequested;
+        _sessionManager.GridFallbackRequested += OnElementGridFallback;
+        _sessionManager.FailureReported += NotifyElementFailure;
     }
 
     private void BuildChordKeyMap() {
+        if (_sessionFactory.IsElementHintsAvailable && _config.Modes.ElementHints.ChordKey is { } hintsChord) {
+            _chordKeyMap[hintsChord] = "ElementHints";
+        }
         if (_config.Modes.Crosshair is { Enabled: true, ChordKey: { } crosshairChord }) {
             _chordKeyMap[crosshairChord] = "Crosshair";
         }
@@ -210,6 +224,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         // Capture foreground window HWND before Show() — overlay becomes foreground after Show()
         _preOverlayHwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
+        _sessionManager.TargetContext = _elementPointGuard.Capture(_preOverlayHwnd, Environment.ProcessId);
         _macroHandler.SetTargetHwnd(_preOverlayHwnd);
 
         var layoutPending = false;
@@ -258,7 +273,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
         // Identify the configured default mode
         string defaultMode;
-        if (modes.LogGrid is { Default: true, Enabled: true } && _sessionFactory.IsLogGridAvailable) {
+        if (modes.ElementHints is { Default: true, Enabled: true } && _sessionFactory.IsElementHintsAvailable) {
+            defaultMode = "ElementHints";
+        } else if (modes.LogGrid is { Default: true, Enabled: true } && _sessionFactory.IsLogGridAvailable) {
             defaultMode = "LogGrid";
         } else if (modes.Crosshair is { Default: true, Enabled: true }) {
             defaultMode = "Crosshair";
@@ -269,7 +286,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
 
         // Non-QWERTY fallback for non-UniformGrid defaults
-        if (defaultMode != "UniformGrid" && !IsQwertyLayout()) {
+        if (defaultMode is not ("UniformGrid" or "ElementHints") && !IsQwertyLayout()) {
             if (!_nonQwertyWarningShown) {
                 _nonQwertyWarningShown = true;
                 LogNonQwertyFallback(defaultMode);
@@ -291,6 +308,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _helpLatchedKeys.Remove(e.Key);
             return;
         }
+        if (_pendingElementAction is not null) { return; }
+        _eventModifiers = (ActionModifiers)((int)e.Modifiers & 7);
 
         if (_helpLatchedKeys.Contains(e.Key)) {
             return;
@@ -381,7 +400,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         // (8) Chord dispatch: before mode lock, chord key switches mode
         if (!_sessionManager.IsModeLocked && _chordKeyMap.TryGetValue(e.Key, out var targetMode)) {
             // Non-QWERTY check for chord target
-            if (targetMode != "UniformGrid" && !IsQwertyLayout()) {
+            if (targetMode is not ("UniformGrid" or "ElementHints") && !IsQwertyLayout()) {
                 if (!_nonQwertyWarningShown) {
                     _nonQwertyWarningShown = true;
                     LogNonQwertyFallback(targetMode);
@@ -430,6 +449,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void SwitchNavigationDisplay(DisplayInfo target) {
+        CancelElementAction();
         var center = new Point(
             target.MonitorBounds.X + target.MonitorBounds.Width / 2,
             target.MonitorBounds.Y + target.MonitorBounds.Height / 2);
@@ -481,8 +501,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private void OnKeyboardLayoutChanged(object? sender, EventArgs e) =>
         RefreshKeyboardLayoutIfChanged(redraw: true);
 
-    private void OnViewportChanged(object? sender, OverlayViewportChangedEventArgs e) =>
+    private void OnViewportChanged(object? sender, OverlayViewportChangedEventArgs e) {
         _overlayWindow.RelayoutHelp();
+        if (!_hostBusy && _overlayWindow.IsVisible && _sessionManager.ActiveSession is ElementHintsSession hints) {
+            hints.Relayout();
+        }
+    }
 
     private void RefreshKeyboardLayoutIfChanged(bool redraw) {
         var keyboardLayout = _platform.KeyboardLayout.GetActiveKeyboardLayout();
@@ -518,7 +542,9 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _macroHandler.MacroPickerWindow is not null,
             _sessionManager.IsModeLocked,
             _sessionManager.AppScoped,
-            _helpBindingValid);
+            _helpBindingValid,
+            _sessionFactory.IsElementHintsAvailable,
+            _sessionManager.ActiveSession is ElementHintsSession hints ? hints.Status : null);
 
     private void ToggleHelp() {
         if (_helpVisible) {
@@ -564,10 +590,20 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnSessionActionRequested(Point point, MouseAction action) {
+        if (_sessionManager.ActiveSession is ElementHintsSession hints) {
+            if (_pendingElementAction is null) {
+                _ = ValidateAndDispatchElementActionAsync(hints, action, _eventModifiers);
+            }
+            return;
+        }
+        DispatchSessionAction(point, action);
+    }
+
+    private void DispatchSessionAction(Point point, MouseAction action, ActionModifiers? modifiers = null) {
         // Recording path
         if (_macroHandler.State == MacroState.Recording && _macroHandler.Recorder is not null) {
             var result = _actionDispatcher.HandleRecordingAction(point, action,
-                _macroHandler.Recorder, _macroHandler.RecordingAppScoped, _macroHandler.RecordingWindowBounds);
+                _macroHandler.Recorder, _macroHandler.RecordingAppScoped, _macroHandler.RecordingWindowBounds, modifiers);
             switch (result) {
                 case RecordingActionResult.SuspendAndResume:
                     _macroHandler.SuspendOverlayForAction();
@@ -584,14 +620,78 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
 
         // Normal path
-        if (!_actionDispatcher.HandleAction(point, action)) {
+        if (!_actionDispatcher.HandleAction(point, action, modifiers)) {
             // DragDrop phase 1 — reset overlay for drag target selection
             ResetOverlayForDrag();
         }
     }
 
+    private async Task ValidateAndDispatchElementActionAsync(ElementHintsSession hints,
+        MouseAction action, ActionModifiers modifiers) {
+        var intent = new CancellationTokenSource();
+        _pendingElementAction = intent;
+        try {
+            ElementValidationChanged?.Invoke(true);
+            _hostBusy = true;
+            ClearHelpState();
+            _hookService.DrainAndDisable();
+            _overlayHost.Hide();
+            _platform.ForegroundWindow.SetForegroundWindow(hints.Context.Hwnd);
+            _hostBusy = false;
+            var response = await hints.ValidateAsync(intent.Token);
+            if (intent.IsCancellationRequested || _pendingElementAction != intent ||
+                _sessionManager.ActiveSession != hints) { return; }
+            if (response.Outcome != HintOutcome.Success || response.Point is not { } point ||
+                !hints.Selected!.VisibleBounds.Contains(point) ||
+                !_elementPointGuard.IsCurrent(hints.Context, hints.RootProcessId, point)) {
+                if (_macroHandler.State == MacroState.Recording) { _macroHandler.CancelRecording(); }
+                _mouseService.MoveTo(_sessionManager.Origin);
+                DeactivateOverlay();
+                NotifyElementFailure($"Element action rejected: {response.Reason ?? response.Outcome.ToString()}. Reopen or use grid.");
+                return;
+            }
+            _pendingElementAction = null;
+            DispatchSessionAction(new(point.X, point.Y), action, modifiers);
+            // Drag-start and recorder-confirmation paths keep a navigation session alive.
+            if (_sessionManager.IsActive && !_overlayWindow.IsVisible &&
+                _macroHandler.State != MacroState.Playing) {
+                _hostBusy = true;
+                _overlayHost.ShowLast();
+                if (!_hookService.Enable()) { DeactivateOverlay(); } else { _sessionManager.RedrawActiveSession(); }
+                _hostBusy = false;
+            }
+        } catch (OperationCanceledException) {
+            // Activation cancellation owns teardown; no late input or retry.
+        } finally {
+            _hostBusy = false;
+            if (_pendingElementAction == intent) { _pendingElementAction = null; }
+            ElementValidationChanged?.Invoke(IsElementValidationPending);
+            intent.Dispose();
+        }
+    }
+
+    private void CancelElementAction() {
+        _pendingElementAction?.Cancel();
+        _pendingElementAction = null;
+    }
+    private void NotifyElementFailure(string reason) {
+        LogElementFailure(reason);
+        RuntimeNotification?.Invoke(reason);
+    }
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Element hints: {Reason}")]
+    private partial void LogElementFailure(string reason);
+
+    private void OnElementGridFallback() {
+        var cursor = _platform.Cursor.GetCursorPosition();
+        var bounds = _sessionManager.ActiveBounds;
+        var point = new Point(Math.Clamp(cursor.X, bounds.Left, bounds.Right - 1),
+            Math.Clamp(cursor.Y, bounds.Top, bounds.Bottom - 1));
+        _sessionManager.SwitchMode("UniformGrid", point);
+        _sessionManager.LockMode();
+    }
     private void ResetOverlayForDrag() {
         try {
+            CancelElementAction();
             _sessionManager.ResetForDrag(GetDefaultModeName(), _actionDispatcher.DragStartPoint,
                 _macroHandler.RecordingAppScoped, _macroHandler.RecordingWindowBounds);
             _overlayWindow.ShowStatusText("Select drag target");
@@ -630,6 +730,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _deactivating = true;
 
         try {
+            CancelElementAction();
             ClearHelpState();
             _hookService.DrainAndDisable();
 
@@ -715,6 +816,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     // --- Macro handler overlay-control event handlers ---
 
     private void OnMacroSuspendOverlay() {
+        CancelElementAction();
+        _sessionManager.SuspendElementHints();
         ClearHelpState();
         _overlayHost.Hide();
     }
@@ -755,6 +858,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _sessionManager.ActionRequested -= OnSessionActionRequested;
         _sessionManager.Cancelled -= OnSessionCancelled;
         _sessionManager.CursorMoveRequested -= OnSessionCursorMoveRequested;
+        _sessionManager.GridFallbackRequested -= OnElementGridFallback;
+        _sessionManager.FailureReported -= NotifyElementFailure;
         DeactivateOverlay();
         _overlayHost.Dispose();
         _debounce.Dispose();

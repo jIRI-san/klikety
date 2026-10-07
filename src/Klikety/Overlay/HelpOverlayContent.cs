@@ -44,7 +44,9 @@ public static class HelpOverlayContentBuilder {
         bool macroPickerAvailable,
         bool isModeLocked,
         bool appScoped,
-        bool helpBindingValid = true) {
+        bool helpBindingValid = true,
+        bool elementHintsAvailable = false,
+        string? elementHintStatus = null) {
         var helpBinding = config.HelpBinding;
         helpBindingValid &= helpBinding?.Enabled == true;
         var activeHelpBinding = helpBindingValid ? helpBinding : null;
@@ -68,6 +70,7 @@ public static class HelpOverlayContentBuilder {
         }
 
         AddMode(config.Modes.Crosshair, "Crosshair", "Crosshair", labels, entries, true, isModeLocked);
+        AddMode(config.Modes.ElementHints, "ElementHints", "Element hints", labels, entries, elementHintsAvailable, isModeLocked);
         AddMode(config.Modes.LogCrosshair, "LogCrosshair", "LogCrosshair", labels, entries, true, isModeLocked);
         AddMode(
             config.Modes.LogGrid,
@@ -104,6 +107,13 @@ public static class HelpOverlayContentBuilder {
         }
 
         var prompts = new List<string>();
+        if (elementHintStatus is not null) {
+            entries.Add(NewEntry(VKey.Return, "Grid fallback", HelpEntryCategory.Mode, labels));
+            entries.Add(NewEntry(VKey.Left, "Previous page", HelpEntryCategory.Mode, labels));
+            entries.Add(NewEntry(VKey.Right, "Next page", HelpEntryCategory.Mode, labels));
+            prompts.Add(elementHintStatus);
+            prompts.Add("Two label keys select without clicking. Use an action key after selection. Escape clears selection, then cancels.");
+        }
         var macrosEnabled = config.Macros.Enabled;
         if (macrosEnabled) {
             var recordCommand = recorderState switch {

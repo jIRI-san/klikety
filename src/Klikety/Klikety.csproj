@@ -13,9 +13,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Klikety.UiaWorker\Klikety.UiaWorker.csproj" ReferenceOutputAssembly="false" />
     <InternalsVisibleTo Include="Klikety.Tests" />
     <InternalsVisibleTo Include="Klikety.SmokeTests" />
   </ItemGroup>
+
+  <Target Name="BundleUiaWorker" AfterTargets="Build">
+    <ItemGroup>
+      <UiaWorkerFiles Include="..\Klikety.UiaWorker\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(UiaWorkerFiles)" DestinationFolder="$(TargetDir)uia-worker" />
+  </Target>
+  <Target Name="PublishUiaWorker" AfterTargets="Publish">
+    <MSBuild Projects="..\Klikety.UiaWorker\Klikety.UiaWorker.csproj" Targets="Restore;Publish"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);Version=$(Version);PublishDir=$(PublishDir)uia-worker\" />
+  </Target>
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\config.schema.json" />

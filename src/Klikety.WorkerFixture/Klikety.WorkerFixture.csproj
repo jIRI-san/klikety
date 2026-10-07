@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>..\Klikety\app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\Klikety\Automation\ElementHintProtocol.cs" Link="ElementHintProtocol.cs" />
+    <Compile Include="..\Klikety\Automation\UiaWorkerSupervisor.cs" Link="UiaWorkerSupervisor.cs" />
+  </ItemGroup>
+</Project>

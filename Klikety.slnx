@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Klikety.UiaWorker/Klikety.UiaWorker.csproj" />
+    <Project Path="src/Klikety.WorkerFixture/Klikety.WorkerFixture.csproj" />
     <Project Path="src/Klikety.Tests/Klikety.Tests.csproj" />
     <Project Path="src/Klikety.SmokeTests/Klikety.SmokeTests.csproj" />
     <Project Path="src/Klikety/Klikety.csproj" />

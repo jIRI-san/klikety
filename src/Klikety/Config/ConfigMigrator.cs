@@ -20,7 +20,7 @@ public sealed class MigrationResult {
 /// a JsonDocument pre-pass. Performs atomic writes with .bak backup.
 /// </summary>
 public static class ConfigMigrator {
-    public const int CurrentConfigVersion = 8;
+    public const int CurrentConfigVersion = 9;
 
     private static readonly VKey[] Default8FirstKeys =
         [VKey.A, VKey.S, VKey.D, VKey.F, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon];
@@ -230,6 +230,13 @@ public static class ConfigMigrator {
                 obj["configVersion"] = CurrentConfigVersion;
                 changed = true;
             }
+            if (version < 9) {
+                if (obj["modes"] is JsonObject hintsModes && !hintsModes.ContainsKey("elementHints")) {
+                    hintsModes["elementHints"] = CreateElementHints();
+                }
+                obj["configVersion"] = CurrentConfigVersion;
+                changed = true;
+            }
 
             if (changed) {
                 var writeError = AtomicWrite(path, obj);
@@ -339,6 +346,7 @@ public static class ConfigMigrator {
             ["logGridBaseSize"] = 10,
         };
         modes["logGrid"] = logGrid;
+        modes["elementHints"] = CreateElementHints();
 
         // Post-migration normalization: ensure at least one mode enabled and exactly one default
         EnsureDefaultMode(modes, warnings);
@@ -394,6 +402,11 @@ public static class ConfigMigrator {
             ["key"] = "Next",
         },
         ["scrollAmount"] = 3,
+    };
+
+    private static JsonObject CreateElementHints() => new() {
+        ["enabled"] = false, ["default"] = false, ["chordKey"] = "Tab",
+        ["twoKey"] = true, ["arrowKeys"] = true,
     };
 
     private static JsonObject CreateDefaultMacros() => new() {

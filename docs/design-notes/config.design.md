@@ -7,6 +7,16 @@ globs:
 
 # Configuration
 
+## ElementHints (version 9)
+
+Version 9 additively migrates `modes.elementHints` with disabled defaults, Tab chord
+and required `twoKey=true`/`arrowKeys=true`. Unknown fields, keys and defaults are
+preserved. Partial element settings merge defaults without overriding explicit
+values. `ElementHintsPolicy` requires enabled UniformGrid fallback, valid disjoint
+label axes and collision-free commands. Invalid settings suppress its factory,
+default and chord dispatch and produce a configuration violation. All mode/help/
+scope/macro/scroll collision lists include the fifth mode.
+
 ## Config Format
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.

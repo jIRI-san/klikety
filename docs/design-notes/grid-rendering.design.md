@@ -14,6 +14,18 @@ globs:
 
 # Grid Rendering
 
+## Element-hint rendering
+
+`ElementHintsRenderer` uses measured current-layout pair labels, theme outlined
+geometry and `OverlayDip.WindowOrigin`/scale. Physical target points never follow
+label displacement. Collision-free hints render inline; crowded targets use a
+page-local list with connectors. Page capacity fits measured text at
+`MinLabelFontSize`; extreme font/viewports use contained scrolling rather than
+smaller or dropped labels. Status is on RootCanvas, leaving macro/drag/help layers
+independent. Glyph-only redraw preserves assignments; viewport capacity changes
+explicitly reset pages. Actual STA WPF containment tests cover 100/150/200% scales,
+negative origins, crowded geometry and long VKey fallback labels.
+
 ## Overlay placement
 
 `OverlayPlacement.Place` `SetWindowPos`es to physical `rcMonitor`, then sets Width/Height from `VisualTreeHelper.GetDpi` — not `Left`/`Top` (those are DIP of the *previous* monitor and send the HWND off-screen, e.g. −6144). Renderers map physical cells **relative to the overlay HWND origin** (`OverlayDip.WindowOrigin`), not the cell union — app-scope grids sit inside the window, not at the monitor’s top-left. `TransformFromDevice` of desktop coordinates is not canvas space. Scale is re-read every paint. Session activate waits for `DispatcherPriority.Loaded`. Satellites: `ShowActivated=false`, `SWP_NOACTIVATE`, dim fill ≤35%.

@@ -64,6 +64,13 @@ public sealed class ModesConfig {
         ArrowKeys = true,
         TwoKey = true,
     };
+
+    public ModeConfig ElementHints { get; init; } = new() {
+        Enabled = false,
+        ChordKey = VKey.Tab,
+        ArrowKeys = true,
+        TwoKey = true,
+    };
 }
 
 /// <summary>
@@ -167,7 +174,7 @@ public sealed class ConfigModel {
     public ModesConfig Modes { get; init; } = new();
 
     /// <summary>
-    /// Config schema version for migration detection. Version 8 adds the overlay help binding.
+    /// Config schema version for migration detection. Version 9 adds opt-in element hints.
     /// </summary>
     public int ConfigVersion { get; init; }
 

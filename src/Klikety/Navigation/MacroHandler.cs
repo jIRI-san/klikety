@@ -316,7 +316,8 @@ internal sealed partial class MacroHandler : IDisposable {
         }
 
         var origin = _platform.Cursor.GetCursorPosition();
-        var screenBounds = _platform.Screen.GetPrimaryScreenBounds();
+        var screenBounds = _sessionManager.CurrentModeName == "ElementHints"
+            ? _sessionManager.ScreenBounds : _platform.Screen.GetPrimaryScreenBounds();
         _sessionManager.ScreenBounds = screenBounds;
 
         if (_recordingAppScoped) {
@@ -442,6 +443,7 @@ internal sealed partial class MacroHandler : IDisposable {
         _macroState = MacroState.Idle;
         if (_sessionManager.IsActive) {
             ResumeOverlayRequested?.Invoke();
+            _sessionManager.ResumeElementHints();
             _hookService.Enable();
         }
     }
@@ -521,7 +523,8 @@ internal sealed partial class MacroHandler : IDisposable {
 
     private void ResumeOverlayAfterPlayback() {
         var origin = _platform.Cursor.GetCursorPosition();
-        var screenBounds = _platform.Screen.GetPrimaryScreenBounds();
+        var screenBounds = _sessionManager.CurrentModeName == "ElementHints"
+            ? _sessionManager.ScreenBounds : _platform.Screen.GetPrimaryScreenBounds();
 
         ResumeOverlayRequested?.Invoke();
         _hookService.Enable();

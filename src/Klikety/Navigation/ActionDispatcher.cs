@@ -44,7 +44,7 @@ internal sealed partial class ActionDispatcher {
     /// Handles normal (non-recording) action dispatch including drag lifecycle.
     /// Returns true if the action was handled.
     /// </summary>
-    public bool HandleAction(Point point, MouseAction action) {
+    public bool HandleAction(Point point, MouseAction action, ActionModifiers? preparedModifiers = null) {
         LogActionRequested(action, point.X, point.Y);
 
         // Bounds validation
@@ -62,7 +62,7 @@ internal sealed partial class ActionDispatcher {
                 return true;
             }
 
-            var modifiers = _modifierDetector.GetCurrentModifiers();
+            var modifiers = preparedModifiers ?? _modifierDetector.GetCurrentModifiers();
             _overlayWindow.ClearStatusText();
             _dragMode = false;
             _deactivateOverlay();
@@ -79,7 +79,7 @@ internal sealed partial class ActionDispatcher {
 
         var actionModifiers = action == MouseAction.MoveOnly
             ? ActionModifiers.None
-            : _modifierDetector.GetCurrentModifiers();
+            : preparedModifiers ?? _modifierDetector.GetCurrentModifiers();
 
         _deactivateOverlay();
         _mouseService.SendAction(point, action, actionModifiers);
@@ -95,7 +95,7 @@ internal sealed partial class ActionDispatcher {
         MouseAction action,
         MacroRecorder recorder,
         bool recordingAppScoped,
-        Rectangle recordingWindowBounds) {
+        Rectangle recordingWindowBounds, ActionModifiers? preparedModifiers = null) {
         LogActionRequested(action, point.X, point.Y);
 
         // Bounds validation during recording
@@ -107,7 +107,7 @@ internal sealed partial class ActionDispatcher {
 
         var modifiers = action == MouseAction.MoveOnly
             ? ActionModifiers.None
-            : _modifierDetector.GetCurrentModifiers();
+            : preparedModifiers ?? _modifierDetector.GetCurrentModifiers();
 
         var recordPoint = recordingAppScoped
             ? new Point(point.X - recordingWindowBounds.Left, point.Y - recordingWindowBounds.Top)

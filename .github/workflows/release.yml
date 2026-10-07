@@ -92,6 +92,12 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path publish/* -DestinationPath "Klikety-v${{ env.VERSION }}-win-x64.zip"
 
+      - name: Verify extracted UIA worker
+        shell: pwsh
+        run: |
+          Expand-Archive -LiteralPath "Klikety-v${{ env.VERSION }}-win-x64.zip" -DestinationPath extracted-release
+          ./scripts/Test-UiaWorkerPackage.ps1 -PublishDirectory extracted-release
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:

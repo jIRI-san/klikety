@@ -169,6 +169,10 @@
             }
           }
         },
+        "elementHints": {
+          "$ref": "#/$defs/modeConfig",
+          "description": "Opt-in foreground-window UI Automation hints. Requires twoKey, arrowKeys and enabled UniformGrid. Tab switches in; Enter returns to grid."
+        },
         "logGrid": {
           "allOf": [{ "$ref": "#/$defs/modeConfig" }],
           "description": "Logarithmic grid mode. Iterative two-key selection with log-scaled center cell and recentering.",

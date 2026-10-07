@@ -73,6 +73,32 @@ public static class ConfigLoader {
 
         try {
             var json = File.ReadAllText(path);
+            var root = System.Text.Json.Nodes.JsonNode.Parse(json, documentOptions: new() {
+                CommentHandling = System.Text.Json.JsonCommentHandling.Skip, AllowTrailingCommas = true,
+            });
+            if (root is System.Text.Json.Nodes.JsonObject rootObject) {
+                var modesField = rootObject.FirstOrDefault(p => p.Key.Equals("modes", StringComparison.OrdinalIgnoreCase));
+                if (modesField.Key is not null && modesField.Value is not System.Text.Json.Nodes.JsonObject) {
+                    throw new System.Text.Json.JsonException("modes must be a JSON object.");
+                }
+                if (modesField.Value is System.Text.Json.Nodes.JsonObject modes) {
+                    var hintsField = modes.FirstOrDefault(p => p.Key.Equals("elementHints", StringComparison.OrdinalIgnoreCase));
+                    if (hintsField.Key is not null && hintsField.Value is not System.Text.Json.Nodes.JsonObject) {
+                        throw new System.Text.Json.JsonException("modes.elementHints must be a JSON object.");
+                    }
+                    if (hintsField.Value is System.Text.Json.Nodes.JsonObject hints) {
+                        var defaults = new System.Text.Json.Nodes.JsonObject {
+                            ["enabled"] = false, ["default"] = false, ["chordKey"] = "Tab", ["twoKey"] = true, ["arrowKeys"] = true,
+                        };
+                        foreach (var field in defaults) {
+                            if (!hints.Any(p => p.Key.Equals(field.Key, StringComparison.OrdinalIgnoreCase))) {
+                                hints.Add(field.Key, field.Value?.DeepClone());
+                            }
+                        }
+                        json = root.ToJsonString();
+                    }
+                }
+            }
             return (System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions) ?? new ConfigModel(), null);
         } catch (System.Text.Json.JsonException ex) {
             return (new ConfigModel {
@@ -91,6 +117,9 @@ public static class ConfigLoader {
 
     private static List<string> Validate(ConfigModel config) {
         var violations = new List<string>();
+        if (ElementHintsPolicy.GetInvalidReason(config) is { } hintError) {
+            violations.Add(hintError);
+        }
 
         if (HelpBindingPolicy.GetInvalidReason(config) is { } helpBindingError) {
             violations.Add(helpBindingError);
@@ -219,6 +248,7 @@ public static class ConfigLoader {
             ("Crosshair", modes.Crosshair),
             ("LogCrosshair", modes.LogCrosshair),
             ("LogGrid", modes.LogGrid),
+            ("ElementHints", modes.ElementHints),
         };
 
         // Structural: at least one enabled
@@ -346,7 +376,7 @@ public static class ConfigLoader {
         // Collect chord keys for conflict checking
         var chordKeys = new HashSet<VKey>();
         var modes = config.Modes;
-        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid }) {
+        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid, modes.ElementHints }) {
             if (mc is { Enabled: true, ChordKey: { } chord }) {
                 chordKeys.Add(chord);
             }
@@ -392,7 +422,7 @@ public static class ConfigLoader {
         // Collect chord keys for conflict checking
         var chordKeys = new HashSet<VKey>();
         var modes = config.Modes;
-        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid }) {
+        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid, modes.ElementHints }) {
             if (mc is { Enabled: true, ChordKey: { } chord }) {
                 chordKeys.Add(chord);
             }
@@ -576,7 +606,7 @@ public static class ConfigLoader {
 
         // Chord keys from modes
         var modes = config.Modes;
-        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid }) {
+        foreach (var mc in new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid, modes.ElementHints }) {
             if (mc is { Enabled: true, ChordKey: { } chord } && chord == key) {
                 violations.Add($"{label}: key '{key}' conflicts with a mode chord key.");
                 break;

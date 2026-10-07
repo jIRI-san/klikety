@@ -6,6 +6,16 @@ globs:
 
 # CI/CD
 
+## Bundled UIA worker
+
+App builds copy `Klikety.UiaWorker` output into `uia-worker`; app publishing invokes
+worker publishing for the same RID/self-contained/version settings in that isolated
+folder. The release job extracts its ZIP and executes
+`scripts/Test-UiaWorkerPackage.ps1`. It checks worker/runtime/UIAutomation files,
+performs a versioned handshake with PATH empty and DOTNET_ROOT unavailable, and
+requires bounded worker exit. Missing/broken helper packaging fails the release.
+WorkerFixture is never included in app distribution.
+
 ## Release Workflow
 
 Single workflow at `.github/workflows/release.yml`. No separate CI workflow — the release pipeline is the only automated quality gate.

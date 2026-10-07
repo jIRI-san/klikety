@@ -7,6 +7,22 @@ globs:
 
 # Test Infrastructure
 
+## Element-hint evidence
+
+`ElementHintProtocolTests`, `UiaWorkerSupervisorTests`, `ElementHintsConfigTests`,
+`ElementHintsStateMachineTests`, `ElementHintsCoordinatorTests` and actual STA
+`ElementHintRenderingTests` cover bounded framing, hung/crashed/malformed children,
+parent-crash job cleanup, cancellation/recovery, labels, config, hidden-overlay
+validation, original modifiers, late-result rejection and rendered containment.
+`Klikety.WorkerFixture` is test-only; production has no hang command. Tests use fake
+service/point-guard seams for deterministic action delivery.
+
+`ElementHintSmokeTests` launch a controlled WPF fixture and the real bundled helper.
+They require an interactive desktop that allows the fixture to become foreground;
+`StaleTarget: Application lost foreground` is a fail-closed environmental blocker,
+not permission to remove the foreground check. Physical mouse-input, third-party,
+mixed-display and actual mixed-DPI coverage remain plan 4af565's human gate.
+
 ## Unit Tests
 
 - **Unit tests** (`Klikety.Tests`): xUnit, 700+ tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `ConfigMigrator`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, `GridRenderer` threshold/fan-out logic, `CrosshairStateMachine`, `CrosshairSession`, `LogCrosshairStateMachine`, `LogCrosshairSession`, `LogGridCalculator`, `DynamicKeyReducer`, `AppScopeCoordinator` (chord activation, bounds clipping, drag reset, mode switching), and keyboard help binding/content/layout/lifecycle.

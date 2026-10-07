@@ -16,6 +16,21 @@ globs:
 
 # State Machine & Overlay Lifecycle
 
+## Element-hint transactions
+
+The fifth mode retains the existing synchronous `IModeSession.Activate` contract
+while starting asynchronous discovery. SessionManager carries explicit pre-overlay
+target context through every create/restart/resume path. Enter fallback is an
+element-only mode-lock exception. Help redraw does not rescan; picker/playback
+suspension retires hint work and resumes with a fresh snapshot.
+
+Selected-target actions snapshot hook modifiers, drain capture and hide the whole
+host before helper validation. An activation-bound cancellation token and active
+session identity reject late/duplicate completions. Only approval plus a final
+native point/foreground guard reaches the prepared dispatcher path. Rejection
+closes and notifies without recording input. Drag starts validate before the normal
+default-mode reset. See `element-hints.design.md`.
+
 ## Overlay Lifecycle
 
 - `OverlayWindow` is a WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to the **navigation display** `rcMonitor` converted to DIPs via that window’s `PresentationSource` transform.

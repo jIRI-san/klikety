@@ -13,6 +13,12 @@ globs:
 
 # Keyboard Help Overlay
 
+ElementHints participates in binding conflicts and effective mode projection.
+While active, help includes Enter grid fallback (even when locked), Left/Right page
+commands, current discovery status and the select-without-clicking explanation.
+Opening/closing help preserves prefix/page/selection; helper completion updates only
+the navigation canvas and does not replace HelpCanvas or macro prompts.
+
 ## Binding and Hook Events
 
 - `helpBinding` defaults to enabled `OemQuestion`, with Shift optional. Ctrl, Alt, and Win are rejected. The key is configurable and can require Shift.

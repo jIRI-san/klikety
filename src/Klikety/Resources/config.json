@@ -5,7 +5,7 @@
   "$schema": "config.schema.json",
 
   // Config format version. Do not change manually.
-  "configVersion": 8,
+  "configVersion": 9,
   // Global hotkey that activates the navigation overlay.
   // Modifiers: Alt, Control, Shift, Win (comma-separated for combos).
   // Key: a VKey name (physical key, layout-independent). Default: Alt+Space.
@@ -103,6 +103,14 @@
       "arrowKeys": true,
       "twoKey": true,
       "logGridBaseSize": 10
+    },
+    // Opt-in UIA controls. Two keys select; action keys act. Enter returns to grid.
+    "elementHints": {
+      "enabled": false,
+      "default": false,
+      "chordKey": "Tab",
+      "arrowKeys": true,
+      "twoKey": true
     }
   },
 

@@ -17,10 +17,26 @@
 - Risks - [assets/risks.md](assets/risks.md)
 - Decisions - [assets/decisions.md](assets/decisions.md)
 - References - [assets/references.md](assets/references.md)
+- Implementation evidence - [assets/evidence.md](assets/evidence.md)
+
+## Implementation status, 2026-10-07
+
+Code and distribution work through 4.1 are delivered in the implementation
+worktree. Release build, formatting and 959 hermetic tests pass. Extracted-ZIP
+worker verification passes on retry after one handshake timeout. See the evidence
+asset for exact commands and coverage.
+
+Only the fully evidenced initial slice is checked below. Later implementation is
+present, but the remaining provider/lifecycle acceptance matrix is not fully
+proven. Final Release WPF smoke tests pass all three healthy/mutation cases.
+Earlier runs failed at healthy validation with
+`StaleTarget: Application lost foreground`; cause of that intermittent foreground
+failure is unknown. Keep 4.2 and whole-plan completion open; no foreground guard
+or deadline was weakened.
 
 ## Phase 1: Safe, working element-hint slice
 
-- [ ] 1.1 Implement supervised UIA helper and foreground-window discovery (REQ-1, REQ-2, REQ-3, REQ-10, RISK-1, RISK-2, RISK-7) `L`
+- [x] 1.1 Implement supervised UIA helper and foreground-window discovery (REQ-1, REQ-2, REQ-3, REQ-10, RISK-1, RISK-2, RISK-7) `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** a cancellable, bounded discovery service returns typed button/edit candidates from a captured HWND; a blocked helper is terminated without blocking Klikety.
@@ -35,7 +51,7 @@
 
   </details>
 
-- [ ] 1.2 Wire an opt-in mode, two-key selection, and explicit grid fallback (REQ-1, REQ-4, REQ-6, REQ-9, RISK-3, RISK-6) [after: 1.1] `L`
+- [x] 1.2 Wire an opt-in mode, two-key selection, and explicit grid fallback (REQ-1, REQ-4, REQ-6, REQ-9, RISK-3, RISK-6) [after: 1.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** enable `modes.elementHints`, activate with its chord, see labels on a small fixture, select without clicking, and press Enter to continue in UniformGrid.

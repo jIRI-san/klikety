@@ -11,6 +11,11 @@ globs:
 
 # Key Press Visualization
 
+Element-hint validation temporarily hides the HUD through
+`NavigatorCoordinator.ElementValidationChanged` so owned windows cannot contaminate
+point hit-testing. Enabled HUDs are shown again after delivery/cancellation; enabling
+the feature during a pending validation defers Show until the transaction ends.
+
 Runtime-only floating HUD that shows recent key presses with outlined text. Always off on startup; toggled via tray menu "Show Key Presses".
 
 ## Architecture

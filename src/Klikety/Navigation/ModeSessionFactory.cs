@@ -1,3 +1,4 @@
+using Klikety.Automation;
 using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Services;
@@ -15,18 +16,24 @@ public sealed class ModeSessionFactory {
     private readonly ILogCrosshairRenderer? _logCrosshairRenderer;
     private readonly ILogGridRenderer? _logGridRenderer;
     private readonly LogGridKeyPolicyResult _logGridKeyPolicy;
+    private readonly IElementHintService _elementHintsService;
+    private readonly IElementHintsRenderer? _elementHintsRenderer;
 
     public ModeSessionFactory(
         ConfigModel config, ActionMapper actionMapper,
         IGridRenderer? gridRenderer, ICrosshairRenderer? crosshairRenderer = null,
         ILogCrosshairRenderer? logCrosshairRenderer = null,
-        ILogGridRenderer? logGridRenderer = null) {
+        ILogGridRenderer? logGridRenderer = null,
+        IElementHintsRenderer? elementHintsRenderer = null,
+        IElementHintService? elementHintsService = null) {
         _config = config;
         _actionMapper = actionMapper;
         _gridRenderer = gridRenderer;
         _crosshairRenderer = crosshairRenderer;
         _logCrosshairRenderer = logCrosshairRenderer;
         _logGridRenderer = logGridRenderer;
+        _elementHintsRenderer = elementHintsRenderer;
+        _elementHintsService = elementHintsService ?? new UiaWorkerSupervisor();
         _logGridKeyPolicy = LogGridKeyPolicy.Evaluate(config.HorizontalKeys, config.VerticalKeys);
     }
 
@@ -34,6 +41,8 @@ public sealed class ModeSessionFactory {
     /// Whether LogGrid mode is available (enough keys on both axes).
     /// </summary>
     public bool IsLogGridAvailable => _logGridKeyPolicy.IsAvailable;
+    public bool IsElementHintsAvailable => _config.Modes.ElementHints.Enabled &&
+        ElementHintsPolicy.GetInvalidReason(_config) is null;
 
     /// <summary>
     /// Warning from LogGrid key policy evaluation (trim or unavailability reason).
@@ -48,16 +57,21 @@ public sealed class ModeSessionFactory {
         _crosshairRenderer?.RebuildLabels(resolver);
         _logCrosshairRenderer?.RebuildLabels(resolver);
         _logGridRenderer?.RebuildLabels(resolver);
+        _elementHintsRenderer?.RebuildLabels(resolver);
     }
 
     /// <summary>
     /// Creates a session for the named mode.
     /// </summary>
-    public IModeSession Create(string modeName) => modeName switch {
+    public IModeSession Create(string modeName, ElementTargetContext? targetContext = null) => modeName switch {
         "UniformGrid" => CreateUniformGrid(),
         "Crosshair" => CreateCrosshair(),
         "LogCrosshair" => CreateLogCrosshair(),
         "LogGrid" => CreateLogGrid(),
+        "ElementHints" when IsElementHintsAvailable && targetContext is not null =>
+            new ElementHintsSession(_config.HorizontalKeys, _config.VerticalKeys, _actionMapper,
+                targetContext, _elementHintsService, _elementHintsRenderer),
+        "ElementHints" => throw new NotSupportedException("ElementHints requires valid configuration and an explicit target application."),
         _ => throw new ArgumentException($"Unknown mode: {modeName}", nameof(modeName)),
     };
 

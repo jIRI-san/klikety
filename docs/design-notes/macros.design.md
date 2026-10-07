@@ -14,6 +14,14 @@ globs:
 
 # Macros
 
+ElementHints keeps macros coordinate-based. Its asynchronous physical action path
+validates before calling `HandleRecordingAction`, supplying the initiating hook
+modifier snapshot rather than re-reading released modifiers. Rejected targets do
+not record a step. Picker/playback suspension retires hint work, while recording/
+playback resume reuse captured application and navigation-display context instead
+of querying overlay foreground. Validated drag start uses the existing default-mode
+reset and status prompt; no semantic macro format changes.
+
 Replayable mouse action recordings. 10 fixed slots, each storing a named sequence of mouse actions with screen context and timing.
 
 ## Data Model

@@ -9,7 +9,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Klikety\Klikety.csproj" />
+    <ProjectReference Include="..\Klikety.WorkerFixture\Klikety.WorkerFixture.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <Target Name="CopyWorkerFixtures" AfterTargets="Build">
+    <ItemGroup>
+      <WorkerFixtureFiles Include="..\Klikety.WorkerFixture\bin\$(Configuration)\$(TargetFramework)\*" />
+      <BundledWorkerFiles Include="..\Klikety\bin\$(Configuration)\$(TargetFramework)\uia-worker\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WorkerFixtureFiles)" DestinationFolder="$(TargetDir)worker-fixture" />
+    <Copy SourceFiles="@(BundledWorkerFiles)" DestinationFolder="$(TargetDir)uia-worker" />
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2" />

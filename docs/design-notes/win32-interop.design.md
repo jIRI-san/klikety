@@ -8,6 +8,18 @@ globs:
 
 # Win32 Interop
 
+## UIA helper boundary
+
+All managed UIA calls run on the windowless MTA main thread of `Klikety.UiaWorker`,
+not the hook/UI thread. Before overlay Show, `ElementPointGuard.Capture` records
+HWND/PID/process-start identity. Inherited bounded stdio carries only capabilities,
+identity and physical geometry. `UiaWorkerSupervisor` assigns the helper to its
+kill-on-close job before sending UIA work, uses 1500/500 ms scan/validation deadlines
+and a 500 ms cleanup budget. Native WindowFromPoint/GetAncestor and foreground/PID
+checks supplement fresh UIA validation. No Invoke/SetValue/SetFocus, elevation or
+UIAccess. Failed identity capture is an invalid-root outcome, never a broadened
+desktop scan. See `element-hints.design.md`.
+
 All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`, `IForegroundWindowProvider`). Real implementations are thin P/Invoke wrappers. Fakes are injected in tests.
 
 `Win32KeyLabelResolver` only uses printable, non-whitespace `ToUnicodeEx` results as glyphs. Control keys and Space fall back to readable VKey names instead of rendering blank keycaps.

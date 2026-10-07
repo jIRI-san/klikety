@@ -10,7 +10,7 @@ Also without touching the code. This paragraph is the only one I have written ma
 
 - **Unified 8×8 grid**: Full-screen grid with 8 columns (ASDFJKL;) and 8 rows (WERTYUIO). Press two keys to select any of 64 cells.
 - **Multi-level zoom**: Level 1 → Level 2 → Level 3 subgrids for pixel-precise targeting.
-- **Four navigation modes**: UniformGrid (two-key grid), Crosshair (axis-based), LogCrosshair (logarithmic center-focused), and LogGrid (iterative log-scaled). Switch modes with chord keys while overlay is active.
+- **Five navigation modes**: UniformGrid (two-key grid), Crosshair (axis-based), LogCrosshair (logarithmic center-focused), LogGrid (iterative log-scaled), and opt-in ElementHints (foreground-window UI Automation controls). Switch modes with chord keys while overlay is active.
 - **LogCrosshair mode**: Logarithmically-scaled grid centered on cursor. Recenters on every navigation. Cross-arm cells grow proportionally for label readability.
 - **LogGrid mode**: 10×10 log-scaled grid with iterative recentering. Two-key selection moves cursor and recomputes grid. Cells grow geometrically from center; sub-5px boundary cells collapse automatically. Explicit action dispatch (Space/X/C/V).
 - **Arrow key navigation**: Optional arrow-key cell movement with crosshair highlight. Enter zooms into a cell; action keys (Space) click directly.
@@ -109,7 +109,34 @@ First run extracts default config and theme files automatically.
 | `macros.recordKey` | string (VKey) | `"OemPipe"` | Key to start/stop macro recording while overlay is active. |
 | `macros.speedModifier` | double | `1.0` | Global playback speed multiplier (0.1–10.0). Per-macro override takes precedence. |
 
-### Example: Custom Action Bindings
+### Element Hints (opt-in)
+
+Add `"elementHints": { "enabled": true, "chordKey": "Tab", "twoKey": true,
+"arrowKeys": true }` under `modes`, then reload configuration from the tray.
+Keep `uniformGrid.enabled` true. Version 9 migration leaves this mode disabled;
+existing bindings/defaults are preserved. A configured collision is reported, not
+silently rebound.
+
+Open navigation and press Tab before mode lock. Two label keys select a control
+and preview the cursor **without clicking**; use Space or another action key to
+perform the existing physical action. Left/Right change pages. Escape clears the
+prefix/selection, then cancels. **Enter returns to grid**, even while loading, on
+failure, or after mode lock. Labels follow the current keyboard layout.
+
+Discovery is limited to the application HWND captured before the overlay, clipped
+to the navigation display/scope. It uses a bundled helper with a 1500 ms scan
+deadline, 500 ms action-validation deadline and bounded traversal (20000 nodes,
+depth 64, 2000 targets). Partial/empty/provider/permission failures stay visible.
+Moved, replaced, covered or unavailable targets receive no input; reopen or use
+grid. No names, text values or document contents are collected.
+
+The helper ships in `uia-worker` with normal builds and self-contained publish;
+copy the entire published folder. Missing helper files affect this mode, not grid
+startup. No elevation, UIAccess, browser flags or remote processing are used.
+Third-party UIA coverage and live physical-input/mixed-DPI compatibility are not
+guaranteed; the human verification gate remains open.
+
+### Custom Action Bindings
 
 ```jsonc
 {

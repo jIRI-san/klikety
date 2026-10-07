@@ -26,7 +26,9 @@ globs:
 
 # Navigation Modes
 
-Four navigation modes, each implementing `IModeSession` with independent configuration via `ModeConfig`:
+Five navigation modes, each implementing `IModeSession` with independent configuration via `ModeConfig`:
+
+- **ElementHints** — opt-in foreground-root UIA hints. Horizontal/vertical pairs select without clicking; action keys require fresh validation; Left/Right page; Enter explicitly falls back to UniformGrid even after mode lock. Layout-aware on non-QWERTY keyboards. See [element-hints.design.md](element-hints.design.md) for process/lifecycle/geometry contracts.
 
 - **UniformGrid** — two-key grid scheme using `firstKeys`/`secondKeys`. L1→L2→L3 level stack.
 - **Crosshair** — cross-style axis key navigation with uniform grid cells. Supports L2 subgrid.
@@ -158,7 +160,7 @@ Bool properties default to `false` and arrays to `null`. Usable defaults live in
 
 ## `ModesConfig`
 
-Container with four named properties (`UniformGrid`, `Crosshair`, `LogCrosshair`, `LogGrid`), each a `ModeConfig` with appropriate defaults. Lives on `ConfigModel.Modes`. LogGrid defaults: `Enabled=true`, `ChordKey=OemComma`, `ArrowKeys=true`, `TwoKey=true`, `LogGridBaseSize=10`.
+Container with five named properties (`UniformGrid`, `Crosshair`, `LogCrosshair`, `LogGrid`, `ElementHints`), each a `ModeConfig` with appropriate defaults. Lives on `ConfigModel.Modes`. LogGrid defaults: `Enabled=true`, `ChordKey=OemComma`, `ArrowKeys=true`, `TwoKey=true`, `LogGridBaseSize=10`.
 
 ## Multi-monitor Non-Goal
 

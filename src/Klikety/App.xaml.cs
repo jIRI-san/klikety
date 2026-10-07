@@ -139,8 +139,12 @@ public partial class App : Application {
         }
 
         // Create action mapper and session factory
+        ElementHintsRenderer? elementHintsRenderer = config.Modes.ElementHints.Enabled
+            ? new ElementHintsRenderer(overlayWindow.Canvas, theme, config.MinLabelFontSize,
+                config.HorizontalKeys, config.VerticalKeys, resolver) : null;
         var actionMapper = new ActionMapper(config.ActionBindings);
-        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer, logCrosshairRenderer, logGridRenderer);
+        var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer, logCrosshairRenderer, logGridRenderer,
+            elementHintsRenderer);
 
         // LogGrid key-policy warning (trim or unavailability)
         if (sessionFactory.LogGridKeyPolicyWarning is { } logGridWarning) {
@@ -170,6 +174,11 @@ public partial class App : Application {
             _macrosFile,
             () => new SatelliteWindow(theme, logger),
             new DisplayTopologyStore());
+        _coordinator.RuntimeNotification += message => _trayIcon?.ShowNotification("Klikety - Element hints", message);
+        _coordinator.ElementValidationChanged += active => {
+            if (_keyPressWindow is not { } window) { return; }
+            if (active) { window.Hide(); } else { window.Show(); }
+        };
 
         // Register hotkey
         _hotKeyService!.Unregister();
@@ -429,7 +438,7 @@ public partial class App : Application {
         }
 
         hook.KeyEvent += (_, e) => displayManager.HandleKeyEvent(e);
-        window.Show();
+        if (_coordinator?.IsElementValidationPending != true) { window.Show(); }
 
         _keyPressHook = hook;
         _keyPressProcessor = processor;

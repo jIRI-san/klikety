@@ -7,38 +7,43 @@
         Background="{DynamicResource ApplicationBackgroundBrush}"
         Foreground="{DynamicResource TextFillColorPrimaryBrush}">
     <Window.Resources>
-        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Padding" Value="16,8"/>
-            <Setter Property="MinHeight" Value="36"/>
-            <Setter Property="Margin" Value="8,0,0,0"/>
-        </Style>
-        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
-            <Setter Property="MinHeight" Value="32"/>
-            <Setter Property="Padding" Value="6,4"/>
-            <Setter Property="VerticalContentAlignment" Value="Center"/>
-        </Style>
-        <Style TargetType="Label" BasedOn="{StaticResource {x:Type Label}}">
-            <Setter Property="Padding" Value="0,4,8,4"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-        </Style>
-        <Style TargetType="Slider" BasedOn="{StaticResource {x:Type Slider}}">
-            <Setter Property="Minimum" Value="0"/>
-            <Setter Property="Maximum" Value="255"/>
-            <Setter Property="TickFrequency" Value="1"/>
-            <Setter Property="IsSnapToTickEnabled" Value="True"/>
-            <Setter Property="SmallChange" Value="1"/>
-            <Setter Property="LargeChange" Value="16"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="0,0,12,0"/>
-        </Style>
-        <DrawingBrush x:Key="Checkerboard" TileMode="Tile" Viewport="0,0,16,16" ViewportUnits="Absolute">
-            <DrawingBrush.Drawing>
-                <DrawingGroup>
-                    <GeometryDrawing Brush="White" Geometry="M 0,0 H 16 V 16 H 0 Z"/>
-                    <GeometryDrawing Brush="#D9DDE3" Geometry="M 0,0 H 8 V 8 H 0 Z M 8,8 H 16 V 16 H 8 Z"/>
-                </DrawingGroup>
-            </DrawingBrush.Drawing>
-        </DrawingBrush>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/PresentationFramework.Fluent;component/Themes/Fluent.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Padding" Value="16,8"/>
+                <Setter Property="MinHeight" Value="36"/>
+                <Setter Property="Margin" Value="8,0,0,0"/>
+            </Style>
+            <Style TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxStyle}">
+                <Setter Property="MinHeight" Value="32"/>
+                <Setter Property="Padding" Value="6,4"/>
+                <Setter Property="VerticalContentAlignment" Value="Center"/>
+            </Style>
+            <Style TargetType="Label" BasedOn="{StaticResource DefaultLabelStyle}">
+                <Setter Property="Padding" Value="0,4,8,4"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+            </Style>
+            <Style x:Key="ColorChannelSliderStyle" TargetType="Slider" BasedOn="{StaticResource {x:Type Slider}}">
+                <Setter Property="Minimum" Value="0"/>
+                <Setter Property="Maximum" Value="255"/>
+                <Setter Property="TickFrequency" Value="1"/>
+                <Setter Property="IsSnapToTickEnabled" Value="True"/>
+                <Setter Property="SmallChange" Value="1"/>
+                <Setter Property="LargeChange" Value="16"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Margin" Value="0,0,12,0"/>
+            </Style>
+            <DrawingBrush x:Key="Checkerboard" TileMode="Tile" Viewport="0,0,16,16" ViewportUnits="Absolute">
+                <DrawingBrush.Drawing>
+                    <DrawingGroup>
+                        <GeometryDrawing Brush="White" Geometry="M 0,0 H 16 V 16 H 0 Z"/>
+                        <GeometryDrawing Brush="#D9DDE3" Geometry="M 0,0 H 8 V 8 H 0 Z M 8,8 H 16 V 16 H 8 Z"/>
+                    </DrawingGroup>
+                </DrawingBrush.Drawing>
+            </DrawingBrush>
+        </ResourceDictionary>
     </Window.Resources>
     <StackPanel Margin="20">
         <TextBlock x:Name="FieldName" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap"/>
@@ -75,22 +80,22 @@
                 <RowDefinition Height="44"/>
             </Grid.RowDefinitions>
             <Label Content="_Red" Target="{Binding ElementName=RedValue}"/>
-            <Slider x:Name="RedSlider" Grid.Column="1" ValueChanged="ChannelChanged"
+            <Slider x:Name="RedSlider" Grid.Column="1" ValueChanged="ChannelChanged" Style="{StaticResource ColorChannelSliderStyle}"
                     AutomationProperties.Name="Red" AutomationProperties.AutomationId="color.red.slider"/>
             <TextBox x:Name="RedValue" Grid.Column="2" VerticalAlignment="Center" TextChanged="ChannelTextChanged"
                      AutomationProperties.Name="Red value" AutomationProperties.AutomationId="color.red.value"/>
             <Label Grid.Row="1" Content="_Green" Target="{Binding ElementName=GreenValue}"/>
-            <Slider x:Name="GreenSlider" Grid.Row="1" Grid.Column="1" ValueChanged="ChannelChanged"
+            <Slider x:Name="GreenSlider" Grid.Row="1" Grid.Column="1" ValueChanged="ChannelChanged" Style="{StaticResource ColorChannelSliderStyle}"
                     AutomationProperties.Name="Green" AutomationProperties.AutomationId="color.green.slider"/>
             <TextBox x:Name="GreenValue" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" TextChanged="ChannelTextChanged"
                      AutomationProperties.Name="Green value" AutomationProperties.AutomationId="color.green.value"/>
             <Label Grid.Row="2" Content="_Blue" Target="{Binding ElementName=BlueValue}"/>
-            <Slider x:Name="BlueSlider" Grid.Row="2" Grid.Column="1" ValueChanged="ChannelChanged"
+            <Slider x:Name="BlueSlider" Grid.Row="2" Grid.Column="1" ValueChanged="ChannelChanged" Style="{StaticResource ColorChannelSliderStyle}"
                     AutomationProperties.Name="Blue" AutomationProperties.AutomationId="color.blue.slider"/>
             <TextBox x:Name="BlueValue" Grid.Row="2" Grid.Column="2" VerticalAlignment="Center" TextChanged="ChannelTextChanged"
                      AutomationProperties.Name="Blue value" AutomationProperties.AutomationId="color.blue.value"/>
             <Label Grid.Row="3" Content="_Opacity" Target="{Binding ElementName=AlphaValue}"/>
-            <Slider x:Name="AlphaSlider" Grid.Row="3" Grid.Column="1" ValueChanged="ChannelChanged"
+            <Slider x:Name="AlphaSlider" Grid.Row="3" Grid.Column="1" ValueChanged="ChannelChanged" Style="{StaticResource ColorChannelSliderStyle}"
                     AutomationProperties.Name="Opacity" AutomationProperties.AutomationId="color.alpha.slider"/>
             <TextBox x:Name="AlphaValue" Grid.Row="3" Grid.Column="2" VerticalAlignment="Center" TextChanged="ChannelTextChanged"
                      AutomationProperties.Name="Opacity value" AutomationProperties.AutomationId="color.alpha.value"/>

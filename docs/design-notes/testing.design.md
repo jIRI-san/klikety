@@ -60,6 +60,11 @@ nullable macro modifier controls. `SettingsThemeTests` force Light/Dark/Light on
 the test windows (never the desktop), check actual palette/resources and retained
 draft/config bytes, and verify unrelated windows retain their default theme mode.
 These checks do not claim actual Windows-preference-change or native DPI evidence.
+Theme regression coverage includes enabled checkbox/expander/button/dropdown/input
+text across every page and color-dialog labels/inputs/buttons, not only window colors.
+It verifies actual Fluent button backgrounds and composited text contrast >= 4.5:1
+in Light/Dark/Light while preserving the draft. Popup cleanup and layout tests still
+cover control-template changes.
 See [settings.design.md](settings.design.md) for the fixture-only fault controls and
 native operator procedure.
 

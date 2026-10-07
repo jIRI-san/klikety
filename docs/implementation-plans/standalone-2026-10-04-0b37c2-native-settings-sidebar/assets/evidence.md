@@ -179,3 +179,28 @@ screen-reader announcement or native DPI evidence.
 and modifier/design-note existence markers. Local secret guard and diff hygiene
 passed. Native prerequisites, 5.3, 6.1, final CR/compaction/learning/archival remain
 pending; no new completed whole-step or review result is claimed.
+
+## Fluent control contrast correction
+
+User inspection found black checkbox/Advanced text and legacy light buttons on
+dark surfaces. A new regression reproduced `Dark page 0 CheckBox 'Ctrl modifier':
+#FF000000 text`; button coverage also rejected legacy `#FFDDDDDD` against the
+Fluent `#B3FFFFFF` background. The previous window-palette checks were insufficient.
+
+Both window resource dictionaries now explicitly import Microsoft Fluent before
+local styles, and implicit sizing overrides inherit the named `Default*Style`
+keys, not their own implicit type keys. This corrects checkbox/expander text,
+button/dropdown/input styling and the color dialog without hard-coded white-text
+patches or a new dependency. The keyed slider override avoids the same ambiguity.
+
+Release checks passed **42/42**: theme (1), all-page accessibility/layout (1),
+modifier dropdown (3), real editor (7), and color dialog (30). The Release build
+passed with zero warnings/errors, using separate `settings-theme-contrast` output.
+Light/Dark/Light checks now cover actual control foregrounds across all seven
+pages, color-dialog labels/inputs/buttons, Fluent button backgrounds and composited
+enabled text contrast >= 4.5:1, while retaining draft/config/overlay-theme state.
+Native template changes also retain keyboard traversal, popup cleanup and bounds.
+
+Direct evidence passed those five test markers, ReleaseBuild and the design-note
+marker. Local secret guard and diff hygiene passed. This corrects the prior theme
+checkpoint; it still does not close native runtime/DPI gates or finalization.

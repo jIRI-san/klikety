@@ -81,7 +81,12 @@ Disabling/removing the control closes its popup.
 Settings and its color dialog use window-local WPF .NET 10 Fluent `ThemeMode="System"`
 to follow Windows app light/dark, accent and high-contrast settings, including framework
 theme-change handling. Their surfaces, text, borders and error status use dynamic
-Fluent brush resources; local sizing styles inherit Fluent defaults. The checkerboard
+Fluent brush resources. Both windows merge Microsoft's Fluent dictionary before
+declaring local sizing styles, which inherit the explicit `DefaultButtonStyle`,
+`DefaultCheckBoxStyle`, etc. keys. Do not base an implicit type override on that same
+type key: its self-lookup can resolve to the legacy theme and leave black text/Aero
+controls on Fluent dark surfaces. The color-channel Slider style is explicitly keyed
+so its base type lookup is unambiguous. The checkerboard
 and selected color swatches intentionally retain their color-preview semantics.
 No registry setting is written, no custom OS-theme watcher is added, and no new package
 is needed. Application-level theme mode and navigation/HUD/indicator resources remain

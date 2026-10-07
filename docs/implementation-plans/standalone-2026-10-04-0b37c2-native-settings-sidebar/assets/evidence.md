@@ -204,3 +204,30 @@ Native template changes also retain keyboard traversal, popup cleanup and bounds
 Direct evidence passed those five test markers, ReleaseBuild and the design-note
 marker. Local secret guard and diff hygiene passed. This corrects the prior theme
 checkpoint; it still does not close native runtime/DPI gates or finalization.
+
+## Production tray integration verification
+
+The user accepted the inspected UI and requested full application integration.
+The existing production `App.SetupTrayContextMenu` already included **Settings...**
+as its first item, wired to the same editor with actual captured-model validation,
+apply and recovery. Repeated clicks activate/restore the existing window; closing
+clears the reference. No duplicate menu entry or separate prototype editor was added.
+
+Integration inspection found a fixture routing defect: `ShowSettings` used
+`UserConfigPath` whenever no demo filename was supplied, including runtime fixtures.
+It now resolves the file from the same captured `AppPaths` root as the runtime.
+The shared resolver also preserves nonstandard explicit demo filenames during
+runtime-snapshot reads, rather than reading a different root `config.json`.
+
+Focused Release tests passed **67/67**: tray command (1), AppPaths (4), editor (7),
+apply (31), recovery (10), and isolation (14). Production Release build passed with
+zero warnings/errors at `src/Klikety/bin/Release/net10.0-windows/Klikety.exe`.
+The tray-item factory regression checks actual label/name/Click dispatch; path
+regression checks normal/fixture/demo routing without reading or writing AppData.
+Matching docs and the README tray inventory now identify Settings consistently.
+
+Direct evidence passed those six test markers, ReleaseBuild and the config
+design-note marker. Local secret guard and diff hygiene passed. User UI approval
+is not substituted for actual production shell reuse, registration/recovery,
+keyboard/announcement/DPI evidence. No production app or live runtime fixture was
+launched on the shared desktop; all unchecked steps/finalization remain gated.

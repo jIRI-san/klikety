@@ -23,7 +23,7 @@ Also without touching the code. This paragraph is the only one I have written ma
 - **Global scroll hotkeys**: Optional global hotkeys for mouse wheel scrolling at cursor position (default: Ctrl+Alt+PageUp/PageDown). Configurable keys and scroll amount.
 - **Keyboard layout aware**: Labels auto-adapt to QWERTY, DVORAK, Colemak, or any layout via Win32 `ToUnicodeEx`.
 - **Theme support**: Built-in dark and light themes. Create custom `.theme.json` files.
-- **System tray**: Runs in the tray with About, Open Config, Reset Configuration, Start with Windows, Show Key Presses, Pause/Resume Scroll Keys, and Quit.
+- **System tray**: Runs in the tray with Settings, About, Open Config, Reset Configuration, Start with Windows, Show Key Presses, Pause/Resume Scroll Keys, and Quit.
 - **Key press visualization**: Runtime-toggled floating HUD showing recent key presses with outlined text. Modifier combos shown as "Ctrl+C", repeated keys collapsed ("A ×3"), oldest-first staggered fade. Click-through, follows active monitor. Configurable font, color, corner, and timing.
 - **Macro recording & playback**: Record sequences of mouse actions into 10 slots. Play back at configurable speed with per-step click indicator. Screen resolution and DPI validation on playback.
 - **Window-relative macros**: Record macros scoped to a specific application window. Coordinates stored relative to window top-left. Playback validates window title, size, and DPI. Per-step drift detection aborts if the target window moves or loses focus. `StartFromCursor` option for drag operations.

@@ -294,9 +294,7 @@ public partial class App : Application {
     private void SetupTrayContextMenu(List<string> violations, ILogger logger) {
         var contextMenu = new System.Windows.Controls.ContextMenu();
 
-        var settingsItem = new System.Windows.Controls.MenuItem { Header = "Settings..." };
-        settingsItem.Click += (_, _) => ShowSettings();
-        contextMenu.Items.Add(settingsItem);
+        contextMenu.Items.Add(CreateSettingsMenuItem(ShowSettings));
 
         if (_demoConfigPath is not null) {
             var demoInfo = new System.Windows.Controls.MenuItem {
@@ -545,6 +543,15 @@ public partial class App : Application {
         }
     }
 
+    internal static System.Windows.Controls.MenuItem CreateSettingsMenuItem(Action showSettings) {
+        var item = new System.Windows.Controls.MenuItem { Header = "Settings..." };
+        item.Click += (_, _) => showSettings();
+        return item;
+    }
+
+    internal static string ResolveSettingsConfigPath(AppPaths paths, string? demoConfigPath) =>
+        demoConfigPath ?? paths.ConfigPath;
+
     private void ShowSettings() {
         if (_settingsWindow is not null) {
             if (_settingsWindow.WindowState == WindowState.Minimized) {
@@ -554,7 +561,7 @@ public partial class App : Application {
             return;
         }
         try {
-            _settingsWindow = new SettingsWindow(_demoConfigPath ?? UserConfigPath, _demoConfigPath is not null,
+            _settingsWindow = new SettingsWindow(ResolveSettingsConfigPath(_paths, _demoConfigPath), _demoConfigPath is not null,
                 ValidateSettingsApply, CaptureSettingsRuntime, ApplySettings, RestoreSettingsRuntime,
                 _settingsGate, CompleteRuntimeOperation, stage => _fixtureFaults?.Check(stage));
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
@@ -580,7 +587,7 @@ public partial class App : Application {
 
     private SettingsRuntimeSnapshot CaptureSettingsRuntime() {
         if (_demoConfigPath is not null) {
-            var config = ConfigLoader.ReadSettings(File.ReadAllText(_paths.ConfigPath)).Config;
+            var config = ConfigLoader.ReadSettings(File.ReadAllText(ResolveSettingsConfigPath(_paths, _demoConfigPath))).Config;
             return new SettingsRuntimeSnapshot(config, false, false);
         }
         return new SettingsRuntimeSnapshot(

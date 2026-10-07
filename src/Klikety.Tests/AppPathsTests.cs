@@ -7,6 +7,17 @@ namespace Klikety.Tests;
 
 public sealed class AppPathsTests {
     [Fact]
+    public void SettingsUsesCapturedRuntimeRootAndPreservesExplicitDemoFileName() {
+        var fixture = AppPaths.ForFixture(Path.Combine(Path.GetTempPath(), "Klikety-settings-routing-" + Guid.NewGuid()));
+        Assert.Equal(fixture.ConfigPath, App.ResolveSettingsConfigPath(fixture, null));
+        Assert.NotEqual(AppPaths.User.ConfigPath, App.ResolveSettingsConfigPath(fixture, null));
+        var demo = Path.Combine(fixture.Root, "inspection.json");
+        Assert.Equal(demo, App.ResolveSettingsConfigPath(fixture, demo));
+        Assert.Equal(AppPaths.User.ConfigPath, App.ResolveSettingsConfigPath(AppPaths.User, null));
+        Assert.False(Directory.Exists(fixture.Root));
+    }
+
+    [Fact]
     public void FixtureAdmissionRejectsRelativeUserAndAncestorPathsWithoutReadingOrWritingThem() {
         Assert.Throws<InvalidDataException>(() => AppPaths.ForFixture("relative"));
         Assert.Throws<InvalidDataException>(() => AppPaths.ForFixture(AppPaths.User.Root));

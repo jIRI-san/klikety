@@ -25,6 +25,14 @@ window. Common controls precede collapsed Advanced sections; General diagnostics
 indicator visuals are Advanced. Each page scrolls independently of the persistent
 sidebar/footer.
 
+The editor is integrated into the normal application's first tray item,
+**Settings...**, not gated behind the demo. `App.ShowSettings` reuses and activates
+the existing window (restoring a minimized one), releases the reference on close,
+and wires real validation/captured-runtime apply/recovery callbacks. It resolves its
+file from the same `AppPaths` as the runtime; runtime fixtures must never fall back
+to the user's config. Hook-free demo mode preserves its explicit config filename
+for both the editor and runtime-snapshot read.
+
 ## Coverage and runtime-only boundaries
 
 - **General**: main activation shortcut, log level, file logging, retained file count,

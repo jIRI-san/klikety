@@ -65,6 +65,11 @@ text across every page and color-dialog labels/inputs/buttons, not only window c
 It verifies actual Fluent button backgrounds and composited text contrast >= 4.5:1
 in Light/Dark/Light while preserving the draft. Popup cleanup and layout tests still
 cover control-template changes.
+`SettingsTrayTests` checks the actual tray-item factory's label/accessibility and
+Click callback without creating a taskbar icon or global runtime. `AppPathsTests`
+checks the production/fixture/demo Settings path resolver, including a nonstandard
+demo filename, without reading or writing the user's config. These are command/path
+contracts, not proof of actual shell tray reuse or live runtime activation.
 See [settings.design.md](settings.design.md) for the fixture-only fault controls and
 native operator procedure.
 

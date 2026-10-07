@@ -50,7 +50,12 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 ## Tray Integration
 
-- **Settings...** opens one reusable native WPF seven-category editor. Each page writes to a
+- **Settings...** is the first context-menu item in normal production launches and opens
+  one reusable native WPF seven-category editor; repeat clicks activate it and restore it
+  from minimized state rather than opening another draft. Closing releases the window
+  reference so the next click opens a fresh session. Its config file comes from the same
+  captured `AppPaths` root as the runtime; demo mode retains its explicit filename.
+  Each page writes to a
   typed draft; focused key capture is local to its picker and does not install a global hook.
   Save validates the full candidate through `ConfigLoader.ReadSettings`, patches changed
   JSONC leaves/collections with `SettingsConfigStore`, then reloads a captured model only
@@ -70,7 +75,7 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.
 - `ShutdownMode=OnExplicitShutdown` — process persists until "Quit" menu item calls `Application.Current.Shutdown()`.
-- Context menu items: **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Show Key Presses** (runtime toggle — creates/destroys visualization resources via activation transaction; see `key-press-visualization.design.md`), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, key press visualization, tray icon, logger factory).
+- Context menu items: **Settings...**, **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Show Key Presses** (runtime toggle — creates/destroys visualization resources via activation transaction; see `key-press-visualization.design.md`), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, key press visualization, tray icon, logger factory).
 - Tray notifications used for: hotkey conflict, hook install failure, config/key-binding violations, theme load failure.
 
 ## Logging

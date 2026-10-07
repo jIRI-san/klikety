@@ -1,5 +1,60 @@
 # Pre-human implementation checkpoint
 
+## Final integrated managed validation and publication hold
+
+Source: `58f15006bfd7d23f427b4761b33e992b730926d6`, containing the v8/main
+integration and guarded Close action. Fetched `origin/main`
+`e1073ea31e9778a8b9e04e38cfdc301f645791cb` is already an ancestor; integration
+reported `Already up to date`.
+
+The complete ordinary managed suite passed **1304 passed, 0 failed, 0 skipped**.
+This was one unfiltered full run, not selected reruns of earlier timing failures.
+The Release production build passed with **0 warnings, 0 errors**. Owned alternate
+outputs avoided touching the user's running production executable:
+
+```powershell
+dotnet test .\src\Klikety.Tests\Klikety.Tests.csproj -c Release --no-restore `
+  '-p:BaseOutputPath=C:\Users\jiri\.copilot\session-state\b833fd48-09d8-47d2-9bda-332fde5a7f44\files\settings-final-validation\bin\' `
+  --verbosity minimal --logger 'console;verbosity=minimal' `
+  --logger 'trx;LogFileName=settings-full-suite.trx' `
+  --results-directory 'C:\Users\jiri\.copilot\session-state\b833fd48-09d8-47d2-9bda-332fde5a7f44\files\settings-final-validation\results'
+
+dotnet build .\src\Klikety\Klikety.csproj -c Release --no-restore `
+  '-p:BaseOutputPath=C:\Users\jiri\.copilot\session-state\b833fd48-09d8-47d2-9bda-332fde5a7f44\files\settings-final-validation\bin\' `
+  --verbosity minimal
+```
+
+The TRX counters independently confirm total/executed/passed 1304, failed and
+notExecuted zero. The separate `Klikety.SmokeTests` suite was **not run on the
+shared desktop**; it includes live input/hotkey operations and is not ordinary CI.
+The [bounded integration review](reviews/pre-merge.md) found no high-confidence
+blocking code findings. Its active result and the full-suite/build markers passed
+`Invoke-DirectEvidence`; native checks remain distinct.
+
+User acceptance ("looks good, settings now work") establishes the observed
+production tray/Settings opening and accepted presentation. Exact executable/PID
+and responsive-window inspections establish a running production instance.
+Neither proves fixture-only reuse, all-page keyboard/error announcements,
+registration reassignment/recovery, or any DPI row. No unchecked criterion was
+closed from that acceptance.
+
+Installed `Archive-Plan.ps1 -WhatIf` refused with the exact message:
+`Cannot archive plan '0b37c2': incomplete (2/14 steps complete).`
+The user subsequently chose "Hold merge until native checks and plan
+finalization allow archival". No push, archive move, criterion change, terminal
+review, learning handoff or finalization is claimed. Step 6.1 still depends on
+5.3; all earlier unchecked prerequisites remain in place.
+
+The user authorized an already available Windows Sandbox for isolated native
+verification. Read-only discovery found `WindowsSandbox.exe`, enabled
+`Containers-DisposableClientVM` (`Win32_OptionalFeature.InstallState=1`) and a
+present hypervisor on Windows 11 Pro. The non-admin DISM query reported
+`The requested operation requires elevation.` Availability is not yet evidence of
+guest startup or DPI capability. No feature installation/enabling or host DPI
+change was performed. An offline self-contained Release fixture bundle was
+published successfully after restoring its missing win-x64 assets into owned
+session outputs.
+
 ## Identity and admission
 
 - Plan: `0b37c2`; confirmed criteria unchanged.

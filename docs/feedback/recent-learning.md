@@ -1,7 +1,7 @@
 # Recent learning
 
 Source plan: `31191b keybinding-help-overlay`
-Source commit: `b3c20e2645d2ce3448ecea8c36ab0dda3825f10c`
+Source commit: `a4a4e35fef9631565c8c60c9efd4c43febe3158e`
 
 ## Lessons
 

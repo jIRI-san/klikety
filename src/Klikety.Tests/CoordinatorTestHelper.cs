@@ -5,6 +5,7 @@ using Klikety.Navigation;
 using Klikety.Services;
 using Klikety.Tests.Fakes;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Klikety.Tests;
@@ -14,7 +15,7 @@ internal static class CoordinatorTestHelper {
         FakeMouseActionService Mouse, FakeOverlayWindow Overlay, FakeGridRenderer Renderer,
         FakePlatformServices Platform, FakeModifierDetector ModifierDetector) CreateCoordinator(
         NavigationMode mode = NavigationMode.Both, ConfigModel? configOverride = null,
-        FakeMacroStore? macroStore = null, MacrosFile? macrosFile = null) {
+        FakeMacroStore? macroStore = null, MacrosFile? macrosFile = null, ILogger? logger = null) {
         var modeConfig = new ModeConfig {
             Enabled = true,
             Default = true,
@@ -36,7 +37,7 @@ internal static class CoordinatorTestHelper {
 
         var coordinator = new NavigatorCoordinator(
             hotKey, hook, mouse, overlay, sessionFactory, platform, modifierDetector, config,
-            NullLogger.Instance, macroStore, macrosFile,
+            logger ?? NullLogger.Instance, macroStore, macrosFile,
             keyLabelResolverFactory: _ => new FakeKeyLabelResolver());
 
         return (coordinator, hotKey, hook, mouse, overlay, renderer, platform, modifierDetector);

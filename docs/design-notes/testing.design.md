@@ -27,7 +27,7 @@ globs:
 - `FakeDisplayCatalog` — configurable `DisplayCatalogResult`. Default is one 1920×1080 display (`\\.\DISPLAY1` / `\\?\FAKE#PRIMARY`). Catalog matcher tests inject `EnumeratedMonitor` / `CcdTarget` rows; they do not call Win32.
 - `FakeSatelliteOverlay` — records `Show(bounds, number)` for `OverlayHostTests`.
 - `DisplayTopologyStore` tests inject a temp `display-topologies.json` path (same pattern as `MacroStore`).
-- Help tests: `HelpBindingTests` cover matching/collision policy; `HelpBindingModelTests` cover effective command and contextual prompt projection; `HelpOverlayCoordinatorTests` cover pause/resume, latches, cleanup, and layout refresh; `HelpKeyboardLayoutTests` cover bounds, non-overlap, 800×600 fit, text floor, and contained scrolling; `HelpKeyLabelTests` cover layout-resolved printable/fallback labels.
+- Help tests: `HelpBindingTests` cover matching/collision policy; `HelpBindingModelTests` cover effective command and contextual prompt projection; `HelpOverlayCoordinatorTests` cover pause/resume, latches, cleanup, and layout refresh; `HelpKeyboardLayoutTests` cover bounds, non-overlap, 800×600 fit, 75%-width scaling, centered Space/auxiliary rows, text floor, and contained scrolling; `HelpKeyLabelTests` cover layout-resolved printable/fallback labels, including visible Esc/Space and Win32 control-character fallbacks.
 
 All fakes live in `Klikety.Tests/Fakes/`.
 

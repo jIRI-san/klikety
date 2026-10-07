@@ -15,6 +15,8 @@ public sealed class Win32KeyLabelResolver : IKeyLabelResolver {
 
     public string Resolve(VKey key) {
         var ch = NativeMethods.VKeyToChar((uint)key, _hkl);
-        return ch.HasValue ? char.ToUpper(ch.Value).ToString() : key.ToString();
+        return ch.HasValue && !char.IsControl(ch.Value) && !char.IsWhiteSpace(ch.Value)
+            ? char.ToUpper(ch.Value).ToString()
+            : key.ToString();
     }
 }

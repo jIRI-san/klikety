@@ -32,6 +32,26 @@ public class HelpKeyLabelTests {
             entry.Key == VKey.F1 && entry.KeyLabel == "F1");
     }
 
+    [Fact]
+    public void Build_UsesVisibleNamesForEscapeAndSpaceEvenWhenResolverReturnsControlCharacters() {
+        var content = Build(new ConfigModel(), new NonprintingLabels());
+
+        Assert.Contains(content.Entries, entry =>
+            entry.Key == VKey.Escape && entry.KeyLabel == "Esc" && entry.Command == "Close");
+        Assert.Contains(content.Entries, entry =>
+            entry.Key == VKey.Space && entry.KeyLabel == "Space");
+    }
+
+    [Theory]
+    [InlineData(VKey.Escape)]
+    [InlineData(VKey.Space)]
+    [InlineData(VKey.Return)]
+    [InlineData(VKey.Tab)]
+    [InlineData(VKey.Back)]
+    public void Win32Resolver_NonprintingKeysUseReadableNames(VKey key) {
+        Assert.Equal(key.ToString(), new Win32KeyLabelResolver().Resolve(key));
+    }
+
     private static HelpOverlayContent Build(ConfigModel config, IKeyLabelResolver labels) =>
         HelpOverlayContentBuilder.Build(
             config,
@@ -54,6 +74,14 @@ public class HelpKeyLabelTests {
             VKey.OemQuestion => helpLabel,
             VKey.OemTilde => customLabel,
             _ when key is VKey.F1 => key.ToString(),
+            _ => key.ToString(),
+        };
+    }
+
+    private sealed class NonprintingLabels : IKeyLabelResolver {
+        public string Resolve(VKey key) => key switch {
+            VKey.Escape => "\u001b",
+            VKey.Space => " ",
             _ => key.ToString(),
         };
     }

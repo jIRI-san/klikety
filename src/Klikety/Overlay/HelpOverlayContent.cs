@@ -227,7 +227,17 @@ public static class HelpOverlayContentBuilder {
         IKeyLabelResolver labels,
         bool isAvailable = true,
         string? reason = null) =>
-        new(key, labels.Resolve(key), command, category, isAvailable, reason);
+        new(
+            key,
+            key switch {
+                VKey.Escape => "Esc",
+                VKey.Space => "Space",
+                _ => labels.Resolve(key),
+            },
+            command,
+            category,
+            isAvailable,
+            reason);
 
     private static string ActionName(MouseAction action) => action switch {
         MouseAction.LeftClick => "Left click",

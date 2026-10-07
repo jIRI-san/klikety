@@ -10,6 +10,8 @@ globs:
 
 All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookService`, `IMouseActionService`, `IForegroundWindowProvider`). Real implementations are thin P/Invoke wrappers. Fakes are injected in tests.
 
+`Win32KeyLabelResolver` only uses printable, non-whitespace `ToUnicodeEx` results as glyphs. Control keys and Space fall back to readable VKey names instead of rendering blank keycaps.
+
 ## Interfaces
 
 ```csharp

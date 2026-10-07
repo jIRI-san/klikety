@@ -41,9 +41,10 @@ The separate macro global hotkey remains an OS-level command, not an overlay-loc
 ## Layout and Labels
 
 - `HelpKeyboardLayout.Compute` creates a canonical split-keyboard approximation with function/digit rows above, staggered left/right halves around the active display center, and Space below the center gap.
+- Keyboard width targets 75% of the active display's DIP width and shrinks when height is limiting. Keycaps and command text scale together, with a 40-DIP key-unit floor preserving readability at 800x600. Space is a wide keycap centered on the display; each auxiliary row (including Escape and macro controls) is centered beneath the keyboard instead of anchored to the screen's left edge.
 - Positions use active overlay-window DIP dimensions. `OverlayWindow` uses a contained `ScrollViewer` for viewports below 800×600 DIP or content exceeding the viewport. Command labels render at a 12-DIP minimum.
 - The help canvas remains hit-testable only so its contained `ScrollViewer` can receive wheel/scrollbar input; it has no command click handlers and cannot dispatch navigation or actions.
-- Printable glyphs come from the active `IKeyLabelResolver`; nonprintable keys use the resolver's readable VKey-name fallback. No slash glyph is forced across layouts.
+- Printable glyphs come from the active `IKeyLabelResolver`; control/whitespace translations use readable VKey-name fallbacks. Help explicitly labels Escape as `Esc` and Space as `Space`, never an invisible character. No slash glyph is forced across layouts.
 - Keyboard-layout refresh rebuilds visible help labels. One viewport event covers size and DPI changes and only relayouts the help view. Satellites and separate picker/playback windows do not render help.
 - Category accents use the current theme; unavailable commands are visually muted while their full reason remains in the prompt area.
 

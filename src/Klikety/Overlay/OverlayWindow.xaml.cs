@@ -366,7 +366,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
 
         foreach (var position in layout.Positions) {
             if (entriesByKey.TryGetValue(position.Key, out var entries)) {
-                AddHelpEntry(content, position, entries, theme);
+                AddHelpEntry(content, position, entries, theme, layout.TextScale);
             } else if (anchors.Contains(position.Key)) {
                 var anchor = new Border {
                     Width = position.Width * 0.72,
@@ -402,7 +402,8 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         Canvas canvas,
         HelpKeyPosition position,
         HelpOverlayEntry[] entries,
-        ThemeModel theme) {
+        ThemeModel theme,
+        double textScale) {
         var first = entries[0];
         var accent = HelpCategoryBrush(first.Category, theme);
         var command = string.Join(" / ", entries.Select(entry => entry.Command));
@@ -421,7 +422,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
                 Text = first.KeyLabel,
                 Foreground = TryParseBrush(theme.LabelColor, Brushes.White),
                 FontFamily = new FontFamily(theme.LabelFontFamily),
-                FontSize = Math.Max(12, Math.Min(theme.LabelFontSize, 15)),
+                FontSize = Math.Max(12, Math.Min(theme.LabelFontSize, 15)) * textScale,
                 FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -433,7 +434,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             Text = command,
             Foreground = accent,
             FontFamily = new FontFamily(theme.LabelFontFamily),
-            FontSize = HelpKeyboardLayout.MinimumCommandFontSize,
+            FontSize = HelpKeyboardLayout.MinimumCommandFontSize * textScale,
             FontWeight = FontWeights.SemiBold,
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,

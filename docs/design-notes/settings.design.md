@@ -3,6 +3,7 @@ description: Production native WPF settings editor, typed draft, targeted JSONC 
 globs:
   - src/Klikety/SettingsWindow.*
   - src/Klikety/SettingsColorDialog.*
+  - src/Klikety/SettingsModifierPicker.cs
   - src/Klikety/Config/SettingsConfigStore.cs
   - src/Klikety/Config/SettingsDraft.cs
   - src/Klikety/Config/SettingsApplyModels.cs
@@ -64,6 +65,28 @@ explicitly identifies the last-valid preview; sliders/valid input can repair it.
 accepts, Escape/Cancel closes without changing the draft. Unchanged colors preserve their
 original hex spelling/alpha representation. Choosing updates only the draft, not disk or
 live HUD/indicator resources; Save & apply remains the only persistence/apply action.
+
+Activation, both scroll shortcuts and the optional macro shortcut share
+`SettingsModifierPicker`: one compact dropdown with independent Ctrl/Alt/Shift/Win
+checkboxes, a combined summary and **None** when empty. The popup stays open across
+selections. Space toggles a focused checkbox, arrows/Home/End move focus, F4 or Alt+Down
+opens/closes, Enter/Escape closes, and Tab/Shift+Tab closes and continues page traversal.
+UIA exposes ComboBox, ExpandCollapse and a read-only summary value, with standard
+checkbox Toggle peers for each flag. Captured shortcuts update the same typed flags.
+Serializing still uses the existing `HotKeyModifiers` representation; unchanged/reverted
+flags do not dirty or rewrite the document. Unknown legacy flags remain visible as
+invalid instead of being silently clamped; an explicit selection can repair them.
+Disabling/removing the control closes its popup.
+
+Settings and its color dialog use window-local WPF .NET 10 Fluent `ThemeMode="System"`
+to follow Windows app light/dark, accent and high-contrast settings, including framework
+theme-change handling. Their surfaces, text, borders and error status use dynamic
+Fluent brush resources; local sizing styles inherit Fluent defaults. The checkerboard
+and selected color swatches intentionally retain their color-preview semantics.
+No registry setting is written, no custom OS-theme watcher is added, and no new package
+is needed. Application-level theme mode and navigation/HUD/indicator resources remain
+unchanged: the user's configured overlay theme still controls navigation. Windows-local
+theme changes do not save, reload or discard drafts.
 
 ## Draft and validation
 

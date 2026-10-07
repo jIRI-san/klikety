@@ -36,10 +36,22 @@ public sealed class SettingsAccessibilityTests {
                         Assert.False(advanced.IsExpanded);
                         advanced.IsExpanded = true;
                     }
-                    foreach (var control in elements.OfType<Control>().Where(item => item is Button or TextBox or ComboBox or CheckBox)) {
+                    foreach (var picker in elements.OfType<SettingsModifierPicker>()) {
+                        var peer = UIElementAutomationPeer.CreatePeerForElement(picker);
+                        Assert.Equal(AutomationControlType.ComboBox, peer.GetAutomationControlType());
+                        Assert.False(string.IsNullOrWhiteSpace(peer.GetName()));
+                        Assert.NotNull(peer.GetPattern(PatternInterface.ExpandCollapse));
+                        Assert.NotNull(peer.GetPattern(PatternInterface.Value));
+                    }
+                    foreach (var control in elements.OfType<Control>().Where(item =>
+                                 item is Button or TextBox or ComboBox or CheckBox or SettingsModifierPicker)) {
                         var peer = UIElementAutomationPeer.CreatePeerForElement(control);
                         Assert.False(string.IsNullOrWhiteSpace(peer?.GetName()), $"{index}: {control.GetType().Name}");
-                        if (control is not TextBox { IsReadOnly: true }) { Assert.True(control.IsTabStop); }
+                        if (control is SettingsModifierPicker modifierPicker) {
+                            Assert.False(control.IsTabStop);
+                            Assert.True(Assert.IsType<System.Windows.Controls.Primitives.ToggleButton>(
+                                Assert.IsType<System.Windows.Controls.Grid>(modifierPicker.Content).Children[0]).IsTabStop);
+                        } else if (control is not TextBox { IsReadOnly: true }) { Assert.True(control.IsTabStop); }
                         var id = AutomationProperties.GetAutomationId(control);
                         if (control is Button move && (id.EndsWith(".up", StringComparison.Ordinal) || id.EndsWith(".down", StringComparison.Ordinal))) {
                             var icon = Assert.IsType<System.Windows.Shapes.Path>(move.Content);
@@ -56,7 +68,8 @@ public sealed class SettingsAccessibilityTests {
                         content.UpdateLayout();
                         var footer = save.TransformToAncestor(content).TransformBounds(new Rect(save.RenderSize));
                         Assert.True(footer.Right <= width + 0.1 && footer.Bottom <= 700.1);
-                        foreach (var control in elements.OfType<Control>().Where(item => item is Button or TextBox or ComboBox or CheckBox)) {
+                        foreach (var control in elements.OfType<Control>().Where(item =>
+                                     item is Button or TextBox or ComboBox or CheckBox or SettingsModifierPicker && page.IsAncestorOf(item))) {
                             var bounds = control.TransformToAncestor(page).TransformBounds(new Rect(control.RenderSize));
                             Assert.True(bounds.Right <= page.ActualWidth + 0.1, $"{index} width {width}: {control.GetType().Name} clipped");
                         }

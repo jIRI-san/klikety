@@ -53,6 +53,13 @@ to avoid competing focus checks.
 blocking/repair, format-preserving unchanged selections, modal OK/Cancel, accessible
 controls/logical bounds, and all four real editor pick/cancel/save round trips. Color
 selection is injected for editor checks; no tests launch Explorer or register hooks.
+`SettingsModifierPickerTests` exercise all sixteen flag combinations, individual
+toggles, summary/UIA patterns, popup keyboard traversal/dismissal/cleanup and strict
+save/reopen preservation. The real editor field map still covers main, scroll and
+nullable macro modifier controls. `SettingsThemeTests` force Light/Dark/Light only on
+the test windows (never the desktop), check actual palette/resources and retained
+draft/config bytes, and verify unrelated windows retain their default theme mode.
+These checks do not claim actual Windows-preference-change or native DPI evidence.
 See [settings.design.md](settings.design.md) for the fixture-only fault controls and
 native operator procedure.
 

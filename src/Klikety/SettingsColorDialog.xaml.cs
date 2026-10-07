@@ -93,7 +93,7 @@ public partial class SettingsColorDialog : Window {
     private void SetStatus(string message, bool error) {
         OkButton.IsEnabled = !error;
         Status.Text = message;
-        Status.Foreground = error ? Brushes.DarkRed : Brushes.DimGray;
+        Status.SetResourceReference(TextBlock.ForegroundProperty, error ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush");
         AutomationProperties.SetName(Status, message);
         if (AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged)) {
             UIElementAutomationPeer.CreatePeerForElement(Status)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);

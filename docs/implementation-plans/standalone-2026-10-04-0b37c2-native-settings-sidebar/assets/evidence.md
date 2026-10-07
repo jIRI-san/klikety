@@ -141,3 +141,41 @@ claimed from this UI update; the earlier runtime CR remains historical at its so
 
 The hook-free demo remains manual inspection only. Actual native runtime/DPI evidence,
 unchecked prerequisite steps, 5.3, 6.1 and whole-plan finalization stay gated.
+
+## Manual-feedback modifier dropdown and system theme checkpoint
+
+The user requested independent modifier selection and confirmed that Windows
+light/dark should affect Settings and the color dialog only, not the configured
+navigation-overlay theme. All four modifier fields now share a typed checkbox
+dropdown. Both windows use window-local Fluent System mode with dynamic surfaces,
+text, borders and status; no application theme, config field, OS preference or
+overlay resource is changed.
+
+Focused Release validation passed **98/98**, zero failed/skipped:
+`SettingsModifierPickerTests` (3), `SettingsThemeTests` (1),
+`SettingsAccessibilityTests` (1), `SettingsWindowTests` (7),
+`SettingsColorDialogTests` (30), `SettingsKeyEditorTests` (12), and
+`SettingsValidationTests` (44). Production Release build passed with zero
+warnings/errors. Output is the separate session-artifact `settings-modifiers-theme`
+directory; no new dependencies, project changes or unrelated suite reruns.
+
+The dropdown tests verify all sixteen combinations, independent checkbox toggles,
+unknown-value visibility/explicit repair, readable summary and UIA patterns,
+multiple selections without dismissal, Space/arrows/Home/End/F4/Escape/Tab,
+disabled/unloaded popup cleanup, exact popup width, and strict save/reopen with
+untouched overlay theme/comments/unknown scalar text. The editor field map still
+drives every main/scroll/nullable-macro field. A keyboard regression exposed Space
+dismissing the popup; explicit non-repeating focused Space handling keeps it open.
+Closed popup controls are checked for names but measured in their own popup tree
+when open, not falsely treated as visuals inside the page.
+
+Theme tests show the fixture windows and force Light/Dark/Light only on those
+windows. They check actual backgrounds, foregrounds, cards and normal/error
+resources while retaining unsaved edits, config bytes and overlay reference.
+An unrelated window keeps None theme mode. This is not desktop preference-change,
+screen-reader announcement or native DPI evidence.
+
+`Invoke-DirectEvidence` passed the seven test-class markers, `test:ReleaseBuild`,
+and modifier/design-note existence markers. Local secret guard and diff hygiene
+passed. Native prerequisites, 5.3, 6.1, final CR/compaction/learning/archival remain
+pending; no new completed whole-step or review result is claimed.

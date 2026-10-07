@@ -105,7 +105,7 @@ public sealed class SettingsWindowTests {
                 Assert.Equal([Path.Combine(folder, "themes"), folder, Path.Combine(folder, "schemas")], openedFolders);
                 Assert.False(Assert.IsType<Button>(window.FindName("SaveButton")).IsEnabled);
                 Assert.Equal(original, File.ReadAllBytes(path));
-                var modifiers = Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "hotKey.modifiers"));
+                var modifiers = Assert.IsType<SettingsModifierPicker>(FindByAutomationId<SettingsModifierPicker>(pageHost.Content!, "hotKey.modifiers"));
                 Assert.True(Assert.IsType<TextBox>(FindByAutomationId<TextBox>(pageHost.Content!, "metadata.configPath")).IsReadOnly);
                 var trigger = Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "hotKey.key"));
                 var capture = Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, "hotKey.key.capture"));
@@ -119,7 +119,7 @@ public sealed class SettingsWindowTests {
                 Assert.Equal("K", trigger.SelectedItem?.ToString());
                 Assert.True(save.IsEnabled);
                 trigger.SelectedItem = trigger.Items.Cast<object>().Single(item => item.ToString() == "Space");
-                modifiers.SelectedItem = "Alt";
+                modifiers.Value = HotKeyModifiers.Alt;
                 Assert.False(save.IsEnabled);
                 capture.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 var cancelEvent = new KeyEventArgs(Keyboard.PrimaryDevice, source, 0, Key.Escape) {
@@ -151,12 +151,12 @@ public sealed class SettingsWindowTests {
                 Assert.True(capture.IsKeyboardFocused);
                 Assert.True(capture.MoveFocus(new TraversalRequest(FocusNavigationDirection.Previous)));
                 Assert.True(trigger.IsKeyboardFocused);
-                modifiers.SelectedItem = "Control";
+                modifiers.Value = HotKeyModifiers.Control;
                 Assert.True(save.IsEnabled);
                 categories.SelectedIndex = 1;
                 categories.SelectedIndex = 0;
                 Assert.True(save.IsEnabled);
-                modifiers.SelectedItem = "Alt";
+                modifiers.Value = HotKeyModifiers.Alt;
                 Assert.False(save.IsEnabled);
 
                 var generalPage = pageHost.Content;
@@ -168,7 +168,7 @@ public sealed class SettingsWindowTests {
                 Assert.Contains("valid whole number", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
 
                 retainedCount.Text = "7";
-                modifiers.SelectedItem = "Control";
+                modifiers.Value = HotKeyModifiers.Control;
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.Equal(original, File.ReadAllBytes(path));
                 Assert.Contains("previous runtime restored", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
@@ -236,6 +236,8 @@ public sealed class SettingsWindowTests {
                             ? stringValue : desired!.ToJsonString();
                     } else if (control is CheckBox toggle) {
                         toggle.IsChecked = desired!.GetValue<bool>();
+                    } else if (control is SettingsModifierPicker modifierPicker) {
+                        modifierPicker.Value = Enum.Parse<HotKeyModifiers>(desired!.GetValue<string>());
                     } else if (control is ComboBox choice) {
                         if (choice.SelectedValuePath.Length > 0) {
                             choice.SelectedValue = desired is null ? null : Enum.Parse<VKey>(desired.GetValue<string>());

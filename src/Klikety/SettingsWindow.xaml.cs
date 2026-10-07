@@ -32,7 +32,7 @@ public partial class SettingsWindow : Window {
     private readonly Func<string, string, string?> _chooseColor;
     private readonly bool _demo;
     private readonly Dictionary<string, Field> _fields = [];
-    private readonly Dictionary<string, ComboBox> _modifierChoices = [];
+    private readonly Dictionary<string, SettingsModifierPicker> _modifierChoices = [];
     private readonly List<StackPanel> _pages = [];
     private readonly Win32KeyLabelResolver _labels = new();
     private SettingsDraft _draft = new(new ConfigModel());
@@ -90,8 +90,7 @@ public partial class SettingsWindow : Window {
 
         var general = Page("General", "The shortcut that brings navigation to your screen.");
         var hotkey = Card(general, "Activation hotkey");
-        Choice(hotkey, "Modifiers", "hotKey.modifiers", config.HotKey.Modifiers.ToString(),
-            Enumerable.Range(0, 16).Select(n => ((HotKeyModifiers)n).ToString()).ToArray());
+        Modifiers(hotkey, "hotKey.modifiers", config.HotKey.Modifiers);
         KeyPicker(hotkey, "Trigger key", "hotKey.key", config.HotKey.Key, nullable: false);
         Hint(hotkey, "Choose named keys from the picker. Collisions are checked before writing.");
         var generalAdvanced = Advanced(general);
@@ -227,11 +226,13 @@ public partial class SettingsWindow : Window {
     private static StackPanel Card(Panel page, string title) {
         var content = new StackPanel();
         content.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 8) });
-        page.Children.Add(new Border {
-            Background = Brushes.White, BorderBrush = new SolidColorBrush(Color.FromRgb(222, 225, 230)),
+        var border = new Border {
             BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5),
             Padding = new Thickness(16), Margin = new Thickness(0, 14, 0, 0), Child = content,
-        });
+        };
+        border.SetResourceReference(Border.BackgroundProperty, "CardBackgroundFillColorDefaultBrush");
+        border.SetResourceReference(Border.BorderBrushProperty, "CardStrokeColorDefaultBrush");
+        page.Children.Add(border);
         return content;
     }
 
@@ -241,10 +242,14 @@ public partial class SettingsWindow : Window {
         return content;
     }
 
-    private static void Hint(Panel panel, string text) => panel.Children.Add(new TextBlock {
-        Text = text, TextWrapping = TextWrapping.Wrap, Foreground = new SolidColorBrush(Color.FromRgb(85, 92, 102)),
-        Margin = new Thickness(0, 8, 0, 0), FontSize = 13,
-    });
+    private static void Hint(Panel panel, string text) {
+        var hint = new TextBlock {
+            Text = text, TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 8, 0, 0), FontSize = 13,
+        };
+        hint.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
+        panel.Children.Add(hint);
+    }
 
     private static void Row(Panel panel, string label, UIElement control, UIElement? labelTarget = null) {
         AutomationProperties.SetName(labelTarget ?? control, label);
@@ -338,8 +343,7 @@ public partial class SettingsWindow : Window {
 
     private void HotKeyEditor(Panel panel, string label, string path, HotKeyConfig value) {
         var card = Card(panel, label);
-        Choice(card, "Modifiers", path + ".modifiers", value.Modifiers.ToString(),
-            Enumerable.Range(0, 16).Select(n => ((HotKeyModifiers)n).ToString()).ToArray());
+        Modifiers(card, path + ".modifiers", value.Modifiers);
         KeyPicker(card, "Trigger key", path + ".key", value.Key, nullable: false);
     }
 
@@ -349,9 +353,7 @@ public partial class SettingsWindow : Window {
         card.Children.Add(enabled);
         var modifiersValue = value?.Modifiers ?? (HotKeyModifiers.Control | HotKeyModifiers.Alt | HotKeyModifiers.Shift);
         var keyValue = value?.Key ?? VKey.M;
-        var modifiers = new ComboBox {
-            ItemsSource = Enumerable.Range(0, 16).Select(n => ((HotKeyModifiers)n).ToString()).ToArray(),
-            SelectedItem = modifiersValue.ToString(),
+        var modifiers = new SettingsModifierPicker(modifiersValue) {
             IsEnabled = value is not null,
         };
         var keyChoices = KeyChoices(keyValue);
@@ -376,7 +378,7 @@ public partial class SettingsWindow : Window {
 
         JsonNode? CurrentValue() => enabled.IsChecked == true
             ? new JsonObject {
-                ["modifiers"] = JsonValue.Create((string)modifiers.SelectedItem),
+                ["modifiers"] = JsonValue.Create(modifiers.Value.ToString()),
                 ["key"] = JsonValue.Create(((KeyChoice)key.SelectedItem).Key!.Value.ToString()),
             }
             : null;
@@ -393,7 +395,7 @@ public partial class SettingsWindow : Window {
         }
         enabled.Checked += (_, _) => Changed();
         enabled.Unchecked += (_, _) => Changed();
-        modifiers.SelectionChanged += (_, _) => RefreshDirty();
+        modifiers.ValueChanged += (_, _) => RefreshDirty();
         key.SelectionChanged += (_, _) => RefreshDirty();
         enabled.Checked += (_, _) => { key.IsEnabled = true; capture.IsEnabled = true; };
         enabled.Unchecked += (_, _) => { key.IsEnabled = false; capture.IsEnabled = false; };
@@ -669,7 +671,7 @@ public partial class SettingsWindow : Window {
                 ? automationId[..^".key.capture".Length] + ".modifiers"
                 : null;
             if (modifiersPath is not null && _modifierChoices.TryGetValue(modifiersPath, out var modifiers)) {
-                modifiers.SelectedItem = result.Modifiers.ToString();
+                modifiers.Value = result.Modifiers;
             }
             captured(result.Key!.Value);
             StopCapture("Key captured.");
@@ -698,11 +700,17 @@ public partial class SettingsWindow : Window {
         var box = new ComboBox { ItemsSource = choices.Append(value).Distinct().ToArray(), SelectedItem = value };
         AutomationProperties.SetAutomationId(box, path);
         Row(panel, label, box);
-        if (path.EndsWith(".modifiers", StringComparison.Ordinal)) {
-            _modifierChoices[path] = box;
-        }
         Track(path, () => (string)box.SelectedItem, () => JsonValue.Create((string)box.SelectedItem));
         box.SelectionChanged += (_, _) => RefreshDirty();
+    }
+
+    private void Modifiers(Panel panel, string path, HotKeyModifiers value) {
+        var picker = new SettingsModifierPicker(value);
+        AutomationProperties.SetAutomationId(picker, path);
+        _modifierChoices[path] = picker;
+        Row(panel, "Modifiers", picker);
+        Track(path, () => picker.Value.ToString(), () => JsonValue.Create(picker.Value.ToString()));
+        picker.ValueChanged += (_, _) => RefreshDirty();
     }
 
     private void KeyPicker(Panel panel, string label, string path, VKey? value, bool nullable) {
@@ -842,7 +850,7 @@ public partial class SettingsWindow : Window {
     private void ShowStatus(string text, bool error = false) {
         Status.Text = text;
         AutomationProperties.SetName(Status, text);
-        Status.Foreground = error ? Brushes.DarkRed : new SolidColorBrush(Color.FromRgb(85, 92, 102));
+        Status.SetResourceReference(TextBlock.ForegroundProperty, error ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush");
         if (AutomationPeer.ListenerExists(AutomationEvents.LiveRegionChanged)) {
             UIElementAutomationPeer.CreatePeerForElement(Status)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
         }

@@ -3,23 +3,25 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Choose color" Width="460" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" ShowInTaskbar="False"
-        FontFamily="Segoe UI" FontSize="14" Background="#F5F6F8">
+        FontFamily="Segoe UI" FontSize="14" ThemeMode="System"
+        Background="{DynamicResource ApplicationBackgroundBrush}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}">
     <Window.Resources>
-        <Style TargetType="Button">
+        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="16,8"/>
             <Setter Property="MinHeight" Value="36"/>
             <Setter Property="Margin" Value="8,0,0,0"/>
         </Style>
-        <Style TargetType="TextBox">
+        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Setter Property="MinHeight" Value="32"/>
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <Style TargetType="Label">
+        <Style TargetType="Label" BasedOn="{StaticResource {x:Type Label}}">
             <Setter Property="Padding" Value="0,4,8,4"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
-        <Style TargetType="Slider">
+        <Style TargetType="Slider" BasedOn="{StaticResource {x:Type Slider}}">
             <Setter Property="Minimum" Value="0"/>
             <Setter Property="Maximum" Value="255"/>
             <Setter Property="TickFrequency" Value="1"/>
@@ -40,7 +42,7 @@
     </Window.Resources>
     <StackPanel Margin="20">
         <TextBlock x:Name="FieldName" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap"/>
-        <TextBlock Text="Choose RGB and opacity, or enter a hex color." Foreground="#555C66" Margin="0,6,0,16"/>
+        <TextBlock Text="Choose RGB and opacity, or enter a hex color." Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,6,0,16"/>
         <Grid Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -49,13 +51,13 @@
             </Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="Current" Margin="0,0,0,6"/>
-                <Border BorderBrush="#B8BDC5" BorderThickness="1" Background="{StaticResource Checkerboard}">
+                <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" Background="{StaticResource Checkerboard}">
                     <Border x:Name="OriginalSwatch" Height="64" AutomationProperties.Name="Current color preview"/>
                 </Border>
             </StackPanel>
             <StackPanel Grid.Column="2">
                 <TextBlock Text="New" Margin="0,0,0,6"/>
-                <Border BorderBrush="#B8BDC5" BorderThickness="1" Background="{StaticResource Checkerboard}">
+                <Border BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="1" Background="{StaticResource Checkerboard}">
                     <Border x:Name="NewSwatch" Height="64" AutomationProperties.Name="New color preview"/>
                 </Border>
             </StackPanel>
@@ -94,13 +96,13 @@
                      AutomationProperties.Name="Opacity value" AutomationProperties.AutomationId="color.alpha.value"/>
         </Grid>
         <TextBlock Text="Values: 0-255. Opacity: 0 = transparent, 255 = opaque."
-                   Foreground="#555C66" FontSize="12" Margin="0,4,0,12"/>
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" Margin="0,4,0,12"/>
         <DockPanel>
             <Label Content="_Hex" Width="84" Target="{Binding ElementName=HexValue}"/>
             <TextBox x:Name="HexValue" TextChanged="HexChanged"
                      AutomationProperties.Name="Hex color" AutomationProperties.AutomationId="color.hex"/>
         </DockPanel>
-        <TextBlock Text="#RRGGBB or #AARRGGBB (alpha first)." Foreground="#555C66" FontSize="12" Margin="84,6,0,0"/>
+        <TextBlock Text="#RRGGBB or #AARRGGBB (alpha first)." Foreground="{DynamicResource TextFillColorSecondaryBrush}" FontSize="12" Margin="84,6,0,0"/>
         <TextBlock x:Name="Status" TextWrapping="Wrap" MinHeight="42" Margin="0,12,0,12"
                    AutomationProperties.LiveSetting="Polite"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">

@@ -3,32 +3,36 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Klikety Settings" Width="1080" Height="700"
         MinWidth="980" MinHeight="620" WindowStartupLocation="CenterScreen"
-        FontFamily="Segoe UI" FontSize="14" Background="#F5F6F8">
+        FontFamily="Segoe UI" FontSize="14" ThemeMode="System"
+        Background="{DynamicResource ApplicationBackgroundBrush}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}">
     <Window.Resources>
-        <Style TargetType="Button">
+        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Padding" Value="16,8"/>
             <Setter Property="MinHeight" Value="36"/>
             <Setter Property="Margin" Value="8,0,0,0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <Style TargetType="ComboBox">
+        <Style TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
             <Setter Property="MinHeight" Value="32"/>
             <Setter Property="Padding" Value="6,3"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
-        <Style TargetType="TextBox">
+        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
             <Setter Property="MinHeight" Value="32"/>
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
         </Style>
-        <Style TargetType="CheckBox">
+        <Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
             <Setter Property="Margin" Value="0,6,18,6"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
         </Style>
-        <Style TargetType="Expander">
+        <Style TargetType="Expander" BasedOn="{StaticResource {x:Type Expander}}">
             <Setter Property="Margin" Value="0,14,0,0"/>
         </Style>
     </Window.Resources>
@@ -38,13 +42,13 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-        <Border Background="White" BorderBrush="#DEE1E6" BorderThickness="0,0,0,1" Padding="24,16">
+        <Border Background="{DynamicResource LayerFillColorAltBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="24,16">
             <DockPanel>
-                <TextBlock x:Name="DirtyLabel" DockPanel.Dock="Right" Foreground="#555C66" VerticalAlignment="Center"/>
+                <TextBlock x:Name="DirtyLabel" DockPanel.Dock="Right" Foreground="{DynamicResource TextFillColorSecondaryBrush}" VerticalAlignment="Center"/>
                 <StackPanel>
                     <TextBlock Text="Settings" FontSize="24" FontWeight="SemiBold"/>
                     <TextBlock x:Name="ScopeLabel" Text="Changes stay in a draft until saved and applied."
-                               Foreground="#555C66" Margin="0,4,0,0"/>
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,4,0,0"/>
                 </StackPanel>
             </DockPanel>
         </Border>
@@ -53,11 +57,11 @@
                 <ColumnDefinition Width="188"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Border BorderBrush="#DEE1E6" BorderThickness="0,0,1,0" Background="#EBEDF1" Padding="12,18">
+            <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,1,0" Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}" Padding="12,18">
                 <ListBox x:Name="Categories" BorderThickness="0" Background="Transparent"
                          SelectionChanged="CategoryChanged" AutomationProperties.Name="Settings categories">
                     <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
+                        <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                             <Setter Property="Padding" Value="12,10"/>
                             <Setter Property="Margin" Value="0,2"/>
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -77,15 +81,15 @@
                 <ContentControl x:Name="PageHost"/>
             </ScrollViewer>
         </Grid>
-        <Border Grid.Row="2" Background="White" BorderBrush="#DEE1E6" BorderThickness="0,1,0,0" Padding="20,14">
+        <Border Grid.Row="2" Background="{DynamicResource LayerFillColorAltBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Padding="20,14">
             <StackPanel>
                 <ScrollViewer MaxHeight="105" VerticalScrollBarVisibility="Auto">
-                    <TextBlock x:Name="Status" TextWrapping="Wrap" Foreground="#555C66"
+                    <TextBlock x:Name="Status" TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                AutomationProperties.LiveSetting="Polite" Margin="0,0,0,12"/>
                 </ScrollViewer>
                 <DockPanel LastChildFill="False">
                     <TextBlock Text="JSONC comments and untouched fields are kept." VerticalAlignment="Center"
-                               FontSize="12" Foreground="#555C66"/>
+                               FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                         <Button x:Name="DiscardButton" Content="_Discard" Click="DiscardClicked"/>
                         <Button x:Name="SaveButton" Content="_Save &amp; apply" Click="SaveClicked"

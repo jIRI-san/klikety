@@ -100,6 +100,8 @@
 - [~] 3.2 Verify live keyboard, display, and focus behavior (REQ-1, REQ-2, REQ-3, REQ-5, REQ-6, REQ-7) [after: 3.1] @human `S`
   <details><summary>Live verification</summary>
 
+  **Review status (2026-10-07):** the user reviewed the running build and approved integration: "looks good merge to main, push". Manual-review corrections are implemented, including dismiss-and-forward for non-modifier keys; Escape/help close only, and modifier-only presses keep help open. This user-approved behavior supersedes the original paused-input criterion; that criterion is not claimed passed. The detailed keyboard-layout, multi-display, theme, and DPI scenarios below have not all been reported as run, so this step remains in progress and whole-plan finalization/archival is deferred.
+
   **Steps:**
   1. Run the built app with a backed-up test config; test slash and Shift+slash, custom binding, held keys, and Escape at intermediate selections in every enabled mode.
   2. Check recording prompts and drag targeting; try activation/global hotkeys and Alt+Tab while help is open.

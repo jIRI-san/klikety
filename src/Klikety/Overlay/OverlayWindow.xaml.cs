@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 
 using Klikety.Config;
+using Klikety.Input;
 using Klikety.Interop;
 using Klikety.Services;
 
@@ -332,6 +333,21 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             commandKeys,
             _helpContent.NavigationAnchors,
             promptLines + closeLines - 1);
+        var entriesByKey = _helpContent.Entries
+            .GroupBy(entry => entry.Key)
+            .ToDictionary(group => group.Key, group => group.ToArray());
+        var cards = new Dictionary<VKey, Border>();
+        foreach (var position in layout.Positions) {
+            if (entriesByKey.TryGetValue(position.Key, out var entries)) {
+                var card = CreateHelpEntry(position, entries, theme, layout.TextScale);
+                card.Measure(new System.Windows.Size(position.Width, double.PositiveInfinity));
+                cards.Add(position.Key, card);
+            }
+        }
+        layout = layout.WithMeasuredHeights(
+            height,
+            cards.ToDictionary(pair => pair.Key, pair => pair.Value.DesiredSize.Height),
+            promptHeights.Sum() + closeHeight + 20);
         var viewport = new ScrollViewer {
             Width = width,
             Height = height,
@@ -359,14 +375,13 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             Opacity = 0.88,
         });
 
-        var entriesByKey = _helpContent.Entries
-            .GroupBy(entry => entry.Key)
-            .ToDictionary(group => group.Key, group => group.ToArray());
         var anchors = _helpContent.NavigationAnchors.ToHashSet();
 
         foreach (var position in layout.Positions) {
-            if (entriesByKey.TryGetValue(position.Key, out var entries)) {
-                AddHelpEntry(content, position, entries, theme, layout.TextScale);
+            if (cards.TryGetValue(position.Key, out var card)) {
+                Canvas.SetLeft(card, position.X);
+                Canvas.SetTop(card, position.Y);
+                content.Children.Add(card);
             } else if (anchors.Contains(position.Key)) {
                 var anchor = new Border {
                     Width = position.Width * 0.72,
@@ -398,8 +413,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
 
     private const double HelpFooterLineHeight = 18;
 
-    private static void AddHelpEntry(
-        Canvas canvas,
+    internal static Border CreateHelpEntry(
         HelpKeyPosition position,
         HelpOverlayEntry[] entries,
         ThemeModel theme,
@@ -409,7 +423,6 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         var command = string.Join(" / ", entries.Select(entry => entry.Command));
         var stack = new StackPanel {
             Width = Math.Max(position.Width, 48),
-            Height = position.Height,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         var keycap = new Border {
@@ -438,19 +451,15 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             FontWeight = FontWeights.SemiBold,
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
-            MaxHeight = position.Height * 0.48,
+            Margin = new Thickness(0, 4 * textScale, 0, 0),
             Opacity = entries.All(entry => entry.IsAvailable) ? 1 : 0.55,
         });
 
-        var card = new Border {
+        return new Border {
             Width = Math.Max(position.Width, 48),
-            Height = position.Height,
             Child = stack,
             Opacity = entries.All(entry => entry.IsAvailable) ? 1 : 0.65,
         };
-        Canvas.SetLeft(card, position.X);
-        Canvas.SetTop(card, position.Y);
-        canvas.Children.Add(card);
     }
 
     private static TextBlock CreateHelpTextBlock(string text, string color, double width) {

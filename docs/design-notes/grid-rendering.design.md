@@ -125,6 +125,8 @@ When external labels are active, no internal cell labels are rendered — cells 
 
 Keyboard help targets 75% of the active display width, constrained by available height and its 12-DIP command-text floor. Keycaps/text scale together; Space and auxiliary command rows remain centered. Help uses readable `Esc`/`Space` labels instead of control/whitespace glyphs.
 
+Help cards use measured, unbounded wrapped-text height. Rows reflow around their tallest card with an explicit gap; the scrollable content includes all labels and footer text instead of clipping them inside fixed-height cells.
+
 - `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color (columns); external row label color (rows); connector line color + thickness; label outline color + thickness; small-cell background color + opacity.
 - `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; rooted/absolute paths rejected via `Path.IsPathRooted`; fall back to built-in dark on any error + tray notification.
 - Built-in `dark.theme.json` and `light.theme.json` shipped as embedded resources; extracted to `%APPDATA%\Klikety\themes\` on first run.

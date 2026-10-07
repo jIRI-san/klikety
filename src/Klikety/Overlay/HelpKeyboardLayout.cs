@@ -16,6 +16,7 @@ public sealed record HelpKeyboardLayout(
     private const double KeyboardWidthInUnits = 17.16;
 
     public double TextScale => KeyUnit / MinimumKeyUnit;
+    public double RowGap => Math.Max(6, KeyUnit * 0.12);
 
     private static readonly VKey[][] LeftRows = [
         [VKey.Q, VKey.W, VKey.E, VKey.R, VKey.T],
@@ -28,6 +29,38 @@ public sealed record HelpKeyboardLayout(
         [VKey.H, VKey.J, VKey.K, VKey.L, VKey.OemSemicolon],
         [VKey.N, VKey.M, VKey.OemComma, VKey.OemPeriod, VKey.OemQuestion],
     ];
+
+    public HelpKeyboardLayout WithMeasuredHeights(
+        double viewportHeight,
+        IReadOnlyDictionary<VKey, double> measuredHeights,
+        double footerHeight) {
+        var height = Math.Max(600, viewportHeight);
+        var rows = Positions.GroupBy(position => position.Y).OrderBy(row => row.Key).ToArray();
+        var rowHeights = rows.Select(row => row.Max(position =>
+            Math.Max(position.Height, measuredHeights.GetValueOrDefault(position.Key)))).ToArray();
+        var offsets = new double[rows.Length];
+        for (var index = 1; index < rows.Length; index++) {
+            offsets[index] = offsets[index - 1] + rowHeights[index - 1] + RowGap;
+        }
+
+        var firstLetterRow = Array.FindIndex(rows, row => row.Any(position => position.Key == VKey.Q));
+        var lastLetterRow = Array.FindIndex(rows, row => row.Any(position => position.Key == VKey.M));
+        var letterCenter = (offsets[firstLetterRow] + offsets[lastLetterRow] + rowHeights[lastLetterRow]) / 2;
+        var keyboardHeight = offsets[^1] + rowHeights[^1];
+        var preferredTop = height / 2 + 40 - letterCenter;
+        var top = Math.Clamp(preferredTop, 20, Math.Max(20, height - footerHeight - RowGap - keyboardHeight));
+        var contentHeight = Math.Max(height, top + keyboardHeight + RowGap + footerHeight);
+
+        return this with {
+            ContentHeight = contentHeight,
+            ScrollViewport = ScrollViewport || contentHeight > viewportHeight,
+            Positions = rows.SelectMany((row, index) =>
+                row.Select(position => position with {
+                    Y = top + offsets[index],
+                    Height = rowHeights[index],
+                })).ToArray(),
+        };
+    }
 
     public static HelpKeyboardLayout Compute(
         double viewportWidth,

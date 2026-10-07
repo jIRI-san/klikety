@@ -123,7 +123,7 @@ When external labels are active, no internal cell labels are rendered — cells 
 
 ## Theme System
 
-Keyboard help targets 75% of the active display width, constrained by available height and its 12-DIP command-text floor. Keycaps/text scale together; Space and auxiliary command rows remain centered. Help uses readable `Esc`/`Space` labels instead of control/whitespace glyphs.
+Keyboard help targets 75% of the active display width, constrained by available height and its 12-DIP command-text floor. Keycaps/text scale together; Space and auxiliary command rows remain centered. Only labeled command cards are drawn, not empty navigation-key rectangles. Help uses readable `Esc`/`Space` labels instead of control/whitespace glyphs.
 
 Help cards use measured, unbounded wrapped-text height. Rows reflow around their tallest card with an explicit gap; the scrollable content includes all labels and footer text instead of clipping them inside fixed-height cells.
 

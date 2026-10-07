@@ -6,11 +6,42 @@ using Klikety.Config;
 using Klikety.Input;
 using Klikety.Navigation;
 using Klikety.Overlay;
+using Klikety.Services;
 using Klikety.Tests.Fakes;
 
 namespace Klikety.Tests;
 
 public class HelpOverlayRenderingTests {
+    [Fact]
+    public void HelpView_RendersOnlyCommandCardsWithoutEmptyNavigationRectangles() {
+        RunOnSta(() => {
+            HelpOverlayEntry[] entries = [
+                new(VKey.Space, "Space", "Left click", HelpEntryCategory.Action),
+                new(VKey.Escape, "Esc", "Close", HelpEntryCategory.Help),
+                new(VKey.OemTilde, "`", "Macro picker", HelpEntryCategory.Macro),
+            ];
+            var window = new OverlayWindow { Width = 800, Height = 600 };
+            try {
+                ((IOverlayWindow)window).ShowHelp(new HelpOverlayContent(
+                    entries, [VKey.A, VKey.W, VKey.OemPlus], [], "Press Escape to close help."));
+                var helpCanvas = Assert.IsType<Canvas>(window.FindName("HelpCanvas"));
+                var viewport = Assert.Single(helpCanvas.Children.OfType<ScrollViewer>());
+                var content = Assert.IsType<Canvas>(viewport.Content);
+                var cards = content.Children.OfType<Border>().ToArray();
+
+                Assert.Equal(entries.Length, cards.Length);
+                Assert.All(cards, card => {
+                    var stack = Assert.IsType<StackPanel>(card.Child);
+                    var keycap = Assert.IsType<Border>(stack.Children[0]);
+                    var label = Assert.IsType<TextBlock>(keycap.Child);
+                    Assert.Contains(entries, entry => entry.KeyLabel == label.Text);
+                });
+            } finally {
+                window.Close();
+            }
+        });
+    }
+
     [Theory]
     [InlineData(800, 600, "Segoe UI")]
     [InlineData(1920, 1080, "Segoe UI")]
@@ -85,7 +116,7 @@ public class HelpOverlayRenderingTests {
                 isModeLocked: false,
                 appScoped: false);
             var layout = HelpKeyboardLayout.Compute(
-                width, height, content.Entries.Select(entry => entry.Key), content.NavigationAnchors);
+                width, height, content.Entries.Select(entry => entry.Key), []);
             var cards = MeasureCards(layout, content.Entries, new ThemeModel());
 
             layout = layout.WithMeasuredHeights(

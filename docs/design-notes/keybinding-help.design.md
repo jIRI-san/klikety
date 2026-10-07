@@ -34,7 +34,7 @@ globs:
 - Explicit action bindings plus `ActionMapper`'s implicit/overridden Space behavior.
 - Enabled mode chords, app-scope chord, assigned display numbers, help/Escape, and macro record/helper/slot keys.
 - Current drag target meanings; recording slot, overwrite, and start-from-cursor prompts; macro slot names; and reasons for commands that are temporarily unavailable.
-- Navigation keys are unlabeled anchors. Custom command keys outside the keyboard diagram are placed in an auxiliary strip. Disabled features are omitted.
+- Navigation-only keys are not drawn: help renders only labeled command cards, with no empty key rectangles. Canonical keyboard slots still preserve command positions; custom command keys outside the diagram use a centered auxiliary strip, without reserving auxiliary slots for navigation-only keys. Disabled features are omitted.
 
 The separate macro global hotkey remains an OS-level command, not an overlay-local key and not part of the paused help dispatch.
 

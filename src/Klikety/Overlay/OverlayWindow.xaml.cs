@@ -316,7 +316,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             width,
             height,
             commandKeys,
-            _helpContent.NavigationAnchors);
+            []);
         var theme = _theme ?? new ThemeModel();
         var footerWidth = Math.Max(0, baseLayout.ContentWidth - 40);
         var promptBlocks = _helpContent.Prompts
@@ -331,7 +331,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             width,
             height,
             commandKeys,
-            _helpContent.NavigationAnchors,
+            [],
             promptLines + closeLines - 1);
         var entriesByKey = _helpContent.Entries
             .GroupBy(entry => entry.Key)
@@ -375,26 +375,11 @@ public partial class OverlayWindow : Window, IOverlayWindow {
             Opacity = 0.88,
         });
 
-        var anchors = _helpContent.NavigationAnchors.ToHashSet();
-
         foreach (var position in layout.Positions) {
             if (cards.TryGetValue(position.Key, out var card)) {
                 Canvas.SetLeft(card, position.X);
                 Canvas.SetTop(card, position.Y);
                 content.Children.Add(card);
-            } else if (anchors.Contains(position.Key)) {
-                var anchor = new Border {
-                    Width = position.Width * 0.72,
-                    Height = position.Height * 0.48,
-                    BorderBrush = TryParseBrush(theme.CellBorderColor, Brushes.Gray),
-                    BorderThickness = new Thickness(1),
-                    Background = TryParseBrush(theme.DimmedOverlayColor, Brushes.Black),
-                    Opacity = 0.3,
-                    CornerRadius = new CornerRadius(3),
-                };
-                Canvas.SetLeft(anchor, position.X + position.Width * 0.14);
-                Canvas.SetTop(anchor, position.Y);
-                content.Children.Add(anchor);
             }
         }
 

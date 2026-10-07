@@ -43,6 +43,13 @@ Unsupported capture leaves the picker available; keys outside the supported VKey
 are not invented. F11 is supported; F12 is excluded (reserved for the Windows debugger).
 Collection rows wrap rather than clipping; add/move/remove returns keyboard focus to
 the affected row.
+Field labels, picker/text input contents and adjacent capture buttons are vertically
+centered; wrapping key rows keep the same shared control alignment.
+Ordered-list reorder buttons use compact vector arrows with descriptive tooltips and
+item-specific automation names; disabled arrows inherit the button's disabled foreground.
+Appearance Advanced has an **Open folder** button beside the read-only theme folder.
+It opens that settings session's folder in Windows Explorer, including the isolated demo
+folder, without saving the draft or editing theme contents; launch errors appear inline.
 
 ## Draft and validation
 

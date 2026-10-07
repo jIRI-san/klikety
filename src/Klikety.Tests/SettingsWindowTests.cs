@@ -25,7 +25,7 @@ public sealed class SettingsWindowTests {
             "modes.logGrid.enabled", "modes.logGrid.arrowKeys", "modes.logGrid.twoKey", "modes.logGrid.chordKey", "modes.logGrid.logBaseSize", "modes.logGrid.logGridBaseSize",
         ],
         ["actionBindings.add.key", "actionBindings.add.action", "horizontalKeys.item.0", "verticalKeys.item.0"],
-        ["theme", "minLabelFontSize", "metadata.themeFolder"],
+        ["theme", "minLabelFontSize", "metadata.themeFolder", "metadata.themeFolder.open"],
         ["scrollHotkeys.enabled", "scrollHotkeys.scrollUpKey.modifiers", "scrollHotkeys.scrollUpKey.key", "scrollHotkeys.scrollDownKey.modifiers", "scrollHotkeys.scrollDownKey.key", "scrollHotkeys.scrollAmount"],
         [
             "macros.enabled", "macros.globalHotKey", "macros.globalHotKey.modifiers", "macros.globalHotKey.key",
@@ -58,11 +58,17 @@ public sealed class SettingsWindowTests {
                 var snapshot = new SettingsRuntimeSnapshot(new ConfigModel(), false, false);
                 var applySucceeds = false;
                 var confirmDiscard = false;
+                var openedFolders = new List<string>();
+                var openFolderFails = false;
                 var window = new SettingsWindow(path, true, _ => { }, () => snapshot,
                     _ => applySucceeds
                         ? SettingsApplyOutcome.Success
                         : new SettingsApplyOutcome(false, ["Injected runtime activation failure."]),
-                    _ => SettingsApplyOutcome.Success, confirmDiscard: _ => confirmDiscard);
+                    _ => SettingsApplyOutcome.Success, confirmDiscard: _ => confirmDiscard,
+                    openFolder: folder => {
+                        if (openFolderFails) { throw new System.ComponentModel.Win32Exception(5); }
+                        openedFolders.Add(folder);
+                    });
                 window.Show();
 
                 var categories = Assert.IsType<ListBox>(window.FindName("Categories"));
@@ -77,6 +83,19 @@ public sealed class SettingsWindowTests {
                         Assert.NotNull(FindByAutomationId<FrameworkElement>(pageHost.Content!, id));
                     }
                 }
+                categories.SelectedIndex = 3;
+                var openFolder = Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, "metadata.themeFolder.open"));
+                Assert.Equal("Open folder", openFolder.Content);
+                Assert.Equal("Open Theme folder", AutomationProperties.GetName(openFolder));
+                openFolder.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal([Path.Combine(folder, "themes")], openedFolders);
+                Assert.Equal(original, File.ReadAllBytes(path));
+                Assert.False(Assert.IsType<Button>(window.FindName("SaveButton")).IsEnabled);
+                openFolderFails = true;
+                openFolder.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.StartsWith("Cannot open folder:", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                Assert.Single(openedFolders);
+                Assert.Equal(original, File.ReadAllBytes(path));
                 categories.SelectedIndex = 0;
                 var modifiers = Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "hotKey.modifiers"));
                 Assert.True(Assert.IsType<TextBox>(FindByAutomationId<TextBox>(pageHost.Content!, "metadata.configPath")).IsReadOnly);

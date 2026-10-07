@@ -40,6 +40,14 @@ public sealed class SettingsAccessibilityTests {
                         var peer = UIElementAutomationPeer.CreatePeerForElement(control);
                         Assert.False(string.IsNullOrWhiteSpace(peer?.GetName()), $"{index}: {control.GetType().Name}");
                         if (control is not TextBox { IsReadOnly: true }) { Assert.True(control.IsTabStop); }
+                        var id = AutomationProperties.GetAutomationId(control);
+                        if (control is Button move && (id.EndsWith(".up", StringComparison.Ordinal) || id.EndsWith(".down", StringComparison.Ordinal))) {
+                            var icon = Assert.IsType<System.Windows.Shapes.Path>(move.Content);
+                            Assert.NotNull(icon.Data);
+                            Assert.Equal(36, move.Width);
+                            Assert.Equal(id.EndsWith(".up", StringComparison.Ordinal) ? "Move up" : "Move down", move.ToolTip);
+                            Assert.True(System.Windows.Data.BindingOperations.IsDataBound(icon, System.Windows.Shapes.Shape.StrokeProperty));
+                        }
                     }
                     // Logical WPF bounds only. These are not native 100/150/200% DPI evidence.
                     foreach (var width in LogicalWidths) {
@@ -51,6 +59,22 @@ public sealed class SettingsAccessibilityTests {
                         foreach (var control in elements.OfType<Control>().Where(item => item is Button or TextBox or ComboBox or CheckBox)) {
                             var bounds = control.TransformToAncestor(page).TransformBounds(new Rect(control.RenderSize));
                             Assert.True(bounds.Right <= page.ActualWidth + 0.1, $"{index} width {width}: {control.GetType().Name} clipped");
+                        }
+                        foreach (var label in elements.OfType<Label>()) {
+                            if (label.Target is not FrameworkElement target ||
+                                label.Parent is not System.Windows.Controls.Grid row) { continue; }
+                            var captionBounds = label.TransformToAncestor(row).TransformBounds(new Rect(label.RenderSize));
+                            var targetBounds = target.TransformToAncestor(row).TransformBounds(new Rect(target.RenderSize));
+                            Assert.True(Math.Abs(CenterY(captionBounds) - CenterY(targetBounds)) <= 0.5,
+                                $"{index} width {width}: {label.Content} label is not centered with its field");
+                            if (target.Parent is WrapPanel inputs) {
+                                foreach (var input in inputs.Children.OfType<Control>()) {
+                                    var inputBounds = input.TransformToAncestor(row).TransformBounds(new Rect(input.RenderSize));
+                                    Assert.True(Math.Abs(CenterY(inputBounds) - CenterY(targetBounds)) <= 0.5,
+                                        $"{index} width {width}: {label.Content} picker and capture button are not centered");
+                                }
+                            }
+                            Assert.Equal(VerticalAlignment.Center, Assert.IsAssignableFrom<Control>(target).VerticalContentAlignment);
                         }
                     }
                     foreach (var advanced in elements.OfType<Expander>()) { advanced.IsExpanded = false; }
@@ -70,6 +94,8 @@ public sealed class SettingsAccessibilityTests {
             Directory.Delete(root);
         }
     }
+
+    private static double CenterY(Rect bounds) => bounds.Top + bounds.Height / 2;
 
     private static IEnumerable<FrameworkElement> Descendants(DependencyObject root) {
         var seen = new HashSet<DependencyObject>();

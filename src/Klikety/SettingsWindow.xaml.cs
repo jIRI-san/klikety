@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
@@ -7,6 +8,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Automation.Peers;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -26,6 +28,7 @@ public partial class SettingsWindow : Window {
     private readonly SettingsSaveTransaction _transaction;
     private readonly Action _completeRuntimeOperation;
     private readonly Func<string, bool> _confirmDiscard;
+    private readonly Action<string> _openFolder;
     private readonly bool _demo;
     private readonly Dictionary<string, Field> _fields = [];
     private readonly Dictionary<string, ComboBox> _modifierChoices = [];
@@ -49,7 +52,8 @@ public partial class SettingsWindow : Window {
         SettingsOperationGate? operationGate = null,
         Action? completeRuntimeOperation = null,
         Action<string>? fault = null,
-        Func<string, bool>? confirmDiscard = null) {
+        Func<string, bool>? confirmDiscard = null,
+        Action<string>? openFolder = null) {
         InitializeComponent();
         _store = new SettingsConfigStore(path, fault);
         _transaction = new SettingsSaveTransaction(_store, operationGate ?? new SettingsOperationGate(() => true),
@@ -57,6 +61,7 @@ public partial class SettingsWindow : Window {
         _completeRuntimeOperation = completeRuntimeOperation ?? (() => { });
         _confirmDiscard = confirmDiscard ?? (message => MessageBox.Show(this, message, "Klikety Settings",
             MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
+        _openFolder = openFolder ?? OpenInExplorer;
         _demo = demo;
         if (demo) {
             Title = "Klikety Settings - ISOLATED DEMO (no global hooks)";
@@ -147,8 +152,14 @@ public partial class SettingsWindow : Window {
         Number(appearanceCard, "Minimum label size (DIP)", "minLabelFontSize", config.MinLabelFontSize, integer: false);
         Hint(appearanceCard, "Labels auto-scale. This size is the readability floor, not a fixed font size.");
         var appearanceAdvanced = Advanced(appearance);
-        ReadOnlyValue(appearanceAdvanced, "Theme folder", System.IO.Path.Combine(
-            System.IO.Path.GetDirectoryName(_store.FilePath)!, "themes"), "metadata.themeFolder");
+        var themeFolder = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_store.FilePath)!, "themes");
+        ReadOnlyValue(appearanceAdvanced, "Theme folder", themeFolder, "metadata.themeFolder", () => {
+            try {
+                _openFolder(themeFolder);
+            } catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException) {
+                ShowStatus("Cannot open folder: " + ex.Message, error: true);
+            }
+        });
         Hint(appearanceAdvanced, "Theme contents stay in their separate files. Unchanged loader fallback warnings remain advisory.");
 
         var scrolling = Page("Scrolling", "Configure scroll shortcuts and amount. Pause remains a runtime tray control.");
@@ -236,17 +247,39 @@ public partial class SettingsWindow : Window {
         var grid = new System.Windows.Controls.Grid { Margin = new Thickness(0, 5, 0, 5) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(215) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var caption = new Label { Content = label, Target = labelTarget ?? control, Padding = new Thickness(0, 4, 8, 4) };
+        var caption = new Label {
+            Content = label, Target = labelTarget ?? control, Padding = new Thickness(0, 4, 8, 4),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
         grid.Children.Add(caption);
         System.Windows.Controls.Grid.SetColumn(control, 1);
         grid.Children.Add(control);
         panel.Children.Add(grid);
     }
 
-    private static void ReadOnlyValue(Panel panel, string label, string value, string automationId) {
+    private static void ReadOnlyValue(Panel panel, string label, string value, string automationId, Action? openFolder = null) {
         var box = new TextBox { Text = value, IsReadOnly = true, IsTabStop = false };
         AutomationProperties.SetAutomationId(box, automationId);
-        Row(panel, label, box);
+        if (openFolder is null) {
+            Row(panel, label, box);
+            return;
+        }
+        var button = new Button { Content = "Open folder", ToolTip = value };
+        AutomationProperties.SetAutomationId(button, automationId + ".open");
+        AutomationProperties.SetName(button, $"Open {label}");
+        button.Click += (_, _) => openFolder();
+        var input = new DockPanel();
+        DockPanel.SetDock(button, Dock.Right);
+        input.Children.Add(button);
+        input.Children.Add(box);
+        Row(panel, label, input, box);
+    }
+
+    private static void OpenInExplorer(string folder) {
+        if (!Directory.Exists(folder)) { throw new DirectoryNotFoundException($"Folder is unavailable: {folder}"); }
+        var start = new ProcessStartInfo("explorer.exe");
+        start.ArgumentList.Add(folder);
+        if (Process.Start(start) is null) { throw new InvalidOperationException("Windows Explorer did not start."); }
     }
 
     private void TextEntry(Panel panel, string label, string path, string value) {
@@ -354,14 +387,14 @@ public partial class SettingsWindow : Window {
                         RefreshDirty();
                     }
                 };
-                var up = new Button { Content = "Move up", IsEnabled = index > 0 };
+                var up = MoveButton(up: true, enabled: index > 0);
                 AutomationProperties.SetAutomationId(up, $"{path}.item.{index}.up");
                 AutomationProperties.SetName(up, $"Move {label} item {index + 1} up");
                 up.Click += (_, _) => {
                     (values[index - 1], values[index]) = (values[index], values[index - 1]);
                     Render(); RefreshDirty(); FocusEditor(rows, $"{path}.item.{index - 1}");
                 };
-                var down = new Button { Content = "Move down", IsEnabled = index + 1 < values.Count };
+                var down = MoveButton(up: false, enabled: index + 1 < values.Count);
                 AutomationProperties.SetAutomationId(down, $"{path}.item.{index}.down");
                 AutomationProperties.SetName(down, $"Move {label} item {index + 1} down");
                 down.Click += (_, _) => {
@@ -413,6 +446,21 @@ public partial class SettingsWindow : Window {
         }
 
         Render();
+    }
+
+    private static Button MoveButton(bool up, bool enabled) {
+        var icon = new System.Windows.Shapes.Path {
+            Data = Geometry.Parse(up ? "M 2,6 L 6,2 L 10,6 M 6,2 L 6,12" : "M 2,8 L 6,12 L 10,8 M 6,2 L 6,12"),
+            Width = 12, Height = 14, StrokeThickness = 1.5,
+            StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round,
+        };
+        var button = new Button {
+            Content = icon, ToolTip = up ? "Move up" : "Move down", IsEnabled = enabled,
+            Width = 36, Padding = new Thickness(8),
+        };
+        icon.SetBinding(System.Windows.Shapes.Shape.StrokeProperty, new Binding(nameof(Control.Foreground)) { Source = button });
+        return button;
     }
 
     private void ActionBindingsEditor(Panel panel, Dictionary<string, MouseAction> initial) {

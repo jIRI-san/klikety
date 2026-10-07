@@ -97,9 +97,15 @@ public partial class SettingsWindow : Window {
         Toggle(generalAdvanced, "Write logs to files", "fileLoggingEnabled", config.FileLoggingEnabled);
         Number(generalAdvanced, "Retained log files", "retainedLogFileCount", config.RetainedLogFileCount, integer: true);
         var metadata = Card(generalAdvanced, "Configuration metadata");
-        ReadOnlyValue(metadata, "Config file", _store.FilePath, "metadata.configPath");
+        ReadOnlyValue(metadata, "Config file", _store.FilePath, "metadata.configPath",
+            () => OpenFolder(_store.FilePath, filePath: true));
         ReadOnlyValue(metadata, "Config version", config.ConfigVersion.ToString(CultureInfo.InvariantCulture), "metadata.configVersion");
-        ReadOnlyValue(metadata, "$schema", _store.SchemaReference, "metadata.schemaReference");
+        var schema = _store.SchemaReference;
+        var schemaUri = Uri.TryCreate(schema, UriKind.Absolute, out var parsedSchema) ? parsedSchema : null;
+        Action? openSchemaFolder = schema != "(not specified)" && (schemaUri is null || schemaUri.IsFile)
+            ? () => OpenFolder(schemaUri?.LocalPath ?? schema, filePath: true)
+            : null;
+        ReadOnlyValue(metadata, "$schema", schema, "metadata.schemaReference", openSchemaFolder);
         Hint(generalAdvanced, "Start with Windows remains a registry toggle in the tray. It is not saved to JSON.");
 
         var navigation = Page("Navigation", "Pick a starting mode, then choose how each mode responds.");
@@ -153,13 +159,8 @@ public partial class SettingsWindow : Window {
         Hint(appearanceCard, "Labels auto-scale. This size is the readability floor, not a fixed font size.");
         var appearanceAdvanced = Advanced(appearance);
         var themeFolder = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(_store.FilePath)!, "themes");
-        ReadOnlyValue(appearanceAdvanced, "Theme folder", themeFolder, "metadata.themeFolder", () => {
-            try {
-                _openFolder(themeFolder);
-            } catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException or InvalidOperationException) {
-                ShowStatus("Cannot open folder: " + ex.Message, error: true);
-            }
-        });
+        ReadOnlyValue(appearanceAdvanced, "Theme folder", themeFolder, "metadata.themeFolder",
+            () => OpenFolder(themeFolder));
         Hint(appearanceAdvanced, "Theme contents stay in their separate files. Unchanged loader fallback warnings remain advisory.");
 
         var scrolling = Page("Scrolling", "Configure scroll shortcuts and amount. Pause remains a runtime tray control.");
@@ -280,6 +281,16 @@ public partial class SettingsWindow : Window {
         var start = new ProcessStartInfo("explorer.exe");
         start.ArgumentList.Add(folder);
         if (Process.Start(start) is null) { throw new InvalidOperationException("Windows Explorer did not start."); }
+    }
+
+    private void OpenFolder(string path, bool filePath = false) {
+        try {
+            var fullPath = System.IO.Path.GetFullPath(path, System.IO.Path.GetDirectoryName(_store.FilePath)!);
+            _openFolder(filePath ? System.IO.Path.GetDirectoryName(fullPath)! : fullPath);
+        } catch (Exception ex) when (ex is Win32Exception or IOException or UnauthorizedAccessException or
+                                    InvalidOperationException or ArgumentException or NotSupportedException) {
+            ShowStatus("Cannot open folder: " + ex.Message, error: true);
+        }
     }
 
     private void TextEntry(Panel panel, string label, string path, string value) {

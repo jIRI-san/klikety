@@ -47,9 +47,12 @@ Field labels, picker/text input contents and adjacent capture buttons are vertic
 centered; wrapping key rows keep the same shared control alignment.
 Ordered-list reorder buttons use compact vector arrows with descriptive tooltips and
 item-specific automation names; disabled arrows inherit the button's disabled foreground.
-Appearance Advanced has an **Open folder** button beside the read-only theme folder.
-It opens that settings session's folder in Windows Explorer, including the isolated demo
-folder, without saving the draft or editing theme contents; launch errors appear inline.
+Every displayed local path has an **Open folder** button: the config file and local
+`$schema` reference open their parent directories; the theme folder opens directly.
+Relative schema files resolve against the config directory; `file:` URIs are supported,
+while web references and unspecified metadata have no filesystem action. These actions
+open Windows Explorer without saving the draft or editing separate files; launch/path
+errors appear inline. Isolated demos use their own displayed paths, never AppData defaults.
 
 ## Draft and validation
 

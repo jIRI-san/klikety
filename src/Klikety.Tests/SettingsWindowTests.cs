@@ -16,7 +16,7 @@ namespace Klikety.Tests;
 [Collection("Settings UI")]
 public sealed class SettingsWindowTests {
     private static readonly string[][] EditableIds = [
-        ["hotKey.modifiers", "hotKey.key", "logLevel", "fileLoggingEnabled", "retainedLogFileCount", "metadata.configPath", "metadata.configVersion", "metadata.schemaReference"],
+        ["hotKey.modifiers", "hotKey.key", "logLevel", "fileLoggingEnabled", "retainedLogFileCount", "metadata.configPath", "metadata.configPath.open", "metadata.configVersion", "metadata.schemaReference"],
         [
             "defaultMode", "level3CellSizeThreshold", "appScope.chordKey",
             "modes.uniformGrid.enabled", "modes.uniformGrid.arrowKeys", "modes.uniformGrid.twoKey", "modes.uniformGrid.chordKey", "modes.uniformGrid.logBaseSize", "modes.uniformGrid.logGridBaseSize",
@@ -48,7 +48,7 @@ public sealed class SettingsWindowTests {
         var folder = Path.Combine(Path.GetTempPath(), "Klikety-settings-window-" + Guid.NewGuid());
         Directory.CreateDirectory(folder);
         var path = Path.Combine(folder, "config.json");
-        File.WriteAllText(path, "{\"configVersion\":7}");
+        File.WriteAllText(path, "{\"configVersion\":7,\"$schema\":\"schemas/config schema.json\"}");
         var original = File.ReadAllBytes(path);
 
         Exception? failure = null;
@@ -97,6 +97,14 @@ public sealed class SettingsWindowTests {
                 Assert.Single(openedFolders);
                 Assert.Equal(original, File.ReadAllBytes(path));
                 categories.SelectedIndex = 0;
+                openFolderFails = false;
+                Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, "metadata.configPath.open"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, "metadata.schemaReference.open"))
+                    .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal([Path.Combine(folder, "themes"), folder, Path.Combine(folder, "schemas")], openedFolders);
+                Assert.False(Assert.IsType<Button>(window.FindName("SaveButton")).IsEnabled);
+                Assert.Equal(original, File.ReadAllBytes(path));
                 var modifiers = Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "hotKey.modifiers"));
                 Assert.True(Assert.IsType<TextBox>(FindByAutomationId<TextBox>(pageHost.Content!, "metadata.configPath")).IsReadOnly);
                 var trigger = Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "hotKey.key"));
@@ -308,6 +316,67 @@ public sealed class SettingsWindowTests {
             foreach (var file in Directory.GetFiles(folder)) {
                 File.Delete(file);
             }
+            Directory.Delete(folder);
+        }
+    }
+
+    [Theory]
+    [InlineData("relative", true)]
+    [InlineData("absolute", true)]
+    [InlineData("file-uri", true)]
+    [InlineData("web", false)]
+    [InlineData("absent", false)]
+    [InlineData("invalid", true)]
+    public void SchemaFolderActionsResolveOnlyLocalReferencesAndRetainMetadata(string kind, bool hasAction) {
+        var folder = Path.Combine(Path.GetTempPath(), "Klikety settings paths-" + Guid.NewGuid());
+        Directory.CreateDirectory(folder);
+        var schemaPath = Path.Combine(folder, "schemas", "config schema.json");
+        var schema = kind switch {
+            "relative" => "schemas/config schema.json",
+            "absolute" => schemaPath,
+            "file-uri" => new Uri(schemaPath).AbsoluteUri,
+            "web" => "https://example.invalid/config.schema.json",
+            "invalid" => "invalid\0schema.json",
+            _ => null,
+        };
+        var path = Path.Combine(folder, "config.json");
+        var document = new JsonObject { ["configVersion"] = 7 };
+        if (schema is not null) { document["$schema"] = schema; }
+        File.WriteAllText(path, document.ToJsonString());
+        var original = File.ReadAllBytes(path);
+        Exception? failure = null;
+        var thread = new Thread(() => {
+            try {
+                var opened = new List<string>();
+                var window = new SettingsWindow(path, true, _ => { },
+                    () => new(new ConfigModel(), false, false), _ => SettingsApplyOutcome.Success,
+                    _ => SettingsApplyOutcome.Success, openFolder: opened.Add);
+                var page = Assert.IsType<ContentControl>(window.FindName("PageHost"));
+                var button = FindByAutomationId<Button>(page.Content!, "metadata.schemaReference.open");
+                Assert.Equal(hasAction, button is not null);
+                if (button is not null) {
+                    Assert.Equal("Open $schema", AutomationProperties.GetName(button));
+                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    if (kind == "invalid") {
+                        Assert.Empty(opened);
+                        Assert.StartsWith("Cannot open folder:", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                    } else {
+                        Assert.Equal([Path.GetDirectoryName(schemaPath)!], opened);
+                    }
+                }
+                Assert.True(Assert.IsType<TextBox>(FindByAutomationId<TextBox>(page.Content!, "metadata.schemaReference")).IsReadOnly);
+                Assert.False(Assert.IsType<Button>(window.FindName("SaveButton")).IsEnabled);
+                Assert.Equal(original, File.ReadAllBytes(path));
+                window.Close();
+            } catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "WPF folder action check timed out.");
+        try {
+            if (failure is not null) { throw new Xunit.Sdk.XunitException(failure.ToString()); }
+        } finally {
+            File.Delete(path);
             Directory.Delete(folder);
         }
     }

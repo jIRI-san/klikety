@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Windows.Threading;
 
 using Klikety.Config;
+using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
 using Klikety.Overlay;
@@ -38,10 +39,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private readonly ILogger _logger;
     private readonly ModeSessionFactory _sessionFactory;
     private readonly IPlatformServices _platform;
+    private readonly Func<nint, IKeyLabelResolver> _keyLabelResolverFactory;
 
     private bool _deactivating;
     private bool _hostBusy;
     private bool _nonQwertyWarningShown;
+    private bool _helpVisible;
+    private readonly bool _helpBindingValid;
+    private readonly HashSet<VKey> _helpLatchedKeys = [];
     private nint _lastKeyboardLayout;
     private IReadOnlyList<DisplayInfo> _displays = [];
     private DisplayInfo? _navDisplay;
@@ -96,7 +101,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         IMacroStore? macroStore = null,
         MacrosFile? macrosFile = null,
         Func<ISatelliteOverlay>? satelliteFactory = null,
-        DisplayTopologyStore? topologyStore = null) {
+        DisplayTopologyStore? topologyStore = null,
+        Func<nint, IKeyLabelResolver>? keyLabelResolverFactory = null) {
         _hotKeyService = hotKeyService;
         _hookService = hookService;
         _mouseService = mouseService;
@@ -110,6 +116,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _platform = platform;
         _config = config;
         _logger = logger;
+        _keyLabelResolverFactory = keyLabelResolverFactory ?? (layout => new Win32KeyLabelResolver(layout));
+        var helpBindingError = HelpBindingPolicy.GetInvalidReason(config);
+        _helpBindingValid = config.HelpBinding?.Enabled == true && helpBindingError is null;
+        if (helpBindingError is not null) {
+            LogInvalidHelpBinding(helpBindingError);
+        }
 
         _debounce = new DebounceHandler(platform, config);
         _sessionManager = new SessionManager(sessionFactory, overlayWindow, logger);
@@ -133,6 +145,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _overlayWindow.FocusLost += OnFocusLost;
         _overlayWindow.DisplayChanged += OnDisplayChanged;
         _overlayWindow.KeyboardLayoutChanged += OnKeyboardLayoutChanged;
+        _overlayWindow.ViewportChanged += OnViewportChanged;
         _sessionManager.ActionRequested += OnSessionActionRequested;
         _sessionManager.Cancelled += OnSessionCancelled;
         _sessionManager.CursorMoveRequested += OnSessionCursorMoveRequested;
@@ -279,8 +292,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
     private void OnKeyEvent(object? sender, KeyHookEventArgs e) {
         if (!e.IsDown) {
-            // Key-up: debounce removal only
             _debounce.Remove(e.Key);
+            _helpLatchedKeys.Remove(e.Key);
+            return;
+        }
+
+        if (_helpLatchedKeys.Contains(e.Key)) {
             return;
         }
 
@@ -298,6 +315,27 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
 
         LogKeyPressed(e.Key);
+
+        if (_helpBindingValid && _overlayWindow.IsVisible && _sessionManager.IsActive &&
+            HelpBindingPolicy.Matches(_config.HelpBinding, e.Key, e.Modifiers)) {
+            _helpLatchedKeys.Add(e.Key);
+            ToggleHelp();
+            return;
+        }
+
+        if (_helpVisible) {
+            if (e.Key == VKey.Escape) {
+                _helpLatchedKeys.Add(e.Key);
+                CloseHelp();
+                return;
+            }
+            if (e.Key is VKey.Shift or VKey.LShift or VKey.RShift or
+                VKey.Control or VKey.LControl or VKey.RControl or
+                VKey.Menu or VKey.LMenu or VKey.RMenu or VKey.LWin or VKey.RWin) {
+                return;
+            }
+            CloseHelp();
+        }
 
         if (_sessionManager.IsActive && TryHandleDisplayDigit(e.Key)) {
             return;
@@ -406,7 +444,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _navDisplay = target;
             _overlayWindow.ClearCanvas();
             _overlayHost.Show(_displays, target, _displayNumbers);
-            _mouseService.MoveTo(center);
+            InputResultObserver.Observe(_mouseService.MoveTo(center), _logger);
             AfterHostLayout(() => {
                 if (!_overlayWindow.IsVisible) {
                     DeactivateOverlay();
@@ -448,18 +486,64 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     private void OnKeyboardLayoutChanged(object? sender, EventArgs e) =>
         RefreshKeyboardLayoutIfChanged(redraw: true);
 
+    private void OnViewportChanged(object? sender, OverlayViewportChangedEventArgs e) =>
+        _overlayWindow.RelayoutHelp();
+
     private void RefreshKeyboardLayoutIfChanged(bool redraw) {
         var keyboardLayout = _platform.KeyboardLayout.GetActiveKeyboardLayout();
         if (keyboardLayout == _lastKeyboardLayout) {
             return;
         }
 
-        _sessionFactory.RebuildLabels(new Grid.Win32KeyLabelResolver(keyboardLayout));
+        _sessionFactory.RebuildLabels(_keyLabelResolverFactory(keyboardLayout));
         _lastKeyboardLayout = keyboardLayout;
 
         if (redraw) {
             _sessionManager.RedrawActiveSession();
         }
+
+        if (_helpVisible) {
+            _overlayWindow.UpdateHelp(BuildHelpContent());
+        }
+    }
+
+    private HelpOverlayContent BuildHelpContent() =>
+        HelpOverlayContentBuilder.Build(
+            _config,
+            _keyLabelResolverFactory(_lastKeyboardLayout),
+            _sessionFactory.IsLogGridAvailable,
+            _actionDispatcher.IsDragMode,
+            _macroHandler.State,
+            _macroHandler.Recorder?.State,
+            _macroHandler.Recorder?.SelectedSlot ?? -1,
+            _macroHandler.Recorder?.RecordedStepCount ?? 0,
+            _macroHandler.MacroSlots,
+            _displayNumbers,
+            _navDisplay?.DevicePath,
+            _macroHandler.MacroPickerWindow is not null,
+            _sessionManager.IsModeLocked,
+            _sessionManager.AppScoped,
+            _helpBindingValid);
+
+    private void ToggleHelp() {
+        if (_helpVisible) {
+            CloseHelp();
+            return;
+        }
+
+        _helpVisible = true;
+        _overlayWindow.ShowHelp(BuildHelpContent());
+    }
+
+    private void CloseHelp() {
+        _helpVisible = false;
+        _overlayWindow.HideHelp();
+    }
+
+    private void ClearHelpState() {
+        _helpVisible = false;
+        _helpLatchedKeys.Clear();
+        _overlayWindow.HideHelp();
     }
 
     private void OnFocusLost(object? sender, EventArgs e) {
@@ -537,7 +621,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnSessionCursorMoveRequested(Point point) {
-        _mouseService.MoveTo(point);
+        InputResultObserver.Observe(_mouseService.MoveTo(point), _logger);
     }
 
     /// <summary>
@@ -551,6 +635,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _deactivating = true;
 
         try {
+            ClearHelpState();
             _hookService.DrainAndDisable();
 
             // Clear debounce state
@@ -575,7 +660,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             // Clear modifier keys (Alt/Ctrl/Shift) that may be stuck in the target
             // window's thread — hotkey modifier keydown went to target before overlay
             // opened, but keyup was consumed by overlay.
-            _mouseService.ClearStuckModifiers();
+            InputResultObserver.Observe(_mouseService.ClearStuckModifiers(), _logger);
         } finally {
             _deactivating = false;
         }
@@ -629,9 +714,13 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     [LoggerMessage(Level = LogLevel.Warning, Message = "App-scope rejected: {Reason}")]
     private partial void LogAppScopeRejected(string reason);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Help binding is ineffective: {Reason}")]
+    private partial void LogInvalidHelpBinding(string reason);
+
     // --- Macro handler overlay-control event handlers ---
 
     private void OnMacroSuspendOverlay() {
+        ClearHelpState();
         _overlayHost.Hide();
     }
 
@@ -667,6 +756,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _overlayWindow.FocusLost -= OnFocusLost;
         _overlayWindow.DisplayChanged -= OnDisplayChanged;
         _overlayWindow.KeyboardLayoutChanged -= OnKeyboardLayoutChanged;
+        _overlayWindow.ViewportChanged -= OnViewportChanged;
         _sessionManager.ActionRequested -= OnSessionActionRequested;
         _sessionManager.Cancelled -= OnSessionCancelled;
         _sessionManager.CursorMoveRequested -= OnSessionCursorMoveRequested;

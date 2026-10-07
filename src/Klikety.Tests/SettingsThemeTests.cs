@@ -16,7 +16,7 @@ public sealed class SettingsThemeTests {
         var folder = Path.Combine(Path.GetTempPath(), "Klikety-settings-theme-" + Guid.NewGuid());
         Directory.CreateDirectory(folder);
         var path = Path.Combine(folder, "config.json");
-        File.WriteAllText(path, "{\"configVersion\":7,\"theme\":\"custom\"}");
+        File.WriteAllText(path, "{\"configVersion\":8,\"theme\":\"custom\"}");
         var original = File.ReadAllBytes(path);
         Exception? failure = null;
         var thread = new Thread(() => {

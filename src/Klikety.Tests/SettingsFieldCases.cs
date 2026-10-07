@@ -28,6 +28,8 @@ internal static class SettingsFieldCases {
         new(1, "modes.logGrid.chordKey", "null"),
         new(1, "modes.logGrid.logBaseSize", "17"), new(1, "modes.logGrid.logGridBaseSize", "18"),
         new(1, "appScope.chordKey", "null"), new(1, "level3CellSizeThreshold", "400"),
+        new(2, "helpBinding.enabled", "false"), new(2, "helpBinding.key", "\"OemCloseBrackets\""),
+        new(2, "helpBinding.requireShift", "true"),
         new(2, "actionBindings", "{\"Z\":\"LeftClick\",\"X\":\"RightClick\",\"C\":\"DoubleClick\",\"V\":\"MiddleClick\",\"B\":\"MoveOnly\",\"OemOpenBrackets\":\"DragDrop\"}"),
         new(2, "horizontalKeys", "[\"OemSemicolon\",\"L\",\"K\",\"J\",\"H\",\"G\",\"F\",\"D\",\"S\",\"A\"]"),
         new(2, "verticalKeys", "[\"P\",\"O\",\"I\",\"U\",\"Y\",\"T\",\"R\",\"E\",\"W\",\"Q\"]"),

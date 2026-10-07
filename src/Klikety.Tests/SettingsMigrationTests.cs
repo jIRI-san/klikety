@@ -7,6 +7,7 @@ public sealed class SettingsMigrationTests {
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
+    [InlineData(7)]
     public void ExistingMigrationRunsBeforeEditableSnapshotAndNeverDuringPreviewOrSave(int version) {
         var root = Path.Combine(Path.GetTempPath(), "Klikety-settings-migration-" + Guid.NewGuid());
         Directory.CreateDirectory(root);
@@ -15,10 +16,10 @@ public sealed class SettingsMigrationTests {
         try {
             Assert.Throws<InvalidDataException>(() => new SettingsConfigStore(path).Open());
             var migrated = ConfigLoader.Load(path);
-            Assert.Equal(7, migrated.Config.ConfigVersion);
+            Assert.Equal(ConfigMigrator.CurrentConfigVersion, migrated.Config.ConfigVersion);
             var snapshot = File.ReadAllBytes(path);
             var store = new SettingsConfigStore(path);
-            Assert.Equal(7, store.Open().Config.ConfigVersion);
+            Assert.Equal(ConfigMigrator.CurrentConfigVersion, store.Open().Config.ConfigVersion);
             store.Preview(new Dictionary<string, System.Text.Json.Nodes.JsonNode?>());
             Assert.Equal(snapshot, File.ReadAllBytes(path));
             store.Save(new Dictionary<string, System.Text.Json.Nodes.JsonNode?>());

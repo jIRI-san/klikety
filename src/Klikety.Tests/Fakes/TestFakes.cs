@@ -147,12 +147,12 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
         Disable();
     }
 
-    public void SimulateKeyDown(VKey vkey) {
-        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, true));
+    public void SimulateKeyDown(VKey vkey, HookModifierFlags modifiers = HookModifierFlags.None) {
+        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, true, modifiers));
     }
 
-    public void SimulateKeyUp(VKey vkey) {
-        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, false));
+    public void SimulateKeyUp(VKey vkey, HookModifierFlags modifiers = HookModifierFlags.None) {
+        KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, false, modifiers));
     }
 
     /// <summary>Convenience: simulates key-down (backward compat for existing tests).</summary>
@@ -160,28 +160,37 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
 }
 
 public sealed class FakeMouseActionService : IMouseActionService {
+    public InputResult Result { get; set; } = new([new(InputStage.Click, 1, 1)]);
+    public Func<Task<InputResult>>? DragResult { get; set; }
     public List<(Point Point, MouseAction? Action, ActionModifiers Modifiers)> Calls { get; } = [];
     public List<(int WheelDelta, ActionModifiers Modifiers)> ScrollCalls { get; } = [];
     public List<(Point Start, Point End, MouseAction Button, ActionModifiers Modifiers)> DragCalls { get; } = [];
 
-    public void MoveTo(Point physicalPoint) {
+    public InputResult MoveTo(Point physicalPoint) {
         Calls.Add((physicalPoint, null, ActionModifiers.None));
+        return Result;
     }
 
-    public void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None) {
+    public InputResult SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None) {
         Calls.Add((physicalPoint, action, modifiers));
+        return Result;
     }
 
-    public void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
+    public InputResult SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None) {
         ScrollCalls.Add((wheelDelta, modifiers));
+        return Result;
     }
 
-    public void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {
+    public Task<InputResult> SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None) {
         DragCalls.Add((start, end, button, modifiers));
+        return DragResult?.Invoke() ?? Task.FromResult(Result);
     }
 
     public int ClearStuckModifiersCalls { get; private set; }
-    public void ClearStuckModifiers() => ClearStuckModifiersCalls++;
+    public InputResult ClearStuckModifiers() {
+        ClearStuckModifiersCalls++;
+        return Result;
+    }
 }
 
 public sealed class FakeModifierDetector : IModifierDetector {
@@ -210,6 +219,7 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public event EventHandler? FocusLost;
     public event EventHandler? DisplayChanged;
     public event EventHandler? KeyboardLayoutChanged;
+    public event EventHandler<OverlayViewportChangedEventArgs>? ViewportChanged;
     public bool IsVisible { get; private set; }
     public int ShowCount { get; private set; }
     public int HideCount { get; private set; }
@@ -228,6 +238,8 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
 
     public void Hide() {
         // Mirror real OverlayWindow.Hide(): clear all content on hide
+        HelpVisibleAtLastHide = CurrentHelp is not null;
+        HideHelp();
         ClearCanvasCount++;
         StatusText = null;
         ClearStatusTextCount++;
@@ -269,6 +281,30 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
         RecordingBorderVisible = visible;
     }
 
+    public void ShowHelp(HelpOverlayContent content) {
+        CurrentHelp = content;
+        ShowHelpCount++;
+    }
+
+    public void UpdateHelp(HelpOverlayContent content) {
+        CurrentHelp = content;
+        UpdateHelpCount++;
+    }
+
+    public void HideHelp() {
+        CurrentHelp = null;
+        HideHelpCount++;
+    }
+
+    public void RelayoutHelp() => RelayoutHelpCount++;
+
+    public HelpOverlayContent? CurrentHelp { get; private set; }
+    public int ShowHelpCount { get; private set; }
+    public int UpdateHelpCount { get; private set; }
+    public int HideHelpCount { get; private set; }
+    public int RelayoutHelpCount { get; private set; }
+    public bool HelpVisibleAtLastHide { get; private set; }
+
     public void SetAppScopeBorder(bool visible, System.Drawing.Rectangle bounds = default) {
         AppScopeBorderVisible = visible;
         AppScopeBorderBounds = bounds;
@@ -286,6 +322,10 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
 
     public void SimulateKeyboardLayoutChange() {
         KeyboardLayoutChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    public void SimulateViewportChange(double width, double height) {
+        ViewportChanged?.Invoke(this, new OverlayViewportChangedEventArgs(width, height));
     }
 }
 
@@ -532,8 +572,11 @@ public sealed class FakeMacroPlaybackWindow : IMacroPlaybackWindow {
 public sealed class FakeClickIndicator : IClickIndicator {
     public List<(double X, double Y)> ShownPositions { get; } = [];
 
-    public Task ShowAndWait(double screenX, double screenY) {
+    public Task ShowAndWait(double screenX, double screenY, CancellationToken ct) {
+        ct.ThrowIfCancellationRequested();
         ShownPositions.Add((screenX, screenY));
         return Task.CompletedTask;
     }
+
+    public void Dispose() { }
 }

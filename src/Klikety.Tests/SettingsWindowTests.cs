@@ -24,7 +24,7 @@ public sealed class SettingsWindowTests {
             "modes.logCrosshair.enabled", "modes.logCrosshair.arrowKeys", "modes.logCrosshair.twoKey", "modes.logCrosshair.chordKey", "modes.logCrosshair.logBaseSize", "modes.logCrosshair.logGridBaseSize",
             "modes.logGrid.enabled", "modes.logGrid.arrowKeys", "modes.logGrid.twoKey", "modes.logGrid.chordKey", "modes.logGrid.logBaseSize", "modes.logGrid.logGridBaseSize",
         ],
-        ["actionBindings.add.key", "actionBindings.add.action", "horizontalKeys.item.0", "verticalKeys.item.0"],
+        ["helpBinding.enabled", "helpBinding.key", "helpBinding.requireShift", "actionBindings.add.key", "actionBindings.add.action", "horizontalKeys.item.0", "verticalKeys.item.0"],
         ["theme", "minLabelFontSize", "metadata.themeFolder", "metadata.themeFolder.open"],
         ["scrollHotkeys.enabled", "scrollHotkeys.scrollUpKey.modifiers", "scrollHotkeys.scrollUpKey.key", "scrollHotkeys.scrollDownKey.modifiers", "scrollHotkeys.scrollDownKey.key", "scrollHotkeys.scrollAmount"],
         [
@@ -48,7 +48,7 @@ public sealed class SettingsWindowTests {
         var folder = Path.Combine(Path.GetTempPath(), "Klikety-settings-window-" + Guid.NewGuid());
         Directory.CreateDirectory(folder);
         var path = Path.Combine(folder, "config.json");
-        File.WriteAllText(path, "{\"configVersion\":7,\"$schema\":\"schemas/config schema.json\"}");
+        File.WriteAllText(path, "{\"configVersion\":8,\"$schema\":\"schemas/config schema.json\"}");
         var original = File.ReadAllBytes(path);
 
         Exception? failure = null;
@@ -83,6 +83,17 @@ public sealed class SettingsWindowTests {
                         Assert.NotNull(FindByAutomationId<FrameworkElement>(pageHost.Content!, id));
                     }
                 }
+                categories.SelectedIndex = 2;
+                var helpKey = Assert.IsType<ComboBox>(FindByAutomationId<ComboBox>(pageHost.Content!, "helpBinding.key"));
+                helpKey.SelectedValue = VKey.Escape;
+                Assert.True(Assert.IsType<Button>(window.FindName("SaveButton")).IsEnabled);
+                Assert.IsType<Button>(window.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(2, categories.SelectedIndex);
+                Assert.True(helpKey.IsKeyboardFocused);
+                Assert.Contains("Help key", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                Assert.Equal(original, File.ReadAllBytes(path));
+                helpKey.SelectedValue = VKey.OemQuestion;
+                Assert.False(Assert.IsType<Button>(window.FindName("SaveButton")).IsEnabled);
                 categories.SelectedIndex = 3;
                 var openFolder = Assert.IsType<Button>(FindByAutomationId<Button>(pageHost.Content!, "metadata.themeFolder.open"));
                 Assert.Equal("Open folder", openFolder.Content);
@@ -287,7 +298,7 @@ public sealed class SettingsWindowTests {
                 Assert.Equal(AutomationLiveSetting.Polite, AutomationProperties.GetLiveSetting(Assert.IsType<TextBlock>(window.FindName("Status"))));
                 window.Close();
 
-                File.WriteAllText(path, "{\"configVersion\":7,\"hotKey\":{\"key\":9999},\"macros\":{\"slotKeys\":null}}");
+                File.WriteAllText(path, "{\"configVersion\":8,\"hotKey\":{\"key\":9999},\"macros\":{\"slotKeys\":null}}");
                 var invalidBefore = File.ReadAllBytes(path);
                 var repairWindow = new SettingsWindow(path, true, _ => { }, () => snapshot,
                     _ => SettingsApplyOutcome.Success, _ => SettingsApplyOutcome.Success, confirmDiscard: _ => true);
@@ -342,7 +353,7 @@ public sealed class SettingsWindowTests {
             _ => null,
         };
         var path = Path.Combine(folder, "config.json");
-        var document = new JsonObject { ["configVersion"] = 7 };
+        var document = new JsonObject { ["configVersion"] = ConfigMigrator.CurrentConfigVersion };
         if (schema is not null) { document["$schema"] = schema; }
         File.WriteAllText(path, document.ToJsonString());
         var original = File.ReadAllBytes(path);

@@ -166,7 +166,7 @@ public sealed class SettingsColorDialogTests {
         var folder = Path.Combine(Path.GetTempPath(), "Klikety-colors-" + Guid.NewGuid());
         Directory.CreateDirectory(folder);
         var configPath = Path.Combine(folder, "config.json");
-        File.WriteAllText(configPath, "{\"configVersion\":7}");
+        File.WriteAllText(configPath, "{\"configVersion\":8}");
         var original = File.ReadAllBytes(configPath);
         try {
             RunSta(() => {

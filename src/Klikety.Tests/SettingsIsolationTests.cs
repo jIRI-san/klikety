@@ -40,7 +40,7 @@ public sealed class SettingsIsolationTests : IDisposable {
     public void SaveNeverWritesSeparateThemesMacrosTopologyOrRegistryFiles() {
         var paths = new AppPaths(_root);
         Directory.CreateDirectory(paths.ThemesFolder);
-        File.WriteAllText(paths.ConfigPath, "{\"configVersion\":7}");
+        File.WriteAllText(paths.ConfigPath, "{\"configVersion\":8}");
         File.WriteAllText(paths.MacrosPath, "{\"external\":\"macro sentinel\"}");
         File.WriteAllText(paths.DisplayTopologyPath, "{\"external\":\"topology sentinel\"}");
         var theme = Path.Combine(paths.ThemesFolder, "dark.theme.json");
@@ -76,7 +76,7 @@ public sealed class SettingsIsolationTests : IDisposable {
     [Fact]
     public void CandidateAndRecoveryFaultsCanBeArmedIndependentlyAndExternalEditIsObservable() {
         var paths = new AppPaths(_root);
-        File.WriteAllText(paths.ConfigPath, "{\"configVersion\":7}");
+        File.WriteAllText(paths.ConfigPath, "{\"configVersion\":8}");
         var faults = new SettingsFixtureFaults(paths);
         faults.Arm("external-edit");
         faults.Arm("main", recovery: true);

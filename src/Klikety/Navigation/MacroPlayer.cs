@@ -12,6 +12,7 @@ public enum PlaybackResultKind {
     WindowMismatch,
     CoordinateOutOfBounds,
     WindowDrift,
+    InputFailed,
 }
 
 public sealed class PlaybackResult {
@@ -20,6 +21,12 @@ public sealed class PlaybackResult {
 
     public static PlaybackResult Completed => new() { Kind = PlaybackResultKind.Completed };
     public static PlaybackResult Cancelled => new() { Kind = PlaybackResultKind.Cancelled };
+    public InputResult? InputFailure { get; init; }
+    public static PlaybackResult InputFailed(InputResult failure) => new() {
+        Kind = PlaybackResultKind.InputFailed,
+        Message = failure.ToString(),
+        InputFailure = failure,
+    };
     public static PlaybackResult ScreenMismatch(string message) => new() {
         Kind = PlaybackResultKind.ScreenMismatch,
         Message = message,
@@ -117,7 +124,7 @@ public sealed class MacroPlayer {
 
             var step = macro.Steps[i];
             var delayMs = ComputeDelay(step.RelativeTimeMs);
-            await DelayWithUpdates(delayMs, step.ActionType.ToString(), ct);
+            await DelayWithUpdates(delayMs, step.ActionType.ToString(), ct).ConfigureAwait(false);
 
             // Per-step drift check for window-relative mode
             if (macro.PositionMode == MacroPositionMode.WindowRelative && _foregroundWindow is not null) {
@@ -127,7 +134,7 @@ public sealed class MacroPlayer {
                 }
             }
 
-            var stepResult = await ExecuteStep(step, macro.PositionMode, windowBounds, context.InitialCursorPosition);
+            var stepResult = await ExecuteStep(step, macro.PositionMode, windowBounds, context.InitialCursorPosition, ct).ConfigureAwait(false);
             if (stepResult is not null) {
                 return stepResult;
             }
@@ -151,7 +158,7 @@ public sealed class MacroPlayer {
 
         while (remaining > 0) {
             var chunk = Math.Min(remaining, DelayTickMs);
-            await _delay.Delay(chunk, ct);
+            await _delay.Delay(chunk, ct).ConfigureAwait(false);
             remaining -= chunk;
             DelayUpdate?.Invoke(remaining, actionType);
         }
@@ -190,7 +197,7 @@ public sealed class MacroPlayer {
         return new Point(x, y);
     }
 
-    private async Task<PlaybackResult?> ExecuteStep(MacroStep step, MacroPositionMode mode, Rectangle windowBounds, Point initialCursor) {
+    private async Task<PlaybackResult?> ExecuteStep(MacroStep step, MacroPositionMode mode, Rectangle windowBounds, Point initialCursor, CancellationToken ct) {
         var point = ResolvePoint(step.X, step.Y, mode, windowBounds);
 
         if (mode == MacroPositionMode.WindowRelative) {
@@ -203,35 +210,43 @@ public sealed class MacroPlayer {
 
         // Show click indicator for actions that interact (not MoveOnly)
         if (_clickIndicator != null && step.ActionType != MacroActionType.MoveOnly) {
-            await _clickIndicator.ShowAndWait(point.X, point.Y);
+            await _clickIndicator.ShowAndWait(point.X, point.Y, ct).ConfigureAwait(false);
         }
 
+        ct.ThrowIfCancellationRequested();
+        InputResult input;
         switch (step.ActionType) {
             case MacroActionType.LeftClick:
-                _mouseService.SendAction(point, MouseAction.LeftClick, step.Modifiers);
+                input = _mouseService.SendAction(point, MouseAction.LeftClick, step.Modifiers);
                 break;
             case MacroActionType.RightClick:
-                _mouseService.SendAction(point, MouseAction.RightClick, step.Modifiers);
+                input = _mouseService.SendAction(point, MouseAction.RightClick, step.Modifiers);
                 break;
             case MacroActionType.MiddleClick:
-                _mouseService.SendAction(point, MouseAction.MiddleClick, step.Modifiers);
+                input = _mouseService.SendAction(point, MouseAction.MiddleClick, step.Modifiers);
                 break;
             case MacroActionType.DoubleClick:
-                _mouseService.SendAction(point, MouseAction.DoubleClick, step.Modifiers);
+                input = _mouseService.SendAction(point, MouseAction.DoubleClick, step.Modifiers);
                 break;
             case MacroActionType.MoveOnly:
-                _mouseService.SendAction(point, MouseAction.MoveOnly, ActionModifiers.None);
+                input = _mouseService.SendAction(point, MouseAction.MoveOnly, ActionModifiers.None);
                 break;
             case MacroActionType.DragDrop:
                 var startPoint = step.StartFromCursor ? initialCursor : point;
                 var end = ResolvePoint(step.EndX ?? step.X, step.EndY ?? step.Y, mode, windowBounds);
-                _mouseService.SendDrag(startPoint, end, step.DragButton ?? MouseAction.LeftClick, step.Modifiers);
+                input = await _mouseService.SendDrag(startPoint, end, step.DragButton ?? MouseAction.LeftClick, step.Modifiers).ConfigureAwait(false);
                 break;
             case MacroActionType.Scroll:
-                _mouseService.SendScroll(step.ScrollDelta ?? 0, step.Modifiers);
+                input = _mouseService.SendScroll(step.ScrollDelta ?? 0, step.Modifiers);
                 break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(step), step.ActionType, "Unknown macro action.");
         }
 
+        if (!input.Succeeded) {
+            return PlaybackResult.InputFailed(input);
+        }
+        ct.ThrowIfCancellationRequested();
         return null;
     }
 }

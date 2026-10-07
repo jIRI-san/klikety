@@ -19,6 +19,7 @@ Also without touching the code. This paragraph is the only one I have written ma
 - **App-scope navigation**: Press a chord key (default `.` / OemPeriod) to scope the grid to the foreground application window. Partial off-screen windows clipped to screen bounds. All modes work within the scoped area.
 - **Configurable actions**: Space = left click (default). Bind any key to right-click, double-click, middle-click, move-only (cursor move without click), or drag-and-drop.
 - **Modifier-aware clicks**: Hold Shift, Ctrl, or Alt while pressing an action key to send modified clicks (Shift+click, Ctrl+click, etc.).
+- **Keyboard help overlay**: Press `/` or `?` while navigation is active to show effective commands on a split keyboard. The same key or Escape closes help without acting; other keys close help and run normally from the current selection. Modifiers alone keep help open.
 - **Drag-and-drop**: Two-point drag flow — navigate to start, press drag key, navigate to end, press action key. Supports left/right/middle drag with modifiers.
 - **Global scroll hotkeys**: Optional global hotkeys for mouse wheel scrolling at cursor position (default: Ctrl+Alt+PageUp/PageDown). Configurable keys and scroll amount.
 - **Keyboard layout aware**: Labels auto-adapt to QWERTY, DVORAK, Colemak, or any layout via Win32 `ToUnicodeEx`.
@@ -110,6 +111,9 @@ host/display for these native checks; see the [operator procedure](docs/design-n
 | `horizontalKeys` | VKey[] | `["A","S","D","F","G","H","J","K","L","OemSemicolon"]` | Ordered column-selection keys |
 | `verticalKeys` | VKey[] | `["Q","W","E","R","T","Y","U","I","O","P"]` | Ordered row-selection keys |
 | `actionBindings` | object | `{}` | Map VKey names to actions: `LeftClick`, `RightClick`, `DoubleClick`, `MiddleClick`, `MoveOnly`, `DragDrop` |
+| `helpBinding.enabled` | bool | `true` | Enable the overlay-local keyboard help binding. |
+| `helpBinding.key` | string (VKey) | `"OemQuestion"` | Key that opens/closes help (`/` or `?` on the default layout). |
+| `helpBinding.requireShift` | bool | `false` | Require Shift for the help key. Ctrl, Alt, and Win are never accepted. |
 | `scrollHotkeys.enabled` | bool | `false` | Enable global scroll hotkeys |
 | `scrollHotkeys.scrollUpKey` | HotKeyConfig | Ctrl+Alt+PageUp | Scroll up hotkey |
 | `scrollHotkeys.scrollDownKey` | HotKeyConfig | Ctrl+Alt+PageDown | Scroll down hotkey |

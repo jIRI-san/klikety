@@ -109,15 +109,18 @@ public sealed partial class ScrollHotKeyService : IScrollHotKeyService {
         }
 
         if (wParam == ScrollUpId) {
-            _mouseService.SendScroll(_wheelDelta);
+            DispatchScroll(_wheelDelta);
             handled = true;
         } else if (wParam == ScrollDownId) {
-            _mouseService.SendScroll(-_wheelDelta);
+            DispatchScroll(-_wheelDelta);
             handled = true;
         }
 
         return nint.Zero;
     }
+
+    internal void DispatchScroll(int delta) =>
+        InputResultObserver.Observe(_mouseService.SendScroll(delta), _logger);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to register {Direction} hotkey: {Modifiers}+{Key}")]
     private partial void LogRegisterFailed(string direction, HotKeyModifiers modifiers, Input.VKey key);

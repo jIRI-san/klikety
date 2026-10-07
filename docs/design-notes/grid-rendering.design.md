@@ -36,6 +36,14 @@ interface IGridRenderer {
 
 `IGridRenderer` is extracted from `GridRenderer` for testability. `NavigatorCoordinator` takes `IGridRenderer?` — null-safe (all calls use `?.`). `FakeGridRenderer` records all calls for assertion in tests. `GridRenderer` constructor: `(Canvas, ThemeModel, LabelGenerator, double minLabelFontSize)`.
 
+## Keyboard Help Layer
+
+The help UI is rendered on `HelpCanvas`, independent of `RootCanvas`, so session redraws and help toggles do not replace grid visuals or change navigation state. `HelpKeyboardLayout.Compute` places function/digit keys above two staggered, split keyboard halves. Width targets 75% of the active display's DIP width, constrained by available height; keycaps/text scale together with a 12-DIP command-text floor. Space and auxiliary command rows remain centered; custom keys outside the canonical keycaps use the auxiliary strip. Only labeled command cards are drawn, not empty navigation-key rectangles. All geometry is overlay-window-local DIP.
+
+Cards measure unbounded wrapped-text height; each row reserves its tallest card plus a gap. The scrollable content includes all labels and footer text rather than clipping them inside fixed-height cells. `ScrollViewer` contains content below 800×600 DIP or when prompts/custom entries exceed the viewport.
+
+Help labels use the active `IKeyLabelResolver`, with readable `Esc`/`Space` names instead of control/whitespace glyphs and no forced slash/question-mark glyph on other layouts. Keyboard-layout changes rebuild visible help content; `SizeChanged`/DPI notifications only relayout it. Theme-derived category accents distinguish action, mode, scope, macro, and display commands; unavailable commands are muted with reasons in the prompt area.
+
 ## DIP-Space Grid Computation
 
 `GridRenderer` works entirely in DIP (device-independent pixel) space to avoid scaling artifacts at non-100% DPI:

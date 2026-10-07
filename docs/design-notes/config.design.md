@@ -11,13 +11,13 @@ globs:
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.
 - Written on first run from embedded `config.json` template if absent. **Not overwritten on subsequent runs** — changing defaults in the embedded template does not affect existing installs. When a config or theme default changes during development, the user's `%APPDATA%\Klikety\config.json` and `%APPDATA%\Klikety\themes\*.theme.json` must be updated manually (or the files deleted to trigger re-extraction).
-- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), ordered `horizontalKeys`/`verticalKeys` arrays, `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`, `scrollHotkeys`, `keyPressVisualization`, `macros`, `appScope`.
+- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `helpBinding`, ordered `horizontalKeys`/`verticalKeys` arrays, `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`, `scrollHotkeys`, `keyPressVisualization`, `macros`, `appScope`.
 - `navigationMode` is a legacy field — migrated to `modes.uniformGrid.twoKey/arrowKeys` on first load. Kept in schema for backward compatibility. `ConfigModel` no longer has a `NavigationMode` property (dead code removed); the enum is only used internally by `NavigatorStateMachine` and `UniformGridSession`.
 - Validation includes reserved-key/collision checks for action, navigation, mode, scroll, macro, and app-scope bindings. Settings separates blocking errors from existing advisory warnings (including LogGrid axis policy and macro slot-list length). Macro speed must be finite and ≥ 0; zero retains the existing 100 ms fixed-delay behavior. Settings requires a named log level, retained log count ≥ 1, finite positive label size, and safe indicator colors/numbers. Existing playback-indicator radius/duration values below the schema floor remain warnings until edited; edited values must meet radius ≥ 1 DIP and duration ≥ 100 ms.
 
 ## `ConfigVersion`
 
-Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added), `2` = v2 (shared axis keys at root), `3` = v3 (LogGrid mode added), `4` = v4 (scroll hotkeys), `5` = v5 (macros), `6` = v6 (app-scope), `7` = current (F1–F10 slot keys; D1–D9 reserved). Used by the migration pre-pass to detect old configs.
+Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added), `2` = v2 (shared axis keys at root), `3` = v3 (LogGrid mode added), `4` = v4 (scroll hotkeys), `5` = v5 (macros), `6` = v6 (app-scope), `7` = v7 (F1–F10 slot keys; D1–D9 reserved), `8` = current (overlay help binding). Used by the migration pre-pass to detect old configs.
 
 ## Config Migration (`ConfigMigrator`)
 
@@ -34,6 +34,7 @@ Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added)
 - v5→v6: adds `appScope` section if missing or null. Conflict-aware: if default chord key (`OemPeriod`) collides with `actionBindings`, `horizontalKeys`, or `verticalKeys`, sets `chordKey: null` (feature auto-disabled) with migration warning. Default: `chordKey: "OemPeriod"`. Preserves existing user-added `appScope`.
 - Atomic write: random temp file (`Path.GetRandomFileName()`) → `.bak` backup → rename. Write errors return `BlockingError`.
 - v6→v7: default `macros.slotKeys` D0–D9 become F1–F10 only when the array is exactly that default. Custom slot keys are kept. D1–D9 are reserved (display switch) in slotKeys, horizontalKeys, verticalKeys, actionBindings, and chord keys. D0 is not reserved.
+- v7→v8: adds `helpBinding` with enabled `OemQuestion` and optional Shift when absent. If the default key conflicts with navigation, action, mode, app-scope, macro, or reserved keys, migration persists the help binding disabled and emits a warning; it never steals a configured command. Existing help settings and unknown fields are preserved. Explicit runtime conflicts or invalid VKeys make help ineffective and are reported rather than rebound.
 - `configVersion` > known → fail-closed with blocking error.
 - Mixed shape (`modes` + `navigationMode`) → `modes` wins.
 - Unknown fields preserved (round-trip).
@@ -63,7 +64,7 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
   separately; drafts survive validation/apply/recovery failures. Comments, unknown members,
   BOM, untouched scalar spelling, collection order, and orphan comments within their
   original container are retained. The previous exact file is kept in `.settings.bak`;
-  external edits block saving and a final compare/replace race remains. Version 7 only;
+  external edits block saving and a final compare/replace race remains. Current config version only;
   no parse-default saving or implicit migration in the editor. Full behavior and limits are
   in [settings.design.md](settings.design.md).
 

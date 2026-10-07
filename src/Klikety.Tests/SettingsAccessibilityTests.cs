@@ -17,7 +17,7 @@ public sealed class SettingsAccessibilityTests {
         var root = Path.Combine(Path.GetTempPath(), "Klikety-accessibility-" + Guid.NewGuid());
         Directory.CreateDirectory(root);
         var path = Path.Combine(root, "config.json");
-        File.WriteAllText(path, "{\"configVersion\":7}");
+        File.WriteAllText(path, "{\"configVersion\":8}");
         Exception? failure = null;
         var thread = new Thread(() => {
             try {

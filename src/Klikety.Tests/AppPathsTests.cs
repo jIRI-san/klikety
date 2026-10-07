@@ -45,7 +45,7 @@ public sealed class AppPathsTests {
         Directory.CreateDirectory(root);
         var configPath = Path.Combine(root, "config.json");
         File.WriteAllText(configPath, """
-        {"configVersion":7,"theme":"light","macros":{"enabled":false,"globalHotKey":null}}
+        {"configVersion":8,"theme":"light","macros":{"enabled":false,"globalHotKey":null}}
         """);
 
         try {

@@ -149,6 +149,11 @@ public partial class SettingsWindow : Window {
         Hint(sizing, "Center sizes: 2–50 px. Level-3 area threshold: 0 means always available.");
 
         var bindings = Page("Key bindings", "Assign physical keys to actions and ordered navigation axes.");
+        var help = Card(bindings, "Keyboard help");
+        Toggle(help, "Enable overlay help", "helpBinding.enabled", config.HelpBinding.Enabled);
+        KeyPicker(help, "Help key", "helpBinding.key", config.HelpBinding.Key, nullable: false);
+        Toggle(help, "Require Shift", "helpBinding.requireShift", config.HelpBinding.RequireShift);
+        Hint(help, "Opens help while navigation is visible. Shift is optional unless required; Ctrl, Alt and Win do not match.");
         ActionBindingsEditor(bindings, config.ActionBindings);
         var axis = Card(bindings, "Navigation axes");
         KeyListEditor(axis, "Horizontal keys", "horizontalKeys", config.HorizontalKeys);
@@ -865,6 +870,7 @@ public partial class SettingsWindow : Window {
             .FirstOrDefault();
         if (path is null) {
             if (message.Contains("label size", StringComparison.OrdinalIgnoreCase)) { path = "minLabelFontSize"; }
+            else if (message.Contains("Help key", StringComparison.OrdinalIgnoreCase)) { path = "helpBinding.key"; }
             else if (message.Contains("action binding", StringComparison.OrdinalIgnoreCase)) { path = "actionBindings"; }
             else if (message.Contains("hotkey", StringComparison.OrdinalIgnoreCase)) { path = "hotKey.key"; }
             else if (message.Contains("logcrosshair", StringComparison.OrdinalIgnoreCase)) { path = "modes.logCrosshair.logBaseSize"; }
@@ -880,6 +886,7 @@ public partial class SettingsWindow : Window {
                        p.StartsWith("appScope.", StringComparison.OrdinalIgnoreCase) ||
                        p.StartsWith("level3", StringComparison.OrdinalIgnoreCase) => 1,
             "actionBindings" or "horizontalKeys" or "verticalKeys" => 2,
+            var p when p.StartsWith("helpBinding.", StringComparison.OrdinalIgnoreCase) => 2,
             "theme" or "minLabelFontSize" => 3,
             var p when p.StartsWith("scrollHotkeys.", StringComparison.OrdinalIgnoreCase) => 4,
             var p when p.StartsWith("macros.", StringComparison.OrdinalIgnoreCase) => 5,

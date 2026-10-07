@@ -39,7 +39,8 @@ for both the editor and runtime-snapshot read.
   plus read-only config path/version/schema metadata.
 - **Navigation**: all four mode enabled/default/chord/two-key/arrow values, each mode's
   LogCrosshair and LogGrid sizes, optional app-scope chord, and Level-3 threshold.
-- **Key bindings**: action mapping editor and ordered horizontal/vertical key lists.
+- **Key bindings**: overlay help enablement, physical key and required-Shift flag,
+  action mapping editor and ordered horizontal/vertical key lists.
 - **Appearance**: theme reference and label-size floor. Theme file contents remain separate.
 - **Scrolling**: enablement, up/down shortcuts, and amount. Pause is runtime-only.
 - **Macros**: enablement, nullable global hotkey, record/helper/slot keys, speed, and all
@@ -110,7 +111,7 @@ Save errors retain the candidate; successful apply rebases the editor. Failed ap
 retains the draft and separately reports disk and runtime recovery outcomes.
 
 `ConfigLoader.ReadSettings` is strict and never migrates or substitutes parse defaults.
-Version 7 is required; malformed JSON/UTF-8, required nulls, duplicate properties (also
+The current config version is required; malformed JSON/UTF-8, required nulls, duplicate properties (also
 inside arrays), unsupported versions, and save-blocking validation prevent replacement.
 Existing LogGrid-axis and macro slot-count compatibility warnings stay advisory.
 Settings additionally requires valid log-level text, retained count >= 1, finite positive

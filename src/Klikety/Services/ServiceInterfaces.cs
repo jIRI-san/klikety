@@ -1,6 +1,7 @@
 using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
+using Klikety.Overlay;
 
 namespace Klikety.Services;
 
@@ -13,10 +14,19 @@ public interface IHotKeyService : IDisposable {
     void Unregister();
 }
 
+[Flags]
+public enum HookModifierFlags {
+    None = 0,
+    Shift = 1,
+    Control = 2,
+    Alt = 4,
+    Win = 8,
+}
+
 /// <summary>
-/// Event data for keyboard hook events, carrying both the key and direction.
+/// Event data for keyboard hook events, carrying key direction and captured modifiers.
 /// </summary>
-public record KeyHookEventArgs(VKey Key, bool IsDown);
+public record KeyHookEventArgs(VKey Key, bool IsDown, HookModifierFlags Modifiers = HookModifierFlags.None);
 
 /// <summary>
 /// Abstracts low-level keyboard hook for overlay key capture.
@@ -37,17 +47,17 @@ public interface IKeyboardHookService : IDisposable {
 /// Abstracts mouse cursor movement and click actions.
 /// </summary>
 public interface IMouseActionService {
-    void MoveTo(System.Drawing.Point physicalPoint);
-    void SendAction(System.Drawing.Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);
-    void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None);
-    void SendDrag(System.Drawing.Point start, System.Drawing.Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None);
+    InputResult MoveTo(System.Drawing.Point physicalPoint);
+    InputResult SendAction(System.Drawing.Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);
+    InputResult SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None);
+    Task<InputResult> SendDrag(System.Drawing.Point start, System.Drawing.Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None);
 
     /// <summary>
     /// Inject keyup events for Alt, Ctrl, Shift to clear modifier state that may be
     /// stuck in the foreground window's thread (e.g. hotkey Alt pressed before overlay,
     /// keyup consumed by overlay).
     /// </summary>
-    void ClearStuckModifiers();
+    InputResult ClearStuckModifiers();
 }
 
 /// <summary>
@@ -83,6 +93,7 @@ public interface IOverlayWindow {
     event EventHandler? FocusLost;
     event EventHandler? DisplayChanged;
     event EventHandler? KeyboardLayoutChanged;
+    event EventHandler<OverlayViewportChangedEventArgs>? ViewportChanged;
     void Show();
     void Show(System.Drawing.Rectangle bounds);
     void Hide();
@@ -92,7 +103,16 @@ public interface IOverlayWindow {
     void ClearStatusText();
     void SetRecordingBorder(bool visible);
     void SetAppScopeBorder(bool visible, System.Drawing.Rectangle bounds = default);
+    void ShowHelp(HelpOverlayContent content);
+    void UpdateHelp(HelpOverlayContent content);
+    void HideHelp();
+    void RelayoutHelp();
     bool IsVisible { get; }
+}
+
+public sealed class OverlayViewportChangedEventArgs(double width, double height) : EventArgs {
+    public double Width { get; } = width;
+    public double Height { get; } = height;
 }
 
 /// <summary>
@@ -125,8 +145,8 @@ public interface IMacroPlaybackWindow {
 /// <summary>
 /// Abstracts the click indicator animation for testability.
 /// </summary>
-public interface IClickIndicator {
-    Task ShowAndWait(double screenX, double screenY);
+public interface IClickIndicator : IDisposable {
+    Task ShowAndWait(double screenX, double screenY, CancellationToken ct);
 }
 
 /// <summary>

@@ -48,6 +48,61 @@ public class ConfigLoaderTests {
     }
 
     [Fact]
+    public void Load_InvalidExplicitHelpKey_DisablesRuntimeHelpBinding() {
+        var json = """
+        {
+            "configVersion": 8,
+            "modes": { "uniformGrid": { "enabled": true, "default": true, "twoKey": true } },
+            "helpBinding": { "enabled": true, "key": "NotAKey" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+
+            Assert.False(result.Config.HelpBinding.Enabled);
+            Assert.Contains(result.Violations, violation => violation.Contains("could not be parsed"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Load_ConflictingExplicitHelpKey_ReportsIneffectiveBinding() {
+        var json = """
+        {
+            "configVersion": 8,
+            "modes": { "uniformGrid": { "enabled": true, "default": true, "twoKey": true } },
+            "helpBinding": { "enabled": true, "key": "OemQuestion" },
+            "actionBindings": { "OemQuestion": "RightClick" }
+        }
+        """;
+        var path = WriteTempFile(json);
+        try {
+            var result = ConfigLoader.Load(path);
+
+            Assert.Contains(result.Violations, violation =>
+                violation.Contains("Help key 'OemQuestion'") &&
+                violation.Contains("action binding"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
+    public void Load_NullExplicitHelpBindingReportsIneffectiveBinding() {
+        var path = WriteTempFile("""
+        {
+            "configVersion": 8,
+            "modes": { "uniformGrid": { "enabled": true, "default": true, "twoKey": true } },
+            "helpBinding": null
+        }
+        """);
+        try {
+            var result = ConfigLoader.Load(path);
+
+            Assert.Contains(result.Violations, violation =>
+                violation.Contains("Help binding configuration is null"));
+        } finally { Cleanup(path); }
+    }
+
+    [Fact]
     public void Load_ReservedKeyInFirstKeys_ReportsViolation() {
         var json = """
         {

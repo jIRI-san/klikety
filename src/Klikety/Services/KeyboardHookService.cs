@@ -22,6 +22,7 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
     private const int WM_SYSKEYUP = 0x0105;
     private const int LLKHF_INJECTED = 0x10;
     private const int FLAGS_OFFSET = 8; // offset of 'flags' in KBDLLHOOKSTRUCT
+    private const short KeyDownMask = unchecked((short)0x8000);
     private bool _disposed;
     private bool _disposeRequested;
 
@@ -36,6 +37,9 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
 
     [DllImport("user32.dll")]
     private static extern nint CallNextHookEx(nint hhk, int nCode, nint wParam, nint lParam);
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern nint GetModuleHandle(string? lpModuleName);
@@ -136,7 +140,7 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
                 }
 
                 var vkey = (VKey)(uint)Marshal.ReadInt32(lParam);
-                var args = new KeyHookEventArgs(vkey, isDown);
+                var args = new KeyHookEventArgs(vkey, isDown, CaptureModifiers(vkey, isDown));
                 var gen = _generation;
                 _dispatcher.InvokeAsync(() => DispatchKey(args, gen));
 
@@ -154,6 +158,35 @@ public sealed partial class KeyboardHookService : IKeyboardHookService {
     internal void DispatchKey(KeyHookEventArgs args, int generation) {
         if (!_disposeRequested && generation == _generation) { KeyEvent?.Invoke(this, args); }
     }
+
+    private static HookModifierFlags CaptureModifiers(VKey key, bool isDown) {
+        bool shift = IsKeyDown(VKey.LShift) || IsKeyDown(VKey.RShift) || IsKeyDown(VKey.Shift);
+        bool control = IsKeyDown(VKey.LControl) || IsKeyDown(VKey.RControl) || IsKeyDown(VKey.Control);
+        bool alt = IsKeyDown(VKey.LMenu) || IsKeyDown(VKey.RMenu) || IsKeyDown(VKey.Menu);
+        bool win = IsKeyDown(VKey.LWin) || IsKeyDown(VKey.RWin);
+
+        if (key is VKey.Shift or VKey.LShift or VKey.RShift) {
+            shift = isDown || key is not (VKey.LShift or VKey.RShift) ||
+                (key == VKey.LShift ? IsKeyDown(VKey.RShift) : IsKeyDown(VKey.LShift));
+        } else if (key is VKey.Control or VKey.LControl or VKey.RControl) {
+            control = isDown || key is not (VKey.LControl or VKey.RControl) ||
+                (key == VKey.LControl ? IsKeyDown(VKey.RControl) : IsKeyDown(VKey.LControl));
+        } else if (key is VKey.Menu or VKey.LMenu or VKey.RMenu) {
+            alt = isDown || key is not (VKey.LMenu or VKey.RMenu) ||
+                (key == VKey.LMenu ? IsKeyDown(VKey.RMenu) : IsKeyDown(VKey.LMenu));
+        } else if (key is VKey.LWin or VKey.RWin) {
+            win = isDown || (key == VKey.LWin ? IsKeyDown(VKey.RWin) : IsKeyDown(VKey.LWin));
+        }
+
+        var result = HookModifierFlags.None;
+        if (shift) { result |= HookModifierFlags.Shift; }
+        if (control) { result |= HookModifierFlags.Control; }
+        if (alt) { result |= HookModifierFlags.Alt; }
+        if (win) { result |= HookModifierFlags.Win; }
+        return result;
+    }
+
+    private static bool IsKeyDown(VKey key) => (GetAsyncKeyState((int)key) & KeyDownMask) != 0;
 
     public void Dispose() {
         if (!_disposed) {

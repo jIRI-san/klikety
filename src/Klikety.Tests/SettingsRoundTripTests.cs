@@ -14,7 +14,7 @@ public sealed class SettingsRoundTripTests : IDisposable {
         File.WriteAllText(_path, """
         {
           "$schema" : "preserve-schema",
-          "configVersion" : 7,
+          "configVersion" : 8,
           "extension" : {"exact":[1.0,  2e0,], /* user's unknown */ "flag":true},
           // retain root note
         }
@@ -37,7 +37,7 @@ public sealed class SettingsRoundTripTests : IDisposable {
         Assert.Equal("custom", saved.Theme);
         var text = File.ReadAllText(_path);
         Assert.Contains("\"$schema\" : \"preserve-schema\"", text);
-        Assert.Contains("\"configVersion\" : 7", text);
+        Assert.Contains("\"configVersion\" : 8", text);
         Assert.Contains("\"extension\" : {\"exact\":[1.0,  2e0,], /* user's unknown */ \"flag\":true}", text);
         Assert.Contains("// retain root note", text);
         Assert.True(File.ReadAllBytes(_path).AsSpan().StartsWith(Encoding.UTF8.Preamble));
@@ -59,7 +59,7 @@ public sealed class SettingsRoundTripTests : IDisposable {
     [Fact]
     public void OrderedAxesAndSlotsAddMoveRemoveKeepOriginalScalarTextAndOrphanComments() {
         File.WriteAllText(_path, """
-        {"configVersion":7,"horizontalKeys":["a",/* axis */"s","d"],"macros":{"slotKeys":["F1",/* slot */"F2","F3"]},
+        {"configVersion":8,"horizontalKeys":["a",/* axis */"s","d"],"macros":{"slotKeys":["F1",/* slot */"F2","F3"]},
         "actionBindings":{"OemOpenBrackets":/* member */"LeftClick","Z":"MoveOnly"}}
         """);
         var store = new SettingsConfigStore(_path);

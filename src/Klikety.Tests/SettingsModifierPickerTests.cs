@@ -119,7 +119,7 @@ public sealed class SettingsModifierPickerTests {
         var folder = Path.Combine(Path.GetTempPath(), "Klikety-modifiers-" + Guid.NewGuid());
         Directory.CreateDirectory(folder);
         var path = Path.Combine(folder, "config.json");
-        File.WriteAllText(path, "{ \"configVersion\":7, \"theme\":\"dark\", /* keep */ \"future\":1.2300, \"hotKey\":{\"key\":\"F11\"} }");
+        File.WriteAllText(path, "{ \"configVersion\":8, \"theme\":\"dark\", /* keep */ \"future\":1.2300, \"hotKey\":{\"key\":\"F11\"} }");
         try {
             RunSta(() => {
                 var window = new SettingsWindow(path, true, _ => { },

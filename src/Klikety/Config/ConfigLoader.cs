@@ -57,8 +57,8 @@ public static class ConfigLoader {
         }
         var config = System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions)
             ?? throw new InvalidDataException("Settings config is null.");
-        if (config.ConfigVersion != 7) {
-            throw new InvalidDataException("Settings edits version 7 only. Reload/migrate the config before opening Settings.");
+        if (config.ConfigVersion != ConfigMigrator.CurrentConfigVersion) {
+            throw new InvalidDataException($"Settings edits version {ConfigMigrator.CurrentConfigVersion} only. Reload/migrate the config before opening Settings.");
         }
         if (config.HotKey is null || config.Modes is null ||
             config.Modes.UniformGrid is null || config.Modes.Crosshair is null ||
@@ -67,7 +67,7 @@ public static class ConfigLoader {
             config.ActionBindings is null || config.ScrollHotKeys is null ||
             config.ScrollHotKeys.ScrollUpKey is null || config.ScrollHotKeys.ScrollDownKey is null ||
             config.KeyPressVisualization is null || config.Macros is null ||
-            config.Macros.PlaybackIndicator is null || config.AppScope is null ||
+            config.Macros.PlaybackIndicator is null || config.AppScope is null || config.HelpBinding is null ||
             config.Theme is null || config.LogLevel is null) {
             throw new InvalidDataException("Required config sections/values cannot be null.");
         }
@@ -105,6 +105,7 @@ public static class ConfigLoader {
             if (((int)hotkey.Modifiers & ~15) != 0) { errors.Add($"{path}.modifiers: invalid modifier flags."); }
         }
         Hotkey("hotKey", config.HotKey);
+        Key("helpBinding.key", config.HelpBinding.Key);
         Hotkey("scrollHotkeys.scrollUpKey", config.ScrollHotKeys.ScrollUpKey);
         Hotkey("scrollHotkeys.scrollDownKey", config.ScrollHotKeys.ScrollDownKey);
         if (config.ScrollHotKeys.ScrollAmount is < 1 or > 100) {
@@ -215,16 +216,26 @@ public static class ConfigLoader {
             var json = File.ReadAllText(path);
             return (System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions) ?? new ConfigModel(), null);
         } catch (System.Text.Json.JsonException ex) {
-            return (new ConfigModel(), $"Config file could not be parsed: {ex.Message}");
+            return (new ConfigModel {
+                HelpBinding = new HelpBindingConfig { Enabled = false },
+            }, $"Config file could not be parsed: {ex.Message}");
         } catch (IOException ex) {
-            return (new ConfigModel(), $"Config file could not be read: {ex.Message}");
+            return (new ConfigModel {
+                HelpBinding = new HelpBindingConfig { Enabled = false },
+            }, $"Config file could not be read: {ex.Message}");
         } catch (UnauthorizedAccessException ex) {
-            return (new ConfigModel(), $"Config file could not be read: {ex.Message}");
+            return (new ConfigModel {
+                HelpBinding = new HelpBindingConfig { Enabled = false },
+            }, $"Config file could not be read: {ex.Message}");
         }
     }
 
     private static List<string> Validate(ConfigModel config) {
         var violations = new List<string>();
+
+        if (HelpBindingPolicy.GetInvalidReason(config) is { } helpBindingError) {
+            violations.Add(helpBindingError);
+        }
 
         var horizSet = new HashSet<VKey>(config.HorizontalKeys);
         var vertSet = new HashSet<VKey>(config.VerticalKeys);

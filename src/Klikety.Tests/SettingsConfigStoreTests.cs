@@ -18,8 +18,10 @@ public sealed class SettingsConfigStoreTests : IDisposable {
     [InlineData("appScope.chordKey", "null")]
     [InlineData("modes.uniformGrid.logBaseSize", "11")]
     [InlineData("modes.logGrid.logGridBaseSize", "15")]
+    [InlineData("helpBinding.key", "\"OemCloseBrackets\"")]
+    [InlineData("helpBinding.requireShift", "true")]
     public void InsertedNestedObjectsKeepEveryOtherEffectiveDefault(string path, string json) {
-        File.WriteAllText(_path, "{\"configVersion\":7}");
+        File.WriteAllText(_path, "{\"configVersion\":8}");
         var store = Open();
         var expected = SettingsFieldCases.Serialize(new SettingsConfigStore(_path).Open().Config);
         SettingsValidationTests.Set(expected, path, JsonNode.Parse(json));
@@ -41,7 +43,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
         const string original = """
         {
           // user's overview
-          "configVersion": 7,
+          "configVersion": 8,
           "hotKey": { "modifiers": "Alt", /* keep */ "key": "Space", "future": 1, },
           "theme": "dark", // favorite
           "unknown": {"exact": [1,  2,], "note": "héllo"},
@@ -69,9 +71,9 @@ public sealed class SettingsConfigStoreTests : IDisposable {
     }
 
     [Theory]
-    [InlineData("{\"configVersion\":7}")]
-    [InlineData("{\"configVersion\":7, // trailing\n}")]
-    [InlineData("{\"configVersion\":7,\"hotKey\":{/* empty */}}")]
+    [InlineData("{\"configVersion\":8}")]
+    [InlineData("{\"configVersion\":8, // trailing\n}")]
+    [InlineData("{\"configVersion\":8,\"hotKey\":{/* empty */}}")]
     public void Save_InsertsMissingFieldsWithoutDroppingComments(string json) {
         File.WriteAllText(_path, json);
         var store = Open();
@@ -85,9 +87,11 @@ public sealed class SettingsConfigStoreTests : IDisposable {
     [Theory]
     [InlineData("{not json}")]
     [InlineData("null")]
-    [InlineData("{\"configVersion\":8}")]
-    [InlineData("{\"configVersion\":7,\"hotKey\":null}")]
-    [InlineData("{\"configVersion\":7,\"theme\":\"dark\",\"Theme\":\"light\"}")]
+    [InlineData("{\"configVersion\":7}")]
+    [InlineData("{\"configVersion\":9}")]
+    [InlineData("{\"configVersion\":8,\"hotKey\":null}")]
+    [InlineData("{\"configVersion\":8,\"helpBinding\":null}")]
+    [InlineData("{\"configVersion\":8,\"theme\":\"dark\",\"Theme\":\"light\"}")]
     public void Open_RejectsMalformedNullFutureAndDuplicateInputs(string json) {
         File.WriteAllText(_path, json);
         var error = Record.Exception(() => Open());
@@ -98,19 +102,19 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void Save_InvalidBinding_RejectsWithoutWriting() {
-        File.WriteAllText(_path, "{\"configVersion\":7}");
+        File.WriteAllText(_path, "{\"configVersion\":8}");
         var store = Open();
         var error = Assert.Throws<InvalidDataException>(() => store.Save(new Dictionary<string, JsonNode?> {
             ["hotKey.key"] = JsonValue.Create("A"),
         }));
         Assert.Contains("conflicts with a navigation key", error.Message);
-        Assert.Equal("{\"configVersion\":7}", File.ReadAllText(_path));
+        Assert.Equal("{\"configVersion\":8}", File.ReadAllText(_path));
         Assert.False(File.Exists(_path + ".settings.bak"));
     }
 
     [Fact]
     public void Save_ModeAndSizingRules_UseConfigLoaderValidation() {
-        File.WriteAllText(_path, "{\"configVersion\":7}");
+        File.WriteAllText(_path, "{\"configVersion\":8}");
         var store = Open();
         var error = Assert.Throws<InvalidDataException>(() => store.Save(new Dictionary<string, JsonNode?> {
             ["modes.logGrid.twoKey"] = JsonValue.Create(false),
@@ -124,7 +128,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void Save_DefaultModeAndUniformChord_ReopensThroughExistingLoader() {
-        File.WriteAllText(_path, "{\"configVersion\":7}");
+        File.WriteAllText(_path, "{\"configVersion\":8}");
         var store = Open();
         store.Save(new Dictionary<string, JsonNode?> {
             ["modes.uniformGrid.default"] = JsonValue.Create(false),
@@ -140,11 +144,11 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void Save_ExternalEditAndPreflightFailure_DoNotOverwrite() {
-        File.WriteAllText(_path, "{\"configVersion\":7}");
+        File.WriteAllText(_path, "{\"configVersion\":8}");
         var store = Open();
         var change = new Dictionary<string, JsonNode?> { ["theme"] = JsonValue.Create("light") };
         Assert.Throws<InvalidDataException>(() => store.Save(change, _ => throw new InvalidDataException("Theme missing.")));
-        Assert.Equal("{\"configVersion\":7}", File.ReadAllText(_path));
+        Assert.Equal("{\"configVersion\":8}", File.ReadAllText(_path));
         File.AppendAllText(_path, "\n// external edit");
         var error = Assert.Throws<IOException>(() => store.Save(change));
         Assert.Contains("changed on disk", error.Message);
@@ -154,7 +158,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void Save_NoOpDoesNotReplaceFileOrCreateBackup() {
-        const string json = "{\"configVersion\":7,\"theme\":\"dark\"}";
+        const string json = "{\"configVersion\":8,\"theme\":\"dark\"}";
         File.WriteAllText(_path, json);
         var before = File.ReadAllBytes(_path);
         var store = Open();
@@ -168,7 +172,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void Open_RejectsDuplicatePropertiesInsideArrays() {
-        const string json = "{\"configVersion\":7,\"unknown\":[{\"value\":1,\"Value\":2}]}";
+        const string json = "{\"configVersion\":8,\"unknown\":[{\"value\":1,\"Value\":2}]}";
         File.WriteAllText(_path, json);
 
         var error = Assert.Throws<InvalidDataException>(() => Open());
@@ -181,7 +185,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
     public void Save_AxisArrayMovesAddsAndDeletesKeepElementAndOrphanComments() {
         const string json = """
         {
-          "configVersion": 7,
+          "configVersion": 8,
           "horizontalKeys": ["A", /* keep A */ "S", // orphan S
             "D",],
         }
@@ -204,7 +208,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
     public void Save_ActionBindingDeleteKeepsMemberCommentsInsideObject() {
         const string json = """
         {
-          "configVersion": 7,
+          "configVersion": 8,
           "actionBindings": {
             "OemOpenBrackets": "leftClick", /* preserve member context */
             "OemCloseBrackets": /* retain comment inside deleted member */ "rightClick", // orphan deleted-member comment
@@ -235,7 +239,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void RestoreLastCommit_RestoresExactOldBytesWithoutReplacingBackup() {
-        const string json = "{\"configVersion\":7,\"theme\":\"dark\"}";
+        const string json = "{\"configVersion\":8,\"theme\":\"dark\"}";
         File.WriteAllText(_path, json, new UTF8Encoding(true));
         var original = File.ReadAllBytes(_path);
         var store = Open();
@@ -253,7 +257,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void RestoreLastCommit_RefusesToOverwriteExternalBytes() {
-        File.WriteAllText(_path, "{\"configVersion\":7,\"theme\":\"dark\"}");
+        File.WriteAllText(_path, "{\"configVersion\":8,\"theme\":\"dark\"}");
         var store = Open();
         store.Save(new Dictionary<string, JsonNode?> { ["theme"] = JsonValue.Create("light") });
         var backup = File.ReadAllBytes(_path + ".settings.bak");
@@ -270,7 +274,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void Save_ExternalDeleteDoesNotRecreateConfig() {
-        File.WriteAllText(_path, "{\"configVersion\":7}");
+        File.WriteAllText(_path, "{\"configVersion\":8}");
         var store = Open();
         File.Delete(_path);
 
@@ -285,7 +289,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void Save_CompatibilityWarningDoesNotBlockUnrelatedEdit() {
-        File.WriteAllText(_path, "{\"configVersion\":7,\"macros\":{\"slotKeys\":[\"F1\"]}}");
+        File.WriteAllText(_path, "{\"configVersion\":8,\"macros\":{\"slotKeys\":[\"F1\"]}}");
         var store = Open();
 
         store.Save(new Dictionary<string, JsonNode?> { ["theme"] = JsonValue.Create("light") });
@@ -296,7 +300,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
 
     [Fact]
     public void Open_SeparatesSettingsErrorsFromAdvisoryWarnings() {
-        File.WriteAllText(_path, "{\"configVersion\":7,\"logLevel\":\"verbose\",\"retainedLogFileCount\":0}");
+        File.WriteAllText(_path, "{\"configVersion\":8,\"logLevel\":\"verbose\",\"retainedLogFileCount\":0}");
 
         var result = new SettingsConfigStore(_path).Open();
 
@@ -308,7 +312,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
     [Fact]
     public void Save_PreservesUntouchedLegacyIndicatorFloorsButRejectsEditingBelowThem() {
         File.WriteAllText(_path, """
-        {"configVersion":7,"macros":{"playbackIndicator":{"initialRadius":0.5,"finalRadius":0.75,"animationDurationMs":50}}}
+        {"configVersion":8,"macros":{"playbackIndicator":{"initialRadius":0.5,"finalRadius":0.75,"animationDurationMs":50}}}
         """);
         var store = Open();
         var opened = store.Open();
@@ -333,7 +337,7 @@ public sealed class SettingsConfigStoreTests : IDisposable {
     [Fact]
     public void Save_RejectsUnsafeIndicatorAndNegativeSpeedEvenWhenMacrosAreDisabled() {
         File.WriteAllText(_path, """
-        {"configVersion":7,"macros":{"enabled":false,"speedModifier":-0.1,"playbackIndicator":{"fillColor":"not-a-color"}}}
+        {"configVersion":8,"macros":{"enabled":false,"speedModifier":-0.1,"playbackIndicator":{"fillColor":"not-a-color"}}}
         """);
         var store = Open();
         var opened = store.Open();

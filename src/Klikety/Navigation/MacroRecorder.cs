@@ -44,6 +44,8 @@ public sealed partial class MacroRecorder {
 
     /// <summary>Current state of the recorder.</summary>
     public MacroRecorderState State => _state;
+    public int SelectedSlot => _selectedSlot;
+    public int RecordedStepCount => _steps.Count;
 
     /// <summary>Raised when recording completes with a finished macro.</summary>
     public event Action<int, MacroDefinition>? RecordingComplete;

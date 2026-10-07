@@ -11,7 +11,7 @@ public sealed class SettingsRecoveryTests : IDisposable {
     public SettingsRecoveryTests() {
         Directory.CreateDirectory(_root);
         _path = Path.Combine(_root, "config.json");
-        File.WriteAllText(_path, "{\"configVersion\":7,\"theme\":\"dark\"}");
+        File.WriteAllText(_path, "{\"configVersion\":8,\"theme\":\"dark\"}");
     }
 
     [Theory]

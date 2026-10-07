@@ -231,3 +231,36 @@ design-note marker. Local secret guard and diff hygiene passed. User UI approval
 is not substituted for actual production shell reuse, registration/recovery,
 keyboard/announcement/DPI evidence. No production app or live runtime fixture was
 launched on the shared desktop; all unchecked steps/finalization remain gated.
+
+## User-directed main merge and config v8 compatibility
+
+The user requested fetching and merging `main` because configuration had advanced.
+Fetched `origin/main` at `e1073ea`; integrated keyboard help/config v8 and the
+completed maintenance corrections. Resolved overlapping indicator/hook code by
+keeping main's dispatcher-owned indicator cancellation/cleanup and modifier
+capture, together with Settings' strict indicator validation and disposed-hook
+dispatch quiescence. Both design-note entries/contracts were retained.
+
+Settings' reader still pinned config v7 even after the migrator/model advanced.
+It now checks `ConfigMigrator.CurrentConfigVersion` without migrating during editor
+Open/Preview/Save. Current fixtures use v8; historical v7 and future v9 remain
+rejected unchanged, and migration-before-snapshot coverage includes v7 -> v8.
+The three new help-binding fields are editable on Key bindings and included in
+the explicit whole-model map, actual editor checks, round trips and preservation
+checks. Help failures focus that picker. Shared policy now covers Uniform-grid
+chords and lets null macro slots reach their explicit validation error instead
+of throwing while checking help. Disabled invalid physical keys still block Save.
+
+The first merge-contract run exposed missing help coverage and three old migration
+expectations. After integration, the selected Settings/AppPaths/config/help/
+indicator contracts passed **356/356**, zero skipped. Production Release build
+passed with zero warnings/errors. Direct evidence covers current Settings coverage,
+migration, validation, store, round trip, editor, apply/recovery, isolation, merged
+config/help/indicator contracts and build. Baseline admission remains ready with
+unchanged authoritative intent/requirements/risks/decisions. No criteria/checklist
+marks, whole-plan completion, native runtime/DPI gate or archival were inferred.
+
+The earlier production launch and console diagnostic process both exited; the
+diagnostic process reported exit code 0 without an exception trace. The v7-only
+reader defect is verified; the reported disappearing-window symptom is not yet
+claimed retested through the updated native tray path.

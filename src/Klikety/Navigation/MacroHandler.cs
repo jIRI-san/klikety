@@ -28,11 +28,42 @@ internal sealed partial class MacroHandler : IDisposable {
     private IDebounceTimer? _resumeTimer;
 
     // Playback state
-    private MacroPlayer? _macroPlayer;
-    private CancellationTokenSource? _playbackCts;
-    private Task? _playbackTask;
+    private sealed class PlaybackOperation(MacroPlayer player) {
+        private readonly object _gate = new();
+        private bool _released;
+        public MacroPlayer Player { get; } = player;
+        public CancellationTokenSource Cancellation { get; } = new();
+        public SynchronizationContext? Context { get; } = SynchronizationContext.Current;
+        public Task? Task { get; set; }
+
+        public void Cancel() {
+            lock (_gate) {
+                if (!_released) {
+                    Cancellation.Cancel();
+                }
+            }
+        }
+
+        public void Release() {
+            lock (_gate) {
+                _released = true;
+                Cancellation.Dispose();
+            }
+        }
+
+        public void OnContext(Action action) {
+            if (Context is null || ReferenceEquals(Context, SynchronizationContext.Current)) {
+                action();
+            } else {
+                Context.Post(_ => action(), null);
+            }
+        }
+    }
+
+    private PlaybackOperation? _playback;
+    internal Task? PlaybackTask => _playback?.Task;
     private bool _playbackFromGlobalHotKey;
-    private bool _disposed;
+    private volatile bool _disposed;
 
     // Recording app-scope persistence
     private bool _recordingAppScoped;
@@ -49,6 +80,7 @@ internal sealed partial class MacroHandler : IDisposable {
     public bool RecordingAppScoped => _recordingAppScoped;
     public Rectangle RecordingWindowBounds => _recordingWindowBounds;
     public MacroRecorder? Recorder => _macroRecorder;
+    public IReadOnlyList<MacroDefinition?> MacroSlots => _macrosFile.Macros;
 
     public IMacroHotKeyService? MacroHotKeyService {
         get => _macroHotKeyService;
@@ -150,7 +182,7 @@ internal sealed partial class MacroHandler : IDisposable {
         // Playing: only Escape cancels playback, all else ignored by hook
         if (_macroState == MacroState.Playing) {
             if (key == VKey.Escape) {
-                _playbackCts?.Cancel();
+                _playback?.Cancel();
             }
             return true;
         }
@@ -408,9 +440,16 @@ internal sealed partial class MacroHandler : IDisposable {
             return;
         }
 
+        bool navigationVisible = _sessionManager.IsActive;
         _playbackFromGlobalHotKey = true;
-        _targetHwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
+        if (!navigationVisible) {
+            _targetHwnd = _platform.ForegroundWindow.GetForegroundWindowHandle();
+        }
         _macroState = MacroState.Picking;
+        if (navigationVisible) {
+            _hookService.Disable();
+            SuspendOverlayRequested?.Invoke();
+        }
         _macroPickerWindow.Show(_macrosFile.Macros, _config.Macros.SlotKeys);
     }
 
@@ -445,7 +484,7 @@ internal sealed partial class MacroHandler : IDisposable {
         _macroState = MacroState.Playing;
         _hookService.Enable();
 
-        _macroPlayer = new MacroPlayer(_mouseService, _platform.Screen, DelayProvider,
+        var player = new MacroPlayer(_mouseService, _platform.Screen, DelayProvider,
             macro.SpeedModifier != 1.0 ? macro.SpeedModifier : _config.Macros.SpeedModifier,
             ClickIndicator, _platform.ForegroundWindow);
 
@@ -462,27 +501,45 @@ internal sealed partial class MacroHandler : IDisposable {
         var windowContext = macro.PositionMode == MacroPositionMode.WindowRelative
             ? macro.WindowTitlePattern : null;
         MacroPlaybackWindow?.Show(macro.Name, macro.Steps.Count, windowContext);
-        _macroPlayer.StepCompleted += (completed, total) =>
-            MacroPlaybackWindow?.UpdateProgress(completed, total);
-        _macroPlayer.DelayUpdate += (remainingMs, actionType) =>
-            MacroPlaybackWindow?.UpdateDelay(remainingMs, actionType);
-
-        _playbackCts = new CancellationTokenSource();
-        _playbackTask = RunPlaybackAsync(macro, context, _playbackCts.Token);
+        var operation = new PlaybackOperation(player);
+        _playback = operation;
+        player.StepCompleted += (completed, total) => operation.OnContext(() => {
+            if (!_disposed && ReferenceEquals(_playback, operation)) {
+                MacroPlaybackWindow?.UpdateProgress(completed, total);
+            }
+        });
+        player.DelayUpdate += (remainingMs, actionType) => operation.OnContext(() => {
+            if (!_disposed && ReferenceEquals(_playback, operation)) {
+                MacroPlaybackWindow?.UpdateDelay(remainingMs, actionType);
+            }
+        });
+        operation.Task = RunPlaybackAsync(operation, macro, context);
     }
 
-    private async Task RunPlaybackAsync(MacroDefinition macro, PlaybackContext context, CancellationToken ct) {
+    private async Task RunPlaybackAsync(PlaybackOperation operation, MacroDefinition macro, PlaybackContext context) {
         PlaybackResult? result = null;
         try {
-            result = await _macroPlayer!.Play(macro, context, ct);
-        } catch (OperationCanceledException) {
+            result = await operation.Player.Play(macro, context, operation.Cancellation.Token).ConfigureAwait(false);
+        } catch (OperationCanceledException) when (operation.Cancellation.IsCancellationRequested) {
             result = PlaybackResult.Cancelled;
         } catch (Exception ex) {
-            LogPlaybackFailed(ex.Message);
-            result = PlaybackResult.Cancelled;
+            result = new PlaybackResult { Kind = PlaybackResultKind.InputFailed, Message = ex.Message };
         } finally {
-            if (!_disposed) {
-                OnPlaybackFinished(result ?? PlaybackResult.Cancelled);
+            if (result?.Kind == PlaybackResultKind.InputFailed) {
+                LogPlaybackFailed(result.Message ?? "Native input failed without diagnostics");
+            }
+            operation.Release();
+            if (_disposed) {
+                Interlocked.CompareExchange(ref _playback, null, operation);
+            } else {
+                operation.OnContext(() => {
+                    if (ReferenceEquals(_playback, operation)) {
+                        _playback = null;
+                        if (!_disposed) {
+                            OnPlaybackFinished(result ?? PlaybackResult.Cancelled);
+                        }
+                    }
+                });
             }
         }
     }
@@ -492,10 +549,6 @@ internal sealed partial class MacroHandler : IDisposable {
         MacroPlaybackWindow?.Close();
         _hookService.Disable();
         _macroState = MacroState.Idle;
-        _playbackCts?.Dispose();
-        _playbackCts = null;
-        _playbackTask = null;
-        _macroPlayer = null;
 
         if (result.Kind is PlaybackResultKind.ScreenMismatch
                 or PlaybackResultKind.WindowMismatch
@@ -560,10 +613,13 @@ internal sealed partial class MacroHandler : IDisposable {
     private partial void LogPlaybackFinished(PlaybackResultKind result);
 
     public void Dispose() {
+        if (_disposed) {
+            return;
+        }
         _disposed = true;
-        _playbackCts?.Cancel();
-        _playbackTask?.GetAwaiter().GetResult();
-        _playbackCts?.Dispose();
+        var operation = Interlocked.Exchange(ref _playback, null);
+        operation?.Cancel();
+        ClickIndicator?.Dispose();
         _resumeTimer?.Dispose();
         MacroHotKeyService = null;
         MacroPickerWindow = null;

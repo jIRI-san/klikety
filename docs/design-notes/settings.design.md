@@ -2,6 +2,7 @@
 description: Production native WPF settings editor, typed draft, targeted JSONC persistence, and isolated runtime verification.
 globs:
   - src/Klikety/SettingsWindow.*
+  - src/Klikety/SettingsColorDialog.*
   - src/Klikety/Config/SettingsConfigStore.cs
   - src/Klikety/Config/SettingsDraft.cs
   - src/Klikety/Config/SettingsApplyModels.cs
@@ -53,6 +54,16 @@ Relative schema files resolve against the config directory; `file:` URIs are sup
 while web references and unspecified metadata have no filesystem action. These actions
 open Windows Explorer without saving the draft or editing separate files; launch/path
 errors appear inline. Isolated demos use their own displayed paths, never AppData defaults.
+
+All four HUD/playback-indicator color fields retain direct hex input and a **Choose color**
+button. The small owned WPF `SettingsColorDialog` uses RGB and opacity sliders/numeric
+inputs (exact bytes 0-255), synchronized `#RRGGBB`/`#AARRGGBB` input, and current/new
+checkerboard previews. It uses the same hex validator as Settings, without WinForms,
+third-party dependencies, a color wheel or an eyedropper. Invalid input disables OK and
+explicitly identifies the last-valid preview; sliders/valid input can repair it. Enter
+accepts, Escape/Cancel closes without changing the draft. Unchanged colors preserve their
+original hex spelling/alpha representation. Choosing updates only the draft, not disk or
+live HUD/indicator resources; Save & apply remains the only persistence/apply action.
 
 ## Draft and validation
 

@@ -113,3 +113,31 @@ close the formal 5.3 step.
 Final whole-plan CR, design-note compaction, recent-learning handoff and archival are
 not run while these required rows remain unavailable. The confirmed plan remains active;
 this is a pre-human handoff, not whole-plan completion.
+
+## Manual-feedback color component checkpoint
+
+The user selected a small WPF RGB/opacity dialog rather than the RGB-only Windows
+ColorDialog. All four existing HUD/indicator colors now offer it alongside direct hex
+input. This bounded UI choice does not change confirmed config/persistence criteria.
+
+Release validation passed **88/88**, zero failed/skipped: `SettingsColorDialogTests`
+(30), `SettingsAccessibilityTests` (1), `SettingsWindowTests` (7), and
+`ConfigLoaderTests` (50). The production Release build passed with zero warnings/errors.
+Both used a separate session-artifact `BaseOutputPath` to avoid the running preview's
+apphost lock; no dependency/project-file changes were needed.
+
+The new component checks cover six/eight-digit exact representation, RGB/alpha
+extremes and synchronization, unchanged/reverted selection, invalid input blocking
+and explicit repair, checkerboard preview, actual owned modal OK/Cancel, named/tabbable
+controls and bounded logical layout. Each of the four real editors covers cancelled,
+unchanged, invalid-current/rejected-result and accepted selections, disk isolation
+until Save, and the persisted color after reopening through the strict store.
+Existing all-page logical layout/name checks and editor round trips remain passing.
+
+`Invoke-DirectEvidence` passed the four test-class markers, `test:ReleaseBuild`, and
+the component/design-note existence markers. `git diff --check` and the local
+high-confidence secret guard passed. No new review verdict or native evidence is
+claimed from this UI update; the earlier runtime CR remains historical at its source.
+
+The hook-free demo remains manual inspection only. Actual native runtime/DPI evidence,
+unchecked prerequisite steps, 5.3, 6.1 and whole-plan finalization stay gated.

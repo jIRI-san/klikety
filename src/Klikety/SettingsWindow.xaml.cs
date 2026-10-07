@@ -29,6 +29,7 @@ public partial class SettingsWindow : Window {
     private readonly Action _completeRuntimeOperation;
     private readonly Func<string, bool> _confirmDiscard;
     private readonly Action<string> _openFolder;
+    private readonly Func<string, string, string?> _chooseColor;
     private readonly bool _demo;
     private readonly Dictionary<string, Field> _fields = [];
     private readonly Dictionary<string, ComboBox> _modifierChoices = [];
@@ -53,7 +54,8 @@ public partial class SettingsWindow : Window {
         Action? completeRuntimeOperation = null,
         Action<string>? fault = null,
         Func<string, bool>? confirmDiscard = null,
-        Action<string>? openFolder = null) {
+        Action<string>? openFolder = null,
+        Func<string, string, string?>? chooseColor = null) {
         InitializeComponent();
         _store = new SettingsConfigStore(path, fault);
         _transaction = new SettingsSaveTransaction(_store, operationGate ?? new SettingsOperationGate(() => true),
@@ -62,6 +64,7 @@ public partial class SettingsWindow : Window {
         _confirmDiscard = confirmDiscard ?? (message => MessageBox.Show(this, message, "Klikety Settings",
             MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
         _openFolder = openFolder ?? OpenInExplorer;
+        _chooseColor = chooseColor ?? ShowColorDialog;
         _demo = demo;
         if (demo) {
             Title = "Klikety Settings - ISOLATED DEMO (no global hooks)";
@@ -178,8 +181,8 @@ public partial class SettingsWindow : Window {
         KeyListEditor(macros, "Ordered slot keys", "macros.slotKeys", config.Macros.SlotKeys ?? []);
         Number(macros, "Playback speed modifier", "macros.speedModifier", config.Macros.SpeedModifier, integer: false);
         var playback = Advanced(macros);
-        TextEntry(playback, "Indicator fill color", "macros.playbackIndicator.fillColor", config.Macros.PlaybackIndicator.FillColor);
-        TextEntry(playback, "Indicator stroke color", "macros.playbackIndicator.strokeColor", config.Macros.PlaybackIndicator.StrokeColor);
+        TextEntry(playback, "Indicator fill color", "macros.playbackIndicator.fillColor", config.Macros.PlaybackIndicator.FillColor, color: true);
+        TextEntry(playback, "Indicator stroke color", "macros.playbackIndicator.strokeColor", config.Macros.PlaybackIndicator.StrokeColor, color: true);
         Number(playback, "Stroke thickness", "macros.playbackIndicator.strokeThickness", config.Macros.PlaybackIndicator.StrokeThickness, integer: false);
         Number(playback, "Initial radius", "macros.playbackIndicator.initialRadius", config.Macros.PlaybackIndicator.InitialRadius, integer: false);
         Number(playback, "Final radius", "macros.playbackIndicator.finalRadius", config.Macros.PlaybackIndicator.FinalRadius, integer: false);
@@ -188,12 +191,12 @@ public partial class SettingsWindow : Window {
         var hud = Page("Key-press HUD", "Configure the visualization appearance. Show Key Presses remains a runtime tray control.");
         var hudCommon = Card(hud, "Display");
         Number(hudCommon, "Font size", "keyPressVisualization.fontSize", config.KeyPressVisualization.FontSize, integer: false);
-        TextEntry(hudCommon, "Font color", "keyPressVisualization.fontColor", config.KeyPressVisualization.FontColor);
+        TextEntry(hudCommon, "Font color", "keyPressVisualization.fontColor", config.KeyPressVisualization.FontColor, color: true);
         Choice(hudCommon, "Corner", "keyPressVisualization.corner", config.KeyPressVisualization.Corner,
             ["TopLeft", "TopRight", "BottomLeft", "BottomRight"]);
         Number(hudCommon, "Maximum visible keys", "keyPressVisualization.maxVisibleKeys", config.KeyPressVisualization.MaxVisibleKeys, integer: true);
         var hudAdvanced = Advanced(hud);
-        TextEntry(hudAdvanced, "Outline color", "keyPressVisualization.outlineColor", config.KeyPressVisualization.OutlineColor);
+        TextEntry(hudAdvanced, "Outline color", "keyPressVisualization.outlineColor", config.KeyPressVisualization.OutlineColor, color: true);
         Number(hudAdvanced, "Outline thickness", "keyPressVisualization.outlineThickness", config.KeyPressVisualization.OutlineThickness, integer: false);
         Number(hudAdvanced, "Fade timeout (ms)", "keyPressVisualization.fadeTimeoutMs", config.KeyPressVisualization.FadeTimeoutMs, integer: true);
         Number(hudAdvanced, "Fade duration (ms)", "keyPressVisualization.fadeDurationMs", config.KeyPressVisualization.FadeDurationMs, integer: true);
@@ -293,10 +296,42 @@ public partial class SettingsWindow : Window {
         }
     }
 
-    private void TextEntry(Panel panel, string label, string path, string value) {
+    private string? ShowColorDialog(string label, string value) {
+        var dialog = new SettingsColorDialog(value, label) { Owner = this };
+        return dialog.ShowDialog() == true ? dialog.SelectedHex : null;
+    }
+
+    private void TextEntry(Panel panel, string label, string path, string value, bool color = false) {
         var box = new TextBox { Text = value };
         AutomationProperties.SetAutomationId(box, path);
-        Row(panel, label, box);
+        if (color) {
+            var button = new Button { Content = "Choose color", ToolTip = "Choose RGB and opacity" };
+            AutomationProperties.SetAutomationId(button, path + ".pick");
+            AutomationProperties.SetName(button, $"Choose {label}");
+            button.Click += (_, _) => {
+                try {
+                    if (!ConfigLoader.IsValidHexColor(box.Text)) {
+                        throw new InvalidDataException("Enter #RRGGBB or #AARRGGBB before opening the color picker.");
+                    }
+                    if (_chooseColor(label, box.Text) is { } selected) {
+                        if (!ConfigLoader.IsValidHexColor(selected)) {
+                            throw new InvalidDataException("The color picker returned an invalid hex color.");
+                        }
+                        box.Text = selected;
+                    }
+                } catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException or ArgumentException) {
+                    ShowStatus($"{path}: {ex.Message}", error: true);
+                    box.Focus();
+                }
+            };
+            var input = new DockPanel();
+            DockPanel.SetDock(button, Dock.Right);
+            input.Children.Add(button);
+            input.Children.Add(box);
+            Row(panel, label, input, box);
+        } else {
+            Row(panel, label, box);
+        }
         Track(path, () => box.Text, () => JsonValue.Create(box.Text));
         box.TextChanged += (_, _) => RefreshDirty();
     }

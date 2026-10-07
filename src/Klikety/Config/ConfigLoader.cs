@@ -701,7 +701,7 @@ public static class ConfigLoader {
         }
     }
 
-    private static bool IsValidHexColor(string color) {
+    internal static bool IsValidHexColor(string color) {
         if (string.IsNullOrEmpty(color) || color[0] != '#') {
             return false;
         }

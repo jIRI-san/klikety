@@ -49,6 +49,10 @@ validation/isolation/capture/migration tests cover errors and compatibility boun
 `SettingsAccessibilityTests` checks names, collapsed Advanced and logical bounds without
 showing a window; it is not native DPI evidence. WPF UI tests share one xUnit collection
 to avoid competing focus checks.
+`SettingsColorDialogTests` cover exact RGB/alpha-byte synchronization, invalid-input
+blocking/repair, format-preserving unchanged selections, modal OK/Cancel, accessible
+controls/logical bounds, and all four real editor pick/cancel/save round trips. Color
+selection is injected for editor checks; no tests launch Explorer or register hooks.
 See [settings.design.md](settings.design.md) for the fixture-only fault controls and
 native operator procedure.
 

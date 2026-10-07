@@ -38,9 +38,11 @@ interface IGridRenderer {
 
 ## Keyboard Help Layer
 
-The help UI is rendered on `HelpCanvas`, independent of `RootCanvas`, so session redraws and help toggles do not replace grid visuals or change navigation state. `HelpKeyboardLayout.Compute` places function/digit keys above two staggered, split keyboard halves and Space below the center gap; configured commands not on those keycaps use an auxiliary strip. All geometry is overlay-window-local DIP. `ScrollViewer` contains content when the viewport is below 800×600 DIP or when prompts/custom entries exceed the available region. Command text stays at least 12 DIP.
+The help UI is rendered on `HelpCanvas`, independent of `RootCanvas`, so session redraws and help toggles do not replace grid visuals or change navigation state. `HelpKeyboardLayout.Compute` places function/digit keys above two staggered, split keyboard halves. Width targets 75% of the active display's DIP width, constrained by available height; keycaps/text scale together with a 12-DIP command-text floor. Space and auxiliary command rows remain centered; custom keys outside the canonical keycaps use the auxiliary strip. Only labeled command cards are drawn, not empty navigation-key rectangles. All geometry is overlay-window-local DIP.
 
-Help key labels are resolved through the active `IKeyLabelResolver`; the view does not force slash/question-mark glyphs on other layouts. Keyboard-layout changes rebuild visible help content, while `SizeChanged`/DPI viewport notifications only relayout it. Theme-derived category accents distinguish action, mode, scope, macro, and display commands; unavailable commands are muted and their reason is shown in the prompt area.
+Cards measure unbounded wrapped-text height; each row reserves its tallest card plus a gap. The scrollable content includes all labels and footer text rather than clipping them inside fixed-height cells. `ScrollViewer` contains content below 800×600 DIP or when prompts/custom entries exceed the viewport.
+
+Help labels use the active `IKeyLabelResolver`, with readable `Esc`/`Space` names instead of control/whitespace glyphs and no forced slash/question-mark glyph on other layouts. Keyboard-layout changes rebuild visible help content; `SizeChanged`/DPI notifications only relayout it. Theme-derived category accents distinguish action, mode, scope, macro, and display commands; unavailable commands are muted with reasons in the prompt area.
 
 ## DIP-Space Grid Computation
 
@@ -122,10 +124,6 @@ When external labels are active, no internal cell labels are rendered — cells 
 - All renderers (GridRenderer, CrosshairRenderer, LogGridRenderer, LogCrosshairRenderer) use distinct brushes for column vs row external labels to differentiate axes visually.
 
 ## Theme System
-
-Keyboard help targets 75% of the active display width, constrained by available height and its 12-DIP command-text floor. Keycaps/text scale together; Space and auxiliary command rows remain centered. Only labeled command cards are drawn, not empty navigation-key rectangles. Help uses readable `Esc`/`Space` labels instead of control/whitespace glyphs.
-
-Help cards use measured, unbounded wrapped-text height. Rows reflow around their tallest card with an explicit gap; the scrollable content includes all labels and footer text instead of clipping them inside fixed-height cells.
 
 - `ThemeModel` POCO: label font family/size/color/weight; cell border color + thickness; normal cell background color + opacity; dimmed cell overlay color + opacity; highlighted column background + border color; subgrid distinct border/label color; external label color (columns); external row label color (rows); connector line color + thickness; label outline color + thickness; small-cell background color + opacity.
 - `ThemeLoader` resolves `"theme"` config value: bare name → `%APPDATA%\Klikety\themes\<name>.theme.json`; relative path → resolved from config folder only; must have `.theme.json` extension; path canonicalized; traversal sequences (`../`) rejected; rooted/absolute paths rejected via `Path.IsPathRooted`; fall back to built-in dark on any error + tray notification.

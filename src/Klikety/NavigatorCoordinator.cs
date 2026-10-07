@@ -322,8 +322,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             if (e.Key == VKey.Escape) {
                 _helpLatchedKeys.Add(e.Key);
                 CloseHelp();
+                return;
             }
-            return;
+            if (e.Key is VKey.Shift or VKey.LShift or VKey.RShift or
+                VKey.Control or VKey.LControl or VKey.RControl or
+                VKey.Menu or VKey.LMenu or VKey.RMenu or VKey.LWin or VKey.RWin) {
+                return;
+            }
+            CloseHelp();
         }
 
         if (_sessionManager.IsActive && TryHandleDisplayDigit(e.Key)) {

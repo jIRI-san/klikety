@@ -95,6 +95,7 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 - `_slotSelected` guard prevents `Deactivated` from firing `PickerClosed` after a slot selection (race fix).
 - **Global hotkey path**: `MacroHotKeyService` (Ctrl+Alt+Shift+M) → `SetForegroundWindow` after `Show()`.
 - If the global macro picker opens while navigation is visible, `MacroHandler` disables the keyboard hook and requests overlay suspension before showing the picker. The coordinator clears help state/latches before hiding; closing the picker resumes the same navigation session. The global path remains separate from the overlay-local help toggle.
+- With keyboard help open, macro record/helper/slot keys and recording-confirmation keys dismiss help first and then run through the same macro dispatch path. Escape/help closes only help, preserving the current recording prompt; modifier-only presses do not dismiss help.
 - **Helper key path**: overlay suspends → picker opens. On close → overlay resumes to L1.
 
 ## Playback Flow

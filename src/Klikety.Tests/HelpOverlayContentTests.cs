@@ -175,7 +175,7 @@ public class HelpBindingModelTests {
         Assert.DoesNotContain(content.Entries, entry => entry.Key == config.Macros.RecordKey);
         Assert.DoesNotContain(content.Entries, entry => entry.Command == "Help");
         Assert.Contains(content.Entries, entry => entry.Key == VKey.Space && entry.Command == "Left click");
-        Assert.Equal("Press Escape to close help.", content.CloseInstruction);
+        Assert.Equal("Press Escape to close help. Other non-modifier keys close help and run normally.", content.CloseInstruction);
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public class HelpBindingModelTests {
 
         Assert.DoesNotContain(content.Entries, entry =>
             entry.Key == VKey.OemQuestion && entry.Command == "Help");
-        Assert.Equal("Press Escape to close help.", content.CloseInstruction);
+        Assert.Equal("Press Escape to close help. Other non-modifier keys close help and run normally.", content.CloseInstruction);
         Assert.Contains(content.Entries, entry =>
             entry.Key == VKey.OemQuestion && entry.Command == "Left click");
     }

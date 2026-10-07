@@ -171,9 +171,9 @@ public static class HelpOverlayContentBuilder {
             if (recorderState == MacroRecorderState.AwaitSlot) {
                 prompts.Add("Recording setup: choose a slot. Existing macros require overwrite confirmation.");
             } else if (recorderState == MacroRecorderState.AwaitOverwrite) {
-                prompts.Add($"Overwrite slot {selectedMacroSlot}? Press Y or N after closing help.");
+                prompts.Add($"Overwrite slot {selectedMacroSlot}? Press Y or N to close help and answer.");
             } else if (recorderState == MacroRecorderState.AwaitStartFromCursorConfirm) {
-                prompts.Add("Drag from cursor? Press Y or N after closing help.");
+                prompts.Add("Drag from cursor? Press Y or N to close help and answer.");
             } else {
                 prompts.Add($"Recording macro ({recordedStepCount} steps).");
             }
@@ -189,6 +189,7 @@ public static class HelpOverlayContentBuilder {
                 ? $"Press Shift+{labels.Resolve(closeBinding.Key)} or Escape to close help."
                 : $"Press {labels.Resolve(closeBinding.Key)} (Shift optional) or Escape to close help."
             : "Press Escape to close help.";
+        closeInstruction += " Other non-modifier keys close help and run normally.";
 
         return new HelpOverlayContent(
             entries,

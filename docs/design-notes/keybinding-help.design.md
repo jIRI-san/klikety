@@ -1,5 +1,5 @@
 ---
-description: Overlay-local keyboard help binding, effective command projection, split keyboard layout, and reversible pause/resume behavior.
+description: Overlay-local keyboard help binding, effective command projection, split keyboard layout, close-only resume, and dismiss-and-forward dispatch.
 globs:
   - src/Klikety/Config/HelpBindingPolicy.cs
   - src/Klikety/Config/ConfigModel.cs
@@ -23,7 +23,8 @@ globs:
 ## Dispatch and State Preservation
 
 - Help is a presentation layer owned by `NavigatorCoordinator`, not a state in `NavigatorStateMachine`. Opening requires a visible overlay and active session; activation-period input cannot open it.
-- The help binding is checked before display, macro, app-scope, mode, and session commands. While help is visible, overlay key-downs do not reach those handlers; only the help binding and Escape close it. Help/Escape keys are latched until key-up. Key-up updates debounce and latch state, then returns without toggling.
+- The help binding is checked before display, macro, app-scope, mode, and session commands. Escape and the matching help binding close help without forwarding; other non-modifier key-downs close help first, then continue through the existing dispatcher exactly once. Modifier-only presses leave help open so modified actions remain usable. Help/Escape keys are latched until key-up. Key-up updates debounce and latch state, then returns without toggling.
+- User-directed manual-review change on 2026-10-07 supersedes the original modal pause behavior: Space can close help and click immediately, and recording/picker/display/navigation keys run their normal commands after dismissal. The original confirmed planning assets remain historical; this change does not constitute completion of their live-verification gate.
 - The overlay renders help on a separate `HelpCanvas`; closing it only hides that canvas, preserving session identity, selection, cursor, scope, drag and recorder state. Recording time continues and opening help does not create a macro step.
 - `ClearHelpState()` is idempotent and clears the visible flag and latches before hide, deactivation, disposal, or macro suspension. The global macro picker uses the existing hook-disable/suspend/resume handoff and does not expose help in picker or playback windows.
 
@@ -36,7 +37,7 @@ globs:
 - Current drag target meanings; recording slot, overwrite, and start-from-cursor prompts; macro slot names; and reasons for commands that are temporarily unavailable.
 - Navigation-only keys are not drawn: help renders only labeled command cards, with no empty key rectangles. Canonical keyboard slots still preserve command positions; custom command keys outside the diagram use a centered auxiliary strip, without reserving auxiliary slots for navigation-only keys. Disabled features are omitted.
 
-The separate macro global hotkey remains an OS-level command, not an overlay-local key and not part of the paused help dispatch.
+The separate macro global hotkey remains an OS-level command, not an overlay-local key and not routed through help dismissal.
 
 ## Layout and Labels
 

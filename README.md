@@ -19,7 +19,7 @@ Also without touching the code. This paragraph is the only one I have written ma
 - **App-scope navigation**: Press a chord key (default `.` / OemPeriod) to scope the grid to the foreground application window. Partial off-screen windows clipped to screen bounds. All modes work within the scoped area.
 - **Configurable actions**: Space = left click (default). Bind any key to right-click, double-click, middle-click, move-only (cursor move without click), or drag-and-drop.
 - **Modifier-aware clicks**: Hold Shift, Ctrl, or Alt while pressing an action key to send modified clicks (Shift+click, Ctrl+click, etc.).
-- **Keyboard help overlay**: Press `/` or `?` while navigation is active to show effective commands on a split keyboard; press the same key or Escape to resume the exact selection.
+- **Keyboard help overlay**: Press `/` or `?` while navigation is active to show effective commands on a split keyboard. The same key or Escape closes help without acting; other keys close help and run normally from the current selection. Modifiers alone keep help open.
 - **Drag-and-drop**: Two-point drag flow — navigate to start, press drag key, navigate to end, press action key. Supports left/right/middle drag with modifiers.
 - **Global scroll hotkeys**: Optional global hotkeys for mouse wheel scrolling at cursor position (default: Ctrl+Alt+PageUp/PageDown). Configurable keys and scroll amount.
 - **Keyboard layout aware**: Labels auto-adapt to QWERTY, DVORAK, Colemak, or any layout via Win32 `ToUnicodeEx`.

@@ -75,16 +75,26 @@ public static class ConfigLoader {
             var json = File.ReadAllText(path);
             return (System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions) ?? new ConfigModel(), null);
         } catch (System.Text.Json.JsonException ex) {
-            return (new ConfigModel(), $"Config file could not be parsed: {ex.Message}");
+            return (new ConfigModel {
+                HelpBinding = new HelpBindingConfig { Enabled = false },
+            }, $"Config file could not be parsed: {ex.Message}");
         } catch (IOException ex) {
-            return (new ConfigModel(), $"Config file could not be read: {ex.Message}");
+            return (new ConfigModel {
+                HelpBinding = new HelpBindingConfig { Enabled = false },
+            }, $"Config file could not be read: {ex.Message}");
         } catch (UnauthorizedAccessException ex) {
-            return (new ConfigModel(), $"Config file could not be read: {ex.Message}");
+            return (new ConfigModel {
+                HelpBinding = new HelpBindingConfig { Enabled = false },
+            }, $"Config file could not be read: {ex.Message}");
         }
     }
 
     private static List<string> Validate(ConfigModel config) {
         var violations = new List<string>();
+
+        if (HelpBindingPolicy.GetInvalidReason(config) is { } helpBindingError) {
+            violations.Add(helpBindingError);
+        }
 
         var horizSet = new HashSet<VKey>(config.HorizontalKeys);
         var vertSet = new HashSet<VKey>(config.VerticalKeys);

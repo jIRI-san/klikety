@@ -10,6 +10,7 @@
     <Grid>
         <Border x:Name="RecordingBorder" BorderThickness="3" BorderBrush="Red" Visibility="Collapsed" />
         <Canvas x:Name="RootCanvas" />
+        <Canvas x:Name="HelpCanvas" />
         <Canvas x:Name="StatusCanvas" IsHitTestVisible="False" />
     </Grid>
 </Window>

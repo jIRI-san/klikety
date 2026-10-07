@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 
 using Klikety.Config;
+using Klikety.Input;
 using Klikety.Interop;
 using Klikety.Services;
 
@@ -20,7 +21,9 @@ public partial class OverlayWindow : Window, IOverlayWindow {
     public event EventHandler? FocusLost;
     public event EventHandler? DisplayChanged;
     public event EventHandler? KeyboardLayoutChanged;
+    public event EventHandler<OverlayViewportChangedEventArgs>? ViewportChanged;
     private ThemeModel? _theme;
+    private HelpOverlayContent? _helpContent;
     private bool _displayHookAdded;
     private HwndSource? _keyboardLayoutSource;
     private nint _lastKeyboardLayout;
@@ -50,14 +53,26 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         FocusLost?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnSizeChanged(object sender, SizeChangedEventArgs e) =>
+    private void OnSizeChanged(object sender, SizeChangedEventArgs e) {
         LogOverlayState("SizeChanged");
+        RaiseViewportChanged();
+    }
 
     private void OnLocationChanged(object? sender, EventArgs e) =>
         LogOverlayState("LocationChanged");
 
-    private void OnDpiChanged(object sender, DpiChangedEventArgs e) =>
+    private void OnDpiChanged(object sender, DpiChangedEventArgs e) {
         LogOverlayState("DpiChanged");
+        RaiseViewportChanged();
+    }
+
+    private void RaiseViewportChanged() {
+        ViewportChanged?.Invoke(
+            this,
+            new OverlayViewportChangedEventArgs(
+                ActualWidth > 0 ? ActualWidth : Width,
+                ActualHeight > 0 ? ActualHeight : Height));
+    }
 
     private void LogOverlayState(string reason) {
         var hwnd = new WindowInteropHelper(this).Handle;
@@ -147,6 +162,7 @@ public partial class OverlayWindow : Window, IOverlayWindow {
 
     void IOverlayWindow.Hide() {
         LogOverlayState("Hide");
+        ((IOverlayWindow)this).HideHelp();
         RemoveKeyboardLayoutHook();
         RootCanvas.Children.Clear();
         StatusCanvas.Children.Clear();
@@ -267,6 +283,194 @@ public partial class OverlayWindow : Window, IOverlayWindow {
         Canvas.SetTop(border, dip.Y);
         StatusCanvas.Children.Add(border);
     }
+
+    void IOverlayWindow.ShowHelp(HelpOverlayContent content) {
+        _helpContent = content;
+        RenderHelp();
+    }
+
+    void IOverlayWindow.UpdateHelp(HelpOverlayContent content) {
+        _helpContent = content;
+        RenderHelp();
+    }
+
+    void IOverlayWindow.HideHelp() {
+        _helpContent = null;
+        HelpCanvas.Children.Clear();
+    }
+
+    void IOverlayWindow.RelayoutHelp() => RenderHelp();
+
+    private void RelayoutHelp() => RenderHelp();
+
+    private void RenderHelp() {
+        HelpCanvas.Children.Clear();
+        if (_helpContent is null) {
+            return;
+        }
+
+        var width = ActualWidth > 0 ? ActualWidth : Width;
+        var height = ActualHeight > 0 ? ActualHeight : Height;
+        var commandKeys = _helpContent.Entries.Select(entry => entry.Key);
+        var baseLayout = HelpKeyboardLayout.Compute(
+            width,
+            height,
+            commandKeys,
+            []);
+        var theme = _theme ?? new ThemeModel();
+        var footerWidth = Math.Max(0, baseLayout.ContentWidth - 40);
+        var promptBlocks = _helpContent.Prompts
+            .Select(prompt => CreateHelpTextBlock(prompt, theme.LabelColor, footerWidth))
+            .ToArray();
+        var promptHeights = promptBlocks.Select(GetHelpTextHeightBudget).ToArray();
+        var closeBlock = CreateHelpTextBlock(_helpContent.CloseInstruction, theme.LabelColor, footerWidth);
+        var closeHeight = GetHelpTextHeightBudget(closeBlock);
+        var promptLines = promptHeights.Sum(height => (int)(height / HelpFooterLineHeight));
+        var closeLines = (int)(closeHeight / HelpFooterLineHeight);
+        var layout = HelpKeyboardLayout.Compute(
+            width,
+            height,
+            commandKeys,
+            [],
+            promptLines + closeLines - 1);
+        var entriesByKey = _helpContent.Entries
+            .GroupBy(entry => entry.Key)
+            .ToDictionary(group => group.Key, group => group.ToArray());
+        var cards = new Dictionary<VKey, Border>();
+        foreach (var position in layout.Positions) {
+            if (entriesByKey.TryGetValue(position.Key, out var entries)) {
+                var card = CreateHelpEntry(position, entries, theme, layout.TextScale);
+                card.Measure(new System.Windows.Size(position.Width, double.PositiveInfinity));
+                cards.Add(position.Key, card);
+            }
+        }
+        layout = layout.WithMeasuredHeights(
+            height,
+            cards.ToDictionary(pair => pair.Key, pair => pair.Value.DesiredSize.Height),
+            promptHeights.Sum() + closeHeight + 20);
+        var viewport = new ScrollViewer {
+            Width = width,
+            Height = height,
+            HorizontalScrollBarVisibility = layout.ScrollViewport
+                ? ScrollBarVisibility.Auto
+                : ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = layout.ScrollViewport
+                ? ScrollBarVisibility.Auto
+                : ScrollBarVisibility.Disabled,
+            Focusable = false,
+            IsTabStop = false,
+        };
+        var content = new Canvas {
+            Width = layout.ContentWidth,
+            Height = layout.ContentHeight,
+            ClipToBounds = true,
+        };
+        viewport.Content = content;
+        HelpCanvas.Children.Add(viewport);
+
+        content.Children.Add(new System.Windows.Shapes.Rectangle {
+            Width = layout.ContentWidth,
+            Height = layout.ContentHeight,
+            Fill = TryParseBrush(theme.CellBackgroundColor, Brushes.Black),
+            Opacity = 0.88,
+        });
+
+        foreach (var position in layout.Positions) {
+            if (cards.TryGetValue(position.Key, out var card)) {
+                Canvas.SetLeft(card, position.X);
+                Canvas.SetTop(card, position.Y);
+                content.Children.Add(card);
+            }
+        }
+
+        var closeY = layout.ContentHeight - closeHeight - 12;
+        var footerY = closeY - 8 - promptHeights.Sum();
+        for (var index = 0; index < _helpContent.Prompts.Count; index++) {
+            Canvas.SetLeft(promptBlocks[index], 20);
+            Canvas.SetTop(promptBlocks[index], footerY);
+            content.Children.Add(promptBlocks[index]);
+            footerY += promptHeights[index];
+        }
+        Canvas.SetLeft(closeBlock, 20);
+        Canvas.SetTop(closeBlock, closeY);
+        content.Children.Add(closeBlock);
+    }
+
+    private const double HelpFooterLineHeight = 18;
+
+    internal static Border CreateHelpEntry(
+        HelpKeyPosition position,
+        HelpOverlayEntry[] entries,
+        ThemeModel theme,
+        double textScale) {
+        var first = entries[0];
+        var accent = HelpCategoryBrush(first.Category, theme);
+        var command = string.Join(" / ", entries.Select(entry => entry.Command));
+        var stack = new StackPanel {
+            Width = Math.Max(position.Width, 48),
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        var keycap = new Border {
+            Height = position.Height * 0.52,
+            Background = TryParseBrush(theme.CellBackgroundColor, Brushes.Black),
+            BorderBrush = accent,
+            BorderThickness = new Thickness(1.25),
+            CornerRadius = new CornerRadius(3),
+            Child = new TextBlock {
+                Text = first.KeyLabel,
+                Foreground = TryParseBrush(theme.LabelColor, Brushes.White),
+                FontFamily = new FontFamily(theme.LabelFontFamily),
+                FontSize = Math.Max(12, Math.Min(theme.LabelFontSize, 15)) * textScale,
+                FontWeight = FontWeights.Bold,
+                TextAlignment = TextAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            },
+        };
+        stack.Children.Add(keycap);
+        stack.Children.Add(new TextBlock {
+            Text = command,
+            Foreground = accent,
+            FontFamily = new FontFamily(theme.LabelFontFamily),
+            FontSize = HelpKeyboardLayout.MinimumCommandFontSize * textScale,
+            FontWeight = FontWeights.SemiBold,
+            TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 4 * textScale, 0, 0),
+            Opacity = entries.All(entry => entry.IsAvailable) ? 1 : 0.55,
+        });
+
+        return new Border {
+            Width = Math.Max(position.Width, 48),
+            Child = stack,
+            Opacity = entries.All(entry => entry.IsAvailable) ? 1 : 0.65,
+        };
+    }
+
+    private static TextBlock CreateHelpTextBlock(string text, string color, double width) {
+        var label = new TextBlock {
+            Text = text,
+            Width = width,
+            Foreground = TryParseBrush(color, Brushes.White),
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+        };
+        label.Measure(new System.Windows.Size(width, double.PositiveInfinity));
+        return label;
+    }
+
+    private static double GetHelpTextHeightBudget(TextBlock label) =>
+        Math.Max(HelpFooterLineHeight, Math.Ceiling(label.DesiredSize.Height / HelpFooterLineHeight) * HelpFooterLineHeight);
+
+    private static SolidColorBrush HelpCategoryBrush(HelpEntryCategory category, ThemeModel theme) =>
+        category switch {
+            HelpEntryCategory.Action => TryParseBrush(theme.HighlightedColumnBackground, Brushes.Gold),
+            HelpEntryCategory.Mode => TryParseBrush(theme.SubgridLabelColor, Brushes.DeepSkyBlue),
+            HelpEntryCategory.Scope => TryParseBrush(theme.AppScopeBorderColor, Brushes.DodgerBlue),
+            HelpEntryCategory.Macro => TryParseBrush(theme.ExternalRowLabelColor, Brushes.LightSkyBlue),
+            HelpEntryCategory.Display => TryParseBrush(theme.ExternalColLabelColor, Brushes.Orange),
+            _ => TryParseBrush(theme.LabelColor, Brushes.White),
+        };
 
     private static SolidColorBrush TryParseBrush(string? colorString, SolidColorBrush fallback) {
         if (colorString is null) {

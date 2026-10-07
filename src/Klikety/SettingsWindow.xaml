@@ -99,6 +99,8 @@
                         <Button x:Name="DiscardButton" Content="_Discard" Click="DiscardClicked"/>
                         <Button x:Name="SaveButton" Content="_Save &amp; apply" Click="SaveClicked"
                                 FontWeight="SemiBold" AutomationProperties.Name="Save and apply"/>
+                        <Button x:Name="CloseButton" Content="_Close" Click="CloseClicked"
+                                AutomationProperties.Name="Close Settings"/>
                     </StackPanel>
                 </DockPanel>
             </StackPanel>

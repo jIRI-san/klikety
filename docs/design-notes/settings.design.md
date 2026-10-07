@@ -107,6 +107,9 @@ theme changes do not save, reload or discard drafts.
 `SettingsDraft` holds the loaded `ConfigModel` baseline and changed JSON leaves. Page
 switching does not discard draft state; changed-back values clear their dirty state.
 Save/Discard/close feedback is inline and the status text is a polite live region.
+The footer includes **Close** beside **Save & apply** (Alt+C). It calls the same
+window close path as the title bar: clean drafts close immediately, while unsaved
+changes or pending apply issues require confirmation. Close never saves or applies.
 Save errors retain the candidate; successful apply rebases the editor. Failed apply
 retains the draft and separately reports disk and runtime recovery outcomes.
 

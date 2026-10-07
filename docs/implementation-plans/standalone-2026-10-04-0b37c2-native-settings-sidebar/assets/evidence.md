@@ -264,3 +264,22 @@ The earlier production launch and console diagnostic process both exited; the
 diagnostic process reported exit code 0 without an exception trace. The v7-only
 reader defect is verified; the reported disappearing-window symptom is not yet
 claimed retested through the updated native tray path.
+
+## Footer Close and user tray confirmation
+
+The user confirmed "looks good, settings now work" on the updated production build;
+the earlier disappearing-window report is no longer an open symptom. This does
+not establish the remaining isolated registration/recovery or native DPI criteria.
+
+User requested a **Close** button beside **Save & apply**. Added an accessible
+Alt+C footer action that calls `Window.Close()` and reuses the existing Closing
+confirmation. It does not save/apply or introduce a new Escape behavior. Fixture
+checks cover clean immediate close, dirty/pending-apply cancellation and acceptance,
+no close-time disk/runtime mutation, accessible name and tab traversal from Save.
+Logical layout coverage includes the new button beside Save at 980/1080/1280 DIP;
+the existing light/dark contrast checks include it as an enabled control.
+
+Focused Release editor/accessibility/theme checks passed **12/12**, zero skipped;
+Release build passed with zero warnings/errors. Matching direct test/build/file
+evidence and local guard/diff hygiene passed. Checklist/native/finalization gates
+remain unchanged.

@@ -334,6 +334,78 @@ public sealed class SettingsWindowTests {
     }
 
     [Theory]
+    [InlineData("clean")]
+    [InlineData("dirty")]
+    [InlineData("pending-apply")]
+    public void FooterCloseUsesWindowConfirmationWithoutSavingOrApplying(string state) {
+        var folder = Path.Combine(Path.GetTempPath(), "Klikety-settings-close-" + Guid.NewGuid());
+        Directory.CreateDirectory(folder);
+        var path = Path.Combine(folder, "config.json");
+        File.WriteAllText(path, "{\"configVersion\":8}");
+        Exception? failure = null;
+        var thread = new Thread(() => {
+            try {
+                var confirmed = false;
+                var prompts = new List<string>();
+                var applied = 0;
+                var snapshot = new SettingsRuntimeSnapshot(new ConfigModel(), false, false);
+                var window = new SettingsWindow(path, false, _ => { }, () => snapshot,
+                    _ => { applied++; return SettingsApplyOutcome.Success; }, _ => SettingsApplyOutcome.Success,
+                    completeRuntimeOperation: () => {
+                        if (state == "pending-apply") { throw new InvalidOperationException("Injected cleanup failure."); }
+                    }, confirmDiscard: message => { prompts.Add(message); return confirmed; });
+                window.Show();
+                var close = Assert.IsType<Button>(window.FindName("CloseButton"));
+                Assert.Equal("_Close", close.Content);
+                Assert.Equal("Close Settings", UIElementAutomationPeer.CreatePeerForElement(close)?.GetName());
+                Assert.True(close.IsTabStop);
+                var save = Assert.IsType<Button>(window.FindName("SaveButton"));
+                if (state != "clean") {
+                    Assert.IsType<ListBox>(window.FindName("Categories")).SelectedIndex = 3;
+                    var page = Assert.IsType<ContentControl>(window.FindName("PageHost"));
+                    Assert.IsType<TextBox>(FindByAutomationId<TextBox>(page.Content!, "theme")).Text = "light";
+                    if (state == "pending-apply") {
+                        save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                        Assert.Contains("Injected cleanup failure.", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                    }
+                    window.UpdateLayout();
+                    Assert.True(save.Focus());
+                    Assert.True(save.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next)));
+                    Assert.True(close.IsKeyboardFocused);
+                }
+                var beforeClose = File.ReadAllBytes(path);
+                var beforeApply = applied;
+                close.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.Equal(beforeClose, File.ReadAllBytes(path));
+                Assert.Equal(beforeApply, applied);
+                if (state == "clean") {
+                    Assert.False(window.IsVisible);
+                    Assert.Empty(prompts);
+                } else {
+                    Assert.True(window.IsVisible);
+                    Assert.Equal(state == "dirty" ? "Discard unsaved changes and close?"
+                        : "Settings are saved, but apply has issues. Close anyway?", Assert.Single(prompts));
+                    confirmed = true;
+                    close.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.False(window.IsVisible);
+                    Assert.Equal(2, prompts.Count);
+                    Assert.Equal(beforeClose, File.ReadAllBytes(path));
+                    Assert.Equal(beforeApply, applied);
+                }
+            } catch (Exception ex) { failure = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "WPF footer close check timed out.");
+        try {
+            if (failure is not null) { throw new Xunit.Sdk.XunitException(failure.ToString()); }
+        } finally {
+            foreach (var file in Directory.GetFiles(folder)) { File.Delete(file); }
+            Directory.Delete(folder);
+        }
+    }
+
+    [Theory]
     [InlineData("relative", true)]
     [InlineData("absolute", true)]
     [InlineData("file-uri", true)]

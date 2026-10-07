@@ -51,6 +51,9 @@ validation/isolation/capture/migration tests cover errors and compatibility boun
 `SettingsAccessibilityTests` checks names, collapsed Advanced and logical bounds without
 showing a window; it is not native DPI evidence. WPF UI tests share one xUnit collection
 to avoid competing focus checks.
+Footer Close checks cover clean close, cancelled/confirmed dirty or pending-apply
+close, unchanged disk/runtime on closing, accessible naming and Save-to-Close tab
+order. Logical footer bounds include both Save and Close at each tested width.
 `SettingsColorDialogTests` cover exact RGB/alpha-byte synchronization, invalid-input
 blocking/repair, format-preserving unchanged selections, modal OK/Cancel, accessible
 controls/logical bounds, and all four real editor pick/cancel/save round trips. Color

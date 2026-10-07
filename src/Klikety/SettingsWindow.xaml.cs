@@ -845,6 +845,8 @@ public partial class SettingsWindow : Window {
         }
     }
 
+    private void CloseClicked(object sender, RoutedEventArgs e) => Close();
+
     private void ConfirmClose(object? sender, CancelEventArgs e) {
         if ((_dirty || _pendingApply) && !_confirmDiscard(
                 _dirty ? "Discard unsaved changes and close?" : "Settings are saved, but apply has issues. Close anyway?")) {

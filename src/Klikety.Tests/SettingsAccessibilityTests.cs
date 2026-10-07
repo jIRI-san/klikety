@@ -28,6 +28,9 @@ public sealed class SettingsAccessibilityTests {
                 var host = Assert.IsType<ContentControl>(window.FindName("PageHost"));
                 var content = Assert.IsType<System.Windows.Controls.Grid>(window.Content);
                 var save = Assert.IsType<Button>(window.FindName("SaveButton"));
+                var close = Assert.IsType<Button>(window.FindName("CloseButton"));
+                Assert.Equal("Close Settings", UIElementAutomationPeer.CreatePeerForElement(close)?.GetName());
+                Assert.True(close.IsTabStop);
                 for (var index = 0; index < 7; index++) {
                     categories.SelectedIndex = index;
                     var page = Assert.IsType<StackPanel>(host.Content);
@@ -68,6 +71,9 @@ public sealed class SettingsAccessibilityTests {
                         content.UpdateLayout();
                         var footer = save.TransformToAncestor(content).TransformBounds(new Rect(save.RenderSize));
                         Assert.True(footer.Right <= width + 0.1 && footer.Bottom <= 700.1);
+                        var closeBounds = close.TransformToAncestor(content).TransformBounds(new Rect(close.RenderSize));
+                        Assert.True(closeBounds.Left >= footer.Right && closeBounds.Right <= width + 0.1 &&
+                            closeBounds.Bottom <= 700.1, $"width {width}: Close button clipped or overlapping Save");
                         foreach (var control in elements.OfType<Control>().Where(item =>
                                      item is Button or TextBox or ComboBox or CheckBox or SettingsModifierPicker && page.IsAncestorOf(item))) {
                             var bounds = control.TransformToAncestor(page).TransformBounds(new Rect(control.RenderSize));

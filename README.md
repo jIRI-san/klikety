@@ -4,10 +4,12 @@ Keyboard-driven mouse navigator for Windows. Press a hotkey, select a screen reg
 
 Also without touching the code. This paragraph is the only one I have written manually, the rest is AI generated as a test of how well things works end-to-end with more systemic approach to plans and to test and validate some skills which will come handy later. (It kinda works until it does not, so I need to up my plan-writing game significantly to be able to develop things without any passive-aggressive steering...)
 
-![Animated PNG showing grid selection and refinement over the demo dashboard](docs/screenshots/navigation-demo.png)
+![Animated PNG touring all five navigation modes, nested control hints and grid refinement](docs/screenshots/navigation-demo.png)
 
-**Grid navigation in motion:** `J` → `T` selects a region; `G` → `Y` refines the
-target; Escape backs out. Selection moves the cursor, but no click is sent.
+**All five modes in motion:** UniformGrid, Crosshair, LogCrosshair, LogGrid and
+ElementHints, including nested control badges. Captions identify each view.
+The loop then shows grid refinement: `J` → `T` selects a region, `G` → `Y`
+refines the target, and Escape backs out. Selection moves the cursor, but no click is sent.
 This is an animated PNG (APNG); unsupported viewers show its first frame.
 [Static view](docs/screenshots/uniform-grid.png).
 

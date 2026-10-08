@@ -36,7 +36,7 @@ The default uses a fresh directory outside the checkout and automatically:
    mappings and a guest login command.
 4. Runs the DPI-aware synthetic dashboard and production app; captures all five
    modes, UniformGrid zoom, real one-key L2 control badges and six navigation frames.
-5. Encodes the true-color APNG and stops the owned Sandbox.
+5. Encodes the captioned all-mode APNG and stops the owned Sandbox.
 6. Checks completion, complete discovery, the three preserved combo-box controls,
    PNG dimensions/CRCs, APNG sequence/frames/timing and local documentation links.
 7. Decodes all animated frames in an isolated headless browser and compares real
@@ -58,6 +58,9 @@ guest output rather than recapturing:
 .\scripts\readme-demo\Capture-Demo.ps1 -CaptureDirectory C:\temp\KliketyDemo-001\captures -OutputDirectory C:\temp\KliketyDemo-verify-001
 ```
 
+Reuse copies the completed captures into the new output directory and re-encodes
+the current storyboard; original capture evidence is not overwritten.
+
 Every output directory must be unused. Never reuse old `fixture.json`, skip a
 failed gate or publish a fixture-only/loading image. Failures retain diagnostics
 and leave the gallery alone until publication; a disk error during copying is
@@ -69,8 +72,12 @@ Inspect all seven stills and the six `frame-*.png` images for mode correctness,
 readability, clipping, badge placement and the L2 badge/outline/footer associations.
 Check matched colors, redundant solid/dashed/dotted patterns and leaders when
 badges are displaced; do not treat color alone as accessibility evidence. The APNG must
-remain `.png`, 960 pixels wide, six full replacement frames, 1.4-second delays,
+remain `.png`, 960 pixels wide, eleven full replacement frames, 1.4-second delays,
 infinite looping and static-first-frame fallback. Keep the README's static link.
+Inspect all eleven `animation-frames/animation-frame-*.png` renders too. The
+shared `AnimationFrames.json` must cover every mode, nested hints and all six grid
+states; captions occupy a 40-pixel band outside the captured desktop. The verifier
+checks each encoded frame against its ordered rendered reference.
 
 Check captions, current mode chords/defaults and relevant design notes against
 the implementation. If a new mode or changed flow needs capture changes, update
@@ -114,5 +121,5 @@ Release output. No host keyboard/mouse injection, desktop screenshots or AppData
 
 All supporting source lives in [`scripts/readme-demo`](../../../scripts/readme-demo):
 `Capture-Demo.ps1`, `Capture-ReadmeDemo.ps1`, `CaptureGuest.ps1`,
-`DemoApplication.ps1`, `HintLabelsProbe`, `Encode-Apng.ps1`,
+`DemoApplication.ps1`, `HintLabelsProbe`, `Encode-Apng.ps1`, `AnimationFrames.json`,
 `Verify-Demo.mjs` and its focused tests. No session-local script is required.

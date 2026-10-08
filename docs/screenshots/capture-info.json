@@ -56,27 +56,84 @@
     {
       "name": "navigation-demo.png",
       "width": 960,
-      "height": 520,
-      "sha256": "1f552e4a9543516054192d2551c75542078bb21f74b8cae54415a59820593e4b"
+      "height": 560,
+      "sha256": "187412e581ba989dbd90ea08d75863995b71c0878efcc9c85f15a3aeff40901a"
     }
   ],
   "animation": {
     "width": 960,
-    "height": 520,
-    "frames": 6,
+    "height": 560,
+    "frames": 11,
     "frameDelayMs": 1400,
     "loops": 0,
-    "crcValid": true
+    "crcValid": true,
+    "sequence": [
+      {
+        "source": "frame-01.png",
+        "mode": "UniformGrid",
+        "caption": "UniformGrid | Alt+Space: open keyboard navigation"
+      },
+      {
+        "source": "crosshair.png",
+        "mode": "Crosshair",
+        "caption": "Crosshair | N: uniform horizontal and vertical axes"
+      },
+      {
+        "source": "log-crosshair.png",
+        "mode": "LogCrosshair",
+        "caption": "LogCrosshair | M: small steps near the cursor, bigger steps farther away"
+      },
+      {
+        "source": "log-grid.png",
+        "mode": "LogGrid",
+        "caption": "LogGrid | Comma: logarithmic two-key targeting"
+      },
+      {
+        "source": "element-hints.png",
+        "mode": "ElementHints",
+        "caption": "ElementHints | Tab: control labels; + opens a group"
+      },
+      {
+        "source": "element-hints-children.png",
+        "mode": "ElementHints",
+        "caption": "ElementHints L2 | Linked badges preserve parent and child controls"
+      },
+      {
+        "source": "frame-02.png",
+        "mode": "UniformGrid",
+        "caption": "UniformGrid | J: select a column"
+      },
+      {
+        "source": "frame-03.png",
+        "mode": "UniformGrid",
+        "caption": "UniformGrid | J then T: open a finer subgrid"
+      },
+      {
+        "source": "frame-04.png",
+        "mode": "UniformGrid",
+        "caption": "UniformGrid | G: select a subgrid column"
+      },
+      {
+        "source": "frame-05.png",
+        "mode": "UniformGrid",
+        "caption": "UniformGrid | G then Y: refine the target without clicking"
+      },
+      {
+        "source": "frame-06.png",
+        "mode": "UniformGrid",
+        "caption": "UniformGrid | Escape: return to the previous level"
+      }
+    ]
   },
   "links": {
-    "documents": 16,
-    "localLinks": 52
+    "documents": 6,
+    "localLinks": 24
   },
   "browser": {
     "version": "Edg/154.0.4258.62",
-    "decodedFrames": 6,
+    "decodedFrames": 11,
     "animationObserved": true
   },
   "capturedAtUtc": "2026-10-08T13:09:10.303Z",
-  "verifiedAtUtc": "2026-10-08T13:09:19.084Z"
+  "verifiedAtUtc": "2026-10-08T14:15:51.463Z"
 }

@@ -28,8 +28,12 @@ foreach ($name in $assets) {
 }
 
 if ($PSCmdlet.ParameterSetName -eq 'Existing') {
-    $CaptureDirectory = [IO.Path]::GetFullPath($CaptureDirectory)
+    $existingCaptures = [IO.Path]::GetFullPath($CaptureDirectory)
     [void](New-Item -ItemType Directory -Path $OutputDirectory)
+    $CaptureDirectory = Join-Path $OutputDirectory 'captures'
+    Copy-Item -LiteralPath $existingCaptures -Destination $CaptureDirectory -Recurse
+    & (Join-Path $PSScriptRoot 'Encode-Apng.ps1') -CaptureDirectory $CaptureDirectory `
+        -OutputFile (Join-Path $CaptureDirectory 'navigation-demo.png')
 } else {
     $runner = Join-Path $PSScriptRoot 'Capture-ReadmeDemo.ps1'
     & $runner -OutputDirectory $OutputDirectory

@@ -64,21 +64,44 @@ public static class DemoApng {
     }
 }
 '@
-$files = Get-ChildItem -LiteralPath $CaptureDirectory -Filter 'frame-*.png' | Sort-Object Name
-if ($files.Count -lt 2) { throw 'At least two captured navigation frames are required.' }
+$plan = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'AnimationFrames.json') -Raw | ConvertFrom-Json
+$frameDirectory = Join-Path $CaptureDirectory 'animation-frames'
+[void](New-Item -ItemType Directory -Path $frameDirectory -Force)
 $frames = New-Object 'Collections.Generic.List[byte[]]'
-foreach ($file in $files) {
+foreach ($frame in $plan) {
     $image = New-Object Windows.Media.Imaging.BitmapImage
     $image.BeginInit()
     $image.CacheOption = [Windows.Media.Imaging.BitmapCacheOption]::OnLoad
-    $image.UriSource = New-Object Uri($file.FullName)
+    $image.UriSource = New-Object Uri([IO.Path]::GetFullPath((Join-Path $CaptureDirectory $frame.source)))
     $image.DecodePixelWidth = 960
     $image.EndInit()
+    $visual = New-Object Windows.Media.DrawingVisual
+    $drawing = $visual.RenderOpen()
+    try {
+        $drawing.DrawRectangle([Windows.Media.Brushes]::Black, $null,
+            (New-Object Windows.Rect(0, 0, 960, ($image.PixelHeight + 40))))
+        $drawing.DrawImage($image, (New-Object Windows.Rect(0, 40, 960, $image.PixelHeight)))
+        $text = New-Object Windows.Media.FormattedText(
+            $frame.caption, [Globalization.CultureInfo]::InvariantCulture, [Windows.FlowDirection]::LeftToRight,
+            (New-Object Windows.Media.Typeface('Segoe UI')), 18, [Windows.Media.Brushes]::White, 1)
+        if ($text.WidthIncludingTrailingWhitespace -gt 936 -or $text.Height -gt 32) {
+            throw "Animation caption does not fit: $($frame.caption)"
+        }
+        $drawing.DrawText($text, (New-Object Windows.Point(12, ((40 - $text.Height) / 2))))
+    } finally { $drawing.Close() }
+    $bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap(
+        960, ($image.PixelHeight + 40), 96, 96, [Windows.Media.PixelFormats]::Pbgra32)
+    $bitmap.Render($visual)
     $rgba = New-Object Windows.Media.Imaging.FormatConvertedBitmap(
-        $image, [Windows.Media.PixelFormats]::Bgra32, $null, 0)
+        $bitmap, [Windows.Media.PixelFormats]::Bgra32, $null, 0)
     $encoder = New-Object Windows.Media.Imaging.PngBitmapEncoder
     $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($rgba))
     $stream = New-Object IO.MemoryStream
-    try { $encoder.Save($stream); $frames.Add($stream.ToArray()) } finally { $stream.Dispose() }
+    try {
+        $encoder.Save($stream)
+        $bytes = $stream.ToArray()
+        [IO.File]::WriteAllBytes((Join-Path $frameDirectory ('animation-frame-{0:D2}.png' -f ($frames.Count + 1))), $bytes)
+        $frames.Add($bytes)
+    } finally { $stream.Dispose() }
 }
 [DemoApng]::Encode($frames.ToArray(), [IO.Path]::GetFullPath($OutputFile))

@@ -1,0 +1,13 @@
+[
+  { "source": "frame-01.png", "mode": "UniformGrid", "caption": "UniformGrid | Alt+Space: open keyboard navigation" },
+  { "source": "crosshair.png", "mode": "Crosshair", "caption": "Crosshair | N: uniform horizontal and vertical axes" },
+  { "source": "log-crosshair.png", "mode": "LogCrosshair", "caption": "LogCrosshair | M: small steps near the cursor, bigger steps farther away" },
+  { "source": "log-grid.png", "mode": "LogGrid", "caption": "LogGrid | Comma: logarithmic two-key targeting" },
+  { "source": "element-hints.png", "mode": "ElementHints", "caption": "ElementHints | Tab: control labels; + opens a group" },
+  { "source": "element-hints-children.png", "mode": "ElementHints", "caption": "ElementHints L2 | Linked badges preserve parent and child controls" },
+  { "source": "frame-02.png", "mode": "UniformGrid", "caption": "UniformGrid | J: select a column" },
+  { "source": "frame-03.png", "mode": "UniformGrid", "caption": "UniformGrid | J then T: open a finer subgrid" },
+  { "source": "frame-04.png", "mode": "UniformGrid", "caption": "UniformGrid | G: select a subgrid column" },
+  { "source": "frame-05.png", "mode": "UniformGrid", "caption": "UniformGrid | G then Y: refine the target without clicking" },
+  { "source": "frame-06.png", "mode": "UniformGrid", "caption": "UniformGrid | Escape: return to the previous level" }
+]

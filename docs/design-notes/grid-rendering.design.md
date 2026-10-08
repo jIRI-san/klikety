@@ -71,8 +71,9 @@ distinct from this successful warm-condition rendering evidence.
 The [README gallery](readme-demo.design.md) adds native captures of all five
 modes and real control-associated L2 badges at 200%. Its DPI-aware demo fixture/probe keep
 UIA bounds and overlay positions in the same physical coordinate space; the
-seven stills retain full guest resolution. The separate grid-refinement APNG is
-resized to 960 pixels wide and uses true-color replacement frames.
+seven stills retain full guest resolution. The APNG tours all five modes and
+nested hints before grid refinement, resized to 960 pixels wide with an external
+caption band and true-color replacement frames.
 
 Hint badge fills are independently translucent at 40% brush opacity (multiplied
 by theme color alpha) in nearby and list layouts. Outlined text and borders retain

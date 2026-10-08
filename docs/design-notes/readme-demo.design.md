@@ -58,12 +58,13 @@ Never replace a failed or loading-only capture with a success-shaped image.
 
 `Verify-Demo.mjs` uses Node built-ins only. It requires the guest completion marker,
 no error marker, complete discovery, three preserved combo-box group controls, consistent
-native PNG dimensions and all six raw frames. It checks PNG/APNG CRCs, sequence
+native PNG dimensions and all six raw grid frames. It checks PNG/APNG CRCs, sequence
 numbers, full-canvas replacement, true color, distinct frames and the exact
-1.4-second delays, plus local Markdown targets/anchors.
+1.4-second delays, plus local Markdown targets/anchors. Each of the eleven encoded
+frames must match its individually rendered reference PNG in the declared order.
 
 A fresh headless Edge/Chrome profile connects only to an ephemeral localhost
-fixture. Secure-context `ImageDecoder` must decode six animated frames; actual
+fixture. Secure-context `ImageDecoder` must decode all eleven animated frames; actual
 browser screenshots must change across a frame boundary. `Canvas.drawImage`
 is not used as playback evidence. The browser/server are closed in `finally`;
 only the owned profile is removed. Browser diagnostics/screenshots stay outside Git.
@@ -126,15 +127,26 @@ warm-condition evidence, not a cold-start benchmark or a claim that the default
 | `log-grid.png` | Comma chord, logarithmic two-key grid |
 | `element-hints.png` | Real foreground UIA control labels and `+` groups |
 | `element-hints-children.png` | One-key combo-box/child badges with matched colors and border patterns |
-| `navigation-demo.png` | APNG: open grid, J, T, G, Y, Escape |
+| `navigation-demo.png` | Captioned APNG: all five modes, nested ElementHints, then grid refinement |
 
 Native PNG stills retain full guest resolution. `Encode-Apng.ps1` resizes animation
-frames to 960 pixels wide, converts them to RGBA PNG and writes standard APNG
-`acTL`/`fcTL`/`fdAT` chunks with CRCs. Six full replacement frames use 1.4-second
+frames to 960 pixels wide, adds a 40-pixel caption band outside the captured
+desktop, converts them to RGBA PNG and writes standard APNG
+`acTL`/`fcTL`/`fdAT` chunks with CRCs. Eleven full replacement frames use 1.4-second
 delays and infinite looping. Compression preserves true color; no GIF palette
 quantization or external encoder is used. The first frame remains an ordinary
 PNG for static/older viewers. The `.png` extension gives the README a conventional
 PNG image URL while its animation data remain APNG.
+
+`AnimationFrames.json` is the shared fixed storyboard, not a user setting.
+It starts with UniformGrid, Crosshair, LogCrosshair, LogGrid and ElementHints L1/L2,
+then continues the remaining five grid-refinement states. This is a captioned
+montage of actual captures, not a continuous recording or fabricated app UI.
+The six original raw grid frames and all native mode stills remain unchanged.
+Individually rendered `animation-frames/animation-frame-*.png` stay with capture
+evidence outside Git and let verification detect missing/reordered frame content.
+When reusing completed captures, the wrapper copies them to its new output
+directory and re-encodes with the current storyboard, preserving old evidence.
 
 [Current Chrome, Edge, Firefox and Safari support APNG](https://caniuse.com/apng),
 including their modern mobile browsers. Keep a static-view link beside the README
@@ -162,6 +174,10 @@ The refreshed L2 presentation uses control-associated badges and redundant
 border patterns instead of the initial role list. Inspect the native still for
 badge/outline/leader associations as well as the production L2 footer; metadata
 checks alone do not establish visual legibility.
+The animation was subsequently expanded from the original UniformGrid-only six
+frames to eleven captioned frames covering every mode and nested hints. Native
+stills can be reused when only this presentation changes; the per-run manifest
+records the current sequence and animation hash.
 
 ## Evidence Limits
 

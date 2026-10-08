@@ -52,6 +52,8 @@ The [root index](.design-notes.md) lists authoritative subsystem notes.
 [README](../../README.md) is the user-facing overview and mode gallery.
 [Demo capture](readme-demo.design.md) distinguishes illustrative native screenshots
 from application compatibility, physical-input and DPI acceptance evidence.
+The README animation covers all five modes, nested hints and grid refinement;
+external captions identify its eleven captured views.
 Those human verification gates remain open.
 
 Archived implementation plans, prototype notes, the old monolithic navigator

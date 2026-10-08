@@ -131,11 +131,14 @@ The [README demo runner](readme-demo.design.md) separately exercised all five
 production modes and actual one-key L2 navigation in an offline owned Sandbox.
 Its published 200% captures use a DPI-aware fixture/probe: 47 retained targets,
 20 L1 entries and three preserved combo-box targets. Production footer text gates
-completed L1/L2 captures. The APNG's six frames were decoded and observed animating
+completed L1/L2 captures. The APNG's eleven mode/navigation frames are decoded and observed animating
 in an isolated Edge instance. This remains warmed-provider navigation/rendering
 evidence; it does not close physical-input or third-party acceptance gates.
 The refreshed L2 still shows control-associated badges rather than the original
 role list; per-run hashes and geometry are in `docs/screenshots/capture-info.json`.
+The fixed storyboard covers all five modes, nested hints and six grid states.
+Encoded frames are checked against ordered rendered reference PNGs, not just a
+frame count; caption bands are outside the native desktop capture.
 
 ## Unit Tests
 

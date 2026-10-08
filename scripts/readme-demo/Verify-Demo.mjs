@@ -13,6 +13,7 @@ export const imageNames = [
     'log-grid.png', 'element-hints.png', 'element-hints-children.png', 'navigation-demo.png'
 ];
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+export const animationFrames = JSON.parse(readFileSync(new URL('./AnimationFrames.json', import.meta.url), 'utf8'));
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -49,7 +50,7 @@ export function pngChunks(png) {
     return chunks;
 }
 
-export function verifyAnimation(png) {
+export function verifyAnimation(png, renderedFrames) {
     const chunks = pngChunks(png);
     const header = chunks[0].body;
     const width = header.readUInt32BE(0), height = header.readUInt32BE(4);
@@ -59,7 +60,7 @@ export function verifyAnimation(png) {
     const animation = chunks.filter(chunk => chunk.type === 'acTL');
     assert.equal(animation.length, 1);
     assert.equal(animation[0].body.length, 8);
-    assert.equal(animation[0].body.readUInt32BE(0), 6, 'Expected all six navigation frames');
+    assert.equal(animation[0].body.readUInt32BE(0), animationFrames.length, 'Expected all eleven mode and navigation frames');
     assert.equal(animation[0].body.readUInt32BE(4), 0, 'Animation must loop');
     const frames = [];
     let sequence = 0;
@@ -84,7 +85,7 @@ export function verifyAnimation(png) {
             frames.at(-1).push(body.subarray(4));
         }
     }
-    assert.equal(frames.length, 6);
+    assert.equal(frames.length, animationFrames.length);
     const rowSize = width * 4 + 1;
     const hashes = frames.map(frame => {
         const raw = inflateSync(Buffer.concat(frame), { maxOutputLength: height * rowSize });
@@ -93,7 +94,20 @@ export function verifyAnimation(png) {
         return sha256(raw);
     });
     assert.ok(new Set(hashes).size >= 5, 'Navigation frames did not change');
-    return { width, height, frames: 6, frameDelayMs: 1400, loops: 0, crcValid: true };
+    if (renderedFrames) {
+        assert.equal(renderedFrames.length, frames.length);
+        renderedFrames.forEach((png, index) => {
+            const reference = pngChunks(png);
+            assert.deepEqual(reference[0].body, header, 'Rendered animation frame dimensions differ');
+            const raw = inflateSync(Buffer.concat(reference.filter(chunk => chunk.type === 'IDAT').map(chunk => chunk.body)),
+                { maxOutputLength: height * rowSize });
+            assert.equal(sha256(raw), hashes[index], `Animation frame ${index + 1} differs from its planned render`);
+        });
+    }
+    return {
+        width, height, frames: animationFrames.length, frameDelayMs: 1400, loops: 0, crcValid: true,
+        sequence: animationFrames
+    };
 }
 
 export function findBrowser(explicit) {
@@ -137,7 +151,9 @@ export function verifyCaptures(directory) {
         assert.equal(header.readUInt32BE(0), native.width);
         assert.equal(header.readUInt32BE(4), native.height);
     }
-    const animation = verifyAnimation(readFileSync(join(directory, 'navigation-demo.png')));
+    const animation = verifyAnimation(readFileSync(join(directory, 'navigation-demo.png')),
+        animationFrames.map((_, index) => readFileSync(join(directory, 'animation-frames',
+            `animation-frame-${String(index + 1).padStart(2, '0')}.png`))));
     return {
         fixtureDpi: fixture.Dpi, nativeSize: { width: native.width, height: native.height },
         hints: { targets: hierarchy.Targets, entries: hierarchy.Entries, children: hierarchy.Children, role: hierarchy.GroupRole },
@@ -275,7 +291,7 @@ async function verifyBrowser(png, animation, output, executable) {
         assert.ok(!evaluated.exceptionDetails, JSON.stringify(evaluated.exceptionDetails));
         const decoder = evaluated.result.value;
         assert.equal(decoder.animated, true);
-        assert.equal(decoder.frames, 6);
+        assert.equal(decoder.frames, animation.frames);
         for (const frame of decoder.decoded) {
             assert.equal(frame.width, animation.width);
             assert.equal(frame.height, animation.height);

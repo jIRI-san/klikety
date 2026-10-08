@@ -5,7 +5,9 @@ using System.Windows.Media;
 using System.Windows.Shapes;
 
 using Klikety.Config;
+using Klikety.Grid;
 using Klikety.Input;
+using Klikety.Navigation;
 using Klikety.Overlay;
 using Klikety.Tests.Fakes;
 
@@ -14,6 +16,10 @@ using Path = System.Windows.Shapes.Path;
 namespace Klikety.Tests;
 
 public class ElementHintRenderingTests {
+    private sealed class LongKeyLabelResolver : IKeyLabelResolver {
+        public string Resolve(VKey key) => $"LONG-FALLBACK-GLYPH-{key}";
+    }
+
     [Theory]
     [InlineData(1.0)]
     [InlineData(1.5)]
@@ -62,6 +68,67 @@ public class ElementHintRenderingTests {
             Assert.Single(content.Children.OfType<Border>());
             var path = Assert.Single(content.Children.OfType<Path>(), p => p.Stroke is null);
             Assert.True(path.Data.Bounds.Height > 50);
+        });
+    }
+
+    [Theory]
+    [InlineData(7, 20)]
+    [InlineData(1, 1)]
+    [InlineData(100, 60)]
+    public void TinyViewportKeepsStatusAndLabelScrollRegionsInsideCanvas(double width, double height) {
+        RunSta(() => {
+            var canvas = new Canvas { Width = width, Height = height };
+            canvas.Measure(new Size(width, height)); canvas.Arrange(new Rect(0, 0, width, height));
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 100,
+                [VKey.OemSemicolon], [VKey.OemOpenBrackets], new FakeKeyLabelResolver());
+            Assert.Equal(1, renderer.GetPageCapacity(new(0, 0, (int)width, (int)height), 1));
+            renderer.Render(FakeElementHintService.Result(1).Targets, 0, 10, null, null, "Controls");
+            var viewport = new Rect(0, 0, width, height);
+            Assert.All(canvas.Children.OfType<ScrollViewer>(), scroll =>
+                Assert.True(viewport.Contains(new Rect(Canvas.GetLeft(scroll), Canvas.GetTop(scroll), scroll.Width, scroll.Height))));
+            var list = Assert.Single(canvas.Children.OfType<ScrollViewer>(), scroll => scroll.Content is Canvas);
+            var content = Assert.IsType<Canvas>(list.Content);
+            Assert.Single(content.Children.OfType<Border>());
+            Assert.True(Assert.Single(content.Children.OfType<Path>(), p => p.Stroke is null).Data.Bounds.Height > 50);
+        });
+    }
+
+    [Fact]
+    public void GlyphOnlyRedrawKeepsPagePrefixSelectionAndAssignmentsWhenTextNoLongerFits() {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 300, Height = 150 };
+            canvas.Measure(new Size(300, 150)); canvas.Arrange(new Rect(0, 0, 300, 150));
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 18,
+                [VKey.A, VKey.S], [VKey.Q, VKey.W], new FakeKeyLabelResolver());
+            var service = new FakeElementHintService { Response = FakeElementHintService.Result(11) };
+            var session = new ElementHintsSession([VKey.A, VKey.S], [VKey.Q, VKey.W],
+                new ActionMapper([]), new(1, 1), service, renderer);
+            int moves = 0;
+            session.CursorMoveRequested += _ => moves++;
+            try {
+                session.Activate(new(0, 0, 300, 150), default);
+                session.OnKey(VKey.Right); session.OnKey(VKey.A); session.OnKey(VKey.W);
+                Assert.Equal(6, session.Selected!.Token);
+                renderer.RebuildLabels(new LongKeyLabelResolver());
+                session.Redraw();
+                Assert.Equal(1, session.Page);
+                Assert.Equal(3, session.PageCount);
+                Assert.Equal(6, session.Selected.Token);
+                Assert.Equal(1, moves);
+                var list = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
+                Assert.Equal(4, Assert.IsType<Canvas>(list.Content).Children.OfType<Border>().Count());
+                session.OnKey(VKey.A); session.Redraw();
+                Assert.Equal(0, session.Prefix);
+                Assert.Equal(1, session.Page);
+                session.OnKey(VKey.W);
+                Assert.Equal(6, session.Selected!.Token);
+                Assert.Single(service.Scans);
+                session.Relayout();
+                Assert.Equal(0, session.Page);
+                Assert.Equal(11, session.PageCount);
+                Assert.Null(session.Selected);
+                Assert.Null(session.Prefix);
+            } finally { session.Deactivate(); }
         });
     }
 

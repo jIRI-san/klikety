@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Compile Include="..\Klikety.UiaWorker\UiaTreeAlgorithms.cs" Link="UiaTreeAlgorithms.cs" />
   </ItemGroup>
 
 </Project>

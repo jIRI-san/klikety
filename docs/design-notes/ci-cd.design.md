@@ -15,6 +15,10 @@ folder. The release job extracts its ZIP and executes
 performs a versioned handshake with PATH empty and DOTNET_ROOT unavailable, and
 requires bounded worker exit. Missing/broken helper packaging fails the release.
 WorkerFixture is never included in app distribution.
+The handshake's absolute 1500 ms budget starts before process creation and includes
+response validation; request preparation happens beforehand. Optional `-Diagnostics`
+reports startup/write/frame/parse phases and the worker's readiness timing. It does
+not extend the deadline or turn an unchanged retry into root-cause evidence.
 
 ## Release Workflow
 

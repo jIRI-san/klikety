@@ -2,6 +2,7 @@ using System.IO;
 
 using Klikety.Automation;
 
+if (args[0] == "startup-hang") { await Task.Delay(Timeout.Infinite); }
 if (args[0] == "ui") {
     UiaFixture.Run();
     return;

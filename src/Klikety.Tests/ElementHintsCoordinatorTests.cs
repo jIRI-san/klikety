@@ -94,20 +94,28 @@ public class ElementHintsCoordinatorTests {
         Assert.DoesNotContain(h.Mouse.Calls, c => c.Action is not null);
     }
 
-    [Fact]
-    public void DefaultHintsHelpAndLayoutRefreshKeepSelectionAndDoNotRescan() {
-        var service = new FakeElementHintService();
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DefaultHintsHelpAndLayoutRefreshKeepPagePrefixOrSelectionWithoutRescan(bool selected) {
+        var defaults = new ConfigModel();
+        int capacity = defaults.HorizontalKeys.Length * defaults.VerticalKeys.Length;
+        var service = new FakeElementHintService { Response = FakeElementHintService.Result(capacity + 5) };
         var h = Create(service, defaultHints: true);
         using var coordinator = h.Coordinator;
         h.Hotkey.SimulateActivation();
-        h.Hook.SimulateKey(VKey.A); h.Hook.SimulateKey(VKey.Q);
+        h.Hook.SimulateKey(VKey.Right); h.Hook.SimulateKey(VKey.A);
+        if (selected) { h.Hook.SimulateKey(VKey.Q); }
         h.Hook.SimulateKey(VKey.OemQuestion);
         Assert.NotNull(h.Overlay.CurrentHelp);
         Assert.Contains(h.Overlay.CurrentHelp!.Entries, e => e.Key == VKey.Return);
         h.Hook.SimulateKey(VKey.Escape);
         h.Platform.KeyboardLayout.Layout = 2;
+        h.Overlay.SimulateKeyboardLayoutChange();
+        if (!selected) { h.Hook.SimulateKey(VKey.Q); }
         h.Hook.SimulateKey(VKey.Space);
         Assert.Single(service.Scans);
+        Assert.Equal(capacity + 1, Assert.Single(service.Validations));
         Assert.Single(h.Mouse.Calls, c => c.Action is not null);
     }
 
@@ -169,7 +177,7 @@ public class ElementHintsCoordinatorTests {
     }
 
     [Fact]
-    public void ScopeAndTopologyChangesRetireOldSnapshotsAndKeepApplicationIdentity() {
+    public void ScopeChangeRetiresOldSnapshotAndKeepsApplicationIdentity() {
         var service = new FakeElementHintService();
         var h = Create(service, defaultHints: true);
         using var coordinator = h.Coordinator;
@@ -179,5 +187,38 @@ public class ElementHintsCoordinatorTests {
         Assert.Equal(new Automation.HintRect(0, 0, 800, 600), service.Scans[1].Region);
         coordinator.DeactivateOverlay();
         Assert.Equal(2, service.RetireCount);
+    }
+
+    [Theory]
+    [InlineData("topology")]
+    [InlineData("config-disposal")]
+    [InlineData("focus-loss")]
+    public async Task LifecycleInvalidationRetiresSnapshotAndRejectsPendingApproval(string transition) {
+        var service = new FakeElementHintService { ValidationCompletion = new() };
+        var h = Create(service, defaultHints: true);
+        using var coordinator = h.Coordinator;
+        var finished = new TaskCompletionSource();
+        coordinator.ElementValidationChanged += pending => { if (!pending) { finished.TrySetResult(); } };
+        h.Hotkey.SimulateActivation();
+        h.Hook.SimulateKey(VKey.A); h.Hook.SimulateKey(VKey.Q); h.Hook.SimulateKey(VKey.Space);
+        Assert.True(coordinator.IsElementValidationPending);
+        switch (transition) {
+            case "topology": h.Overlay.SimulateDisplayChange(); break;
+            case "config-disposal": coordinator.Dispose(); break;
+            case "focus-loss": h.Overlay.SimulateFocusLoss(); break;
+        }
+        Assert.False(coordinator.IsElementValidationPending);
+        Assert.Equal(1, service.RetireCount);
+        service.ValidationCompletion.SetResult(service.Response with { Point = new(20, 20) });
+        await finished.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.DoesNotContain(h.Mouse.Calls, c => c.Action is not null);
+        Assert.False(h.Overlay.IsVisible);
+        Assert.False(h.Hook.IsEnabled);
+        Assert.Single(service.Scans);
+        if (transition == "config-disposal") {
+            h.Hotkey.SimulateActivation(); h.Hook.SimulateKey(VKey.Space);
+            Assert.Single(service.Scans);
+            Assert.DoesNotContain(h.Mouse.Calls, c => c.Action is not null);
+        }
     }
 }

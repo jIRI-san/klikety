@@ -25,6 +25,10 @@ smaller or dropped labels. Status is on RootCanvas, leaving macro/drag/help laye
 independent. Glyph-only redraw preserves assignments; viewport capacity changes
 explicitly reset pages. Actual STA WPF containment tests cover 100/150/200% scales,
 negative origins, crowded geometry and long VKey fallback labels.
+Capacity and painting share adaptive status/list insets so even 1x1-DIP viewport
+scroll regions stay inside the canvas. Font size is not reduced. An actual WPF
+session test forces longer glyphs after selection: scrolling retains the frozen
+page/label assignments; only explicit viewport relayout recomputes pages.
 
 ## Overlay placement
 

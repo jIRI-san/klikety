@@ -14,6 +14,13 @@ globs:
 `ElementHintRenderingTests` cover bounded framing, hung/crashed/malformed children,
 parent-crash job cleanup, cancellation/recovery, labels, config, hidden-overlay
 validation, original modifiers, late-result rejection and rendered containment.
+`UiaTreeAlgorithmsTests` link the worker's production kernel without importing UIA
+into the parent/tests. Synthetic trees exercise exact node/depth/target caps,
+nested actions/passive text, cross-process descendants, identity omissions/reuse
+and bounded covered-point/ancestry checks. Coordinator/session tests explicitly
+cover display-topology events, config-disposal, focus-loss and late discovery/action
+completion. STA rendering tests include 1x1-DIP containment and longer glyphs
+without remapping frozen pages.
 `Klikety.WorkerFixture` is test-only; production has no hang command. Tests use fake
 service/point-guard seams for deterministic action delivery.
 
@@ -22,6 +29,12 @@ They require an interactive desktop that allows the fixture to become foreground
 `StaleTarget: Application lost foreground` is a fail-closed environmental blocker,
 not permission to remove the foreground check. Physical mouse-input, third-party,
 mixed-display and actual mixed-DPI coverage remain plan 4af565's human gate.
+Fixture readiness follows `ContentRendered`, with ordinary activation return values
+and native foreground HWND diagnostics. Root-only discovery/foreground-loss and
+destroyed-window tests do not require acquiring foreground. Keep healthy/covered
+cases failing if normal activation is denied; do not skip or weaken them. The
+development packaging test includes typed outcome/timing diagnostics and retires
+its helper even when the assertion fails.
 
 ## Unit Tests
 

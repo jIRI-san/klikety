@@ -10,6 +10,7 @@ public class UiaWorkerSupervisorTests {
 
     [Theory]
     [InlineData("hang", HintOutcome.Timeout)]
+    [InlineData("startup-hang", HintOutcome.Timeout)]
     [InlineData("crash", HintOutcome.ProviderError)]
     [InlineData("truncated", HintOutcome.ProtocolError)]
     [InlineData("oversized", HintOutcome.ProtocolError)]
@@ -93,8 +94,11 @@ public class ElementHintPackagingTests {
         Assert.True(File.Exists(path));
         Assert.True(File.Exists(Path.ChangeExtension(path, ".runtimeconfig.json")));
         var worker = new UiaWorkerSupervisor(path);
-        var response = await worker.DiscoverAsync(new(0, Environment.ProcessId), new(0, 0, 100, 100), CancellationToken.None);
-        Assert.Equal(HintOutcome.InvalidRoot, response.Outcome);
-        Assert.True(await worker.RetireAsync());
+        var watch = Stopwatch.StartNew();
+        try {
+            var response = await worker.DiscoverAsync(new(0, Environment.ProcessId), new(0, 0, 100, 100), CancellationToken.None);
+            Assert.True(response.Outcome == HintOutcome.InvalidRoot,
+                $"Expected InvalidRoot; actual={response.Outcome}; reason={response.Reason}; elapsed={watch.ElapsedMilliseconds} ms; ownedPid={worker.OwnedProcessId}");
+        } finally { Assert.True(await worker.RetireAsync()); }
     }
 }

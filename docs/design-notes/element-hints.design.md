@@ -63,13 +63,19 @@ remain focus targets. Focusability alone is insufficient. Runtime identities
 deduplicate candidates, never names or rectangles; nested independent actions
 remain separate. Branch failures and traversal caps report partial results and
 omitted branch/target counts, not a claim of complete provider coverage.
+`UiaTreeAlgorithms` is the production traversal/identity/hit-testing kernel,
+shared by source with hermetic tests. `AutomationTree` supplies cached native UIA
+properties and bounded ancestry reads. Invalid interactive-target identity or
+geometry contributes an explicit omission; invalid root geometry rejects discovery.
 
 Targets sort by physical top/left/token. Per-page labels use horizontal-first,
 vertical-second VKey pairs; current-layout glyphs come from `IKeyLabelResolver`.
 The measured font floor and viewport bound page capacity. Inline hints are used
 when collision-free; crowded hints use a page-local list and connectors. Extremely
 small viewports/long labels use a contained scrolling list, never smaller text or
-silent target removal. Labels are window-origin-relative DIPs; click coordinates
+silent target removal. Capacity and painting share adaptive status/list regions,
+including sub-8-DIP viewports; the initial physical-region fallback is retained
+until a measured canvas viewport is available. Labels are window-origin-relative DIPs; click coordinates
 remain physical desktop pixels.
 
 Two keys select and preview the cursor, without input injection. Action keys need
@@ -90,7 +96,9 @@ Duplicate actions are ignored. Cancellation/reopen/config disposal invalidate th
 pending transaction; a late completion cannot inject or record.
 
 Validation checks captured PID/process start, HWND/root runtime ID/root bounds,
-target runtime ID/current state/unchanged bounds and ancestry. It tries a provider
+target runtime ID/current state/unchanged bounds and ancestry. Native PID/start
+checks precede reacquiring UIA for a possibly reused HWND; foreground is sampled
+after fresh root metadata. It tries a provider
 clickable point, then center and four interior points. Native HWND ownership and
 UIA hit-test ancestry must agree; passive nested text is allowed, but another
 interactive child is not treated as its parent's point. A final native foreground/
@@ -116,6 +124,13 @@ extracts its ZIP and runs `scripts/Test-UiaWorkerPackage.ps1` with PATH empty an
 DOTNET_ROOT unavailable, proving the helper uses its bundled runtime. Test-only
 hang/crash/malformed-output commands exist in WorkerFixture, never the production
 protocol.
+
+The package gate starts its 1500 ms clock before process creation and includes
+response decoding/validation. `-Diagnostics` separates preparation, process start,
+write, frame receipt and parsing; worker stderr reports readiness startup time
+without provider contents. Passing warm retries do not prove the cause of a cold
+timeout. Follow-up runs also show that WPF `IsActive` is not native foreground
+ownership: normal activation can be denied while validation correctly fails closed.
 
 Live physical-input, mixed-display/DPI and third-party coverage remain the human
 gate in plan 4af565. Automated WPF discovery is not universal provider evidence.

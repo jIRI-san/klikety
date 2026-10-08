@@ -21,18 +21,22 @@
 
 ## Implementation status, 2026-10-07
 
-Code and distribution work through 4.1 are delivered in the implementation
-worktree. Release build, formatting and 959 hermetic tests pass. Extracted-ZIP
-worker verification passes on retry after one handshake timeout. See the evidence
-asset for exact commands and coverage.
+Implementation and automatable contracts through 4.1 are evidenced. Production-linked
+tests now cover exact traversal caps, nested/cross-process candidates, covered
+points and reused root identity. Actual STA rendering and lifecycle tests cover
+tiny viewports, frozen glyph redraw, topology and config disposal. Release build,
+formatting and the latest 987-test hermetic run pass. Four corrected-gate fresh
+ZIP extractions pass, including the final published source.
 
-Only the fully evidenced initial slice is checked below. Later implementation is
-present, but the remaining provider/lifecycle acceptance matrix is not fully
-proven. Final Release WPF smoke tests pass all three healthy/mutation cases.
-Earlier runs failed at healthy validation with
-`StaleTarget: Application lost foreground`; cause of that intermittent foreground
-failure is unknown. Keep 4.2 and whole-plan completion open; no foreground guard
-or deadline was weakened.
+Step 4.2 and whole-plan completion remain open. Two distinct controlled activation
+attempts each failed all eight healthy/covered fixture cases before discovery:
+ordinary activation was denied and another HWND remained foreground. Independent
+real-provider checks demonstrate correct foreground-loss and destroyed-window
+rejection. A cold discovery timeout and an initial full-suite development-package
+test failure were followed by passing controlled warm runs; their causes and the
+historical package handshake timeout are not established. See the evidence asset
+for exact results, diagnostics and remaining human checks. No guard or deadline
+was weakened; checked implementation steps do not imply universal/live acceptance.
 
 ## Phase 1: Safe, working element-hint slice
 
@@ -68,7 +72,7 @@ or deadline was weakened.
 
 ## Phase 2: Useful discovery and readable hints
 
-- [ ] 2.1 Complete candidate classification, geometry, and bounded traversal (REQ-2, REQ-3, REQ-10, RISK-2, RISK-4, RISK-5) [after: 1.2] `L`
+- [x] 2.1 Complete candidate classification, geometry, and bounded traversal (REQ-2, REQ-3, REQ-10, RISK-2, RISK-4, RISK-5) [after: 1.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** buttons, edit fields, links, toggles, tabs, selectable items, and expanders become independent targets without labeling every focusable container.
@@ -83,7 +87,7 @@ or deadline was weakened.
 
   </details>
 
-- [ ] 2.2 Add stable paging, prefix filtering, and collision-safe label layout (REQ-4, REQ-5, RISK-4, RISK-5) [after: 2.1] `L`
+- [x] 2.2 Add stable paging, prefix filtering, and collision-safe label layout (REQ-4, REQ-5, RISK-4, RISK-5) [after: 2.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** every retained target is reachable through two-key labels and pages; crowded controls remain readable without moving the physical click point.
@@ -100,7 +104,7 @@ or deadline was weakened.
 
 ## Phase 3: Validated actions and lifecycle integration
 
-- [ ] 3.1 Validate selected targets before mouse actions (REQ-6, REQ-7, REQ-10, RISK-1, RISK-2, RISK-8) [after: 2.2] `L`
+- [x] 3.1 Validate selected targets before mouse actions (REQ-6, REQ-7, REQ-10, RISK-1, RISK-2, RISK-8) [after: 2.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** existing action keys operate on a validated selected control; stale, covered, destroyed, and disabled targets cause no input.
@@ -115,7 +119,7 @@ or deadline was weakened.
 
   </details>
 
-- [ ] 3.2 Integrate help, display/scope changes, drag, and macro suspension (REQ-8, REQ-9, REQ-10, RISK-3, RISK-6, RISK-8) [after: 3.1] `L`
+- [x] 3.2 Integrate help, display/scope changes, drag, and macro suspension (REQ-8, REQ-9, REQ-10, RISK-3, RISK-6, RISK-8) [after: 3.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** element discovery/actions follow every existing session transition without stale labels, orphan helpers, broken help, or unintended macro input.
@@ -132,7 +136,7 @@ or deadline was weakened.
 
 ## Phase 4: Distribution, documentation, and compatibility evidence
 
-- [ ] 4.1 Ship helper in development/publish/release outputs and document the mode (REQ-9, REQ-10, REQ-11, REQ-12, RISK-7) [after: 3.2] `L`
+- [x] 4.1 Ship helper in development/publish/release outputs and document the mode (REQ-9, REQ-10, REQ-11, REQ-12, RISK-7) [after: 3.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** normal build/run and the existing self-contained win-x64 release ship a working helper; feature docs describe actual controls, fallback, and limits.

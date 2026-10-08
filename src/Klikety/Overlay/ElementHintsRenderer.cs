@@ -20,6 +20,7 @@ public sealed class ElementHintsRenderer : IElementHintsRenderer {
     private readonly VKey[] _horizontal, _vertical;
     private IKeyLabelResolver _labels;
     private double _cellWidth, _cellHeight;
+    private double _width, _height;
     private int _columns;
     private int _fitCapacity;
     private readonly Func<(System.Drawing.Point Origin, Matrix Scale)>? _coordinateSpace;
@@ -42,10 +43,11 @@ public sealed class ElementHintsRenderer : IElementHintsRenderer {
         _cellWidth = measured.Max(t => t.WidthIncludingTrailingWhitespace) + 16 + _theme.LabelOutlineThickness * 2;
         _cellHeight = measured.Max(t => t.Height) + 12 + _theme.LabelOutlineThickness * 2;
         var scale = Coordinates().Scale;
-        double width = _canvas.ActualWidth > 0 ? _canvas.ActualWidth : region.Width * scale.M11;
-        double height = _canvas.ActualHeight > 0 ? _canvas.ActualHeight : region.Height * scale.M22;
-        _columns = Math.Max(1, (int)Math.Floor((width - 16) / _cellWidth));
-        _fitCapacity = Math.Clamp(_columns * Math.Max(1, (int)Math.Floor((height - 100) / _cellHeight)), 1, keyCapacity);
+        _width = _canvas.ActualWidth > 0 ? _canvas.ActualWidth : region.Width * scale.M11;
+        _height = _canvas.ActualHeight > 0 ? _canvas.ActualHeight : region.Height * scale.M22;
+        var areas = Areas(_width, _height);
+        _columns = Math.Max(1, (int)Math.Floor(areas.Width / _cellWidth));
+        _fitCapacity = Math.Clamp(_columns * Math.Max(1, (int)Math.Floor(areas.Height / _cellHeight)), 1, keyCapacity);
         return _fitCapacity;
     }
 
@@ -53,10 +55,11 @@ public sealed class ElementHintsRenderer : IElementHintsRenderer {
         int? selectedToken, string status) {
         _canvas.Children.Clear();
         var (origin, scale) = Coordinates();
-        double width = Math.Max(1, _canvas.ActualWidth), height = Math.Max(1, _canvas.ActualHeight);
-        bool scroll = _cellWidth > width - 16 || _cellHeight > height - 100 || targets.Count > _fitCapacity;
+        double width = _width, height = _height;
+        var areas = Areas(width, height);
+        bool scroll = _cellWidth > areas.Width || _cellHeight > areas.Height || targets.Count > _fitCapacity;
         Canvas? listCanvas = scroll ? new Canvas {
-            Width = Math.Max(width - 16, _cellWidth),
+            Width = Math.Max(areas.Width, _cellWidth),
             Height = Math.Max(_cellHeight, Math.Ceiling((double)targets.Count / _columns) * _cellHeight)
         } : null;
         var placed = new List<Rect>();
@@ -65,14 +68,14 @@ public sealed class ElementHintsRenderer : IElementHintsRenderer {
         foreach (var target in targets) {
             var point = OverlayDip.ToCanvasPoint(target.Preview.X, target.Preview.Y, origin, scale);
             var rect = new Rect(point.X - _cellWidth / 2, point.Y - _cellHeight / 2, _cellWidth, _cellHeight);
-            if (rect.X < 0 || rect.Y < 80 || rect.Right > _canvas.ActualWidth ||
-                rect.Bottom > _canvas.ActualHeight || placed.Any(r => r.IntersectsWith(rect))) { list = true; }
+            if (rect.X < 0 || rect.Y < areas.ListTop || rect.Right > width ||
+                rect.Bottom > height || placed.Any(r => r.IntersectsWith(rect))) { list = true; }
             placed.Add(rect); inline.Add(rect);
         }
         for (int index = 0; index < targets.Count; index++) {
             var target = targets[index];
-            var rect = list ? new Rect((scroll ? 0 : 8) + index % _columns * _cellWidth,
-                (scroll ? 0 : 80) + index / _columns * _cellHeight, _cellWidth - 4, _cellHeight - 4) : inline[index];
+            var rect = list ? new Rect((scroll ? 0 : areas.Inset) + index % _columns * _cellWidth,
+                (scroll ? 0 : areas.ListTop) + index / _columns * _cellHeight, _cellWidth - 4, _cellHeight - 4) : inline[index];
             bool selected = target.Token == selectedToken;
             double opacity = prefix is null || index / _vertical.Length == prefix ? 1 : .2;
             var targetRect = new Rect((target.VisibleBounds.X - origin.X) * scale.M11,
@@ -108,20 +111,25 @@ public sealed class ElementHintsRenderer : IElementHintsRenderer {
         }
         if (listCanvas is not null) {
             Add(new ScrollViewer {
-                Content = listCanvas, Width = Math.Max(1, width - 16), Height = Math.Max(1, height - 100),
+                Content = listCanvas, Width = areas.Width, Height = areas.Height,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            }, 8, 80);
+            }, areas.Inset, areas.ListTop);
         }
         var statusText = new TextBlock {
             Text = $"{status}\nPage {page + 1}/{pageCount}; Left/Right: pages" +
             (list ? "; list labels point to controls" : ""), FontSize = Math.Max(14, Math.Min(_fontSize, 20)),
             Foreground = Brush(_theme.LabelColor), Background = Brush(_theme.LabelOutlineColor),
-            TextWrapping = TextWrapping.Wrap, MaxWidth = Math.Max(1, width - 16)
+            TextWrapping = TextWrapping.Wrap, MaxWidth = areas.Width
         };
         Add(new ScrollViewer {
-            Content = statusText, Width = Math.Max(1, width - 16),
-            Height = Math.Min(64, height), VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        }, 8, 8);
+            Content = statusText, Width = areas.Width,
+            Height = areas.StatusHeight, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        }, areas.Inset, areas.StatusY);
+    }
+    private static (double Inset, double StatusY, double StatusHeight, double ListTop, double Width, double Height) Areas(double width, double height) {
+        double inset = Math.Min(8, width / 4), gap = Math.Min(8, height / 8);
+        double statusHeight = Math.Min(64, height / 3), listTop = gap + statusHeight + gap;
+        return (inset, gap, statusHeight, listTop, width - inset * 2, height - listTop - gap);
     }
     private (System.Drawing.Point Origin, Matrix Scale) Coordinates() =>
         _coordinateSpace?.Invoke() ?? (OverlayDip.WindowOrigin(_canvas), OverlayDip.ScaleOf(_canvas));

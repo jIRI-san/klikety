@@ -152,4 +152,22 @@ public class ElementHintsStateMachineTests {
         Assert.Equal(1, session.PageCount);
         Assert.Equal(1, service.RetireCount);
     }
+
+    [Fact]
+    public async Task DisposalRetiresPendingDiscoveryAndCannotReviveTheOldSession() {
+        var service = new FakeElementHintService { ScanCompletion = new() };
+        using var manager = Manager(service);
+        manager.ActivateDefaultSession(new(0, 0, 100, 100), default, "ElementHints");
+        var session = Assert.IsType<ElementHintsSession>(manager.ActiveSession);
+        manager.Dispose();
+        Assert.False(manager.IsActive);
+        Assert.Equal(1, service.RetireCount);
+        service.ScanCompletion.SetResult(FakeElementHintService.Result(10));
+        await session.Discovery;
+        Assert.Equal("Finding controls...", session.Status);
+        Assert.Equal(1, session.PageCount);
+        session.OnKey(VKey.A); session.OnKey(VKey.Q);
+        Assert.Null(session.Selected);
+        Assert.Single(service.Scans);
+    }
 }

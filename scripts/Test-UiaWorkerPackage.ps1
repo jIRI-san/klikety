@@ -1,6 +1,6 @@
 #requires -Version 7.0
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$PublishDirectory)
+param([Parameter(Mandatory)][string]$PublishDirectory, [switch]$Diagnostics)
 
 $ErrorActionPreference = 'Stop'
 $directory = (Resolve-Path -LiteralPath $PublishDirectory).Path
@@ -31,24 +31,32 @@ $start.Environment['DOTNET_MULTILEVEL_LOOKUP'] = '0'
 $process = [System.Diagnostics.Process]::new()
 $process.StartInfo = $start
 $started = $false
+$prepare = [System.Diagnostics.Stopwatch]::StartNew()
+$session = [guid]::NewGuid().ToString()
+$request = [guid]::NewGuid().ToString()
+$json = @{ Version = 1; SessionId = $session; RequestId = $request; Command = 0 } | ConvertTo-Json -Compress
+$bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+$preparedMs = $prepare.ElapsedMilliseconds
+$clock = [System.Diagnostics.Stopwatch]::StartNew()
 try {
     $started = $process.Start()
     if (-not $started) { throw 'Worker did not start' }
-    $deadline = [System.Diagnostics.Stopwatch]::StartNew()
-    $session = [guid]::NewGuid().ToString()
-    $request = [guid]::NewGuid().ToString()
-    $json = @{ Version = 1; SessionId = $session; RequestId = $request; Command = 0 } | ConvertTo-Json -Compress
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+    $startedMs = $clock.ElapsedMilliseconds
+    $startup = $process.StandardError.ReadLineAsync()
     $process.StandardInput.BaseStream.Write([BitConverter]::GetBytes($bytes.Length))
     $process.StandardInput.BaseStream.Write($bytes)
     $process.StandardInput.BaseStream.Flush()
+    $writtenMs = $clock.ElapsedMilliseconds
     function Read-FrameBytes([int]$length) {
         $buffer = [byte[]]::new($length)
         $offset = 0
         while ($offset -lt $length) {
             $read = $process.StandardOutput.BaseStream.ReadAsync($buffer, $offset, $length - $offset)
-            $remaining = 1500 - [int]$deadline.ElapsedMilliseconds
-            if ($remaining -le 0 -or -not $read.Wait($remaining)) { throw 'Worker handshake timed out' }
+            $remaining = 1500 - [int]$clock.ElapsedMilliseconds
+            if ($remaining -le 0 -or -not $read.Wait($remaining)) {
+                $ready = if ($startup.IsCompletedSuccessfully) { $startup.GetAwaiter().GetResult() } else { 'worker readiness not observed' }
+                throw "Worker handshake timed out (prepare=$preparedMs ms, start=$startedMs ms, written=$writtenMs ms, elapsed=$($clock.ElapsedMilliseconds) ms; $ready)"
+            }
             $count = $read.GetAwaiter().GetResult()
             if ($count -eq 0) { throw 'Worker exited before handshake' }
             $offset += $count
@@ -57,10 +65,17 @@ try {
     }
     $length = [BitConverter]::ToInt32((Read-FrameBytes 4), 0)
     if ($length -le 0 -or $length -gt 2097152) { throw 'Invalid worker response size' }
-    $response = [System.Text.Encoding]::UTF8.GetString((Read-FrameBytes $length)) | ConvertFrom-Json
+    $body = Read-FrameBytes $length
+    $receivedMs = $clock.ElapsedMilliseconds
+    $response = [System.Text.Encoding]::UTF8.GetString($body) | ConvertFrom-Json
+    if ($Diagnostics) {
+        $ready = if ($startup.IsCompletedSuccessfully) { $startup.GetAwaiter().GetResult() } else { 'worker readiness not observed' }
+        Write-Output "Handshake timing: prepare=$preparedMs ms, start=$startedMs ms, written=$writtenMs ms, received=$receivedMs ms, parsed=$($clock.ElapsedMilliseconds) ms; $ready"
+    }
     if ($response.Version -ne 1 -or $response.SessionId -ne $session -or $response.RequestId -ne $request -or $response.Outcome -ne 0) {
         throw 'Worker handshake mismatch'
     }
+    if ($clock.ElapsedMilliseconds -ge 1500) { throw "Worker handshake timed out after response validation ($($clock.ElapsedMilliseconds) ms)" }
     $process.StandardInput.Close()
     if (-not $process.WaitForExit(500)) { throw 'Worker did not exit after stdin closed' }
     if ($process.ExitCode -ne 0) { throw "Worker exited with code $($process.ExitCode)" }

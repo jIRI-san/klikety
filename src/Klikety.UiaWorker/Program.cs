@@ -16,6 +16,9 @@ internal static class Program {
         using var input = Console.OpenStandardInput();
         using var output = Console.OpenStandardOutput();
         var worker = new UiaSnapshot();
+        using (var process = Process.GetCurrentProcess()) {
+            Console.Error.WriteLine($"uia-worker-ready startupMs={Math.Max(0, (long)(DateTime.UtcNow - process.StartTime.ToUniversalTime()).TotalMilliseconds)}");
+        }
         while (true) {
             HintRequest request;
             try {
@@ -76,84 +79,27 @@ internal sealed class UiaSnapshot {
             pid != r.ExpectedProcessId || r.ExpectedProcessStart <= 0) {
             return Program.Reply(r, HintOutcome.InvalidRoot, "Invalid application identity");
         }
-        _root = AutomationElement.FromHandle((nint)r.Hwnd);
         using var process = Process.GetProcessById((int)pid);
         _processStart = process.StartTime.ToUniversalTime().Ticks;
         if (_processStart != r.ExpectedProcessStart) {
             return Program.Reply(r, HintOutcome.InvalidRoot, "Application process changed");
         }
+        _root = AutomationElement.FromHandle((nint)r.Hwnd);
         _rootBounds = RectOf(_root.Current.BoundingRectangle);
         _rootId = _root.GetRuntimeId();
-        if (!ValidId(_rootId)) { return Program.Reply(r, HintOutcome.InvalidRoot, "Missing root identity"); }
+        if (!UiaTreeAlgorithms.ValidId(_rootId)) { return Program.Reply(r, HintOutcome.InvalidRoot, "Missing root identity"); }
+        if (!_rootBounds.IsValid) { return Program.Reply(r, HintOutcome.InvalidRoot, "Invalid root geometry"); }
         _rootPid = (int)pid;
         _hwnd = r.Hwnd;
         _session = r.SessionId;
         _region = r.Region;
-        var cache = new CacheRequest { TreeScope = TreeScope.Element };
-        foreach (var property in new[] {
-            AutomationElement.ControlTypeProperty, AutomationElement.BoundingRectangleProperty,
-            AutomationElement.IsEnabledProperty, AutomationElement.IsOffscreenProperty,
-            AutomationElement.ProcessIdProperty, AutomationElement.IsInvokePatternAvailableProperty,
-            AutomationElement.IsTogglePatternAvailableProperty, AutomationElement.IsSelectionItemPatternAvailableProperty,
-            AutomationElement.IsExpandCollapsePatternAvailableProperty, AutomationElement.IsValuePatternAvailableProperty,
-        }) { cache.Add(property); }
-        var pending = new Stack<(AutomationElement Element, int Depth)>();
-        pending.Push((_root, 0));
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        int visited = 0, omitted = 0;
-        string? reason = null;
-        var walker = TreeWalker.ControlViewWalker;
-        while (pending.Count > 0) {
-            if (visited == ElementHintProtocol.MaxNodes) { reason = "Node limit reached"; omitted++; break; }
-            var (element, depth) = pending.Pop();
-            visited++;
-            try {
-                var cachedElement = element.GetUpdatedCache(cache);
-                var data = cachedElement.Cached;
-                var capabilities = Capabilities(cachedElement);
-                int[] id = element.GetRuntimeId();
-                var bounds = RectOf(data.BoundingRectangle);
-                var clipped = bounds.Clip(r.Region);
-                if (data.ProcessId != r.OwnerProcessId && data.ProcessId != Environment.ProcessId &&
-                    data.IsEnabled && !data.IsOffscreen && clipped.IsValid &&
-                    ElementHintCandidatePolicy.IsInteractive(data.ControlType.Id, capabilities)) {
-                    if (!ValidId(id)) { omitted++; reason ??= "Missing target identity"; } else if (seen.Add(string.Join(",", id))) {
-                        if (_targets.Count == ElementHintProtocol.MaxTargets) { omitted++; reason = "Target limit reached"; break; }
-                        int token = _targets.Count + 1;
-                        var target = new HintTarget(token, id, data.ProcessId, data.ControlType.Id,
-                            capabilities, bounds, clipped, clipped.Center);
-                        _targets.Add(token, (element, target));
-                    }
-                }
-                // Siblings are pushed incrementally: a wide provider cannot allocate an unbounded child list.
-                var sibling = depth == 0 ? null : walker.GetNextSibling(element);
-                if (sibling is not null) { pending.Push((sibling, depth)); }
-                if (depth < ElementHintProtocol.MaxDepth) {
-                    var child = walker.GetFirstChild(element);
-                    if (child is not null) { pending.Push((child, depth + 1)); }
-                } else if (walker.GetFirstChild(element) is not null) { omitted++; reason ??= "Depth limit reached"; }
-            } catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or COMException) {
-                if (depth == 0) { throw; }
-                omitted++; reason ??= "Provider branch unavailable";
-                // The unread sibling branch is deliberately reported as omitted.
-            }
-        }
-        var targets = _targets.Values.Select(item => item.Target).OrderBy(t => t.Bounds.Y)
-            .ThenBy(t => t.Bounds.X).ThenBy(t => t.Token).ToArray();
-        return Program.Reply(r, reason is not null ? HintOutcome.Partial :
+        var discovery = UiaTreeAlgorithms.Discover(_root, new AutomationTree(), r.Region,
+            r.OwnerProcessId, Environment.ProcessId);
+        foreach (var entry in discovery.Entries) { _targets.Add(entry.Target.Token, entry); }
+        var targets = discovery.Entries.Select(item => item.Target).ToArray();
+        return Program.Reply(r, discovery.Reason is not null ? HintOutcome.Partial :
             targets.Length == 0 ? HintOutcome.NoTargets : HintOutcome.Success,
-            reason, targets, rootPid: _rootPid, visited: visited, omitted: omitted);
-    }
-
-    private static HintCapabilities Capabilities(AutomationElement element) {
-        object Read(AutomationProperty p) => element.GetCachedPropertyValue(p);
-        HintCapabilities result = HintCapabilities.None;
-        if (Read(AutomationElement.IsInvokePatternAvailableProperty) is true) { result |= HintCapabilities.Invoke; }
-        if (Read(AutomationElement.IsTogglePatternAvailableProperty) is true) { result |= HintCapabilities.Toggle; }
-        if (Read(AutomationElement.IsSelectionItemPatternAvailableProperty) is true) { result |= HintCapabilities.Selection; }
-        if (Read(AutomationElement.IsExpandCollapsePatternAvailableProperty) is true) { result |= HintCapabilities.Expand; }
-        if (Read(AutomationElement.IsValuePatternAvailableProperty) is true) { result |= HintCapabilities.Value; }
-        return result;
+            discovery.Reason, targets, rootPid: _rootPid, visited: discovery.Visited, omitted: discovery.Omitted);
     }
 
     private HintResponse Validate(HintRequest r) {
@@ -164,72 +110,73 @@ internal sealed class UiaSnapshot {
         if (Native.GetWindowThreadProcessId((nint)_hwnd, out uint pid) == 0) {
             return Reject(HintOutcome.StaleTarget, "Window destroyed");
         }
-        var freshRoot = AutomationElement.FromHandle((nint)_hwnd);
+        if (pid != _rootPid) { return Reject(HintOutcome.StaleTarget, "Application identity changed"); }
         using var process = Process.GetProcessById((int)pid);
-        if (pid != _rootPid || !freshRoot.GetRuntimeId().SequenceEqual(_rootId) ||
-            process.StartTime.ToUniversalTime().Ticks != _processStart) {
+        if (process.StartTime.ToUniversalTime().Ticks != _processStart) {
             return Reject(HintOutcome.StaleTarget, "Application identity changed");
         }
-        if (RectOf(freshRoot.Current.BoundingRectangle) != _rootBounds) {
-            return Reject(HintOutcome.StaleTarget, "Application bounds changed");
+        var freshRoot = AutomationElement.FromHandle((nint)_hwnd);
+        var currentRoot = new HintRootIdentity((int)pid, process.StartTime.ToUniversalTime().Ticks,
+            freshRoot.GetRuntimeId(), RectOf(freshRoot.Current.BoundingRectangle));
+        var foreground = Native.GetForegroundWindow().ToInt64();
+        var rootChange = UiaTreeAlgorithms.RootChanged(new(_rootPid, _processStart, _rootId, _rootBounds),
+            currentRoot, _hwnd, foreground);
+        if (rootChange is not null) {
+            return Reject(HintOutcome.StaleTarget, rootChange == "Application lost foreground"
+                ? $"{rootChange} (expected={_hwnd}, actual={foreground})" : rootChange);
         }
-        if (Native.GetForegroundWindow() != (nint)_hwnd) {
-            return Reject(HintOutcome.StaleTarget, "Application lost foreground");
-        }
+        var tree = new AutomationTree();
         var element = entry.Element;
-        var current = element.Current;
-        if (!current.IsEnabled || current.IsOffscreen || current.ProcessId != entry.Target.ProcessId ||
-            !element.GetRuntimeId().SequenceEqual(entry.Target.RuntimeId) ||
-            RectOf(current.BoundingRectangle) != entry.Target.Bounds || !DescendsFrom(element, _rootId)) {
+        if (UiaTreeAlgorithms.TargetChanged(entry.Target, tree.Read(element)) ||
+            !UiaTreeAlgorithms.DescendsFrom(element, _rootId, tree)) {
             return Reject(HintOutcome.StaleTarget, "Control moved, disappeared, or became unavailable");
         }
-        var points = new List<HintPoint>();
+        HintPoint? preferred = null;
         if (element.TryGetClickablePoint(out var clickable) && double.IsFinite(clickable.X) && double.IsFinite(clickable.Y) &&
             clickable.X >= int.MinValue && clickable.X <= int.MaxValue && clickable.Y >= int.MinValue && clickable.Y <= int.MaxValue) {
-            points.Add(new((int)Math.Floor(clickable.X), (int)Math.Floor(clickable.Y)));
+            preferred = new((int)Math.Floor(clickable.X), (int)Math.Floor(clickable.Y));
         }
-        var area = entry.Target.VisibleBounds;
-        points.Add(area.Center);
-        foreach (double x in new[] { .25, .75 }) {
-            foreach (double y in new[] { .25, .75 }) { points.Add(new((int)Math.Floor(area.X + area.Width * x), (int)Math.Floor(area.Y + area.Height * y))); }
-        }
-        foreach (var point in points.Distinct()) {
-            if (!area.Contains(point) || !Native.OwnsPoint((nint)_hwnd, point)) { continue; }
-            var hit = AutomationElement.FromPoint(new Point(point.X, point.Y));
-            if (OwnsHit(hit, entry.Target.RuntimeId)) {
-                return Program.Reply(r, HintOutcome.Success, point: point, rootPid: _rootPid);
-            }
+        var verified = UiaTreeAlgorithms.VerifiedPoint(entry.Target.VisibleBounds, preferred,
+            point => Native.OwnsPoint((nint)_hwnd, point),
+            point => AutomationElement.FromPoint(new Point(point.X, point.Y)), entry.Target.RuntimeId, tree);
+        if (verified is { } safePoint) {
+            return Program.Reply(r, HintOutcome.Success, point: safePoint, rootPid: _rootPid);
         }
         return Reject(HintOutcome.NoSafePoint, "Control is covered or has no verified interior point");
     }
 
-    private static bool OwnsHit(AutomationElement element, int[] selectedId) {
-        for (int depth = 0; depth <= ElementHintProtocol.MaxDepth; depth++) {
-            if (element.GetRuntimeId().SequenceEqual(selectedId)) { return true; }
-            var current = element.Current;
-            HintCapabilities capabilities = HintCapabilities.None;
-            foreach (var property in new[] { AutomationElement.IsInvokePatternAvailableProperty,
-                AutomationElement.IsTogglePatternAvailableProperty, AutomationElement.IsSelectionItemPatternAvailableProperty,
-                AutomationElement.IsExpandCollapsePatternAvailableProperty, AutomationElement.IsValuePatternAvailableProperty }) {
-                if (element.GetCurrentPropertyValue(property) is true) { capabilities = HintCapabilities.Invoke; break; }
-            }
-            if (ElementHintCandidatePolicy.IsInteractive(current.ControlType.Id, capabilities)) { return false; }
-            element = TreeWalker.RawViewWalker.GetParent(element);
-            if (element is null) { return false; }
-        }
-        return false;
-    }
-
-    private static bool DescendsFrom(AutomationElement element, int[] id) {
-        for (int depth = 0; depth <= ElementHintProtocol.MaxDepth; depth++) {
-            if (element.GetRuntimeId().SequenceEqual(id)) { return true; }
-            element = TreeWalker.RawViewWalker.GetParent(element);
-            if (element is null) { return false; }
-        }
-        return false;
-    }
-    private static bool ValidId(int[] id) => id is { Length: > 0 and <= ElementHintProtocol.MaxRuntimeId };
     private static HintRect RectOf(Rect r) => new(r.X, r.Y, r.Width, r.Height);
+}
+
+internal sealed class AutomationTree : IHintTree<AutomationElement> {
+    private readonly CacheRequest _cache = new() { TreeScope = TreeScope.Element };
+    public AutomationTree() {
+        foreach (var property in new[] {
+            AutomationElement.ControlTypeProperty, AutomationElement.BoundingRectangleProperty,
+            AutomationElement.IsEnabledProperty, AutomationElement.IsOffscreenProperty,
+            AutomationElement.ProcessIdProperty, AutomationElement.IsInvokePatternAvailableProperty,
+            AutomationElement.IsTogglePatternAvailableProperty, AutomationElement.IsSelectionItemPatternAvailableProperty,
+            AutomationElement.IsExpandCollapsePatternAvailableProperty, AutomationElement.IsValuePatternAvailableProperty,
+        }) { _cache.Add(property); }
+    }
+    public HintNode Read(AutomationElement element) {
+        var cached = element.GetUpdatedCache(_cache);
+        var data = cached.Cached;
+        HintCapabilities capabilities = HintCapabilities.None;
+        if (cached.GetCachedPropertyValue(AutomationElement.IsInvokePatternAvailableProperty) is true) { capabilities |= HintCapabilities.Invoke; }
+        if (cached.GetCachedPropertyValue(AutomationElement.IsTogglePatternAvailableProperty) is true) { capabilities |= HintCapabilities.Toggle; }
+        if (cached.GetCachedPropertyValue(AutomationElement.IsSelectionItemPatternAvailableProperty) is true) { capabilities |= HintCapabilities.Selection; }
+        if (cached.GetCachedPropertyValue(AutomationElement.IsExpandCollapsePatternAvailableProperty) is true) { capabilities |= HintCapabilities.Expand; }
+        if (cached.GetCachedPropertyValue(AutomationElement.IsValuePatternAvailableProperty) is true) { capabilities |= HintCapabilities.Value; }
+        var bounds = data.BoundingRectangle;
+        return new(element.GetRuntimeId(), data.ProcessId, data.ControlType.Id, capabilities,
+            new(bounds.X, bounds.Y, bounds.Width, bounds.Height), data.IsEnabled, data.IsOffscreen);
+    }
+    public int[] RuntimeId(AutomationElement element) => element.GetRuntimeId();
+    public AutomationElement? FirstChild(AutomationElement element) => TreeWalker.ControlViewWalker.GetFirstChild(element);
+    public AutomationElement? NextSibling(AutomationElement element) => TreeWalker.ControlViewWalker.GetNextSibling(element);
+    public AutomationElement? Parent(AutomationElement element) => TreeWalker.RawViewWalker.GetParent(element);
+    public bool IsBranchFailure(Exception exception) => exception is ElementNotAvailableException or InvalidOperationException or COMException;
 }
 
 internal static class Native {

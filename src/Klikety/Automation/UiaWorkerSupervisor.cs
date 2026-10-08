@@ -102,6 +102,7 @@ public sealed class UiaWorkerSupervisor : IElementHintService {
             }
             var response = await responseTask.ConfigureAwait(false);
             ElementHintProtocol.CheckResponse(request, response);
+            token.ThrowIfCancellationRequested();
             _responseRead = null;
             return response;
         } catch (OperationCanceledException) {

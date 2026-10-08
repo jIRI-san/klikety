@@ -1,5 +1,89 @@
 # Settings implementation evidence
 
+## Post-merge non-scaling Sandbox verification (2026-10-08)
+
+The user requested merging first, then testing the remaining Settings behavior
+in Sandbox without scaling and fixing demonstrated bugs. Initial publication
+was `a91e9ce35a1565ff43d2b1316236947c7987de94`, verified exactly on remote main
+after the unfiltered managed suite passed **1304/1304**, zero failed/skipped,
+and the production Release build passed with zero warnings/errors. The terminal
+whole-plan review remained clean. This section adds historical test evidence;
+it does not reopen the archived plan or change confirmed criteria/deferrals.
+
+A fresh disposable Sandbox `b306a784-7c6f-4aa3-b4e2-c6b8340a6072` ran the
+shipped-source self-contained Release fixture, PID 15248, under
+`WDAGUtilityAccount` on Windows 10.0.26100. All mutable app data stayed under
+guest `C:\KliketyFixture`. Only the app, runner, managed test binaries and
+public offline .NET 10.0.12/VSTest dependencies were mapped read-only; a dedicated
+evidence directory was writable. Networking/clipboard/printer/audio/video input
+were disabled. No host AppData/home/secrets were mapped, and no host app,
+registry, desktop DPI or Windows feature was changed.
+
+The actual **guest**, not the host, executed:
+
+```text
+C:\KliketySandbox\Tools\dotnet.exe C:\KliketySandbox\Tools\vstest\vstest.console.dll C:\KliketySandbox\Tests\Klikety.Tests.dll /TestCaseFilter:FullyQualifiedName~Settings|FullyQualifiedName~AppPathsTests|FullyQualifiedName~CoordinatorModeSwitchingTests /Logger:trx;LogFileName=guest-settings.trx /Logger:console;verbosity=minimal /ResultsDirectory:C:\KliketySandbox\Results\managed
+```
+
+Guest TRX: **231 passed, 0 failed, 0 skipped**, exit 0. This includes all-field
+coverage, seven-page editors, JSONC preservation/BOM/comments/unknowns, validation,
+collection operations, capture/modifiers/color dialogs, logical accessibility,
+isolation, migration, transaction/recovery and runtime-state contracts. It is a
+filtered managed Settings suite, not the full managed suite or separate native
+smoke suite.
+
+| Genuine post-merge native observation | Result |
+|---|---|
+| Tray/window/General | Same Settings HWND reused; Save, Close and reopen matched fixture disk; General keyboard close-cancel/Discard and focused capture Escape observed |
+| Seven categories | Actual UIA trees retained for every page; representative Navigation, v8 help, Appearance/theme/logger, Scrolling, Macros and HUD fields saved through actual runtime replacement |
+| Real registrations | Main Ctrl+Alt+Shift+F11, macro Ctrl+Alt+Shift+Pause and both scroll shortcuts occupied; probes released only their own registrations |
+| Candidate fault matrix | Logger, overlay, coordinator, main, both scroll registrations, scroll, macro, indicator, disk-save and enabled HUD checkpoints exercised; explicit failure, retained draft, protected backup and independent restoration checked |
+| HUD fault | Consumed actual HUD checkpoint; status reported `Could not re-enable key-press display after reload.`; exact old disk/backup and main registration restored, draft retained. Logger/notification carries the underlying HUD activation exception |
+| Independent recovery | External-edit/newer-byte protection, failed disk restoration with explicit reload/resync, failed runtime restoration with stable old disk and successful explicit retry all reobserved |
+| Native validation | Negative macro speed refused before file mutation, offending native editor focused; restoring its original value cleared dirty state |
+| Real conflict | Driver-owned Ctrl+Alt+Shift+Backspace reservation rejected before config/backup changes with error 1409; owned reservation released, draft discarded and main registration checked |
+| Macro activation | Actual fixture-owned empty-slot picker observed; this does not establish playback/recording |
+| Checked native input | Later probe delivered 8/8 keyboard events and observed the actual navigation overlay. Stale last-error value after a complete send is not a failure |
+| Actual scrolling | Checked 6/6 Ctrl+Alt+PageDown events; pointer hit the disposable target; target received one native wheel message, delta -600, and visible line moved **0 -> 15** |
+
+The earlier SendKeys scroll target stayed 0 -> 0. A bounded native wheel oracle
+distinguished the runner from production: it checked delivery, target hit-testing,
+native wheel receipt, message pumping and an actual top-of-text baseline. Its
+first diagnostic started at the bottom (125 -> 125); fixing target preparation
+produced 0 -> 15. No application scroll fix was needed.
+
+Runner failures are retained separately, not hidden as suite success: inaccessible
+virtualized picker selection required ordinary keyboard selection; a repeated
+macro save needed a genuinely changed value; HUD faults use the application's
+explicit wrapped error instead of the runner's unsupported exact injected-message
+expectation. Later unconsumed HUD faults were fixture-state prerequisites, not
+passing enabled-HUD checks. Optimistic historical `hudEnabledNativeRefresh` and
+`hudOffNativeSave` text does not establish rendered keys, hook/window counts or
+tray agreement.
+
+Remaining rows stayed unverified after bounded attempts: tray pause/resume and
+fixture tray conflict-control agreement; complete active-HUD visual/lifecycle
+checks; seeded macro playback/indicator/recording and live macro busy rejection;
+full seven-page keyboard-only workflows/live announcements. The seeded picker
+was not observed, so a subsequent successful Save is **not** evidence that Save
+was allowed during playback. An identified tray UIA target returned
+`The AutomationElement has no clickable point.`; another context-menu attempt
+did not expose `Settings...`. Neither is classified as a demonstrated production
+defect. Earlier explicit user-owned deferrals still apply. No scaling matrix was
+attempted; actual window DPI was 96/100%, work area 3056x1639 DIP.
+
+Scripts, actual guest TRX, observations, screenshots, failure records and the
+final disposable fixture are retained locally under
+`C:\Users\jiri\.copilot\session-state\b833fd48-09d8-47d2-9bda-332fde5a7f44\files\settings-sandbox-postmerge`.
+No production source bug was established and no production source fix was made.
+The final fixture was copied to the evidence directory before stopping only this
+owned Sandbox. A fresh main fetch still resolved to `a91e9ce`; integration was
+already up to date. After guest cleanup, the complete ordinary managed suite
+again passed **1304/1304**, zero failed/skipped (`settings-postmerge-host-full.trx`),
+and the production Release build passed with zero warnings/errors. Production/test
+source tree `19ad06d54952cce6f82610da82f7a66511bd2227` remained identical to the
+terminal review source. Only this evidence and its design-note summary changed.
+
 ## User-directed verification correction (2026-10-08)
 
 The user's exact decisions are retained in [intent](intent.md):

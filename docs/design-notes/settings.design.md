@@ -253,3 +253,15 @@ HUD refresh/fault/hook/window/tray, fixture conflict-control, full keyboard/anno
 and DPI observations to their manual validation and authorized finalization/archive/
 merge. These rows remain unverified, not passed. Use the operator procedure above for
 follow-up; managed contracts and genuine native observations are separate evidence.
+
+After publication `a91e9ce`, a fresh offline Sandbox reran the managed
+Settings/AppPaths/mode-switch suite: **231 passed, zero failed/skipped**. Actual
+seven-page UIA inspection, representative saves, native validation focus, a real
+driver-owned registration conflict, candidate faults including enabled HUD,
+independent recovery/retry and macro-picker activation were observed. A checked
+native scroll target received a wheel event and moved **0 -> 15** lines; the
+earlier SendKeys target was not production failure evidence. Full tray pause/HUD
+lifecycle/fixture conflict-control, macro playback/recording/busy, keyboard-only
+and announcement rows remain unverified after bounded runner attempts; DPI was
+excluded as directed. Details and exact limitations are retained in the archived
+[post-merge evidence](../implementation-plans/archived/standalone-2026-10-04-0b37c2-native-settings-sidebar/assets/evidence.md).

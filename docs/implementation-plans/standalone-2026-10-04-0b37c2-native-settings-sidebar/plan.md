@@ -197,7 +197,7 @@ verification; none of these steps is completed by Workshop approval.
 
 ## Phase 4: Complete remaining configured subsystems
 
-- [ ] 4.1 Implement Scrolling page and actual apply behavior (REQ-2, REQ-3, REQ-5, REQ-6, REQ-7) [after: 3.1] `M`
+- [x] 4.1 Implement Scrolling page and actual apply behavior (REQ-2, REQ-3, REQ-5, REQ-6, REQ-7) [after: 3.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Enabled/up/down/amount settings save and apply through ScrollHotKeyService.
@@ -214,7 +214,7 @@ verification; none of these steps is completed by Workshop approval.
   interaction is user-owned deferred verification per the 2026-10-08 intent correction.
 
   </details>
-- [ ] 4.2 Implement macro options and playback indicator controls (REQ-2, REQ-3, REQ-5, REQ-6, REQ-7, RISK-4) [after: 3.1] `M`
+- [x] 4.2 Implement macro options and playback indicator controls (REQ-2, REQ-3, REQ-5, REQ-6, REQ-7, RISK-4) [after: 3.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Macros config, nullable global hotkey, record/helper/ordered slot keys,
@@ -242,7 +242,7 @@ verification; none of these steps is completed by Workshop approval.
   behavior outside the settings feature; present that compatibility decision explicitly.
 
   </details>
-- [ ] 4.3 Implement HUD appearance page and active HUD refresh (REQ-2, REQ-3, REQ-5, REQ-7) [after: 2.2] `M`
+- [x] 4.3 Implement HUD appearance page and active HUD refresh (REQ-2, REQ-3, REQ-5, REQ-7) [after: 2.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Every HUD visual/timing value saves and updates an already enabled HUD;
@@ -264,7 +264,7 @@ verification; none of these steps is completed by Workshop approval.
 
 ## Phase 5: Verify complete coverage, safety and native usability
 
-- [ ] 5.1 Verify full configuration coverage, isolation and fault matrix (REQ-2, REQ-3, REQ-4, REQ-5, REQ-8, RISK-1, RISK-2, RISK-3, RISK-8) [after: 3.1, 3.2, 3.3, 4.1, 4.2, 4.3] `M`
+- [x] 5.1 Verify full configuration coverage, isolation and fault matrix (REQ-2, REQ-3, REQ-4, REQ-5, REQ-8, RISK-1, RISK-2, RISK-3, RISK-8) [after: 3.1, 3.2, 3.3, 4.1, 4.2, 4.3] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** A known-field coverage table and targeted tests establish editor/round-trip
@@ -285,7 +285,7 @@ verification; none of these steps is completed by Workshop approval.
   hotkeys cannot be arranged; do not start a runtime fixture that interferes with user app.
 
   </details>
-- [ ] 5.2 Verify keyboard/accessibility and scaled native layouts (REQ-1, REQ-6, REQ-7, RISK-6, RISK-7) [after: 5.1] `M`
+- [x] 5.2 Verify keyboard/accessibility and scaled native layouts (REQ-1, REQ-6, REQ-7, RISK-6, RISK-7) [after: 5.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** All pages usable with keyboard, named automation controls, announced
@@ -304,7 +304,7 @@ verification; none of these steps is completed by Workshop approval.
   each scaling. Record unsupported live rows for the human verification step.
 
   </details>
-- [ ] 5.3 Reconcile actual isolated native evidence and user-owned manual deferrals (REQ-5, REQ-7, REQ-8, RISK-2, RISK-7, RISK-8) @human [after: 5.1, 5.2] `M`
+- [x] 5.3 Reconcile actual isolated native evidence and user-owned manual deferrals (REQ-5, REQ-7, REQ-8, RISK-2, RISK-7, RISK-8) @human [after: 5.1, 5.2] `M`
   <details><summary>Details</summary>
 
   **Steps:**
@@ -338,7 +338,7 @@ verification; none of these steps is completed by Workshop approval.
 
 ## Phase 6: Document production behavior
 
-- [ ] 6.1 Update matching design notes and user-facing settings guidance (REQ-8) [after: 5.3] `S`
+- [x] 6.1 Update matching design notes and user-facing settings guidance (REQ-8) [after: 5.3] `S`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Production entrypoints/coverage, draft workflow, JSONC guarantees/race,
@@ -358,7 +358,9 @@ verification; none of these steps is completed by Workshop approval.
 ## Execution evidence
 
 [Implementation and native evidence](assets/evidence.md) records source commits,
-Release results, direct evidence, isolated Sandbox observations and remaining native
-requirements. Steps 1.1, 1.2, 2.1, 2.2 and 3.1-3.3 are closed after prerequisite
-reconciliation. Steps 4.1-4.3, 5.1-5.3 and 6.1 retain their explicit native or
-dependency gates. No whole-plan completion, terminal review or archival is claimed.
+Release results, direct evidence, isolated Sandbox observations and user-owned deferred
+native rows. Steps 1.1-5.3 are reconciled in prerequisite order against the committed
+2026-10-08 criteria correction; checking 5.3 records that user-authorized reconciliation,
+not passing unperformed native interaction/DPI checks. Step 6.1 documents coverage,
+ownership, recovery/retry and residual manual validation; finalization evidence is
+recorded separately, including terminal review, compaction, learning and archival.

@@ -73,7 +73,10 @@ Choose **Settings...** from the tray to edit General, Navigation, Key bindings, 
 Scrolling, Macros, or Key-press HUD. Edits remain in a draft while switching pages.
 **Save & apply** validates and applies the complete candidate while navigation and macro
 activity are idle; invalid input, external edits, or activation failures are reported in
-the window. Failed apply keeps the draft for correction or retry.
+the window. Failed apply keeps the draft and reports disk/runtime recovery separately.
+When disk recovery succeeds, retry can rebuild the runtime; failed disk restoration
+or newer external bytes require explicit reload. **Close** beside Save (Alt+C) uses
+the same unsaved-change confirmation as the title bar and never saves.
 
 The editor patches only changed values in `config.json`. It preserves comments, unknown
 properties, the UTF-8 BOM, and untouched value text; changed fragments may be reformatted.
@@ -101,6 +104,11 @@ conflicts with another application. The fixture is not automatically deleted.
 Its **Fixture: fail next operation** tray submenu provides one-shot candidate/recovery
 faults and an external-edit case, all restricted to fixture files. Use a separate safe
 host/display for these native checks; see the [operator procedure](docs/design-notes/settings.design.md#native-operator-procedure-plan-53-not-automated-evidence).
+
+The implementation was checked with the ordinary managed suite and isolated native
+save/registration/recovery scenarios. Remaining native interaction and 100/150/200%
+display checks were explicitly deferred to the user's manual validation; they are
+not recorded as passed. The operator procedure lists the safe follow-up checks.
 
 ### Configuration Reference
 

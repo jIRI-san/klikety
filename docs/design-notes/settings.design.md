@@ -18,15 +18,11 @@ globs:
 
 # Settings Sidebar
 
-The seven-category native WPF editor grew from the exploratory sidebar prototype.
-The prototype established layout direction only; it is not evidence of production
-runtime behavior. Settings is opened from the real tray entry and reuses one modeless
-window. Common controls precede collapsed Advanced sections; General diagnostics and
-indicator visuals are Advanced. Each page scrolls independently of the persistent
-sidebar/footer.
-
-The editor is integrated into the normal application's first tray item,
-**Settings...**, not gated behind the demo. `App.ShowSettings` reuses and activates
+The seven-category native WPF editor is the normal application's first tray item,
+**Settings...**. The exploratory prototype established layout direction, not production
+runtime evidence. Common controls precede collapsed Advanced sections; General
+diagnostics and indicator visuals are Advanced. Pages scroll independently of the
+persistent sidebar/footer. `App.ShowSettings` reuses and activates
 the existing window (restoring a minimized one), releases the reference on close,
 and wires real validation/captured-runtime apply/recovery callbacks. It resolves its
 file from the same `AppPaths` as the runtime; runtime fixtures must never fall back
@@ -112,6 +108,9 @@ window close path as the title bar: clean drafts close immediately, while unsave
 changes or pending apply issues require confirmation. Close never saves or applies.
 Save errors retain the candidate; successful apply rebases the editor. Failed apply
 retains the draft and separately reports disk and runtime recovery outcomes.
+If previous disk bytes were restored, explicit Save retry remains available even if
+runtime recovery failed. Failed disk restoration or newer external bytes require
+explicit Discard/reload before retry; do not confuse a retained draft with applied state.
 
 `ConfigLoader.ReadSettings` is strict and never migrates or substitutes parse defaults.
 The current config version is required; malformed JSON/UTF-8, required nulls, duplicate properties (also
@@ -243,3 +242,14 @@ Focused tests do not establish live tray reuse, real registration/recovery, or t
 100/150/200% DPI matrix. Those are native checks that require a separate, isolated
 Windows display/runtime; leave each unavailable row unverified rather than treating the
 demo or simulated layout as proof.
+
+Plan `0b37c2` collected genuine isolated Sandbox tray reuse, General keyboard/save/
+close/reopen, real main/scroll registrations, captured Navigation/help/theme/logging
+and startup-disabled HUD saves, candidate faults and independent disk/runtime recovery.
+The guest reported checked `SendInput` 0/8, Win32 error 5 (`Access is denied`), and
+provided no supported 150/200% display-scaling control. The user explicitly deferred
+remaining native scrolling/pause/tray, macro activation/playback/indicator/busy, active
+HUD refresh/fault/hook/window/tray, fixture conflict-control, full keyboard/announcements
+and DPI observations to their manual validation and authorized finalization/archive/
+merge. These rows remain unverified, not passed. Use the operator procedure above for
+follow-up; managed contracts and genuine native observations are separate evidence.

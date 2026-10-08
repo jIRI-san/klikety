@@ -12,5 +12,7 @@ production work. Its hook-free `--settings-demo` workflow remains a fixture-only
 aid and cannot prove actual registration, runtime apply/recovery, tray reuse, or DPI.
 
 Current production code and automated evidence are described in
-[settings.design.md](settings.design.md). Required native plan 5.3 evidence remains a
-separate operator check; implementation or demo approval does not satisfy it.
+[settings.design.md](settings.design.md). Plan 5.3 records actual isolated observations
+and the user's explicit deferral of unavailable native interaction/DPI checks to
+their manual validation. Neither that deferral nor demo approval is passing native
+evidence; the prototype remains exploratory history.

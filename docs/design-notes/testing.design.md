@@ -77,6 +77,11 @@ demo filename, without reading or writing the user's config. These are command/p
 contracts, not proof of actual shell tray reuse or live runtime activation.
 See [settings.design.md](settings.design.md) for the fixture-only fault controls and
 native operator procedure.
+The completed Settings plan retains genuine Sandbox tray/save/real-registration/
+recovery results separately from managed evidence. Native interaction/DPI rows blocked
+by guest `SendInput` error 5 or unavailable scaling were explicitly deferred to the
+user, not passed. Do not report the separate live smoke suite as run or green from
+the ordinary `Klikety.Tests` result.
 
 - All Win32 service interfaces are the seam for testing.
 - Integration tests are hermetic (no real display, no OS hooks, no timing dependencies).

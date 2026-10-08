@@ -108,6 +108,11 @@ passed `Invoke-DirectEvidence`:
 | SettingsCoverageTests | 1 |
 | SettingsIsolationTests | 14 |
 | SettingsThemeTests | 1 |
+| SettingsAccessibilityTests | 1 |
+| SettingsMigrationTests | 4 |
+| SettingsModifierPickerTests | 3 |
+| SettingsColorDialogTests | 30 |
+| SettingsTrayTests | 1 |
 
 The original `ThemeLoaderTests` marker lookup had no current class and was
 rejected, not treated as a suite failure or passing evidence. Current theme
@@ -123,23 +128,33 @@ are verified by the named store/editor/round-trip/validation/isolation cases,
 plus the native observations above. The all-page live usability matrix is still
 owned by 5.2/5.3; those criteria were not folded into these closures.
 
-| Step | Current state | Remaining requirement |
+| Step | Reconciled state | Evidence / explicit deferral |
 |---|---|---|
 | 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3 | Complete | Direct evidence above; no independent earlier-step blocker identified |
-| 4.1 | Pending | Real scroll effect, pause/resume preservation and tray state |
-| 4.2 | Pending | Interactive macro activation/indicator and recording/playback busy observations |
-| 4.3 | Pending | Enabled HUD refresh, live hook/window behavior and tray-state agreement |
-| 5.1 | Dependency-blocked | Its machine coverage/isolation/fault tests pass; 4.1-4.3 remain open |
-| 5.2 | Dependency/native-blocked | 5.1, every-page keyboard/announcements and genuine 100/150/200% matrix |
-| 5.3 | Human/native-blocked | 5.1/5.2 and complete actual isolated runtime/display exercise |
-| 6.1 | Dependency-blocked | 5.3, final reconciliation, terminal review, compaction and learning handoff |
+| 4.1 | Complete under corrected criteria | Field/editor round-trip, validation, registration/recovery and pause/toggle contracts; actual saved amount/up/down registrations; live scroll/pause/tray deferred |
+| 4.2 | Complete under corrected criteria | Nullable/enabled/options/list/indicator/compatibility round-trip and validation, resource faults/busy contracts; live activation/playback/indicator/busy deferred |
+| 4.3 | Complete under corrected criteria | Ten-field coverage, active/off replacement/recovery/resource lifetime tests and actual off-HUD save; active native refresh/fault/hook/window/tray deferred |
+| 5.1 | Complete | All editable leaves including v8 help mapped; store/editor/isolation/migration/fault matrix and real native save/independent recovery |
+| 5.2 | Complete under corrected criteria | Named controls, polite live-region property, focused capture/keyboard/popup and logical bounds tests; full native keyboard/announcements/DPI deferred |
+| 5.3 | User-confirmed reconciliation complete | Genuine observations retained and unsupported rows assigned to user by explicit confirmation; not a claim all original native checks passed |
+| 6.1 | Complete | Production coverage/recovery/retry/Close guidance, prototype identity and user-owned deferred rows reconciled; 29 local links verified |
 
-**Seven of fourteen steps are closed.** This is not finalization. The earlier
-archive refusal at 2/14 is historical; no subsequent archive or publication
-attempt was made. User-directed merge hold remains until native evidence and
-successful whole-plan finalization permit scripted archival.
+**All fourteen steps are reconciled** against confirmation commit
+`faef949b4cbda408192e5967dde00798c3abab63`, digest
+`sha256:c343277963b9c912a2ac876aa63080721616f2e0a1221c432ed94d18983251ff`.
+Admission returned `ready`. The original two-pass planning review was not repeated:
+only the user-selected affected verification criteria were corrected/reconfirmed.
+The earlier 2/14 archive refusal is historical; no guard was bypassed.
 
-## Final integrated managed validation and publication hold
+Design-note compaction ran once using corrected baseline `faef949` and the bundled
+protocol. Its final changed-note batch contains only Settings, Settings prototype
+history and testing notes. Same-note repetition in the Settings introduction was
+compressed; each unique behavior, path, lifecycle/compatibility/safety exception and
+operator example was retained. No cross-note merge/deletion or ownership change was
+proposed. The complete design-note/README diff was shown before terminal review.
+Terminal review, committed learning and scripted archival remain finalization actions.
+
+## Earlier integrated managed validation and publication hold (historical)
 
 Source: `58f15006bfd7d23f427b4761b33e992b730926d6`, containing the v8/main
 integration and guarded Close action. Fetched `origin/main`

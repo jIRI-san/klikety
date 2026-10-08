@@ -38,6 +38,10 @@ The scrolling list follows a selected target/prefix when a frozen redraw grows
 labels beyond the page's earlier capacity. Offline guest captures at native 200%
 confirmed the placement/footer change on a real UIA WinForms snapshot, not a
 host-render fake. The final-package guest timeout is recorded separately.
+Final committed-code captures now also demonstrate the ordinary labels,
+prefix and selection states against a separately running real WinForms fixture
+after explicit guest-only provider initialization. Cold guest discovery remains
+distinct from this successful warm-condition rendering evidence.
 
 ## Overlay placement
 

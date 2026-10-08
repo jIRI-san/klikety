@@ -49,6 +49,13 @@ not replaced by WPF containment tests. Guest app readiness/foreground ownership
 must be checked before treating a capture as an overlay; fixture-only or timed-out
 captures are not successful label evidence. The observed 200% before/after and
 bounded unsuccessful final-package attempts are documented in plan 4af565.
+The final-code inspection subsequently used a separate .NET Framework WinForms
+process with a real `Application.Run` loop. A bounded MTA test helper initialized
+only this fixture's root/control-view metadata before the production scan.
+Successful 48-target final captures are warm-condition evidence, not a
+production timeout fix. The harness checks process handles before observing
+Windows PowerShell 5.1 redirected-child exit codes, and retains raw geometry
+arrays instead of its pipeline's `value`/`Count` JSON wrapper.
 
 ## Unit Tests
 

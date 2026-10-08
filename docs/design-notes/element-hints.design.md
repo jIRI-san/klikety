@@ -149,3 +149,8 @@ near-target labels without unselected connectors and a compact footer. Later
 final-package guest attempts timed out within the unchanged discovery budget;
 passing earlier captures are not proof that the intermittent timeout is fixed.
 See the plan's evidence asset for exact artifacts and outstanding conditions.
+The final committed renderer was subsequently captured successfully with a
+separate WinForms `Application.Run` fixture and explicit bounded provider
+initialization inside the guest. Its 39 control geometries match the original
+fixture. This closes final-build rendering inspection under a documented warm
+condition, not the cold-start/provider timing uncertainty or human gate.

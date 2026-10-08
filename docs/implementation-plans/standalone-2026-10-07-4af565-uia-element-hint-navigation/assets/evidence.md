@@ -271,3 +271,62 @@ Human **4.2 remains open**. Final guest discovery timeouts, earlier startup/focu
 uncertainties and unobserved physical/mixed-display/third-party scenarios remain
 explicitly unresolved; successful initial-fix captures are not universal or
 whole-plan acceptance.
+
+### Closing final-code visual inspection (07:29-07:39)
+
+After the request to continue until the rendering task was complete, a distinct
+controlled reproduction removed PowerShell's manual fixture message pump:
+`input\VisualFixture.cs` was compiled with the existing .NET Framework compiler
+and ran in a separate normal-user guest process using `Application.Run`.
+No production source, package, guard or deadline was changed. The same narrow
+offline mappings were reused, with a new owned guest
+`e9c4d633-aec2-4168-b890-2f4e6fb6f3e9`.
+
+The initial logon-command app readiness check failed; it is not label evidence.
+An established `ExistingLogin` run acquired the app/fixture normally but still
+returned Timeout. Therefore manual message pumping alone is not established as
+the cause of the earlier timeouts.
+
+A second distinct setup used `input\warm-root.ps1`, an owned MTA test helper with
+a separate 5-second watchdog. It verifies the exact fixture executable, PID and
+HWND, initializes only that root's bounded control-view metadata (200-node
+maximum), and reads no names/values or action/selection APIs. In the successful
+run, this explicit provider setup visited **41 nodes in 288 ms**. The production
+app then launched its own bundled helper through the normal supervisor, still
+within the unchanged startup-inclusive **1500 ms** budget.
+
+At **07:37**, committed code **e113627** produced **Partial: 48 retained, 57
+visited, 5 geometry omissions**. App PID **15680** owned the activated overlay;
+fixture PID **13508** owned the target HWND. Mode-switch/discovery log timestamps
+were `07:37:42.4978600` / `07:37:43.9931142` (1495 ms apart; this is a log
+interval, not phase-level helper timing). All three actual final guest screenshots
+were inspected: ordinary labels are near controls with no all-target lines,
+prefix outlines only its matching group, and selected AQ outlines the control
+while dimming other labels. The small bottom footer contains concise state and
+fallback, not routine counts/reasons. Font size remains unchanged.
+
+The native raw geometry array has **39 controls**, with identical type/X/Y/width/
+height values to the original before fixture. The PowerShell 5.1 reserialization
+created a `value`/`Count` wrapper; comparisons use the native raw array, and the
+harness now copies that array directly. A separate harness failure observed an
+empty redirected-child `ExitCode` despite successful provider setup output
+(361 ms); retaining the child's native process handle before waiting corrected
+exit-code observation. These were test-tool fixes, not production defects.
+
+Successful final-code evidence is in
+`src\Klikety\bin\uia-sandbox-20261008\before-output\isolated-loop-warm-tree`,
+including actual PNG/JPEG screenshots, `native-fixture-geometry.json`,
+`provider-setup.txt`, transcript and application log. `isolated-loop-active`
+retains the independent-fixture timeout; `isolated-loop` and
+`isolated-loop-provider` retain excluded harness failures. The staged app DLL
+hash matches `uia-visual-extracted\Klikety.dll`; the extracted package is
+`1.1.0+e113627df32bdcd418a8657f8af9611ca10b51ab`. Its post-commit empty-PATH/
+unavailable-DOTNET_ROOT gate also passed: start/write/received/parsed
+**51/65/901/909 ms**, readiness **661 ms**.
+
+Final committed-code rendering inspection is now demonstrated under explicit
+warm-provider conditions, closing the visual capture blocker for this clutter
+follow-up. It does **not** prove the cause or correction of cold/intermittent
+discovery timeouts. Broad plan **4.2 remains unchecked**; physical actions,
+third-party coverage and mixed displays remain unobserved. The host app/config
+remain undisturbed. No push, merge or PR.

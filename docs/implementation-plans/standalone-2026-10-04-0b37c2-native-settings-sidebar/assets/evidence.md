@@ -152,7 +152,20 @@ history and testing notes. Same-note repetition in the Settings introduction was
 compressed; each unique behavior, path, lifecycle/compatibility/safety exception and
 operator example was retained. No cross-note merge/deletion or ownership change was
 proposed. The complete design-note/README diff was shown before terminal review.
-Terminal review, committed learning and scripted archival remain finalization actions.
+The one terminal whole-plan direct CR completed clean against
+`fe64db4f1e98f78c8ec3415b0da8f567ce90d855`, covering strict persistence/validation,
+runtime/path/resource/logger ownership and recovery, the v8 tray/control/Close
+integration and corrected criteria/documentation. Its active in-memory `review:cr`
+marker passed; [final report](reviews/final.md) retains the exact scope and completed
+tasks. No high-confidence blocking code finding remains within that scope.
+
+After the once-only compaction pass, the focused Settings/AppPaths/mode-switch suite
+passed **231 passed, 0 failed, 0 skipped** using the existing final-validation
+alternate output path and filter
+`FullyQualifiedName~Settings|FullyQualifiedName~AppPathsTests|FullyQualifiedName~CoordinatorModeSwitchingTests`.
+This subset is not reported as the final full suite. Committed learning and scripted
+archival follow; publication still requires the final unfiltered managed run and
+Release build on the freshly integrated source.
 
 ## Earlier integrated managed validation and publication hold (historical)
 

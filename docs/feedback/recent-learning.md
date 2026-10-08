@@ -1,10 +1,10 @@
 # Recent learning
 
-Source plan: `0b37c2 native-settings-sidebar`
-Source commit: `e0991863cbccf4facb0339f6b87a41670e7e523a`
+Source plan: `4af565 uia-element-hint-navigation`
+Source commit: `e91045aef8cb261f8992885ed357023e138d318d`
 
 ## Lessons
 
-- Capture disk and active runtime baselines independently; permit explicit retry after stable disk restoration and require reload after disk divergence. — `src/Klikety/Config/SettingsSaveTransaction.cs`
-- Retain failed native cleanup ownership and quiesce hook consumer dispatch before retrying disposal. — `src/Klikety/Services/KeyboardHookService.cs`
-- Native observations and unsupported input/display rows are distinct from managed tests; user-authorized deferrals must be reconfirmed and committed before finalization. — `docs/implementation-plans/standalone-2026-10-04-0b37c2-native-settings-sidebar/assets/intent.md`
+- Use actual guest captures and provider geometry to fix hint clutter; containment tests alone do not establish live presentation. — `docs/design-notes/element-hints.design.md`
+- Canonicalize only evidenced equivalent action targets; preserve independent nested controls and uncertainty when traversal is incomplete. — `src/Klikety.UiaWorker/UiaTreeAlgorithms.cs`
+- Keep operator acceptance separate from unperformed live matrix rows and warm retries separate from cold-start root-cause evidence. — `docs/implementation-plans/standalone-2026-10-07-4af565-uia-element-hint-navigation/assets/finalization.md`

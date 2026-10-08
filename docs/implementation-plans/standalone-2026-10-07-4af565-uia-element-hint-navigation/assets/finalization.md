@@ -75,6 +75,13 @@ unchanged retry represented as a fix.
 
 Whole-plan direct review, supported plan/stage validation, design-note compaction,
 recent-learning handoff and archival are recorded by the finalization commits.
+Direct review at `e91045aef8cb261f8992885ed357023e138d318d` completed five
+risk-selected tasks, found no defects and returned `clean`. The active result
+and recorded 1499-pass TRX passed 18 direct evidence markers; PlanCrosscheck,
+unchanged criteria-baseline and whitespace checks passed. Same-note compaction
+preserved every unique contract; no cross-note merge/deletion was requested.
+The supported stage is `done`; the committed three-lesson handoff precedes
+archiving through `Archive-Plan.ps1`.
 The plan ID remains resolvable after the complete directory/assets move. The
 review record is an advisory source snapshot, not evidence that deferred native
 scenarios ran. Headless child execution skips optional `/pfb`; no feedback verdict

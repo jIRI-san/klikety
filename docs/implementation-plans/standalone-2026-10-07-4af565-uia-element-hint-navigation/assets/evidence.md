@@ -494,3 +494,35 @@ Those rows remain unverified/deferred, not passed; historical failures remain
 in this evidence. See [finalization.md](finalization.md) for their exact disposition
 and unchanged thresholds. The earlier unchecked-4.2 statements above describe
 their historical snapshots, not the new user-directed closure.
+
+## 2026-10-08 finalization checks
+
+`Test-PlanCriteriaBaseline` resolves the original committed confirmation at
+`c3759d7fd69723f33263c293831541f263d66e9c` as ready; confirmed criteria have no
+byte drift. `Test-Plan.ps1 -Stage PlanCrosscheck` passes the accepted closure.
+The supported stage writer advances `cip-stage` to `done`.
+
+Whole-plan risk-selected direct CR at
+`e91045aef8cb261f8992885ed357023e138d318d` completed five tasks with no findings,
+verdict **clean**; see [reviews/final.md](reviews/final.md). It traced foreground
+identity/owned helper/protocol retirement, candidate canonicalization/paging/fresh
+action dispatch, contextual help/macro priority/Settings persistence, packaged
+delivery and honest acceptance/deferral records. It is source review, not new
+live coverage. `Invoke-DirectEvidence` consumes the active review result plus
+the exact classes from the existing 1499-pass TRX: **18 markers passed** (13
+test classes, four file assertions, one review). No code suite is represented
+as rerun for documentation-only finalization.
+
+The design-note compaction pass processed the Git inventory's three bounded
+batches (5/5/3 notes). It retained unique contracts/owners, compressed repeated
+warm/cold verification narration within the element-hints note, corrected the
+version-9 summary and selection-without-click wording, and reconciled stale
+human-gate statements. The final diff was inspected; no cross-note merge or
+deletion was proposed. Whitespace checks pass.
+
+`Write-RecentLearning.ps1` writes three repo-cited lessons against completed
+source `e91045aef8cb261f8992885ed357023e138d318d`. Its handoff and the review are
+committed before the supported complete-directory archive operation. Optional
+headless `/pfb` is skipped, not treated as evidence. A read-only check confirms
+manual-validation PID 1872 is still responsive at the original extracted path
+and the user config hash remains unchanged.

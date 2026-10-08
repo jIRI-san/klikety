@@ -1,6 +1,6 @@
 # 4af565: UIA element-hint navigation
 <!-- plan-id: 4af565 -->
-<!-- cip-stage: drafted -->
+<!-- cip-stage: done -->
 <!-- planning-confirmed: sha256:573a4c124977f1b57f34ef8b85ec4778736a97a19f0e3456572cee46e4b69651 -->
 <!-- execution-mode: manual -->
 <!-- scope: plan -->
@@ -34,9 +34,10 @@ Implementation through 4.1, real offline Sandbox rendering, conservative Copilot
 duplicate canonicalization and shared help/Settings integration are evidenced.
 The final merged suite passed 1499 tests; Release build and changed-code formatting
 passed. The self-contained package at source `777afb6` includes its bundled worker
-and was launched unchanged for the user's manual validation. Whole-plan review,
-learning handoff and archival follow the repository finalization workflow; the
-historical evidence below remains separate from the new acceptance.
+and was launched unchanged for the user's manual validation. Whole-plan direct
+review and finalization checks passed; the learning handoff is committed before
+archival through the repository workflow. The historical evidence below remains
+separate from the new acceptance.
 
 ## Phase 1: Safe, working element-hint slice
 

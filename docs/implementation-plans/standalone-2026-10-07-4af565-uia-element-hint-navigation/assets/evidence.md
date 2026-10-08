@@ -410,3 +410,54 @@ identity and (373,237) point, preserved independent semantics, stable physical
 ordering/original tokens, no extra provider reads, and conservative handling of
 invalid/failed/depth/node/target-limited branches. The ignored full-suite result
 is `src\Klikety.Tests\bin\uia-duplicate-results\duplicate-followup.trx`.
+
+## 2026-10-08 main, contextual help and native Settings integration
+
+Fetched configured `origin/main` at
+`3325e98aedb8d8f0f38c36c432d4aac34887187b` and merged main **into**
+`jiri-san-uia-element-hints` as `ffcdf91`. Coupled resolutions preserve incoming
+transactional Settings resource ownership and UniformGrid chords alongside the
+UIA renderer, failure notification and validation/HUD lifecycle. Settings now
+projects all five mode blocks; current-version fixtures use version 9 while
+historical migration/rejection cases remain distinct. Default ElementHints retains
+the implicit Enter grid fallback without requiring a second grid chord.
+
+The shared help builder now consumes a typed active-session snapshot. It shows
+configured first/second label glyphs, actual renderer-limited page/page count,
+prefix/selection, effective action availability, modifier clicks, move-only and
+two-phase drag, staged Escape and Enter fallback in loading/failure/selected/locked
+states. Visible help refreshes when discovery/capacity changes; retirement
+unsubscribes the old session. Existing macro setup/confirmation consumes keys
+before navigation; help reports that priority rather than claiming Enter bypasses
+it. Candidate recognition, two-key labels, deadlines, helper isolation, physical
+action validation and the normal-mode footer are unchanged.
+
+Additional Settings regressions edit the real hidden dialog's hint enable/default,
+axes, actions and help fields, save and reload isolated JSONC, and preserve unknown
+root/mode fields and comments. Invalid missing/multiple default flags remain intact
+until an explicit picker choice; changing another field cannot normalize them.
+Invalid fallback/two-key/arrow/axes/font/chord combinations block store writes
+without rebinding or creating backups. Helper caps are not exposed as new settings.
+
+**58 new help/Settings regression cases** pass. Final merged hermetic suite:
+**1499 passed, 0 failed/skipped**; Release solution build: **0 warnings/0 errors**.
+Changed-file `dotnet format --verify-no-changes` and whitespace checks pass.
+Results: `src\Klikety.Tests\bin\uia-main-merge-results\help-settings-full.trx`.
+Full hint-help WPF measurement at 320x180, 800x600 and 1920x1080 checks readable,
+unclipped prompts/cards without showing a window; it is not new live visual
+acceptance. The full-repository formatter also reported existing incoming-main
+whitespace issues outside changed integration code; those are not represented as
+fixed by the changed-file check.
+
+Earlier full runs intermittently failed incoming
+`MacroPlaybackTeardownTests.Reload_LateOldCompletionCannotCloseReplacementProgress`
+with `Expected: Idle / Actual: Playing`, including before help changes. The
+unchanged playback contract releases its operation task before the captured
+context's posted UI-restoration callback necessarily executes; that assertion
+can observe the gap. The final full run passed, but no unrelated playback or test
+change is claimed to eliminate this timing sensitivity.
+
+The prior manual-test PID 42460 exited independently with code 0 during this work;
+the agent did not stop/restart it. Host configuration was not edited. Human
+**4.2 remains unchecked**, as do unobserved physical-input, mixed-display,
+third-party/provider breadth and historical cold-start/focus uncertainties.

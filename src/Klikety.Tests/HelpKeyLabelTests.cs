@@ -1,3 +1,4 @@
+using Klikety.Automation;
 using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
@@ -7,6 +8,24 @@ using Klikety.Overlay;
 namespace Klikety.Tests;
 
 public class HelpKeyLabelTests {
+    [Fact]
+    public void Build_HintAxesAndPrefixUseConfiguredOrderAndCurrentLayoutGlyphs() {
+        var config = new ConfigModel {
+            HorizontalKeys = [VKey.OemTilde, VKey.F1],
+            VerticalKeys = [VKey.OemPlus, VKey.R],
+        };
+        var hints = new ElementHintsHelpState(HintOutcome.Success, "", 0, 1, 4, 0, false);
+        var first = Build(config, new LayoutLabels("/", "`"), hints);
+        var second = Build(config, new LayoutLabels("?", "~"), hints);
+        Assert.Contains("First label key: `, F1. Second label key: OemPlus, R.", first.Prompts);
+        Assert.Contains("First label key: ~, F1. Second label key: OemPlus, R.", second.Prompts);
+        Assert.Contains(first.Prompts, prompt => prompt.Contains("First key ` entered"));
+        Assert.Contains(second.Prompts, prompt => prompt.Contains("First key ~ entered"));
+        Assert.Equal(config.HorizontalKeys.Concat(config.VerticalKeys), second.NavigationAnchors);
+        Assert.DoesNotContain(second.Entries, entry =>
+            entry.Key is VKey.OemPlus or VKey.R && entry.Category == HelpEntryCategory.Mode);
+    }
+
     [Fact]
     public void Build_UsesCurrentLayoutGlyphsAndReadableFallbacks() {
         var config = new ConfigModel {
@@ -52,7 +71,7 @@ public class HelpKeyLabelTests {
         Assert.Equal(key.ToString(), new Win32KeyLabelResolver().Resolve(key));
     }
 
-    private static HelpOverlayContent Build(ConfigModel config, IKeyLabelResolver labels) =>
+    private static HelpOverlayContent Build(ConfigModel config, IKeyLabelResolver labels, ElementHintsHelpState? hints = null) =>
         HelpOverlayContentBuilder.Build(
             config,
             labels,
@@ -67,7 +86,8 @@ public class HelpKeyLabelTests {
             activeDisplayPath: null,
             macroPickerAvailable: true,
             isModeLocked: false,
-            appScoped: false);
+            appScoped: false,
+            elementHints: hints);
 
     private sealed class LayoutLabels(string helpLabel, string customLabel) : IKeyLabelResolver {
         public string Resolve(VKey key) => key switch {

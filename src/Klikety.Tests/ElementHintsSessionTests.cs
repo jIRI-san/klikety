@@ -2,6 +2,7 @@ using System.Drawing;
 
 using Klikety.Automation;
 using Klikety.Config;
+using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
 using Klikety.Tests.Fakes;
@@ -41,6 +42,53 @@ internal sealed class FakeElementPointGuard : IElementPointGuard {
 }
 
 public class ElementHintsStateMachineTests {
+    private sealed class HelpCapacityRenderer : IElementHintsRenderer {
+        public int Capacity { get; set; } = 3;
+        public int GetPageCapacity(Rectangle region, int keyCapacity) => Capacity;
+        public void RebuildLabels(IKeyLabelResolver resolver) { }
+        public void Render(IReadOnlyList<HintTarget> targets, int page, int pageCount, int? prefix,
+            int? selectedToken, string status) { }
+        public void FlashInvalidKey() { }
+    }
+
+    [Fact]
+    public void HelpSnapshotUsesActualRendererCapacityAndRelayoutState() {
+        var renderer = new HelpCapacityRenderer();
+        var service = new FakeElementHintService { Response = FakeElementHintService.Result(10) };
+        var session = new ElementHintsSession([VKey.A, VKey.S], [VKey.Q, VKey.W],
+            new ActionMapper([]), new(1, 1), service, renderer);
+        session.Activate(new(0, 0, 100, 100), default);
+        Assert.Equal(4, session.HelpState.PageCount);
+        session.OnKey(VKey.Right);
+        session.OnKey(VKey.A);
+        Assert.Equal(1, session.HelpState.Page);
+        Assert.Equal(0, session.HelpState.Prefix);
+        session.OnKey(VKey.Q);
+        Assert.True(session.HelpState.HasSelection);
+        renderer.Capacity = 2;
+        session.Relayout();
+        Assert.Equal(new ElementHintsHelpState(HintOutcome.Success, "", 0, 5, 10, null, false), session.HelpState);
+        Assert.Single(service.Scans);
+        Assert.Empty(service.Validations);
+        session.Deactivate();
+    }
+
+    [Fact]
+    public async Task RetiredDiscoveryCannotNotifyOrReplaceActiveHelpState() {
+        var service = new FakeElementHintService { ScanCompletion = new() };
+        using var manager = Manager(service);
+        int updates = 0;
+        manager.ElementHintsStateChanged += () => updates++;
+        manager.ActivateDefaultSession(new(0, 0, 100, 100), default, "ElementHints");
+        var oldSession = Assert.IsType<ElementHintsSession>(manager.ActiveSession);
+        Assert.Equal(1, updates);
+        manager.SwitchMode("UniformGrid");
+        service.ScanCompletion.SetResult(FakeElementHintService.Result(10));
+        await oldSession.Discovery;
+        Assert.Equal(1, updates);
+        Assert.IsType<UniformGridSession>(manager.ActiveSession);
+    }
+
     private static SessionManager Manager(FakeElementHintService service) {
         var config = new ConfigModel {
             Modes = new() { ElementHints = new() { Enabled = true, ChordKey = VKey.Tab, TwoKey = true, ArrowKeys = true } }

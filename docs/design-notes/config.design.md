@@ -16,6 +16,10 @@ values. `ElementHintsPolicy` requires enabled UniformGrid fallback, valid disjoi
 label axes and collision-free commands. Invalid settings suppress its factory,
 default and chord dispatch and produce a configuration violation. All mode/help/
 scope/macro/scroll collision lists include the fifth mode.
+Native Settings edits all five mode blocks and the shared default picker. Its
+strict read requires current version 9 rather than silently migrating during
+editing. With ElementHints as the default, enabled UniformGrid needs no separate
+chord because the session already exposes Enter fallback.
 
 ## Config Format
 

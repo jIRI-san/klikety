@@ -2,6 +2,7 @@ using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
 
+using Klikety.Automation;
 using Klikety.Config;
 using Klikety.Input;
 using Klikety.Navigation;
@@ -12,6 +13,52 @@ using Klikety.Tests.Fakes;
 namespace Klikety.Tests;
 
 public class HelpOverlayRenderingTests {
+    [Theory]
+    [InlineData(320, 180)]
+    [InlineData(800, 600)]
+    [InlineData(1920, 1080)]
+    public void FullElementHintHelpContainsReadableUnclippedPromptsAndEffectiveCards(double width, double height) {
+        RunOnSta(() => {
+            var config = new ConfigModel {
+                Modes = new() { ElementHints = new() { Enabled = true, ChordKey = VKey.Tab, TwoKey = true, ArrowKeys = true } },
+                ActionBindings = new() { ["F11"] = MouseAction.MoveOnly, ["F10"] = MouseAction.DragDrop },
+                Macros = new() { Enabled = false },
+            };
+            var help = HelpOverlayContentBuilder.Build(config, new FakeKeyLabelResolver(),
+                true, false, MacroState.Idle, null, -1, 0, [], new Dictionary<string, int>(),
+                null, true, true, false, elementHintsAvailable: true,
+                elementHints: new(HintOutcome.Partial, "Some controls unavailable", 1, 3, 117, 0, false));
+            var window = new OverlayWindow { Width = width, Height = height };
+            try {
+                ((IOverlayWindow)window).ShowHelp(help);
+                var helpCanvas = Assert.IsType<Canvas>(window.FindName("HelpCanvas"));
+                var viewport = Assert.Single(helpCanvas.Children.OfType<ScrollViewer>());
+                var content = Assert.IsType<Canvas>(viewport.Content);
+                var cards = content.Children.OfType<Border>().ToArray();
+                Assert.Equal(help.Entries.Select(entry => entry.Key).Distinct().Count(), cards.Length);
+                var prompts = content.Children.OfType<TextBlock>().OrderBy(Canvas.GetTop).ToArray();
+                Assert.Equal(help.Prompts.Count + 1, prompts.Length);
+                Assert.Equal(help.Prompts.Append(help.CloseInstruction), prompts.Select(prompt => prompt.Text));
+                double previousBottom = cards.Max(card => Canvas.GetTop(card) + card.DesiredSize.Height);
+                foreach (var prompt in prompts) {
+                    Assert.True(prompt.FontSize >= 12);
+                    Assert.Equal(TextWrapping.Wrap, prompt.TextWrapping);
+                    var top = Canvas.GetTop(prompt);
+                    Assert.True(top >= previousBottom - 0.01);
+                    Assert.True(top + prompt.DesiredSize.Height <= content.Height + 0.01);
+                    previousBottom = top + prompt.DesiredSize.Height;
+                }
+                if (width < 800) {
+                    Assert.Equal(ScrollBarVisibility.Auto, viewport.VerticalScrollBarVisibility);
+                }
+                Assert.Equal(width, viewport.Width);
+                Assert.Equal(height, viewport.Height);
+            } finally {
+                window.Close();
+            }
+        });
+    }
+
     [Fact]
     public void HelpView_RendersOnlyCommandCardsWithoutEmptyNavigationRectangles() {
         RunOnSta(() => {

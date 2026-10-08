@@ -1,3 +1,4 @@
+using Klikety.Automation;
 using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
@@ -8,6 +9,120 @@ using Klikety.Tests.Fakes;
 namespace Klikety.Tests;
 
 public class HelpBindingModelTests {
+    [Theory]
+    [InlineData(MacroRecorderState.AwaitSlot)]
+    [InlineData(MacroRecorderState.AwaitOverwrite)]
+    [InlineData(MacroRecorderState.AwaitStartFromCursorConfirm)]
+    public void Build_HintGuidanceRespectsMacroSetupPriority(MacroRecorderState recorderState) {
+        var help = HelpOverlayContentBuilder.Build(new ConfigModel(), new FakeKeyLabelResolver(),
+            true, false, MacroState.Recording, recorderState, 0, 1, [], new Dictionary<string, int>(),
+            null, true, false, false,
+            elementHints: new(HintOutcome.Success, "", 0, 2, 117, null, true));
+        Assert.All(help.Entries.Where(entry => entry.Category is
+            HelpEntryCategory.Action or HelpEntryCategory.Mode or HelpEntryCategory.Scope),
+            entry => Assert.False(entry.IsAvailable));
+        Assert.Contains(help.Prompts, prompt => prompt.Contains("Finish macro setup first"));
+        Assert.Contains(help.Prompts, prompt => prompt.Contains("Escape cancels macro recording first"));
+        Assert.DoesNotContain(help.Prompts, prompt => prompt.StartsWith("Target selected."));
+        Assert.Contains("Escape to close help", help.CloseInstruction);
+    }
+
+    [Theory]
+    [InlineData(null, "Finding controls...")]
+    [InlineData(HintOutcome.NoTargets, "No controls found")]
+    [InlineData(HintOutcome.Timeout, "Control discovery timed out")]
+    [InlineData(HintOutcome.AccessDenied, "Application access denied")]
+    [InlineData(HintOutcome.Unavailable, "Element hints unavailable")]
+    [InlineData(HintOutcome.InvalidRoot, "Application unavailable")]
+    [InlineData(HintOutcome.CleanupFailed, "Helper cleanup failed; restart Klikety")]
+    [InlineData(HintOutcome.ProviderError, "Control discovery failed")]
+    public void Build_HintLoadingAndFailuresMuteActionsButNeverLockGridFallback(HintOutcome? outcome, string status) {
+        var content = Build(new ConfigModel(),
+            hints: new(outcome, status, 0, 1, 0, null, false), locked: true);
+
+        Assert.Contains(status, content.Prompts);
+        Assert.All(content.Entries.Where(entry => entry.Category == HelpEntryCategory.Action), entry => {
+            Assert.False(entry.IsAvailable);
+            Assert.Equal("Select a hint first", entry.UnavailableReason);
+        });
+        Assert.Contains(content.Entries, entry =>
+            entry.Key == VKey.Return && entry.Command == "Grid fallback" && entry.IsAvailable);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Left && !entry.IsAvailable);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Right && !entry.IsAvailable);
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("Enter") && prompt.Contains("grid"));
+        Assert.DoesNotContain(content.Prompts, string.IsNullOrWhiteSpace);
+        Assert.DoesNotContain(content.Prompts, prompt => prompt.Contains("retained=") || prompt.Contains("visited="));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Build_HintsShowPagePrefixSelectionEffectiveActionsAndEscapeStages(bool selected) {
+        var config = new ConfigModel {
+            ActionBindings = new() {
+                ["Space"] = MouseAction.RightClick, ["F11"] = MouseAction.MoveOnly, ["F10"] = MouseAction.DragDrop,
+            },
+            Modes = new() {
+                UniformGrid = new() { Enabled = true, ChordKey = VKey.Back, TwoKey = true },
+                ElementHints = new() { Enabled = true, Default = true, TwoKey = true, ArrowKeys = true },
+            },
+            Macros = new() { Enabled = false },
+        };
+        var content = Build(config,
+            hints: new(HintOutcome.Partial, "Some controls unavailable", 2, 4, 117, selected ? null : 1, selected),
+            locked: true);
+
+        Assert.Contains(content.Prompts, prompt => prompt.StartsWith("Page 3 of 4."));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("wrap pages") && prompt.Contains("clear"));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("select without clicking"));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("Ctrl, Alt or Shift"));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("Move only ignores modifiers"));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("Start drag") && prompt.Contains("destination"));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("Outside help: Escape clears"));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("with neither, it cancels immediately"));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("Some controls unavailable"));
+        Assert.Contains(content.Prompts, prompt =>
+            selected ? prompt.Contains("Target selected") : prompt.Contains("First key S entered"));
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Space &&
+            entry.Command == "Right click" && entry.IsAvailable == selected);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.F11 &&
+            entry.Command == "Move only" && entry.IsAvailable == selected);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.F10 &&
+            entry.Command == "Start drag" && entry.IsAvailable == selected);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Back &&
+            entry.Command == "Uniform grid" && !entry.IsAvailable);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Return && entry.IsAvailable);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Escape && entry.Command == "Close");
+        Assert.Contains("Escape to close help", content.CloseInstruction);
+        Assert.Contains("Other non-modifier keys close help and run normally", content.CloseInstruction);
+    }
+
+    [Fact]
+    public void Build_SelectedHintInDragPhaseRequiresAClickDestinationAction() {
+        var content = Build(new ConfigModel {
+            ActionBindings = new() { ["X"] = MouseAction.MoveOnly, ["Z"] = MouseAction.DragDrop },
+        }, hints: new(HintOutcome.Success, "", 0, 1, 1, null, true), drag: true);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Space &&
+            entry.Command == "Drag: left" && entry.IsAvailable);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.X &&
+            entry.Command == "Invalid drag" && !entry.IsAvailable);
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Z &&
+            entry.Command == "Invalid drag" && !entry.IsAvailable);
+    }
+
+    [Fact]
+    public void Build_GridModeHasNoHintSpecificPromptsAndShowsConfiguredGridChord() {
+        var content = Build(new ConfigModel {
+            Modes = new() { UniformGrid = new() { Enabled = true, ChordKey = VKey.Back, TwoKey = true } },
+        });
+        Assert.Contains(content.Entries, entry => entry.Key == VKey.Back &&
+            entry.Command == "Uniform grid" && entry.IsAvailable);
+        Assert.DoesNotContain(content.Prompts, prompt => prompt.Contains("label key") || prompt.StartsWith("Page "));
+        Assert.DoesNotContain(content.Entries, entry => entry.Key == VKey.Return);
+        Assert.All(content.Entries.Where(entry => entry.Category == HelpEntryCategory.Action),
+            entry => Assert.True(entry.IsAvailable));
+    }
+
     [Fact]
     public void Build_UsesEffectiveActionsAndConfiguredDisplayBindings() {
         var config = new ConfigModel {
@@ -212,12 +327,15 @@ public class HelpBindingModelTests {
 
     private static HelpOverlayContent Build(
         ConfigModel config,
-        IReadOnlyDictionary<string, int>? displayNumbers = null) =>
+        IReadOnlyDictionary<string, int>? displayNumbers = null,
+        ElementHintsHelpState? hints = null,
+        bool locked = false,
+        bool drag = false) =>
         HelpOverlayContentBuilder.Build(
             config,
             new FakeKeyLabelResolver(),
             logGridAvailable: true,
-            isDragMode: false,
+            isDragMode: drag,
             MacroState.Idle,
             recorderState: null,
             selectedMacroSlot: -1,
@@ -226,6 +344,8 @@ public class HelpBindingModelTests {
             displayNumbers ?? new Dictionary<string, int>(),
             activeDisplayPath: "display-a",
             macroPickerAvailable: true,
-            isModeLocked: false,
-            appScoped: false);
+            isModeLocked: locked,
+            appScoped: false,
+            elementHintsAvailable: true,
+            elementHints: hints);
 }

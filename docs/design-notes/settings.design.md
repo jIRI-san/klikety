@@ -40,6 +40,12 @@ for both the editor and runtime-snapshot read.
   With Element hints as the default, Enter supplies the UniformGrid fallback even
   without a separate grid chord. Strict Settings reads require current config
   version 9; version-8 files must migrate before editing.
+  Invalid missing/multiple persisted defaults stay intact with no picker selection
+  until the user chooses a mode; editing another field cannot silently normalize
+  them. Enabled hint requirements/collisions block saving rather than forcing
+  controls or rebinding keys. Shared ordered axes, action mappings (including
+  Space), help settings and label font floor use their existing pages/validators.
+  UIA watchdog, traversal and wire limits remain internal, not dialog fields.
 - **Key bindings**: overlay help enablement, physical key and required-Shift flag,
   action mapping editor and ordered horizontal/vertical key lists.
 - **Appearance**: theme reference and label-size floor. Theme file contents remain separate.

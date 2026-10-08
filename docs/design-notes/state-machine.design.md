@@ -23,6 +23,11 @@ while starting asynchronous discovery. SessionManager carries explicit pre-overl
 target context through every create/restart/resume path. Enter fallback is an
 element-only mode-lock exception. Help redraw does not rescan; picker/playback
 suspension retires hint work and resumes with a fresh snapshot.
+ElementHints publishes a typed help snapshot and state-change notification.
+SessionManager forwards only the active session's changes and unsubscribes before
+retirement; visible help refreshes on discovery/capacity changes without rescanning
+or remapping a frozen page. Macro setup/confirmation consumes keys before the
+session; help mutes those commands rather than claiming Enter bypasses macro setup.
 
 Selected-target actions snapshot hook modifiers, drain capture and hide the whole
 host before helper validation. An activation-bound cancellation token and active

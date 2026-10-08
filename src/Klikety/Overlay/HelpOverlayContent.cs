@@ -46,12 +46,15 @@ public static class HelpOverlayContentBuilder {
         bool appScoped,
         bool helpBindingValid = true,
         bool elementHintsAvailable = false,
-        string? elementHintStatus = null) {
+        ElementHintsHelpState? elementHints = null) {
         var helpBinding = config.HelpBinding;
         helpBindingValid &= helpBinding?.Enabled == true;
         var activeHelpBinding = helpBindingValid ? helpBinding : null;
         var entries = new List<HelpOverlayEntry>();
         var mapper = new ActionMapper(config.ActionBindings);
+        var recording = config.Macros.Enabled && macroState == MacroState.Recording;
+        var macroBlocksNavigation = recording && recorderState is
+            MacroRecorderState.AwaitSlot or MacroRecorderState.AwaitOverwrite or MacroRecorderState.AwaitStartFromCursorConfirm;
 
         foreach (var (key, action) in mapper.Bindings.OrderBy(binding => (int)binding.Key)) {
             var command = ActionName(action);
@@ -66,9 +69,16 @@ public static class HelpOverlayContentBuilder {
                 };
             }
 
-            entries.Add(NewEntry(key, command, HelpEntryCategory.Action, labels));
+            var requiresSelection = elementHints is { HasSelection: false };
+            var invalidDrag = elementHints is not null && isDragMode &&
+                action is MouseAction.MoveOnly or MouseAction.DragDrop;
+            entries.Add(NewEntry(key, command, HelpEntryCategory.Action, labels,
+                !requiresSelection && !invalidDrag && !(elementHints is not null && macroBlocksNavigation),
+                elementHints is not null && macroBlocksNavigation ? "Finish macro setup first" :
+                requiresSelection ? "Select a hint first" : invalidDrag ? "Choose a click action to finish the drag" : null));
         }
 
+        AddMode(config.Modes.UniformGrid, "UniformGrid", "Uniform grid", labels, entries, true, isModeLocked);
         AddMode(config.Modes.Crosshair, "Crosshair", "Crosshair", labels, entries, true, isModeLocked);
         AddMode(config.Modes.ElementHints, "ElementHints", "Element hints", labels, entries, elementHintsAvailable, isModeLocked);
         AddMode(config.Modes.LogCrosshair, "LogCrosshair", "LogCrosshair", labels, entries, true, isModeLocked);
@@ -107,12 +117,38 @@ public static class HelpOverlayContentBuilder {
         }
 
         var prompts = new List<string>();
-        if (elementHintStatus is not null) {
-            entries.Add(NewEntry(VKey.Return, "Grid fallback", HelpEntryCategory.Mode, labels));
-            entries.Add(NewEntry(VKey.Left, "Previous page", HelpEntryCategory.Mode, labels));
-            entries.Add(NewEntry(VKey.Right, "Next page", HelpEntryCategory.Mode, labels));
-            prompts.Add(elementHintStatus);
-            prompts.Add("Two label keys select without clicking. Use an action key after selection. Escape clears selection, then cancels.");
+        if (elementHints is { } hints) {
+            entries.Add(NewEntry(VKey.Return, "Grid fallback", HelpEntryCategory.Mode, labels, !macroBlocksNavigation));
+            var hasTargets = hints.TargetCount > 0;
+            entries.Add(NewEntry(VKey.Left, "Previous page", HelpEntryCategory.Mode, labels, hasTargets && !macroBlocksNavigation));
+            entries.Add(NewEntry(VKey.Right, "Next page", HelpEntryCategory.Mode, labels, hasTargets && !macroBlocksNavigation));
+            if (!string.IsNullOrWhiteSpace(hints.Status)) {
+                prompts.Add(hints.Status);
+            }
+            if (hasTargets) {
+                prompts.Add($"Page {hints.Page + 1} of {hints.PageCount}. Other controls may be on another page.");
+            } else if (!macroBlocksNavigation) {
+                prompts.Add(hints.Outcome is null
+                    ? "Wait for controls, or press Enter for the grid. No action is available while finding controls."
+                    : "No selectable controls. Press Enter for the grid.");
+            }
+            prompts.Add($"First label key: {string.Join(", ", config.HorizontalKeys.Select(labels.Resolve))}. Second label key: {string.Join(", ", config.VerticalKeys.Select(labels.Resolve))}.");
+            if (macroBlocksNavigation) {
+                prompts.Add("Finish macro setup first: label, page, action and Enter keys are consumed until the macro slot/confirmation is complete.");
+            } else {
+                prompts.Add("Type the two keys printed on a hint to select without clicking. Only displayed pairs are valid.");
+                prompts.Add(hints.HasSelection
+                    ? "Target selected. Use an action key to click, move only, or start a drag; targets are checked again before acting."
+                    : hints.Prefix is { } prefix
+                        ? $"First key {labels.Resolve(config.HorizontalKeys[prefix])} entered. Type a second label key to select; action keys do nothing until selection."
+                        : "No target selected. Action keys do nothing until both label keys select a target.");
+                prompts.Add("Left/Right wrap pages and clear the first key and selection.");
+                prompts.Add("Enter switches to the grid while loading, after a failure, or with a first key/selection, even when mode changes are locked.");
+            }
+            prompts.Add("Hold Ctrl, Alt or Shift with a click to modify it. Move only ignores modifiers. Start drag selects its source; then select a destination and use a click action to finish.");
+            prompts.Add(recording
+                ? "Outside help: Escape cancels macro recording first. Once recording is idle, Escape clears a first key or selection, then cancels on the next press."
+                : "Outside help: Escape clears a first key or selection, then cancels on the next press; with neither, it cancels immediately.");
         }
         var macrosEnabled = config.Macros.Enabled;
         if (macrosEnabled) {
@@ -190,8 +226,17 @@ public static class HelpOverlayContentBuilder {
             prompts.Add("The recording clock continues while help is open.");
         }
 
+        if (elementHints is not null && macroBlocksNavigation) {
+            for (int index = 0; index < entries.Count; index++) {
+                if (entries[index].Category is HelpEntryCategory.Mode or HelpEntryCategory.Scope) {
+                    entries[index] = entries[index] with { IsAvailable = false, UnavailableReason = "Finish macro setup first" };
+                }
+            }
+        }
+
         prompts.AddRange(entries
-            .Where(entry => !entry.IsAvailable && !string.IsNullOrWhiteSpace(entry.UnavailableReason))
+            .Where(entry => !entry.IsAvailable && !string.IsNullOrWhiteSpace(entry.UnavailableReason) &&
+                !(elementHints is not null && (entry.Category == HelpEntryCategory.Action || macroBlocksNavigation)))
             .Select(entry => $"{entry.KeyLabel}: {entry.Command} — {entry.UnavailableReason}"));
 
         var closeInstruction = activeHelpBinding is { } closeBinding
@@ -227,7 +272,7 @@ public static class HelpOverlayContentBuilder {
             labels,
             isAvailable && !isModeLocked,
             !isAvailable
-                ? $"{modeName} renderer is unavailable"
+                ? modeName == "ElementHints" ? "Element hints are unavailable" : $"{modeName} renderer is unavailable"
                 : isModeLocked ? "Navigation input has locked mode changes" : null));
     }
 

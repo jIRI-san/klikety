@@ -160,6 +160,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         _sessionManager.CursorMoveRequested += OnSessionCursorMoveRequested;
         _sessionManager.GridFallbackRequested += OnElementGridFallback;
         _sessionManager.FailureReported += NotifyElementFailure;
+        _sessionManager.ElementHintsStateChanged += OnElementHintsStateChanged;
     }
 
     private void BuildChordKeyMap() {
@@ -525,6 +526,12 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _sessionManager.RedrawActiveSession();
         }
 
+        if (_helpVisible && (!redraw || _sessionManager.ActiveSession is not ElementHintsSession)) {
+            _overlayWindow.UpdateHelp(BuildHelpContent());
+        }
+    }
+
+    private void OnElementHintsStateChanged() {
         if (_helpVisible) {
             _overlayWindow.UpdateHelp(BuildHelpContent());
         }
@@ -548,7 +555,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _sessionManager.AppScoped,
             _helpBindingValid,
             _sessionFactory.IsElementHintsAvailable,
-            _sessionManager.ActiveSession is ElementHintsSession hints ? hints.Status : null);
+            _sessionManager.ActiveSession is ElementHintsSession hints ? hints.HelpState : null);
 
     private void ToggleHelp() {
         if (_helpVisible) {

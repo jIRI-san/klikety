@@ -170,6 +170,11 @@ and preview the cursor **without clicking**; use Space or another action key to
 perform the existing physical action. Left/Right change pages. Escape clears the
 prefix/selection, then cancels. **Enter returns to grid**, even while loading, on
 failure, or after mode lock. Labels follow the current keyboard layout.
+Open help with the configured help key (default `/`, Shift optional) to see your
+first/second label keys, current page, selection state, effective action bindings,
+modifier clicks and drag/fallback guidance. Help/Escape closes help without clearing
+the selection; other non-modifier keys close help and run normally. Help updates
+when discovery finishes. Macro setup must finish before navigation keys can run.
 
 Discovery is limited to the application HWND captured before the overlay, clipped
 to the navigation display/scope. It uses a bundled helper with a 1500 ms scan

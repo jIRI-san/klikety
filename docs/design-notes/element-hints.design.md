@@ -142,6 +142,19 @@ provide no usable targets. Reopen after changes or use Enter for grid.
 
 Help preserves session state and does not rescan. Picker/playback suspension retires
 element work; resume scans the original application, never an overlay HWND.
+The shared contextual help uses a typed session snapshot for configured label
+axes, actual page/page count, prefix/selection, discovery state and effective action
+availability. Discovery/capacity changes refresh visible help through SessionManager;
+retired sessions cannot update it. Help distinguishes close-only Escape from hint
+clear/cancel stages and respects recording/setup's higher-priority key handling.
+Enter fallback is described for loading/failure/selected/locked states, without
+changing the two-key scheme or candidate policy.
+The merged native Settings editor includes all five modes in its default picker
+and preserves each mode block plus user extensions/comments. It edits the existing
+hint enable/default/chord/two-key/arrow fields and shared axes/actions/help on their
+normal pages. Invalid fallback, default, key and label-floor combinations block
+save instead of silently enabling/rebinding/normalizing them. Helper limits remain
+internal. See `settings.design.md`.
 Recording resumes with retained target/display context. Display changes rescan the
 same application clipped to the selected display. Drag start validates coordinates
 before the normal default-mode reset. Topology/config/deactivation retire the helper.

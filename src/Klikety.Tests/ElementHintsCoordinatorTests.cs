@@ -1,6 +1,8 @@
+using Klikety.Automation;
 using Klikety.Config;
 using Klikety.Input;
 using Klikety.Navigation;
+using Klikety.Overlay;
 using Klikety.Tests.Fakes;
 
 using Microsoft.Extensions.Logging.Abstractions;
@@ -8,6 +10,212 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Klikety.Tests;
 
 public class ElementHintsCoordinatorTests {
+    [Fact]
+    public void HelpReportsMacroSetupConsumedEnterAndRecordingEscapeBeforeHintEscape() {
+        var service = new FakeElementHintService();
+        var h = Create(service, defaultHints: true);
+        using var coordinator = h.Coordinator;
+        h.Hotkey.SimulateActivation();
+        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.Q);
+        h.Hook.SimulateKeyPress(VKey.OemPipe);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Entries, entry => entry.Key == VKey.Return && !entry.IsAvailable);
+        Assert.Contains(h.Overlay.CurrentHelp.Prompts, prompt => prompt.Contains("Finish macro setup first"));
+        h.Hook.SimulateKeyPress(VKey.Return);
+        Assert.Equal(0, service.RetireCount);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Entries, entry => entry.Key == VKey.Return && !entry.IsAvailable);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.StartsWith("Target selected."));
+        Assert.Contains(h.Overlay.CurrentHelp.Entries, entry => entry.Key == VKey.Space && entry.IsAvailable);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        Assert.True(h.Overlay.IsVisible);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        Assert.False(h.Overlay.IsVisible);
+        Assert.Empty(service.Validations);
+        Assert.DoesNotContain(h.Mouse.Calls, call => call.Action is not null);
+    }
+
+    [Theory]
+    [InlineData(HintOutcome.Success, 1)]
+    [InlineData(HintOutcome.Partial, 1)]
+    [InlineData(HintOutcome.NoTargets, 0)]
+    [InlineData(HintOutcome.Timeout, 0)]
+    public async Task OpenHelpRefreshesWhenDiscoveryFinishesWithoutRescanOrDismissal(HintOutcome outcome, int count) {
+        var service = new FakeElementHintService { ScanCompletion = new() };
+        var h = Create(service, defaultHints: true);
+        using var coordinator = h.Coordinator;
+        var updated = new TaskCompletionSource<HelpOverlayContent>(TaskCreationOptions.RunContinuationsAsynchronously);
+        h.Overlay.HelpUpdated += content => updated.TrySetResult(content);
+        h.Hotkey.SimulateActivation();
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains("Finding controls...", h.Overlay.CurrentHelp!.Prompts);
+        service.ScanCompletion.SetResult(FakeElementHintService.Result(count, outcome));
+
+        var help = await updated.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Same(help, h.Overlay.CurrentHelp);
+        Assert.DoesNotContain("Finding controls...", help.Prompts);
+        Assert.Contains(help.Entries, entry => entry.Key == VKey.Return && entry.IsAvailable);
+        Assert.Contains(help.Entries, entry => entry.Key == VKey.Right && entry.IsAvailable == (count > 0));
+        Assert.All(help.Entries.Where(entry => entry.Category == HelpEntryCategory.Action),
+            entry => Assert.False(entry.IsAvailable));
+        Assert.True(h.Overlay.IsVisible);
+        Assert.Equal(1, h.Overlay.ShowHelpCount);
+        Assert.Equal(1, h.Overlay.UpdateHelpCount);
+        Assert.Single(service.Scans);
+        Assert.Empty(service.Validations);
+        Assert.Empty(h.Mouse.Calls);
+    }
+
+    [Fact]
+    public void HelpPagingAndEscapePreserveThenForwardTheExactHintState() {
+        var capacity = new ConfigModel().HorizontalKeys.Length * new ConfigModel().VerticalKeys.Length;
+        var service = new FakeElementHintService { Response = FakeElementHintService.Result(capacity + 5) };
+        var h = Create(service, defaultHints: true);
+        using var coordinator = h.Coordinator;
+        h.Hotkey.SimulateActivation();
+        h.Hook.SimulateKeyPress(VKey.Right);
+        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.StartsWith("Page 2 of 2."));
+        Assert.Contains(h.Overlay.CurrentHelp.Prompts, prompt => prompt.Contains("First key A entered"));
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.Contains("First key A entered"));
+
+        h.Hook.SimulateKeyPress(VKey.Right);
+        Assert.Null(h.Overlay.CurrentHelp);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.StartsWith("Page 1 of 2."));
+        Assert.Contains(h.Overlay.CurrentHelp.Prompts, prompt => prompt.StartsWith("No target selected."));
+        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.StartsWith("No target selected."));
+
+        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.Q);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.StartsWith("Target selected."));
+        Assert.Contains(h.Overlay.CurrentHelp.Entries, entry => entry.Key == VKey.Space && entry.IsAvailable);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.StartsWith("Target selected."));
+        h.Hook.SimulateKeyPress(VKey.Left);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.StartsWith("Page 2 of 2."));
+        Assert.Contains(h.Overlay.CurrentHelp.Prompts, prompt => prompt.StartsWith("No target selected."));
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.Q);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        Assert.True(h.Overlay.IsVisible);
+        h.Hook.SimulateKeyPress(VKey.Escape);
+        Assert.False(h.Overlay.IsVisible);
+        Assert.Single(service.Scans);
+        Assert.Empty(service.Validations);
+        Assert.DoesNotContain(h.Mouse.Calls, call => call.Action is not null);
+    }
+
+    [Theory]
+    [InlineData("loading")]
+    [InlineData("failure")]
+    [InlineData("prefix")]
+    [InlineData("selected")]
+    [InlineData("locked")]
+    public void EnterDismissesHelpAndFallsBackRegardlessOfHintStateOrLock(string state) {
+        var service = new FakeElementHintService();
+        if (state == "loading") { service.ScanCompletion = new(); }
+        if (state == "failure") { service.Response = FakeElementHintService.Result(0, HintOutcome.Timeout); }
+        var h = Create(service, defaultHints: true);
+        using var coordinator = h.Coordinator;
+        h.Hotkey.SimulateActivation();
+        if (state is "prefix" or "selected") { h.Hook.SimulateKeyPress(VKey.A); }
+        if (state == "selected") { h.Hook.SimulateKeyPress(VKey.Q); }
+        if (state == "locked") { h.Hook.SimulateKeyPress(VKey.Pause); }
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Entries, entry => entry.Key == VKey.Return && entry.IsAvailable);
+        h.Hook.SimulateKeyPress(VKey.Return);
+        Assert.Null(h.Overlay.CurrentHelp);
+        Assert.True(h.Overlay.IsVisible);
+        Assert.Equal(1, service.RetireCount);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.DoesNotContain(h.Overlay.CurrentHelp!.Entries, entry => entry.Key == VKey.Return);
+        Assert.DoesNotContain(h.Overlay.CurrentHelp.Prompts, prompt => prompt.StartsWith("Page "));
+        Assert.Empty(service.Validations);
+        Assert.DoesNotContain(h.Mouse.Calls, call => call.Action is not null);
+        service.ScanCompletion?.SetResult(service.Response);
+    }
+
+    [Fact]
+    public void ActionFromHelpBeforeSelectionDoesNotValidateOrInject() {
+        var service = new FakeElementHintService();
+        var h = Create(service, defaultHints: true);
+        using var coordinator = h.Coordinator;
+        h.Hotkey.SimulateActivation();
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Entries, entry => entry.Key == VKey.Space && !entry.IsAvailable);
+        h.Hook.SimulateKeyPress(VKey.Space);
+        Assert.Null(h.Overlay.CurrentHelp);
+        Assert.True(h.Overlay.IsVisible);
+        Assert.Empty(service.Validations);
+        Assert.Empty(h.Mouse.Calls);
+    }
+
+    [Theory]
+    [InlineData(VKey.Space, MouseAction.LeftClick)]
+    [InlineData(VKey.X, MouseAction.DoubleClick)]
+    [InlineData(VKey.V, MouseAction.RightClick)]
+    [InlineData(VKey.C, MouseAction.MiddleClick)]
+    [InlineData(VKey.B, MouseAction.MoveOnly)]
+    public void SelectedActionFromHelpValidatesAndDispatchesOnceWithOriginalModifiers(VKey key, MouseAction action) {
+        var service = new FakeElementHintService();
+        var h = Create(service, defaultHints: true);
+        using var coordinator = h.Coordinator;
+        h.Hotkey.SimulateActivation();
+        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.Q);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Entries, entry => entry.Key == key && entry.IsAvailable);
+        h.Hook.SimulateKeyDown(key, Services.HookModifierFlags.Control | Services.HookModifierFlags.Shift);
+        h.Hook.SimulateKeyDown(key, Services.HookModifierFlags.Control | Services.HookModifierFlags.Shift);
+        Assert.Null(h.Overlay.CurrentHelp);
+        Assert.Single(service.Validations);
+        var call = Assert.Single(h.Mouse.Calls, call => call.Action is not null);
+        Assert.Equal(action, call.Action);
+        Assert.Equal(action == MouseAction.MoveOnly ? ActionModifiers.None : ActionModifiers.Ctrl | ActionModifiers.Shift,
+            call.Modifiers);
+    }
+
+    [Fact]
+    public void HelpDragStartAndFinishUseExistingValidatedTwoPhaseActions() {
+        var service = new FakeElementHintService();
+        var h = Create(service, defaultHints: true);
+        using var coordinator = h.Coordinator;
+        h.Hotkey.SimulateActivation();
+        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.Q);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        h.Hook.SimulateKeyPress(VKey.Z);
+        Assert.True(h.Overlay.IsVisible);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.Q);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Entries, entry => entry.Key == VKey.V &&
+            entry.Command == "Drag: right" && entry.IsAvailable);
+        Assert.Contains(h.Overlay.CurrentHelp.Entries, entry => entry.Key == VKey.Z &&
+            entry.Command == "Invalid drag" && !entry.IsAvailable);
+        h.Hook.SimulateKeyPress(VKey.V);
+        Assert.Equal(2, service.Validations.Count);
+        Assert.Equal(MouseAction.RightClick, Assert.Single(h.Mouse.DragCalls).Button);
+        Assert.False(h.Overlay.IsVisible);
+    }
+
     private static (NavigatorCoordinator Coordinator, FakeHotKeyService Hotkey, FakeKeyboardHookService Hook,
         FakeMouseActionService Mouse, FakeOverlayWindow Overlay, FakePlatformServices Platform) Create(
         FakeElementHintService service, FakeElementPointGuard? guard = null, bool defaultHints = false) {

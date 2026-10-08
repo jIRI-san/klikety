@@ -27,6 +27,20 @@ bounded severe-crowding presentation and page capacity that fits the narrower
 list. Geometry tests inject their coordinate space rather than using host DPI.
 `Klikety.WorkerFixture` is test-only; production has no hang command. Tests use fake
 service/point-guard seams for deterministic action delivery.
+Contextual help regressions cover ordered/custom layout-resolved label keys,
+actual renderer-limited paging, action availability, staged Escape, modified
+click/move/drag and Enter fallback from loading/failure/prefix/selected/locked
+states. They also check macro setup's input priority, visible-help refresh on late
+discovery, and no retired-session updates. Full hint-help WPF prompts/cards are
+measured at 320x180, 800x600 and 1920x1080 without showing windows; this is
+containment evidence, not a new live visual or physical-input acceptance claim.
+`ElementHintsSettingsTests` uses hidden real editor controls and isolated JSONC
+files to load/edit/save/reload the fifth default mode, axes, effective actions and
+help settings while preserving unknown mode/root extensions and comments.
+Invalid hint requirements are shown without forcing controls; absent/multiple
+default flags remain intact until an explicit choice. Store-level rejection cases
+cover fallback, two-key/arrow requirements, axes, font floor and cross-subsystem
+key collisions, with unchanged disk and no backup on validation failure.
 
 Duplicate-policy regressions replay the Copilot patternless ListItem/full-size
 Invoke-only Button metadata and physical preview point. They preserve independent

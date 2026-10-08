@@ -116,17 +116,22 @@ public partial class SettingsWindow : Window {
         var modeNames = new[] { "uniformGrid", "crosshair", "logCrosshair", "logGrid", "elementHints" };
         var modeLabels = new[] { "Uniform grid", "Crosshair", "Log crosshair", "Log grid", "Element hints" };
         var modes = new[] { config.Modes.UniformGrid, config.Modes.Crosshair, config.Modes.LogCrosshair, config.Modes.LogGrid, config.Modes.ElementHints };
-        var defaultPicker = new ComboBox { ItemsSource = modeLabels, SelectedIndex = Array.FindIndex(modes, m => m.Default) };
+        var defaultPicker = new ComboBox {
+            ItemsSource = modeLabels,
+            SelectedIndex = modes.Count(mode => mode.Default) == 1 ? Array.FindIndex(modes, mode => mode.Default) : -1,
+        };
+        // Preserve invalid persisted defaults until the user explicitly chooses one.
+        bool defaultChanged = false;
         Row(defaultCard, "Default mode", defaultPicker);
         for (var i = 0; i < modes.Length; i++) {
             var index = i;
             var original = modes[i].Default;
-            Track($"modes.{modeNames[i]}.default", () => (defaultPicker.SelectedIndex == index).ToString(),
-                () => JsonValue.Create(defaultPicker.SelectedIndex == index), original.ToString());
+            Track($"modes.{modeNames[i]}.default", () => (defaultChanged ? defaultPicker.SelectedIndex == index : original).ToString(),
+                () => JsonValue.Create(defaultChanged ? defaultPicker.SelectedIndex == index : original), original.ToString());
         }
-        defaultPicker.SelectionChanged += (_, _) => RefreshDirty();
+        defaultPicker.SelectionChanged += (_, _) => { defaultChanged = true; RefreshDirty(); };
         AutomationProperties.SetAutomationId(defaultPicker, "defaultMode");
-        Hint(defaultCard, "Every enabled non-default mode needs a unique switch chord, including Uniform grid.");
+        Hint(defaultCard, "Enabled non-default modes need a unique switch chord. With Element hints as default, Enter provides Uniform grid fallback without a separate grid chord.");
         for (var i = 0; i < modes.Length; i++) {
             var card = Card(navigation, modeLabels[i]);
             var prefix = $"modes.{modeNames[i]}";
@@ -919,7 +924,7 @@ public partial class SettingsWindow : Window {
         }
     }
 
-    private static FrameworkElement? FindAutomationElement(DependencyObject? root, string id) {
+    internal static FrameworkElement? FindAutomationElement(DependencyObject? root, string id) {
         if (root is null) { return null; }
         if (root is FrameworkElement element && AutomationProperties.GetAutomationId(element) == id) {
             return element;

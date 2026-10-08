@@ -155,6 +155,11 @@ public sealed class FakeKeyboardHookService : IKeyboardHookService {
         KeyEvent?.Invoke(this, new KeyHookEventArgs(vkey, false, modifiers));
     }
 
+    public void SimulateKeyPress(VKey vkey) {
+        SimulateKeyDown(vkey);
+        SimulateKeyUp(vkey);
+    }
+
     /// <summary>Convenience: simulates key-down (backward compat for existing tests).</summary>
     public void SimulateKey(VKey vkey) => SimulateKeyDown(vkey);
 }
@@ -289,6 +294,7 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public void UpdateHelp(HelpOverlayContent content) {
         CurrentHelp = content;
         UpdateHelpCount++;
+        HelpUpdated?.Invoke(content);
     }
 
     public void HideHelp() {
@@ -299,6 +305,7 @@ public sealed class FakeOverlayWindow : IOverlayWindow {
     public void RelayoutHelp() => RelayoutHelpCount++;
 
     public HelpOverlayContent? CurrentHelp { get; private set; }
+    public event Action<HelpOverlayContent>? HelpUpdated;
     public int ShowHelpCount { get; private set; }
     public int UpdateHelpCount { get; private set; }
     public int HideHelpCount { get; private set; }

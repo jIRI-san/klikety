@@ -18,6 +18,10 @@ public interface IElementHintsRenderer {
     void FlashInvalidKey();
 }
 
+public sealed record ElementHintsHelpState(
+    HintOutcome? Outcome, string Status, int Page, int PageCount, int TargetCount,
+    int? Prefix, bool HasSelection);
+
 public sealed partial class ElementHintsSession : IModeSession {
     private readonly VKey[] _horizontal, _vertical;
     private readonly ActionMapper _actions;
@@ -30,6 +34,7 @@ public sealed partial class ElementHintsSession : IModeSession {
     private int? _prefix;
     private HintTarget? _selected;
     private string _status = "Finding controls...";
+    private HintOutcome? _outcome;
     private Rectangle _bounds;
 
     public ElementHintsSession(VKey[] horizontal, VKey[] vertical, ActionMapper actions,
@@ -46,6 +51,8 @@ public sealed partial class ElementHintsSession : IModeSession {
     public int? Prefix => _prefix;
     public HintTarget? Selected => _selected;
     public string Status => _status;
+    public ElementHintsHelpState HelpState =>
+        new(_outcome, _status, _page, PageCount, _targets.Length, _prefix, _selected is not null);
     public Task Discovery { get; private set; } = Task.CompletedTask;
     public Task Retirement { get; private set; } = Task.CompletedTask;
     public event Action<Point, MouseAction>? ActionRequested;
@@ -53,10 +60,12 @@ public sealed partial class ElementHintsSession : IModeSession {
     public event Action<Point>? CursorMoveRequested;
     public event Action? GridFallbackRequested;
     public event Action<string>? FailureReported;
+    public event Action? StateChanged;
 
     public void Activate(Rectangle screenBounds, Point origin) {
         _bounds = screenBounds;
         _status = "Finding controls...";
+        _outcome = null;
         RootProcessId = 0;
         _lifetime = new CancellationTokenSource();
         Render(relayout: true);
@@ -70,6 +79,7 @@ public sealed partial class ElementHintsSession : IModeSession {
         } catch (OperationCanceledException) { return; }
         if (lifetime.IsCancellationRequested || _lifetime != lifetime) { return; }
         _targets = response.Targets;
+        _outcome = response.Outcome;
         RootProcessId = response.RootProcessId;
         LogDiscovery(response.Outcome, _targets.Length, response.Visited, response.Omitted, response.Reason);
         _status = response.Outcome switch {
@@ -128,6 +138,7 @@ public sealed partial class ElementHintsSession : IModeSession {
         }
         _renderer?.Render(_targets.Skip(_page * _capacity).Take(_capacity).ToArray(),
             _page, PageCount, _prefix, _selected?.Token, _status);
+        StateChanged?.Invoke();
     }
     public void Suspend() => Deactivate();
     public void Deactivate() {

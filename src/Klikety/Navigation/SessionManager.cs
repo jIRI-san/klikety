@@ -60,6 +60,7 @@ internal sealed partial class SessionManager : IDisposable {
     public event Action<Point>? CursorMoveRequested;
     public event Action? GridFallbackRequested;
     public event Action<string>? FailureReported;
+    public event Action? ElementHintsStateChanged;
 
     // --- Session lifecycle methods ---
 
@@ -310,6 +311,7 @@ internal sealed partial class SessionManager : IDisposable {
         if (session is ElementHintsSession hints) {
             hints.GridFallbackRequested += OnGridFallbackRequested;
             hints.FailureReported += OnFailureReported;
+            hints.StateChanged += OnElementHintsStateChanged;
         }
     }
 
@@ -317,6 +319,7 @@ internal sealed partial class SessionManager : IDisposable {
         if (_activeSession is not null) {
             if (_activeSession is ElementHintsSession hints) {
                 hints.GridFallbackRequested -= OnGridFallbackRequested;
+                hints.StateChanged -= OnElementHintsStateChanged;
             }
             _activeSession.ActionRequested -= OnSessionActionRequested;
             _activeSession.Cancelled -= OnSessionCancelled;
@@ -344,6 +347,7 @@ internal sealed partial class SessionManager : IDisposable {
         CursorMoveRequested?.Invoke(point);
     private void OnGridFallbackRequested() => GridFallbackRequested?.Invoke();
     private void OnFailureReported(string reason) => FailureReported?.Invoke(reason);
+    private void OnElementHintsStateChanged() => ElementHintsStateChanged?.Invoke();
     public void SuspendElementHints() {
         if (_activeSession is ElementHintsSession hints) { hints.Suspend(); }
     }

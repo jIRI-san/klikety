@@ -14,10 +14,25 @@ globs:
 # Keyboard Help Overlay
 
 ElementHints participates in binding conflicts and effective mode projection.
-While active, help includes Enter grid fallback (even when locked), Left/Right page
-commands, current discovery status and the select-without-clicking explanation.
-Opening/closing help preserves prefix/page/selection; helper completion updates only
-the navigation canvas and does not replace HelpCanvas or macro prompts.
+While active, the existing help view projects `ElementHintsHelpState` from the
+session: discovery outcome/status, actual renderer-limited page count, prefix and
+selection. It includes configured first/second label keys in order using current
+layout glyphs, selection without clicking, wrapping Left/Right paging that clears
+prefix/selection, and the current page. Action cards use effective bindings,
+including overridden Space; they mute until a target is selected. Prompts explain
+modifier clicks, modifier-free move-only, validated actions and two-phase drag.
+Enter grid fallback remains available during loading, failures, prefix/selection
+and mode lock. Existing macro setup/confirmation priority still consumes navigation
+keys: those commands mute and help asks the user to finish setup. During recording,
+Escape cancels recording before normal hint Escape stages apply.
+
+Help/Escape closes help only. Outside help, Escape clears a first key or selected
+target, then cancels; with neither it cancels immediately. Opening/closing help
+preserves prefix/page/selection without rescanning. A session state-change event
+refreshes visible help when discovery completes or viewport capacity changes.
+SessionManager unsubscribes before retirement; late results cannot replace a new
+help view. Refresh reuses HelpCanvas and keeps macro/drag content in the projection;
+normal-mode rendering receives no new diagnostics/banner.
 
 ## Binding and Hook Events
 
@@ -45,6 +60,11 @@ the navigation canvas and does not replace HelpCanvas or macro prompts.
 - Enabled mode chords, app-scope chord, assigned display numbers, help/Escape, and macro record/helper/slot keys.
 - Current drag target meanings; recording slot, overwrite, and start-from-cursor prompts; macro slot names; and reasons for commands that are temporarily unavailable.
 - Navigation-only keys are not drawn: help renders only labeled command cards, with no empty key rectangles. Canonical keyboard slots still preserve command positions; custom command keys outside the diagram use a centered auxiliary strip, without reserving auxiliary slots for navigation-only keys. Disabled features are omitted.
+- Element-hint label axes are listed in the prompt area, not duplicated as keycaps.
+  Only pairs printed on the current page are valid. Loading/partial/no-target/error
+  guidance stays concise; technical traversal counts remain in logs. UniformGrid's
+  configured chord is projected alongside other enabled modes; Enter is a distinct
+  fallback entry only while ElementHints is active.
 
 The separate macro global hotkey remains an OS-level command, not an overlay-local key and not routed through help dismissal.
 
@@ -61,4 +81,13 @@ The separate macro global hotkey remains an OS-level command, not an overlay-loc
 
 ## Test Seams
 
-`HelpBindingTests`, `HelpBindingModelTests`, `HelpOverlayCoordinatorTests`, `HelpKeyboardLayoutTests`, and `HelpKeyLabelTests` use the existing fake hook, overlay, platform, and key-label resolver seams. Live keyboard/focus/display/DPI checks remain an explicit manual verification gate.
+`HelpBindingTests`, `HelpBindingModelTests`, `HelpOverlayCoordinatorTests`,
+`ElementHintsCoordinatorTests`, `HelpKeyboardLayoutTests`, and `HelpKeyLabelTests`
+use the existing fake hook, overlay, platform, and key-label resolver seams.
+Focused hint coverage includes effective/custom actions and ordered layout glyphs,
+loading/partial/failure availability, actual page capacity, selection/drag,
+close-only and dismiss-and-forward dispatch, all Enter fallback states, macro
+priority and late discovery refresh/retirement. `HelpOverlayRenderingTests`
+measure the full hint projection at small and normal viewports without showing a
+window: cards and wrapped prompts stay separated, readable and scrollable.
+Live keyboard/focus/display/DPI checks remain an explicit manual verification gate.

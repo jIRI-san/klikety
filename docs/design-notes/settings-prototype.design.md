@@ -1,7 +1,7 @@
 ---
 description: Exploratory native settings-sidebar prototype history; not production runtime evidence.
 globs:
-  - docs/implementation-plans/standalone-2026-10-04-0b37c2-native-settings-sidebar/**
+  - docs/implementation-plans/archived/standalone-2026-10-04-0b37c2-native-settings-sidebar/**
 ---
 
 # Settings Prototype History

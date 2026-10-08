@@ -167,6 +167,15 @@ This subset is not reported as the final full suite. Committed learning and scri
 archival follow; publication still requires the final unfiltered managed run and
 Release build on the freshly integrated source.
 
+`Write-RecentLearning` recorded three repo-cited lessons against source
+`e0991863cbccf4facb0339f6b87a41670e7e523a`; its handoff was committed as `71d849b`.
+Installed `Archive-Plan -Plan 0b37c2` returned `archived`, moved the entire directory
+and assets, and the move was committed as `c55a460`. Re-resolution by canonical ID
+reports archived, clean and 14/14 complete under the corrected criteria. Historical
+review/learning paths refer to their recorded source commits, not current file locations.
+The only active prototype-note path was updated to the archive location. No unrelated
+plans or app sessions were archived and no worktree was deleted.
+
 ## Earlier integrated managed validation and publication hold (historical)
 
 Source: `58f15006bfd7d23f427b4761b33e992b730926d6`, containing the v8/main

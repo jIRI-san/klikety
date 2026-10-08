@@ -48,7 +48,6 @@ public partial class App : Application {
     private readonly SettingsOperationGate _settingsGate;
     private bool _hasBlockingViolations;
     private SettingsWindow? _settingsWindow;
-    private string? _demoConfigPath;
     private string? _runtimeFixtureRoot;
     private AppPaths _paths = AppPaths.User;
     private static string UserConfigPath => Path.Combine(
@@ -56,13 +55,20 @@ public partial class App : Application {
 
     public App() {
         _settingsGate = new SettingsOperationGate(() => {
-            if (_runtimeFixtureRoot is not null || _demoConfigPath is not null) { _paths.ValidateFixture(); }
+            if (_runtimeFixtureRoot is not null) { _paths.ValidateFixture(); }
             return _coordinator?.IsIdle != false;
         });
     }
 
     protected override void OnStartup(StartupEventArgs e) {
         base.OnStartup(e);
+
+        if (e.Args.Contains("--settings-demo")) {
+            MessageBox.Show("--settings-demo has been removed. Open Settings from the tray instead.",
+                "Klikety", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown(1);
+            return;
+        }
 
         if (e.Args.Contains("--settings-runtime-fixture")) {
             try {
@@ -85,7 +91,7 @@ public partial class App : Application {
                 EnsureFixturePathHasNoReparsePoints(_paths.Root);
                 Directory.CreateDirectory(_paths.Root);
                 EnsureFixturePathHasNoReparsePoints(_paths.Root);
-                CreateDemoFixture(_paths.ConfigPath);
+                CreateRuntimeFixture(_paths.ConfigPath);
                 ConfigureRuntimeFixture(_paths.ConfigPath);
                 _fixtureFaults = new SettingsFixtureFaults(_paths);
                 _hotKeyService = new HotKeyService();
@@ -96,35 +102,6 @@ public partial class App : Application {
             } catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or InvalidOperationException) {
                 MessageBox.Show("Cannot start isolated runtime fixture: " + ex.Message,
                     "Klikety", MessageBoxButton.OK, MessageBoxImage.Error);
-                Shutdown(1);
-                return;
-            }
-        }
-
-        if (e.Args.Contains("--settings-demo")) {
-            try {
-                var index = Array.IndexOf(e.Args, "--settings-demo");
-                if (index + 1 >= e.Args.Length) {
-                    throw new InvalidDataException("--settings-demo requires an absolute fixture config path.");
-                }
-                var path = e.Args[index + 1];
-                if (!Path.IsPathFullyQualified(path)) {
-                    throw new InvalidDataException("Demo config path must be absolute.");
-                }
-                _demoConfigPath = Path.GetFullPath(path);
-                _paths = AppPaths.ForFixture(Path.GetDirectoryName(_demoConfigPath)!);
-                var userFolder = Path.GetDirectoryName(UserConfigPath)!;
-                if (_demoConfigPath.StartsWith(userFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) {
-                    throw new InvalidDataException("Demo mode refuses the real Klikety AppData directory.");
-                }
-                CreateDemoFixture(_demoConfigPath);
-                _loggerFactory = LoggingSetup.CreateLoggerFactory("Warning", false, 7, _paths.LogsFolder);
-                SetupTrayIcon([], _loggerFactory.CreateLogger<App>());
-                _trayIcon!.ToolTipText = "Klikety Settings - ISOLATED DEMO";
-                ShowSettings();
-                return;
-            } catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or InvalidOperationException) {
-                MessageBox.Show("Cannot start isolated settings demo: " + ex.Message, "Klikety", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown(1);
                 return;
             }
@@ -303,25 +280,6 @@ public partial class App : Application {
         var contextMenu = new System.Windows.Controls.ContextMenu();
 
         contextMenu.Items.Add(CreateSettingsMenuItem(ShowSettings));
-
-        if (_demoConfigPath is not null) {
-            var demoInfo = new System.Windows.Controls.MenuItem {
-                Header = "ISOLATED DEMO - no navigation, hooks or registry changes", IsEnabled = false,
-            };
-            contextMenu.Items.Add(demoInfo);
-            var demoQuit = new System.Windows.Controls.MenuItem { Header = "Quit demo" };
-            demoQuit.Click += (_, _) => {
-                _settingsWindow?.Close();
-                if (_settingsWindow is null) {
-                    _trayIcon?.Dispose();
-                    DisposeLoggerFactories();
-                    Shutdown();
-                }
-            };
-            contextMenu.Items.Add(demoQuit);
-            _trayIcon!.ContextMenu = contextMenu;
-            return;
-        }
 
         // About
         var aboutItem = new System.Windows.Controls.MenuItem { Header = "About" };
@@ -557,9 +515,6 @@ public partial class App : Application {
         return item;
     }
 
-    internal static string ResolveSettingsConfigPath(AppPaths paths, string? demoConfigPath) =>
-        demoConfigPath ?? paths.ConfigPath;
-
     private void ShowSettings() {
         if (_settingsWindow is not null) {
             if (_settingsWindow.WindowState == WindowState.Minimized) {
@@ -569,7 +524,7 @@ public partial class App : Application {
             return;
         }
         try {
-            _settingsWindow = new SettingsWindow(ResolveSettingsConfigPath(_paths, _demoConfigPath), _demoConfigPath is not null,
+            _settingsWindow = new SettingsWindow(_paths.ConfigPath,
                 ValidateSettingsApply, CaptureSettingsRuntime, ApplySettings, RestoreSettingsRuntime,
                 _settingsGate, CompleteRuntimeOperation, stage => _fixtureFaults?.Check(stage));
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
@@ -581,23 +536,17 @@ public partial class App : Application {
     }
 
     private void ValidateSettingsApply(ConfigModel config) {
-        if (_demoConfigPath is null && _coordinator is { IsIdle: false }) {
+        if (_coordinator is { IsIdle: false }) {
             throw new InvalidOperationException("Settings can only be applied while navigation and macro activity are idle.");
         }
         ThemeLoader.ValidateSettingsReference(config.Theme, _settingsWindow?.LoadedTheme ?? _config?.Theme, _paths.Root);
-        if (_demoConfigPath is null) {
-            var owned = _config is null ? [] : SettingsShortcutInventory.From(_config,
-                _scrollHotKeysConfigEnabled && _scrollHotKeyService is { IsRegistered: false });
-            SettingsShortcutInventory.Preflight(config, _hotKeyService?.IsRegistered == true ? owned : [],
-                StartupValidator.ProbeHotKey);
-        }
+        var owned = _config is null ? [] : SettingsShortcutInventory.From(_config,
+            _scrollHotKeysConfigEnabled && _scrollHotKeyService is { IsRegistered: false });
+        SettingsShortcutInventory.Preflight(config, _hotKeyService?.IsRegistered == true ? owned : [],
+            StartupValidator.ProbeHotKey);
     }
 
     private SettingsRuntimeSnapshot CaptureSettingsRuntime() {
-        if (_demoConfigPath is not null) {
-            var config = ConfigLoader.ReadSettings(File.ReadAllText(ResolveSettingsConfigPath(_paths, _demoConfigPath))).Config;
-            return new SettingsRuntimeSnapshot(config, false, false);
-        }
         return new SettingsRuntimeSnapshot(
             _config ?? throw new InvalidOperationException("The active runtime config is unavailable."),
             _keyPressHook is not null,
@@ -605,10 +554,6 @@ public partial class App : Application {
     }
 
     private SettingsApplyOutcome ApplySettings(ConfigModel candidate) {
-        if (_demoConfigPath is not null) {
-            _config = candidate;
-            return SettingsApplyOutcome.Success;
-        }
         try {
             _fixtureFaults?.SetRecovery(false);
             _fixtureFaults?.Check("external-edit");
@@ -627,10 +572,6 @@ public partial class App : Application {
     }
 
     private SettingsApplyOutcome RestoreSettingsRuntime(SettingsRuntimeSnapshot snapshot) {
-        if (_demoConfigPath is not null) {
-            _config = snapshot.Config;
-            return SettingsApplyOutcome.Success;
-        }
         try {
             _fixtureFaults?.SetRecovery(true);
             var issues = ReloadConfigurationCore(snapshot.Config, snapshot);
@@ -710,7 +651,7 @@ public partial class App : Application {
         _loggerLifetime.Complete(_loggerFactory);
     }
 
-    private static void CreateDemoFixture(string path) {
+    private static void CreateRuntimeFixture(string path) {
         var folder = Path.GetDirectoryName(path)!;
         Directory.CreateDirectory(folder);
         Directory.CreateDirectory(Path.Combine(folder, "themes"));
@@ -723,7 +664,7 @@ public partial class App : Application {
                 continue;
             }
             using var source = typeof(App).Assembly.GetManifestResourceStream("Klikety.Resources." + resource)
-                ?? throw new InvalidDataException($"Missing demo resource: {resource}");
+                ?? throw new InvalidDataException($"Missing runtime fixture resource: {resource}");
             using var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None);
             source.CopyTo(output);
         }

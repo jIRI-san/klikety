@@ -7,17 +7,6 @@ namespace Klikety.Tests;
 
 public sealed class AppPathsTests {
     [Fact]
-    public void SettingsUsesCapturedRuntimeRootAndPreservesExplicitDemoFileName() {
-        var fixture = AppPaths.ForFixture(Path.Combine(Path.GetTempPath(), "Klikety-settings-routing-" + Guid.NewGuid()));
-        Assert.Equal(fixture.ConfigPath, App.ResolveSettingsConfigPath(fixture, null));
-        Assert.NotEqual(AppPaths.User.ConfigPath, App.ResolveSettingsConfigPath(fixture, null));
-        var demo = Path.Combine(fixture.Root, "inspection.json");
-        Assert.Equal(demo, App.ResolveSettingsConfigPath(fixture, demo));
-        Assert.Equal(AppPaths.User.ConfigPath, App.ResolveSettingsConfigPath(AppPaths.User, null));
-        Assert.False(Directory.Exists(fixture.Root));
-    }
-
-    [Fact]
     public void FixtureAdmissionRejectsRelativeUserAndAncestorPathsWithoutReadingOrWritingThem() {
         Assert.Throws<InvalidDataException>(() => AppPaths.ForFixture("relative"));
         Assert.Throws<InvalidDataException>(() => AppPaths.ForFixture(AppPaths.User.Root));
@@ -28,8 +17,9 @@ public sealed class AppPathsTests {
     [Fact]
     public void FixtureRootConfinesAllAppOwnedPaths() {
         var root = Path.Combine(Path.GetTempPath(), "Klikety-fixture-" + Guid.NewGuid());
-        var paths = new AppPaths(root);
+        var paths = AppPaths.ForFixture(root);
 
+        Assert.NotEqual(AppPaths.User.ConfigPath, paths.ConfigPath);
         Assert.Equal(Path.GetFullPath(root), paths.Root);
         Assert.Equal(Path.Combine(paths.Root, "config.json"), paths.ConfigPath);
         Assert.Equal(Path.Combine(paths.Root, "macros.json"), paths.MacrosPath);

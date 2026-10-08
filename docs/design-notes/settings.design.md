@@ -25,9 +25,13 @@ diagnostics and indicator visuals are Advanced. Pages scroll independently of th
 persistent sidebar/footer. `App.ShowSettings` reuses and activates
 the existing window (restoring a minimized one), releases the reference on close,
 and wires real validation/captured-runtime apply/recovery callbacks. It resolves its
-file from the same `AppPaths` as the runtime; runtime fixtures must never fall back
-to the user's config. Hook-free demo mode preserves its explicit config filename
-for both the editor and runtime-snapshot read.
+file directly from the same `AppPaths.ConfigPath` as the runtime; runtime fixtures
+must never fall back to the user's config. The hook-free settings demo and its
+editor-only title/status/apply branches have been removed. Old `--settings-demo`
+invocations report an error and exit before extraction or runtime startup.
+The editor retains injected runtime callbacks for hermetic tests.
+User-facing pages, persistence, paths and configuration fields are documented in
+[Settings and files](../settings.md).
 
 ## Coverage and runtime-only boundaries
 
@@ -79,7 +83,7 @@ Every displayed local path has an **Open folder** button: the config file and lo
 Relative schema files resolve against the config directory; `file:` URIs are supported,
 while web references and unspecified metadata have no filesystem action. These actions
 open Windows Explorer without saving the draft or editing separate files; launch/path
-errors appear inline. Isolated demos use their own displayed paths, never AppData defaults.
+errors appear inline. Runtime fixtures use their own displayed paths, never AppData defaults.
 
 All four HUD/playback-indicator color fields retain direct hex input and a **Choose color**
 button. The small owned WPF `SettingsColorDialog` uses RGB and opacity sliders/numeric
@@ -193,9 +197,8 @@ applies the captured config and preserves HUD state and pause only while scrolli
 enabled; failed HUD creation releases the candidate. `SettingsLoggerLifetime` retains
 previous factories through teardown, recovery, and outcome reporting.
 
-`AppPaths` roots config, logs, macros, themes, and display-topology files. The hook-free
-`--settings-demo <absolute-config-path>` remains useful for visual editing but is not
-runtime evidence. `--settings-runtime-fixture <absolute-directory>` starts the actual
+`AppPaths` roots config, logs, macros, themes, and display-topology files.
+`--settings-runtime-fixture <absolute-directory>` starts the actual
 application/services against a dedicated fixture, refuses the real AppData directory
 and reparse-point paths, skips first-run extraction and the registry toggle, and sets
 Ctrl+Alt+Shift+F11/Pause as main/macro test hotkeys. This mode performs real registration;
@@ -244,7 +247,7 @@ not clean its fixture automatically.
 
 Fault control files are `settings-candidate-fault.txt` and
 `settings-recovery-fault.txt`, both confined to the fixture root. They contain a supported
-stage name and are consumed once. Normal/demo operation has no fault injector.
+stage name and are consumed once. Normal operation has no fault injector.
 
 ## Evidence and known limits
 

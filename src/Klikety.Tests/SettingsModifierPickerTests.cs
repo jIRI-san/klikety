@@ -122,7 +122,7 @@ public sealed class SettingsModifierPickerTests {
         File.WriteAllText(path, "{ \"configVersion\":9, \"theme\":\"dark\", /* keep */ \"future\":1.2300, \"hotKey\":{\"key\":\"F11\"} }");
         try {
             RunSta(() => {
-                var window = new SettingsWindow(path, true, _ => { },
+                var window = new SettingsWindow(path, _ => { },
                     () => new(new ConfigModel(), false, false), _ => SettingsApplyOutcome.Success,
                     _ => SettingsApplyOutcome.Success, confirmDiscard: _ => true);
                 for (var mask = 0; mask < 16; mask++) {

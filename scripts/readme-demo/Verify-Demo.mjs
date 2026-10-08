@@ -164,7 +164,9 @@ export function verifyCaptures(directory) {
 export function verifyLinks(root = repository) {
     const changed = execFileSync('git', ['diff', '--name-only', '--', '*.md'], { cwd: root, encoding: 'utf8' });
     const added = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', '*.md'], { cwd: root, encoding: 'utf8' });
-    const files = new Set(['README.md', 'docs/design-notes/readme-demo.design.md',
+    const files = new Set(['README.md', 'docs/README.md', 'docs/getting-started.md',
+        'docs/navigation.md', 'docs/settings.md', 'docs/macros.md', 'docs/development.md',
+        'docs/design-notes/readme-demo.design.md',
         '.github/skills/capture-demo/SKILL.md', ...(changed + '\n' + added).split(/\r?\n/).filter(Boolean)]);
     let count = 0;
     function anchors(file) {

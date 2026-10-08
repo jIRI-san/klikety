@@ -60,8 +60,27 @@ snapshot with omitted counts. Truncated headers/bodies are protocol errors.
 Enabled, onscreen, finite, clipped targets require a standard interactive control
 type or Invoke/Toggle/SelectionItem/ExpandCollapse/Value capability. Readonly edits
 remain focus targets. Focusability alone is insufficient. Runtime identities
-deduplicate candidates, never names or rectangles; nested independent actions
-remain separate. Branch failures and traversal caps report partial results and
+deduplicate candidates; names or coincident rectangles alone never do. A fully
+traversed, patternless ListItem wrapper folds into its sole remaining Button
+descendant only when the button advertises Invoke alone, shares the process, and
+has exactly the same full physical bounds. Passive intermediate nodes are allowed.
+The button retains its identity, point and token. This handles observed Copilot
+list-row/button pairs without changing hit validation or discarding standalone
+patternless rows. Rows with their own patterns, multiple action descendants,
+different full bounds, different processes or other descendant semantics stay
+separate. Independently actionable nested buttons/links/editors/toggles and
+coincident siblings remain reachable.
+
+The bounded traversal records control-view parent indices and aggregates
+canonical descendant counts bottom-up, saturated at two. It makes no additional
+UIA/parent/hit-test calls for canonicalization. Failed/invalid/depth-limited
+descendants prevent folding their ancestors. Node/target truncation skips folding
+altogether, retaining the existing caps and explicit partial response rather than
+assuming unvisited actions are absent. Unrelated invalid branches do not prevent
+folding a complete list row. Other provider/proxy overlaps remain ambiguous and
+are not generalized from this narrow evidence.
+
+Branch failures and traversal caps report partial results and
 omitted branch/target counts, not a claim of complete provider coverage.
 `UiaTreeAlgorithms` is the production traversal/identity/hit-testing kernel,
 shared by source with hermetic tests. `AutomationTree` supplies cached native UIA

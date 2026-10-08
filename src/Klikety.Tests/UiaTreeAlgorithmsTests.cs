@@ -79,6 +79,210 @@ public class UiaTreeAlgorithmsTests {
     }
 
     [Fact]
+    public void CopilotPatternlessListRowKeepsOnlyItsFullSizeInvokeButton() {
+        var root = Element(1, 50032);
+        var row = Element(4817, 50007);
+        var button = Element(4818, capabilities: HintCapabilities.Invoke);
+        var bounds = new HintRect(22, 193, 702, 89);
+        row.Data = row.Data with { Bounds = bounds };
+        button.Data = button.Data with { Bounds = bounds };
+        row.Add(button);
+        root.Add(row);
+        var tree = new Tree();
+        var result = UiaTreeAlgorithms.Discover(root, tree, new(0, 0, 3840, 2160), 7, 8);
+        var target = Assert.Single(result.Entries).Target;
+        Assert.Equal(button.Data.RuntimeId, target.RuntimeId);
+        Assert.Equal(new HintPoint(373, 237), target.Preview);
+        Assert.Null(result.Reason);
+        Assert.Equal(0, result.Omitted);
+        Assert.Equal(3, tree.Reads);
+        Assert.Equal(0, tree.Parents);
+        Assert.True(UiaTreeAlgorithms.OwnsHit(button, target.RuntimeId, tree));
+        Assert.False(UiaTreeAlgorithms.OwnsHit(button, row.Data.RuntimeId, tree));
+    }
+
+    [Theory]
+    [InlineData(HintCapabilities.Invoke)]
+    [InlineData(HintCapabilities.Toggle)]
+    [InlineData(HintCapabilities.Selection)]
+    [InlineData(HintCapabilities.Expand)]
+    [InlineData(HintCapabilities.Value)]
+    public void ListRowsWithTheirOwnActionPatternsRemainIndependent(HintCapabilities capabilities) {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007, capabilities: capabilities);
+        row.Add(Element(3, capabilities: HintCapabilities.Invoke));
+        root.Add(row);
+        Assert.Equal([2, 3], Scan(root, new Tree()).Entries.Select(e => e.Target.RuntimeId[1]));
+    }
+
+    [Theory]
+    [InlineData(50000, HintCapabilities.Invoke)]
+    [InlineData(50005, HintCapabilities.Invoke)]
+    [InlineData(50004, HintCapabilities.Value)]
+    [InlineData(50002, HintCapabilities.Toggle)]
+    public void IndependentNestedButtonsLinksEditorsAndTogglesRemainReachable(int type, HintCapabilities capabilities) {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007);
+        var button = Element(3, capabilities: HintCapabilities.Invoke);
+        var nested = Element(4, type, capabilities: capabilities);
+        button.Add(nested);
+        row.Add(button);
+        root.Add(row);
+        var result = Scan(root, new Tree());
+        Assert.Equal([2, 3, 4], result.Entries.Select(e => e.Target.RuntimeId[1]));
+        Assert.False(UiaTreeAlgorithms.OwnsHit(nested, button.Data.RuntimeId, new Tree()));
+        Assert.True(UiaTreeAlgorithms.OwnsHit(nested, nested.Data.RuntimeId, new Tree()));
+    }
+
+    [Fact]
+    public void CoincidentSiblingControlsAndMultipleRowActionsAreNotDeduplicated() {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007);
+        row.Add(Element(3, capabilities: HintCapabilities.Invoke));
+        var multiple = Element(5, 50007);
+        multiple.Add(Element(6, capabilities: HintCapabilities.Invoke), Element(7, capabilities: HintCapabilities.Invoke));
+        root.Add(row, Element(4, capabilities: HintCapabilities.Invoke), multiple);
+        Assert.Equal([3, 4, 5, 6, 7], Scan(root, new Tree()).Entries.Select(e => e.Target.RuntimeId[1]));
+    }
+
+    [Theory]
+    [InlineData(50007, HintCapabilities.Invoke, 99)]
+    [InlineData(50007, HintCapabilities.Toggle, 42)]
+    [InlineData(50007, HintCapabilities.None, 42)]
+    [InlineData(50024, HintCapabilities.Invoke, 42)]
+    public void UnprovenCrossProcessCapabilityAndControlTypeCasesAreKept(int rowType, HintCapabilities buttonCapabilities, int buttonPid) {
+        var root = Element(1, 50032);
+        var row = Element(2, rowType);
+        row.Add(Element(3, pid: buttonPid, capabilities: buttonCapabilities));
+        root.Add(row);
+        Assert.Equal([2, 3], Scan(root, new Tree()).Entries.Select(e => e.Target.RuntimeId[1]));
+    }
+
+    [Theory]
+    [InlineData(50000, HintCapabilities.Invoke | HintCapabilities.Toggle)]
+    [InlineData(50005, HintCapabilities.Invoke)]
+    [InlineData(50004, HintCapabilities.Value)]
+    [InlineData(50002, HintCapabilities.Toggle)]
+    public void DifferentOrAdditionalDescendantSemanticsAreNotAssumedEquivalent(int type, HintCapabilities capabilities) {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007);
+        row.Add(Element(3, type, capabilities: capabilities));
+        root.Add(row);
+        Assert.Equal([2, 3], Scan(root, new Tree()).Entries.Select(e => e.Target.RuntimeId[1]));
+    }
+
+    [Fact]
+    public void PatternlessRowsWithoutActionDescendantsRemainFocusTargets() {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007);
+        row.Add(Element(3, 50020));
+        root.Add(row);
+        Assert.Equal(2, Assert.Single(Scan(root, new Tree()).Entries).Target.RuntimeId[1]);
+    }
+
+    [Fact]
+    public void EqualClippedBoundsDoNotProveEquivalentFullBounds() {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007);
+        row.Data = row.Data with { Bounds = new(-10, 10, 100, 80) };
+        var button = Element(3, capabilities: HintCapabilities.Invoke);
+        button.Data = button.Data with { Bounds = new(0, 10, 90, 80) };
+        row.Add(button);
+        root.Add(row);
+        var result = Scan(root, new Tree());
+        Assert.Equal([2, 3], result.Entries.Select(e => e.Target.RuntimeId[1]));
+        Assert.Equal(result.Entries[0].Target.VisibleBounds, result.Entries[1].Target.VisibleBounds);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void FailedOrInvalidDescendantsDoNotProveASoleAction(bool branchFailure) {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007);
+        var unknown = Element(4);
+        if (branchFailure) { unknown.Failure = new InvalidOperationException("Unavailable branch"); } else {
+            unknown.Data = unknown.Data with { Bounds = new(double.NaN, 0, 10, 10) };
+        }
+        row.Add(Element(3, capabilities: HintCapabilities.Invoke), unknown);
+        root.Add(row);
+        var result = Scan(root, new Tree());
+        Assert.Equal([2, 3], result.Entries.Select(e => e.Target.RuntimeId[1]));
+        Assert.Equal(1, result.Omitted);
+        Assert.NotNull(result.Reason);
+    }
+
+    [Fact]
+    public void AnUnrelatedPartialBranchDoesNotPreventAProvenWrapperCollapse() {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007);
+        row.Add(Element(3, capabilities: HintCapabilities.Invoke));
+        var bad = Element(4);
+        bad.Data = bad.Data with { RuntimeId = [] };
+        root.Add(row, bad);
+        var result = Scan(root, new Tree());
+        Assert.Equal(3, Assert.Single(result.Entries).Target.RuntimeId[1]);
+        Assert.Equal(1, result.Omitted);
+        Assert.Equal("Missing target identity", result.Reason);
+    }
+
+    [Fact]
+    public void DepthLimitedWrapperKeepsItsHintWhenDeeperActionsAreUnknown() {
+        var root = Element(1, 50032);
+        var parent = root;
+        for (int depth = 1; depth <= 62; depth++) {
+            var child = Element(100 + depth, 50020);
+            parent.Add(child); parent = child;
+        }
+        var row = Element(2, 50007);
+        var button = Element(3, capabilities: HintCapabilities.Invoke);
+        button.Add(Element(4));
+        row.Add(button);
+        parent.Add(row);
+        var tree = new Tree();
+        var result = Scan(root, tree);
+        Assert.Equal([2, 3], result.Entries.Select(e => e.Target.RuntimeId[1]));
+        Assert.Equal("Depth limit reached", result.Reason);
+        Assert.Equal(65, tree.Reads);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void NodeAndTargetCapsPreserveWrappersRatherThanAssumingUnvisitedActions(bool nodeCap) {
+        var root = Element(1, 50032);
+        var row = Element(2, 50007);
+        row.Add(Element(3, capabilities: HintCapabilities.Invoke), Element(4, nodeCap ? 50020 : 50000), Element(5));
+        var leading = Enumerable.Range(100, nodeCap ? 19997 : 1998)
+            .Select(i => Element(i, nodeCap ? 50020 : 50000)).ToArray();
+        root.Add([.. leading, row]);
+        var result = Scan(root, new Tree());
+        Assert.Equal(nodeCap ? "Node limit reached" : "Target limit reached", result.Reason);
+        Assert.Contains(result.Entries, e => e.Target.RuntimeId[1] == 2);
+        Assert.Contains(result.Entries, e => e.Target.RuntimeId[1] == 3);
+        Assert.DoesNotContain(result.Entries, e => e.Target.RuntimeId[1] == 5);
+        Assert.Equal(nodeCap ? 20000 : 2002, result.Visited);
+    }
+
+    [Fact]
+    public void CanonicalizationPreservesPhysicalOrderUniqueTokensAndSiblingReachability() {
+        var root = Element(1, 50032);
+        var upper = Element(2, 50007);
+        upper.Add(Element(3, capabilities: HintCapabilities.Invoke));
+        var lower = Element(4, 50007);
+        lower.Data = lower.Data with { Bounds = new(10, 90, 80, 10) };
+        var lowerButton = Element(5, capabilities: HintCapabilities.Invoke);
+        lowerButton.Data = lowerButton.Data with { Bounds = lower.Data.Bounds };
+        lower.Add(lowerButton);
+        root.Add(lower, upper);
+        var result = Scan(root, new Tree());
+        Assert.Equal([3, 5], result.Entries.Select(e => e.Target.RuntimeId[1]));
+        Assert.Equal([4, 2], result.Entries.Select(e => e.Target.Token));
+        Assert.Equal(result.Entries.Count, result.Entries.Select(e => e.Target.Token).Distinct().Count());
+        Assert.Null(result.Reason);
+    }
+
+    [Fact]
     public void ClippingExcludesOutsideScopeAndBadIdentityOrGeometryIsExplicitlyPartial() {
         var root = Element(1, 50032);
         var clipped = Element(2); clipped.Data = clipped.Data with { Bounds = new(-20, -20, 40, 40) };

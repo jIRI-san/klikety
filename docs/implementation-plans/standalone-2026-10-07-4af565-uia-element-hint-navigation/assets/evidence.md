@@ -330,3 +330,83 @@ follow-up. It does **not** prove the cause or correction of cold/intermittent
 discovery timeouts. Broad plan **4.2 remains unchecked**; physical actions,
 third-party coverage and mixed displays remain unobserved. The host app/config
 remain undisturbed. No push, merge or PR.
+
+## Duplicate list-row hints follow-up (2026-10-08)
+
+The user's Copilot report was reproduced through passive local UIA metadata,
+not host input or screenshots. Native foreground identity was HWND **984816**,
+PID **25120**, class `Tauri Window`, executable
+`GitHub Copilot\github.exe`. Each probe rechecked the exact foreground executable,
+HWND/PID/process-start identity, then used the production traversal/adapter in
+an owned MTA child with the existing kill-on-close job and **1500 ms** discovery/
+**500 ms** retirement budgets. Only runtime identities, ancestry, control types,
+advertised capabilities and physical geometry/points were inspected; no names,
+text/value/password/document/conversation content or accessibility settings.
+
+The initial root scan retained **47** candidates, visited **630** nodes and
+reported **5** invalid-geometry omissions. Five visible rows had a distinct
+ListItem identity, **no** advertised action pattern, and a sole full-size Button
+child advertising **Invoke**. Both became candidates because the old policy
+accepted ListItem by semantic type and Button by type/pattern, then deduplicated
+only equal runtime identities. This is discovery duplication, not duplicate
+renderer/page assignments.
+
+| Runtime-ID suffix: wrapper / button | Identical full physical bounds | Before / after retained hints |
+|---|---|---|
+| 4817 / 4818 | (22,193), 702x89 | 2 / 1 |
+| 4824 / 4825 | (22,281), 702x89 | 2 / 1 |
+| 4833 / 4834 | (22,369), 702x89 | 2 / 1 |
+| 4840 / 4841 | (22,457), 702x89 | 2 / 1 |
+| 4856 / 4857 | (22,545), 702x89 | 2 / 1 |
+
+A separate bounded before probe retained **46**, visited **299**, omitted **4**.
+At each row's center and four quarter points (**25** checks), the actual UIA hit
+was its child Button; production `OwnsHit` accepted the button and rejected the
+wrapper every time. No action was invoked or injected. The unchanged guard would
+not approve these wrapper points; removing the redundant wrapper keeps the useful,
+more specific action target instead of treating an interactive child as its
+parent's hit.
+
+After the fix, a fresh probe retained **41**, visited **324**, omitted **4**;
+all five wrappers were absent and all five buttons retained exactly their prior
+runtime ID, PID, type, capabilities, full bounds and preview point. The actual
+rebuilt production worker independently returned the same **41/324/4** partial
+snapshot and retained all five buttons without their wrappers. The live app's
+other tree content changed between captures, so total node counts are not a
+fixed-scene comparison; the five exact stable pairs above are the before/after
+evidence. Geometry omissions remain visible, not hidden by the fix.
+
+Canonicalization is deliberately narrow: a complete patternless ListItem branch,
+one remaining Invoke-only Button descendant, same process and equal full bounds.
+It uses already-visited control-view ancestry and a bounded bottom-up count,
+without new provider calls or weaker deadlines. Independently actionable nested
+buttons/links/editors/toggles, own-pattern rows, coincident siblings, clipped-only
+matches, cross-process duplicates and ambiguous other roles/patterns stay separate.
+Failed/invalid/depth-limited branches keep uncertain ancestors; node/target caps
+skip canonicalization. The cap remains based on pre-canonical candidates, so a
+large partial scan can retain redundant wrappers rather than exceed the approved
+traversal/target limit or assume the unread subtree is empty.
+
+Local ignored probe sources and metadata evidence are in
+`src\Klikety\bin\uia-duplicate-probe`, including `copilot-before.json`,
+`copilot-hit-evidence.json`, `copilot-hit-evidence.points.json`,
+`copilot-after.json` and `copilot-production-after.json`. Helpers retired; no
+probe/production test worker remained after exact-path inspection. The existing
+host **PID 39104** and `uia-visual-extracted` package were not stopped/replaced.
+Config SHA256 remained
+`AB81C7C0C4BEB5478CFC2C1C6089D0769FFA473124682CC00C04859534BE27EF`.
+
+Remaining ambiguity is intentional: Copilot also exposes coincident Pane Invoke
+ancestors and TreeItem Selection/Expand rows with child buttons. Those advertised
+independent semantics are not proven redundant and are not collapsed. This does
+not claim every provider duplicate is fixed. Human **4.2**, physical input,
+mixed-display/provider breadth and historical timing/focus uncertainties remain
+open; passive metadata checks do not complete them.
+
+Source verification: Release solution build **0 warnings/0 errors**, full
+hermetic suite **1018 passed, 0 failed/skipped**, formatting and whitespace checks
+passed. The new production-policy regressions cover the observed row/button
+identity and (373,237) point, preserved independent semantics, stable physical
+ordering/original tokens, no extra provider reads, and conservative handling of
+invalid/failed/depth/node/target-limited branches. The ignored full-suite result
+is `src\Klikety.Tests\bin\uia-duplicate-results\duplicate-followup.trx`.

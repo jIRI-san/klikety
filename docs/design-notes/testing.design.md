@@ -28,6 +28,18 @@ list. Geometry tests inject their coordinate space rather than using host DPI.
 `Klikety.WorkerFixture` is test-only; production has no hang command. Tests use fake
 service/point-guard seams for deterministic action delivery.
 
+Duplicate-policy regressions replay the Copilot patternless ListItem/full-size
+Invoke-only Button metadata and physical preview point. They preserve independent
+nested buttons/links/editors/toggles, own-pattern rows, standalone patternless
+rows, coincident siblings, cross-process and unequal-full-bound cases. Failed,
+invalid and truncated branches retain uncertain wrapper hints. Canonicalization
+keeps physical ordering and unique original tokens, with no extra provider reads.
+The live evidence uses only captured foreground-root identities, ancestry, types,
+capabilities, bounds and bounded passive hit points in an owned MTA child under
+the existing watchdog. No accessibility names/values, host screenshots, target
+settings changes or input injection are used. This is provider metadata/point
+evidence, not observed physical-input or universal duplicate elimination.
+
 `ElementHintSmokeTests` launch a controlled WPF fixture and the real bundled helper.
 They require an interactive desktop that allows the fixture to become foreground;
 `StaleTarget: Application lost foreground` is a fail-closed environmental blocker,

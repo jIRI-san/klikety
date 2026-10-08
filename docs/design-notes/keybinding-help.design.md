@@ -90,4 +90,5 @@ close-only and dismiss-and-forward dispatch, all Enter fallback states, macro
 priority and late discovery refresh/retirement. `HelpOverlayRenderingTests`
 measure the full hint projection at small and normal viewports without showing a
 window: cards and wrapped prompts stay separated, readable and scrollable.
-Live keyboard/focus/display/DPI checks remain an explicit manual verification gate.
+Unobserved live keyboard/focus/display/DPI checks remain deferred verification,
+not passing evidence from UIA plan 4af565's user-accepted delivery closure.

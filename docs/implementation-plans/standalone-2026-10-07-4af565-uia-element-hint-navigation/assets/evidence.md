@@ -461,3 +461,36 @@ The prior manual-test PID 42460 exited independently with code 0 during this wor
 the agent did not stop/restart it. Host configuration was not edited. Human
 **4.2 remains unchecked**, as do unobserved physical-input, mixed-display,
 third-party/provider breadth and historical cold-start/focus uncertainties.
+
+## 2026-10-08 matching package, manual launch and user acceptance
+
+Source `777afb650087c82fc39038ba254a8953cf52bd20` was rebuilt and published as
+self-contained win-x64 Release. The fresh ZIP/extraction
+`src\Klikety\bin\uia-help-manual-20261008-102547-089.zip` /
+`src\Klikety\bin\uia-help-manual-20261008-102547-089-extracted` hash-matched all
+825 current publish files. Version:
+`1.1.0+777afb650087c82fc39038ba254a8953cf52bd20`. The bundled worker's extracted
+package handshake passed in 234 ms with empty PATH and unavailable DOTNET_ROOT.
+This successful run does not establish the cause of earlier cold timeouts.
+
+The exact extracted `Klikety.exe` was launched independently, normally and
+non-elevated as PID 1872 in the user's session. All eight owned HWNDs responded
+to WM_NULL. There was one same-session Klikety instance at the expected path,
+and the main and macro hotkeys were registered. The packaged loader reported
+zero configuration violations: ElementHints enabled/nondefault/Tab, twoKey and
+arrowKeys true; UniformGrid enabled/default. Activation remained
+Ctrl+Alt+Shift+B, then Tab. No host input was injected. The actual user config
+remained byte-identical, SHA256
+`AB81C7C0C4BEB5478CFC2C1C6089D0769FFA473124682CC00C04859534BE27EF`.
+Finalization does not replace this package, stop the app or edit the config.
+
+After manual validation the user said, verbatim:
+**"looks good. finish the plan, merge to main, push"**.
+Received **2026-10-08T10:42:05.711+02:00** through the coordinating session.
+This supersedes the prior open delivery gate with operator acceptance and
+authorizes finalization and integration into main. It supplies no individual
+physical-action, mixed-display, provider-breadth or responsiveness measurements.
+Those rows remain unverified/deferred, not passed; historical failures remain
+in this evidence. See [finalization.md](finalization.md) for their exact disposition
+and unchanged thresholds. The earlier unchecked-4.2 statements above describe
+their historical snapshots, not the new user-directed closure.

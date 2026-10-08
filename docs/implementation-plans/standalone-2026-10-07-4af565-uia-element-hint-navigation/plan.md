@@ -3,7 +3,7 @@
 <!-- cip-stage: drafted -->
 <!-- planning-confirmed: sha256:573a4c124977f1b57f34ef8b85ec4778736a97a19f0e3456572cee46e4b69651 -->
 <!-- execution-mode: manual -->
-<!-- scope: phase -->
+<!-- scope: plan -->
 <!-- evidence: required -->
 <!-- phase-budget-points: 6 -->
 <!-- expected-packages: none -->
@@ -18,25 +18,25 @@
 - Decisions - [assets/decisions.md](assets/decisions.md)
 - References - [assets/references.md](assets/references.md)
 - Implementation evidence - [assets/evidence.md](assets/evidence.md)
+- Final acceptance and verification limits - [assets/finalization.md](assets/finalization.md)
 
-## Implementation status, 2026-10-07
+## User acceptance and finalization, 2026-10-08
 
-Implementation and automatable contracts through 4.1 are evidenced. Production-linked
-tests now cover exact traversal caps, nested/cross-process candidates, covered
-points and reused root identity. Actual STA rendering and lifecycle tests cover
-tiny viewports, frozen glyph redraw, topology and config disposal. Release build,
-formatting and the latest 987-test hermetic run pass. Four corrected-gate fresh
-ZIP extractions pass, including the final published source.
+The user approved the delivered UIA, contextual help and native Settings result:
+**"looks good. finish the plan, merge to main, push"**, received
+**2026-10-08T10:42:05.711+02:00**. Step 4.2 is closed by this scoped operator
+acceptance, not by claiming its complete live matrix passed. Unperformed scenarios
+and unresolved historical startup/focus conditions remain explicitly deferred in
+[finalization](assets/finalization.md). Confirmed planning assets and numeric
+guards remain unchanged.
 
-Step 4.2 and whole-plan completion remain open. Two distinct controlled activation
-attempts each failed all eight healthy/covered fixture cases before discovery:
-ordinary activation was denied and another HWND remained foreground. Independent
-real-provider checks demonstrate correct foreground-loss and destroyed-window
-rejection. A cold discovery timeout and an initial full-suite development-package
-test failure were followed by passing controlled warm runs; their causes and the
-historical package handshake timeout are not established. See the evidence asset
-for exact results, diagnostics and remaining human checks. No guard or deadline
-was weakened; checked implementation steps do not imply universal/live acceptance.
+Implementation through 4.1, real offline Sandbox rendering, conservative Copilot
+duplicate canonicalization and shared help/Settings integration are evidenced.
+The final merged suite passed 1499 tests; Release build and changed-code formatting
+passed. The self-contained package at source `777afb6` includes its bundled worker
+and was launched unchanged for the user's manual validation. Whole-plan review,
+learning handoff and archival follow the repository finalization workflow; the
+historical evidence below remains separate from the new acceptance.
 
 ## Phase 1: Safe, working element-hint slice
 
@@ -151,8 +151,14 @@ was weakened; checked implementation steps do not imply universal/live acceptanc
 
   </details>
 
-- [ ] 4.2 Verify live Windows coverage, failures, and responsiveness (REQ-1, REQ-2, REQ-3, REQ-5, REQ-6, REQ-7, REQ-8, REQ-11, REQ-12, RISK-1, RISK-2, RISK-4, RISK-5, RISK-7) [after: 4.1] @human `M`
+- [x] 4.2 Record live Windows evidence and user acceptance with deferred verification (REQ-1, REQ-2, REQ-3, REQ-5, REQ-6, REQ-7, REQ-8, REQ-11, REQ-12, RISK-1, RISK-2, RISK-4, RISK-5, RISK-7) [after: 4.1] @human `M`
   <details><summary>Live verification</summary>
+
+  **Closure, 2026-10-08:** the user's exact approval above authorizes delivery
+  finalization and integration. This checkbox records that acceptance with the
+  limits in `assets/finalization.md`; it does not turn unavailable or unsuccessful
+  matrix rows into passing evidence. The original procedure and verification
+  thresholds below remain the follow-up procedure for unobserved scenarios.
 
   **Steps:**
   1. Back up the user config, quit the installed build, extract the published build to a test folder, and enable ElementHints with a collision-free chord.
@@ -163,6 +169,6 @@ was weakened; checked implementation steps do not imply universal/live acceptanc
 
   **Verify:** controlled fixtures satisfy the requirements below; discovery fails visibly at the configured deadline, Escape/Enter remains responsive, no owned helper survives teardown, and no rejected target receives input. Third-party omissions are documented rather than claimed universally fixed. Record evidence against the approved thresholds in `assets/decisions.md` before recording whole-plan completion.
 
-  **Rollback:** quit the test build, confirm its owned helper has exited, restore the backed-up config, and restart the previous installed build. If a scenario fails, leave this step open and report the exact failure.
+  **Rollback:** quit the test build, confirm its owned helper has exited, restore the backed-up config, and restart the previous installed build. In the original full-matrix workflow a failed scenario kept this gate open. The user-directed delivery closure above does not close those verification gaps: report each exact failure and retain fail-closed behavior and the unchanged thresholds.
 
   </details>

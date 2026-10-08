@@ -31,7 +31,7 @@ chord because the session already exposes Enter fallback.
 
 ## `ConfigVersion`
 
-Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added), `2` = v2 (shared axis keys at root), `3` = v3 (LogGrid mode added), `4` = v4 (scroll hotkeys), `5` = v5 (macros), `6` = v6 (app-scope), `7` = v7 (F1–F10 slot keys; D1–D9 reserved), `8` = current (overlay help binding). Used by the migration pre-pass to detect old configs.
+Integer on `ConfigModel`. `0` = legacy (pre-modes shape), `1` = v1 (modes added), `2` = v2 (shared axis keys at root), `3` = v3 (LogGrid mode added), `4` = v4 (scroll hotkeys), `5` = v5 (macros), `6` = v6 (app-scope), `7` = v7 (F1–F10 slot keys; D1–D9 reserved), `8` = overlay help binding, `9` = current (opt-in ElementHints). Used by the migration pre-pass to detect old configs.
 
 ## Config Migration (`ConfigMigrator`)
 

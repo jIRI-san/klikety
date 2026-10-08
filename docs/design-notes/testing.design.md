@@ -57,8 +57,10 @@ evidence, not observed physical-input or universal duplicate elimination.
 `ElementHintSmokeTests` launch a controlled WPF fixture and the real bundled helper.
 They require an interactive desktop that allows the fixture to become foreground;
 `StaleTarget: Application lost foreground` is a fail-closed environmental blocker,
-not permission to remove the foreground check. Physical mouse-input, third-party,
-mixed-display and actual mixed-DPI coverage remain plan 4af565's human gate.
+not permission to remove the foreground check. Plan 4af565's 2026-10-08
+user-accepted delivery closure explicitly defers unobserved physical mouse-input,
+third-party, mixed-display/mixed-DPI and live responsiveness checks; it does not
+claim the full live matrix passed.
 Fixture readiness follows `ContentRendered`, with ordinary activation return values
 and native foreground HWND diagnostics. Root-only discovery/foreground-loss and
 destroyed-window tests do not require acquiring foreground. Keep healthy/covered

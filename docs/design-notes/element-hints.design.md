@@ -103,7 +103,7 @@ including sub-8-DIP viewports; the initial physical-region fallback is retained
 until a measured canvas viewport is available. Labels are window-origin-relative DIPs; click coordinates
 remain physical desktop pixels.
 
-Two keys select and preview the cursor, without input injection. Action keys need
+Two keys select and preview the cursor, without clicking. Action keys need
 a selection. Left/Right page without moving the cursor and clear prefix/selection.
 Escape clears prefix/selection, then cancels. Enter explicitly falls back to
 UniformGrid, including loading/failure/mode lock. Redraw/layout-glyph refresh
@@ -173,16 +173,14 @@ without provider contents. Passing warm retries do not prove the cause of a cold
 timeout. Follow-up runs also show that WPF `IsActive` is not native foreground
 ownership: normal activation can be denied while validation correctly fails closed.
 
-Live physical-input, mixed-display/DPI and third-party coverage remain the human
-gate in plan 4af565. Automated WPF discovery is not universal provider evidence.
-Actual offline Windows Sandbox WinForms captures at 200% reproduced the old
-full-width diagnostic banner and all-target connector clutter, then demonstrated
-near-target labels without unselected connectors and a compact footer. Later
-final-package guest attempts timed out within the unchanged discovery budget;
-passing earlier captures are not proof that the intermittent timeout is fixed.
-See the plan's evidence asset for exact artifacts and outstanding conditions.
-The final committed renderer was subsequently captured successfully with a
-separate WinForms `Application.Run` fixture and explicit bounded provider
-initialization inside the guest. Its 39 control geometries match the original
-fixture. This closes final-build rendering inspection under a documented warm
-condition, not the cold-start/provider timing uncertainty or human gate.
+Plan 4af565 closed delivery on 2026-10-08 by explicit user acceptance of the
+UIA/help/Settings result. Its finalization record retains unperformed physical-input,
+mixed-display/DPI, third-party/elevated-provider and <=100 ms live responsiveness
+checks as deferred, not passed. Automated WPF discovery is not universal coverage.
+Offline Windows Sandbox WinForms captures at 200% establish the banner/connector
+clutter correction. Final committed-code captures used a separate
+`Application.Run` fixture with the same 39 control geometries and explicit bounded
+guest-only provider initialization. That is warm-condition rendering evidence;
+bounded cold discovery/handshake failures and fixture foreground-acquisition
+denial remain unresolved. User acceptance does not establish their causes or
+change the deadlines or fail-closed action guards.

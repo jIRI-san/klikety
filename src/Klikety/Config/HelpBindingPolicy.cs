@@ -44,7 +44,7 @@ public static class HelpBindingPolicy {
         }
 
         var modes = config.Modes;
-        if (new[] { modes.Crosshair, modes.LogCrosshair, modes.LogGrid, modes.ElementHints }
+        if (new[] { modes.UniformGrid, modes.Crosshair, modes.LogCrosshair, modes.LogGrid, modes.ElementHints }
             .Any(mode => mode.Enabled && mode.ChordKey == help.Key)) {
             return $"Help key '{help.Key}' conflicts with a mode chord.";
         }
@@ -56,7 +56,7 @@ public static class HelpBindingPolicy {
         if (config.Macros.Enabled &&
             (config.Macros.RecordKey == help.Key ||
              config.Macros.HelperKey == help.Key ||
-             config.Macros.SlotKeys.Contains(help.Key))) {
+             config.Macros.SlotKeys?.Contains(help.Key) == true)) {
             return $"Help key '{help.Key}' conflicts with a macro key.";
         }
 

@@ -39,10 +39,16 @@ public static class FirstRunExtractor {
     /// Failures per file are traced and skipped (non-blocking).
     /// </summary>
     public static void EnsureDefaults() {
-        var warnings = EnsureDefaults(ConfigFolder, ThemesFolder, Assembly.GetExecutingAssembly());
+        _ = EnsureDefaults(ConfigFolder);
+    }
+
+    public static IReadOnlyList<string> EnsureDefaults(string configFolder) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(configFolder);
+        var warnings = EnsureDefaults(configFolder, Path.Combine(configFolder, "themes"), Assembly.GetExecutingAssembly());
         foreach (var warning in warnings) {
             Trace.TraceWarning(warning);
         }
+        return warnings;
     }
 
     /// <summary>Testable overload accepting explicit paths and assembly. Returns per-file warning messages.</summary>

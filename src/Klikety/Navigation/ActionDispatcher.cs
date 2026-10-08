@@ -21,6 +21,7 @@ internal sealed partial class ActionDispatcher {
 
     private bool _dragMode;
     private Point _dragStartPoint;
+    internal Task PendingDrag { get; private set; } = Task.CompletedTask;
 
     public bool IsDragMode => _dragMode;
     public Point DragStartPoint => _dragStartPoint;
@@ -50,7 +51,7 @@ internal sealed partial class ActionDispatcher {
         // Bounds validation
         if (!_sessionManager.ActiveBounds.Contains(point)) {
             LogActionOutOfBounds(point.X, point.Y);
-            _mouseService.MoveTo(_sessionManager.Origin);
+            InputResultObserver.Observe(_mouseService.MoveTo(_sessionManager.Origin), _logger);
             _deactivateOverlay();
             return true;
         }
@@ -66,7 +67,7 @@ internal sealed partial class ActionDispatcher {
             _overlayWindow.ClearStatusText();
             _dragMode = false;
             _deactivateOverlay();
-            _mouseService.SendDrag(_dragStartPoint, point, action, modifiers);
+            PendingDrag = InputResultObserver.ObserveDragAsync(_mouseService, _dragStartPoint, point, action, modifiers, _logger);
             return true;
         }
 
@@ -82,7 +83,7 @@ internal sealed partial class ActionDispatcher {
             : preparedModifiers ?? _modifierDetector.GetCurrentModifiers();
 
         _deactivateOverlay();
-        _mouseService.SendAction(point, action, actionModifiers);
+        InputResultObserver.Observe(_mouseService.SendAction(point, action, actionModifiers), _logger);
         return true;
     }
 
@@ -101,7 +102,7 @@ internal sealed partial class ActionDispatcher {
         // Bounds validation during recording
         if (!_sessionManager.ActiveBounds.Contains(point)) {
             LogActionOutOfBounds(point.X, point.Y);
-            _mouseService.MoveTo(_sessionManager.Origin);
+            InputResultObserver.Observe(_mouseService.MoveTo(_sessionManager.Origin), _logger);
             return RecordingActionResult.ResumeRecording;
         }
 
@@ -125,13 +126,13 @@ internal sealed partial class ActionDispatcher {
             // StartFromCursor prompt — don't clear status or suspend overlay
             if (recorder.State == MacroRecorderState.AwaitStartFromCursorConfirm) {
                 _dragMode = false;
-                _mouseService.SendDrag(_dragStartPoint, point, action, modifiers);
+                PendingDrag = InputResultObserver.ObserveDragAsync(_mouseService, _dragStartPoint, point, action, modifiers, _logger);
                 return RecordingActionResult.Consumed;
             }
 
             _overlayWindow.ClearStatusText();
             _dragMode = false;
-            _mouseService.SendDrag(_dragStartPoint, point, action, modifiers);
+            PendingDrag = InputResultObserver.ObserveDragAsync(_mouseService, _dragStartPoint, point, action, modifiers, _logger);
             return RecordingActionResult.SuspendAndResume;
         }
 
@@ -145,7 +146,7 @@ internal sealed partial class ActionDispatcher {
 
         // Normal action during recording
         recorder.RecordAction(recordPoint, action, modifiers);
-        _mouseService.SendAction(point, action, modifiers);
+        InputResultObserver.Observe(_mouseService.SendAction(point, action, modifiers), _logger);
         return RecordingActionResult.SuspendAndResume;
     }
 
@@ -159,7 +160,7 @@ internal sealed partial class ActionDispatcher {
 
         _dragMode = false;
         _overlayWindow.ClearStatusText();
-        _mouseService.MoveTo(_sessionManager.Origin);
+        InputResultObserver.Observe(_mouseService.MoveTo(_sessionManager.Origin), _logger);
     }
 
     /// <summary>

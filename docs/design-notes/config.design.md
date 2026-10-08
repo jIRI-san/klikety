@@ -21,9 +21,9 @@ scope/macro/scroll collision lists include the fifth mode.
 
 - Format: JSONC (`JsonCommentHandling.Skip`); stored at `%APPDATA%\Klikety\config.json`.
 - Written on first run from embedded `config.json` template if absent. **Not overwritten on subsequent runs** — changing defaults in the embedded template does not affect existing installs. When a config or theme default changes during development, the user's `%APPDATA%\Klikety\config.json` and `%APPDATA%\Klikety\themes\*.theme.json` must be updated manually (or the files deleted to trigger re-extraction).
-- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `helpBinding`, `firstKeys`/`secondKeys` (flat VKey arrays), `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`, `scrollHotkeys`, `keyPressVisualization`, `macros`, `appScope`.
+- Key fields: `hotKey`, `actionBindings` (VKey → MouseAction), `helpBinding`, ordered `horizontalKeys`/`verticalKeys` arrays, `level3CellSizeThreshold`, `logLevel`, `theme`, `modes`, `scrollHotkeys`, `keyPressVisualization`, `macros`, `appScope`.
 - `navigationMode` is a legacy field — migrated to `modes.uniformGrid.twoKey/arrowKeys` on first load. Kept in schema for backward compatibility. `ConfigModel` no longer has a `NavigationMode` property (dead code removed); the enum is only used internally by `NavigatorStateMachine` and `UniformGridSession`.
-- Validation at startup: reserved keys (Escape, hotkey modifiers, arrow VKeys, VK_RETURN) not in nav/action sets; action ↔ nav key overlap; hotkey modifier VKeys checked against nav/action key sets; cross-set disjointness (`firstKeys ∩ secondKeys = ∅`); per-set duplicate check; scroll hotkey validation (`scrollAmount` ∈ [1, 100], scroll keys vs reserved/action/chord/nav keys, duplicate up/down rejection); macro key validation (full collision matrix: record/helper/slot keys vs reserved/action/nav/chord/scroll/hotkey; intra-macro uniqueness; speed modifier ≥ 0; slot keys array length); app-scope chord key validation (vs reserved/action/nav/hotkey/mode chord/scroll/macro keys; null chord → feature disabled); all violations collected and surfaced via tray notification list.
+- Validation includes reserved-key/collision checks for action, navigation, mode, scroll, macro, and app-scope bindings. Settings separates blocking errors from existing advisory warnings (including LogGrid axis policy and macro slot-list length). Macro speed must be finite and ≥ 0; zero retains the existing 100 ms fixed-delay behavior. Settings requires a named log level, retained log count ≥ 1, finite positive label size, and safe indicator colors/numbers. Existing playback-indicator radius/duration values below the schema floor remain warnings until edited; edited values must meet radius ≥ 1 DIP and duration ≥ 100 ms.
 
 ## `ConfigVersion`
 
@@ -61,15 +61,38 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 ## Tray Integration
 
+- **Settings...** is the first context-menu item in normal production launches and opens
+  one reusable native WPF seven-category editor; repeat clicks activate it and restore it
+  from minimized state rather than opening another draft. Closing releases the window
+  reference so the next click opens a fresh session. Its config file comes from the same
+  captured `AppPaths` root as the runtime; demo mode retains its explicit filename.
+  Each page writes to a
+  typed draft; focused key capture is local to its picker and does not install a global hook.
+  Save validates the full candidate through `ConfigLoader.ReadSettings`, patches changed
+  JSONC leaves/collections with `SettingsConfigStore`, then reloads a captured model only
+  while navigation and macro work are idle. Disk and runtime recovery outcomes are reported
+  separately; drafts survive validation/apply/recovery failures. Comments, unknown members,
+  BOM, untouched scalar spelling, collection order, and orphan comments within their
+  original container are retained. The previous exact file is kept in `.settings.bak`;
+  external edits block saving and a final compare/replace race remains. Current config version only;
+  no parse-default saving or implicit migration in the editor. Full behavior and limits are
+  in [settings.design.md](settings.design.md).
+
+- **Isolated runtime fixture** (`--settings-runtime-fixture <absolute-directory>`) uses
+  `AppPaths` to confine config, logs, macros, themes, and topology to a fixture folder.
+  It avoids first-run extraction and registry toggles, applies real runtime registrations,
+  and uses dedicated Ctrl+Alt+Shift+F11/Pause hotkeys. Verify registration availability before
+  relying on the fixture; the hook-free `--settings-demo` is not runtime evidence.
+
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.
 - `ShutdownMode=OnExplicitShutdown` — process persists until "Quit" menu item calls `Application.Current.Shutdown()`.
-- Context menu items: **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Show Key Presses** (runtime toggle — creates/destroys visualization resources via activation transaction; see `key-press-visualization.design.md`), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, key press visualization, tray icon, logger factory).
+- Context menu items: **Settings...**, **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Show Key Presses** (runtime toggle — creates/destroys visualization resources via activation transaction; see `key-press-visualization.design.md`), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, key press visualization, tray icon, logger factory).
 - Tray notifications used for: hotkey conflict, hook install failure, config/key-binding violations, theme load failure.
 
 ## Logging
 
 - `Microsoft.Extensions.Logging` with rolling file sink → `%APPDATA%\Klikety\logs\`.
-- Config: `logLevel` (default `Debug`), `fileLoggingEnabled` (default `true`), `retainedLogFileCount` (default `7`).
+- Config: `logLevel` (default `Warning`), `fileLoggingEnabled` (default `false`), `retainedLogFileCount` (default `7`).
 - Debug-level logging in `NavigatorCoordinator`:
   - Every mapped keystroke: key name + state before processing.
   - State transitions: `{before} → {after}` when state changes.

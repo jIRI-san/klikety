@@ -46,7 +46,7 @@ public class Win32SmokeTests {
         var service = new MouseActionService(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         var pos = NativeMethods.GetCursorPosition();
         // Move to current position (no visible effect, just verify no exception)
-        service.MoveTo(pos);
+        Assert.True(service.MoveTo(pos).Succeeded);
     }
 
     [Fact(Skip = "Requires WPF message loop (HwndSource) — run manually in a WPF host")]

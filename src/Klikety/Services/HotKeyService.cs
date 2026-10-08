@@ -24,6 +24,7 @@ public sealed class HotKeyService : IHotKeyService {
     private bool _registered;
 
     public event EventHandler? Activated;
+    public bool IsRegistered => _registered;
 
     public bool Register(HotKeyConfig config) {
         EnsureHwndSource();
@@ -33,8 +34,9 @@ public sealed class HotKeyService : IHotKeyService {
 
     public void Unregister() {
         if (_registered && _hwndSource is not null) {
-            UnregisterHotKey(_hwndSource.Handle, HotKeyId);
-            _registered = false;
+            if (HotKeyRegistrationCleanup.Release(ref _registered, () => UnregisterHotKey(_hwndSource.Handle, HotKeyId)) is { } error) {
+                throw new InvalidOperationException("Main hotkey cleanup failed: " + error);
+            }
         }
     }
 

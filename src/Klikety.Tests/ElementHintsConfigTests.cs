@@ -9,6 +9,27 @@ namespace Klikety.Tests;
 
 public class ElementHintsConfigTests {
     [Fact]
+    public void SettingsAcceptDefaultHintsWithImplicitEnterGridFallback() {
+        var result = ConfigLoader.ReadSettings("""
+            {"configVersion":9,"modes":{
+              "uniformGrid":{"enabled":true,"default":false,"twoKey":true,"arrowKeys":true},
+              "elementHints":{"enabled":true,"default":true,"twoKey":true,"arrowKeys":true}
+            }}
+            """);
+        Assert.Empty(result.Violations);
+        var config = result.Config;
+        Assert.True(config.Modes.ElementHints.Default);
+        Assert.True(config.Modes.UniformGrid.Enabled);
+        Assert.False(config.Modes.UniformGrid.Default);
+    }
+
+    [Fact]
+    public void SettingsRejectExplicitNullHintMode() {
+        Assert.Throws<InvalidDataException>(() =>
+            ConfigLoader.ReadSettings("""{"configVersion":9,"modes":{"elementHints":null}}"""));
+    }
+
+    [Fact]
     public void MigrationAddsDisabledModePreservesBindingsAndUnknownFieldsAndIsIdempotent() {
         string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
         try {

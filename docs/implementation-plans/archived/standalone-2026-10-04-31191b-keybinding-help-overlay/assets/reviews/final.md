@@ -1,6 +1,6 @@
 ## Source
 
-050653717f79c36d24a953137ce9b30af72b3bd5
+95eb0782e1df8e0a7432ede8246fe40a08eaf75b
 
 ## Scope
 
@@ -19,6 +19,7 @@
 - docs/implementation-plans/standalone-2026-10-04-31191b-keybinding-help-overlay/assets/intent.md
 - docs/implementation-plans/standalone-2026-10-04-31191b-keybinding-help-overlay/assets/references.md
 - docs/implementation-plans/standalone-2026-10-04-31191b-keybinding-help-overlay/assets/requirements.md
+- docs/implementation-plans/standalone-2026-10-04-31191b-keybinding-help-overlay/assets/reviews/final.md
 - docs/implementation-plans/standalone-2026-10-04-31191b-keybinding-help-overlay/assets/risks.md
 - docs/implementation-plans/standalone-2026-10-04-31191b-keybinding-help-overlay/plan.md
 - src/Klikety.Tests/ConfigLoaderTests.cs
@@ -51,11 +52,10 @@
 
 ## Completed tasks
 
-- [x] Direct binding, migration, and modifier review — complete
-- [x] Direct dispatch, state-preservation, and lifecycle review — complete
-- [x] Direct measured-layout, rendering, coverage, and documentation review — complete
-- [ ] Required primary-model-mid/high delegated review: ended without a verdict; continuation unavailable for sync agent — interrupted
-- [ ] Step 3.2 detailed live scenarios remain unreported; user approved integration, not whole-plan completion — stuck
+- [x] Replacement CR: binding, versioned migration, collisions, hook modifier snapshots — complete
+- [x] Replacement CR: keyup, latches, close-only preservation, exactly-once forwarding, macro/global-hotkey lifecycle — complete
+- [x] Replacement CR and deterministic adjudication: effective content, measured WPF layout, tests, compaction, documentation — complete
+- [x] Native initial verdict was findings, with task 3 failed: sole P2 rejected by missing 0.58-unit third-row stagger. Both extents are center +/- 8.58 units, span 17.16 units. Exact 75%-width theory passed all 3 cases; no src changes since full tested build. No retry or code change required. — complete
 
 ## Findings
 
@@ -63,4 +63,4 @@ None.
 
 ## Verdict
 
-incomplete
+clean

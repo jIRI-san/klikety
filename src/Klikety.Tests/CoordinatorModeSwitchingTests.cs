@@ -5,6 +5,24 @@ using Klikety.Tests.Fakes;
 namespace Klikety.Tests;
 
 public class CoordinatorModeSwitchingTests {
+    [Fact]
+    public void SettingsUniformGridChord_BeforeLock_RendersUniformGrid() {
+        var config = new ConfigModel {
+            Modes = new ModesConfig {
+                UniformGrid = new ModeConfig { Enabled = true, ChordKey = VKey.OemPlus, TwoKey = true, ArrowKeys = true },
+                Crosshair = new ModeConfig { Enabled = true, Default = true, ChordKey = VKey.N, TwoKey = true, ArrowKeys = true },
+            },
+        };
+        var (coordinator, hotKey, hook, _, overlay, renderer, _, _) = CreateCoordinator(configOverride: config);
+        using (coordinator) {
+            hotKey.SimulateActivation();
+            var renders = renderer.Calls.Count(c => c.Method == "RenderGrid");
+            hook.SimulateKeyDown(VKey.OemPlus);
+            Assert.True(overlay.IsVisible);
+            Assert.Equal(renders + 1, renderer.Calls.Count(c => c.Method == "RenderGrid"));
+        }
+    }
+
     private static (NavigatorCoordinator Coordinator, FakeHotKeyService HotKey, FakeKeyboardHookService Hook,
         FakeMouseActionService Mouse, FakeOverlayWindow Overlay, FakeGridRenderer Renderer, FakePlatformServices Platform,
         FakeModifierDetector ModifierDetector) CreateCoordinator(

@@ -58,6 +58,7 @@ public enum VKey {
     F8 = 0x77,
     F9 = 0x78,
     F10 = 0x79,
+    F11 = 0x7A,
 
     // Alphabet — stable physical positions regardless of layout
     A = 0x41,

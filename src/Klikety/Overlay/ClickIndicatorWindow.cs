@@ -1,3 +1,5 @@
+using System.IO;
+
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
@@ -12,16 +14,27 @@ namespace Klikety.Overlay;
 /// <summary>
 /// Non-activating transparent window that shows a shrinking circle at a screen position
 /// before a macro playback click executes. The circle animates from initialRadius to
-/// finalRadius, then fires Completed and hides itself.
+/// finalRadius, then reports completion to its lifecycle owner.
 /// </summary>
-public sealed class ClickIndicatorWindow : Window {
+public sealed class ClickIndicatorWindow : Window, IClickIndicatorView {
     private readonly Ellipse _circle;
     private readonly PlaybackIndicatorConfig _config;
     private bool _exStyleApplied;
 
-    public event Action? Completed;
+    private DoubleAnimation? _widthAnimation;
+    private EventHandler? _completionHandler;
 
     public ClickIndicatorWindow(PlaybackIndicatorConfig config) {
+        if (!double.IsFinite(config.InitialRadius * 2) || config.InitialRadius <= 0 ||
+            !double.IsFinite(config.FinalRadius * 2) || config.FinalRadius <= 0) {
+            throw new InvalidDataException("Playback indicator radii must be finite and greater than 0 DIP.");
+        }
+        if (!double.IsFinite(config.StrokeThickness) || config.StrokeThickness < 0) {
+            throw new InvalidDataException("Playback indicator strokeThickness must be finite and at least 0.");
+        }
+        if (config.AnimationDurationMs <= 0) {
+            throw new InvalidDataException("Playback indicator animationDurationMs must be greater than 0.");
+        }
         _config = config;
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
@@ -36,8 +49,8 @@ public sealed class ClickIndicatorWindow : Window {
         Height = diameter;
 
         _circle = new Ellipse {
-            Fill = BrushFromHex(config.FillColor),
-            Stroke = BrushFromHex(config.StrokeColor),
+            Fill = BrushFromHex(config.FillColor, "fillColor"),
+            Stroke = BrushFromHex(config.StrokeColor, "strokeColor"),
             StrokeThickness = config.StrokeThickness,
             Width = diameter,
             Height = diameter,
@@ -50,9 +63,9 @@ public sealed class ClickIndicatorWindow : Window {
 
     /// <summary>
     /// Shows the indicator centered at the given physical screen coordinates,
-    /// animates the shrink, then fires Completed and hides.
+    /// animates the shrink, then reports completion for dispatcher-owned cleanup.
     /// </summary>
-    public void ShowAt(double screenX, double screenY) {
+    void IClickIndicatorView.Start(double screenX, double screenY, Action completed) {
         // Apply non-activating style on first show (needs HWND)
         if (!_exStyleApplied) {
             Show();
@@ -78,7 +91,7 @@ public sealed class ClickIndicatorWindow : Window {
         Width = initialDiameter;
         Height = initialDiameter;
 
-        // Clear any leftover animations from previous ShowAt calls
+        // Clear any leftover animations from previous invocations
         BeginAnimation(LeftProperty, null);
         BeginAnimation(TopProperty, null);
         _circle.BeginAnimation(WidthProperty, null);
@@ -95,23 +108,33 @@ public sealed class ClickIndicatorWindow : Window {
         var widthAnim = new DoubleAnimation(initialDiameter, finalDiameter, duration);
         var heightAnim = new DoubleAnimation(initialDiameter, finalDiameter, duration);
 
-        widthAnim.Completed += (_, _) => {
-            Hide();
-            Completed?.Invoke();
-        };
+        _widthAnimation = widthAnim;
+        _completionHandler = (_, _) => completed();
+        widthAnim.Completed += _completionHandler;
 
         _circle.BeginAnimation(WidthProperty, widthAnim);
         _circle.BeginAnimation(HeightProperty, heightAnim);
     }
 
-    private static SolidColorBrush BrushFromHex(string hex) {
+    void IClickIndicatorView.StopAndHide() {
+        if (_widthAnimation is not null && _completionHandler is not null) {
+            _widthAnimation.Completed -= _completionHandler;
+        }
+        _widthAnimation = null;
+        _completionHandler = null;
+        _circle.BeginAnimation(WidthProperty, null);
+        _circle.BeginAnimation(HeightProperty, null);
+        Hide();
+    }
+
+    private static SolidColorBrush BrushFromHex(string hex, string property) {
         try {
             var color = (Color)ColorConverter.ConvertFromString(hex);
             var brush = new SolidColorBrush(color);
             brush.Freeze();
             return brush;
-        } catch {
-            return Brushes.Red;
+        } catch (Exception ex) when (ex is FormatException or InvalidOperationException or NotSupportedException or ArgumentException) {
+            throw new InvalidDataException($"Playback indicator {property} must be a valid color.", ex);
         }
     }
 }
@@ -121,22 +144,18 @@ public sealed class ClickIndicatorWindow : Window {
 /// by dispatching to the UI thread and awaiting animation completion.
 /// </summary>
 public sealed class ClickIndicatorAdapter : IClickIndicator {
-    private readonly ClickIndicatorWindow _window;
-
-    public ClickIndicatorAdapter(ClickIndicatorWindow window) => _window = window;
-
-    public Task ShowAndWait(double screenX, double screenY) {
-        var tcs = new TaskCompletionSource();
-
-        _window.Dispatcher.Invoke(() => {
-            void OnCompleted() {
-                _window.Completed -= OnCompleted;
-                tcs.TrySetResult();
-            }
-            _window.Completed += OnCompleted;
-            _window.ShowAt(screenX, screenY);
-        });
-
-        return tcs.Task;
+    private sealed class WindowDispatcher(ClickIndicatorWindow window) : IIndicatorDispatcher {
+        public bool CheckAccess() => window.Dispatcher.CheckAccess();
+        public void Post(Action action) => window.Dispatcher.BeginInvoke(action);
     }
+
+    private readonly ClickIndicatorLifecycle _lifecycle;
+
+    public ClickIndicatorAdapter(ClickIndicatorWindow window) =>
+        _lifecycle = new ClickIndicatorLifecycle(new WindowDispatcher(window), window);
+
+    public Task ShowAndWait(double screenX, double screenY, CancellationToken ct) =>
+        _lifecycle.ShowAndWait(screenX, screenY, ct);
+
+    public void Dispose() => _lifecycle.Dispose();
 }

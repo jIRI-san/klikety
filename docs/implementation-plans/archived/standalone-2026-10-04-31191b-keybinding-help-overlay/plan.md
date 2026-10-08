@@ -97,10 +97,12 @@
 
   </details>
 
-- [~] 3.2 Verify live keyboard, display, and focus behavior (REQ-1, REQ-2, REQ-3, REQ-5, REQ-6, REQ-7) [after: 3.1] @human `S`
+- [x] 3.2 Verify live keyboard, display, and focus behavior (REQ-1, REQ-2, REQ-3, REQ-5, REQ-6, REQ-7) [after: 3.1] @human `S`
   <details><summary>Live verification</summary>
 
-  **Review status (2026-10-07):** the user reviewed the running build and approved integration: "looks good merge to main, push". Manual-review corrections are implemented, including dismiss-and-forward for non-modifier keys; Escape/help close only, and modifier-only presses keep help open. This user-approved behavior supersedes the original paused-input criterion; that criterion is not claimed passed. The detailed keyboard-layout, multi-display, theme, and DPI scenarios below have not all been reported as run, so this step remains in progress and whole-plan finalization/archival is deferred.
+  **Review history (2026-10-07):** the user reviewed the running build and approved integration: "looks good merge to main, push". Manual-review corrections are implemented, including dismiss-and-forward for non-modifier keys; Escape/help close only, and modifier-only presses keep help open. This user-approved behavior supersedes the original paused-input criterion; that criterion is not claimed passed. Detailed live validation was still awaiting operator completion at that handoff.
+
+  **Human validation (2026-10-07):** the user subsequently confirmed "i validated the implementation, you can archite the plan on main branch". This is explicit completion of the human gate for the delivered, user-approved behavior, not a claim that the historical paused-input criterion passed or an invented per-scenario test log. The historical steps below are preserved. The user separately selected "Authorize one replacement review, then archive and push (Recommended)" to replace the interrupted final reviewer; archival still requires a complete clean review and the installed finalization flow.
 
   **Steps:**
   1. Run the built app with a backed-up test config; test slash and Shift+slash, custom binding, held keys, and Escape at intermediate selections in every enabled mode.

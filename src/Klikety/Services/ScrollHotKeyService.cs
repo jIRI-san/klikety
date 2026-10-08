@@ -23,16 +23,19 @@ public sealed partial class ScrollHotKeyService : IScrollHotKeyService {
     private readonly IMouseActionService _mouseService;
     private readonly ILogger _logger;
     private readonly int _wheelDelta;
+    private readonly Action<string>? _registrationCheckpoint;
 
     private HwndSource? _hwndSource;
     private bool _upRegistered;
     private bool _downRegistered;
 
-    public ScrollHotKeyService(ScrollHotKeyConfig config, IMouseActionService mouseService, ILogger logger) {
+    public ScrollHotKeyService(ScrollHotKeyConfig config, IMouseActionService mouseService, ILogger logger,
+        Action<string>? registrationCheckpoint = null) {
         _config = config;
         _mouseService = mouseService;
         _logger = logger;
         _wheelDelta = WHEEL_DELTA * Math.Max(config.ScrollAmount, 1);
+        _registrationCheckpoint = registrationCheckpoint;
     }
 
     public bool IsRegistered => _upRegistered || _downRegistered;
@@ -48,6 +51,7 @@ public sealed partial class ScrollHotKeyService : IScrollHotKeyService {
             failures.Add($"Scroll up ({_config.ScrollUpKey.Modifiers}+{_config.ScrollUpKey.Key})");
             LogRegisterFailed("scroll up", _config.ScrollUpKey.Modifiers, _config.ScrollUpKey.Key);
         }
+        _registrationCheckpoint?.Invoke("scroll-up");
 
         _downRegistered = RegisterHotKey(
             _hwndSource!.Handle, ScrollDownId,
@@ -56,6 +60,7 @@ public sealed partial class ScrollHotKeyService : IScrollHotKeyService {
             failures.Add($"Scroll down ({_config.ScrollDownKey.Modifiers}+{_config.ScrollDownKey.Key})");
             LogRegisterFailed("scroll down", _config.ScrollDownKey.Modifiers, _config.ScrollDownKey.Key);
         }
+        _registrationCheckpoint?.Invoke("scroll-down");
 
         return failures;
     }
@@ -65,14 +70,14 @@ public sealed partial class ScrollHotKeyService : IScrollHotKeyService {
             return;
         }
 
-        if (_upRegistered) {
-            UnregisterHotKey(_hwndSource.Handle, ScrollUpId);
-            _upRegistered = false;
+        var failures = new List<string>();
+        if (HotKeyRegistrationCleanup.Release(ref _upRegistered, () => UnregisterHotKey(_hwndSource.Handle, ScrollUpId)) is { } upError) {
+            failures.Add("Scroll up hotkey cleanup failed: " + upError);
         }
-        if (_downRegistered) {
-            UnregisterHotKey(_hwndSource.Handle, ScrollDownId);
-            _downRegistered = false;
+        if (HotKeyRegistrationCleanup.Release(ref _downRegistered, () => UnregisterHotKey(_hwndSource.Handle, ScrollDownId)) is { } downError) {
+            failures.Add("Scroll down hotkey cleanup failed: " + downError);
         }
+        if (failures.Count > 0) { throw new InvalidOperationException(string.Join("\n", failures)); }
     }
 
     public void Dispose() {
@@ -104,15 +109,18 @@ public sealed partial class ScrollHotKeyService : IScrollHotKeyService {
         }
 
         if (wParam == ScrollUpId) {
-            _mouseService.SendScroll(_wheelDelta);
+            DispatchScroll(_wheelDelta);
             handled = true;
         } else if (wParam == ScrollDownId) {
-            _mouseService.SendScroll(-_wheelDelta);
+            DispatchScroll(-_wheelDelta);
             handled = true;
         }
 
         return nint.Zero;
     }
+
+    internal void DispatchScroll(int delta) =>
+        InputResultObserver.Observe(_mouseService.SendScroll(delta), _logger);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to register {Direction} hotkey: {Modifiers}+{Key}")]
     private partial void LogRegisterFailed(string direction, HotKeyModifiers modifiers, Input.VKey key);

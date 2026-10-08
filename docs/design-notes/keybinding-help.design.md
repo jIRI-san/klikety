@@ -22,6 +22,9 @@ the navigation canvas and does not replace HelpCanvas or macro prompts.
 ## Binding and Hook Events
 
 - `helpBinding` defaults to enabled `OemQuestion`, with Shift optional. Ctrl, Alt, and Win are rejected. The key is configurable and can require Shift.
+- Settings exposes all three fields on Key bindings using the existing local key picker/capture.
+  Save shares this policy, including Uniform-grid chords, and keeps disabled keys editable
+  without accepting unrecognized VKeys.
 - `ConfigMigrator` advances config version 7 to 8. It adds the default only when collision-free; a collision persists a disabled binding and migration warning. Existing settings and unknown JSON fields are preserved. Invalid explicit VKeys or collisions remain ineffective at runtime and are logged; runtime never silently rebinds.
 - Collision checks include the implicit Space left-click, configured actions/navigation/modes/scope/macros, reserved keys, and overlapping unmodified/Shift-only global hotkey chords. Ctrl/Alt/Win global chords cannot match the overlay help binding.
 - `HookModifierFlags` is a separate flags enum from `ActionModifiers`. `KeyHookEventArgs` retains a compatible optional modifier argument. `KeyboardHookService` captures modifier state in the hook callback, including Win, and posts both key-down and key-up events to the UI dispatcher.
@@ -30,7 +33,7 @@ the navigation canvas and does not replace HelpCanvas or macro prompts.
 
 - Help is a presentation layer owned by `NavigatorCoordinator`, not a state in `NavigatorStateMachine`. Opening requires a visible overlay and active session; activation-period input cannot open it.
 - The help binding is checked before display, macro, app-scope, mode, and session commands. Escape and the matching help binding close help without forwarding; other non-modifier key-downs close help first, then continue through the existing dispatcher exactly once. Modifier-only presses leave help open so modified actions remain usable. Help/Escape keys are latched until key-up. Key-up updates debounce and latch state, then returns without toggling.
-- User-directed manual-review change on 2026-10-07 supersedes the original modal pause behavior: Space can close help and click immediately, and recording/picker/display/navigation keys run their normal commands after dismissal. The original confirmed planning assets remain historical; this change does not constitute completion of their live-verification gate.
+- User-directed manual-review change on 2026-10-07 supersedes the original modal pause behavior: Space can close help and click immediately, and recording/picker/display/navigation keys run their normal commands after dismissal. The original confirmed planning assets remain historical; their paused-input acceptance is superseded, not claimed passed. The user subsequently validated the delivered implementation and authorized archival, completing the human gate.
 - The overlay renders help on a separate `HelpCanvas`; closing it only hides that canvas, preserving session identity, selection, cursor, scope, drag and recorder state. Recording time continues and opening help does not create a macro step.
 - `ClearHelpState()` is idempotent and clears the visible flag and latches before hide, deactivation, disposal, or macro suspension. The global macro picker uses the existing hook-disable/suspend/resume handoff and does not expose help in picker or playback windows.
 

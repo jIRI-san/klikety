@@ -29,7 +29,13 @@ All Win32 interaction is behind interfaces (`IHotKeyService`, `IKeyboardHookServ
 ```csharp
 interface IHotKeyService   { event EventHandler Activated; bool Register(HotKeyConfig); void Unregister(); }
 interface IKeyboardHookService { event EventHandler<KeyHookEventArgs> KeyEvent; bool Enable(); void Disable(); }
-interface IMouseActionService  { void MoveTo(Point physicalPoint); void SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None); void SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None); void SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None); }
+interface IMouseActionService {
+    InputResult MoveTo(Point physicalPoint);
+    InputResult SendAction(Point physicalPoint, MouseAction action, ActionModifiers modifiers = ActionModifiers.None);
+    InputResult SendScroll(int wheelDelta, ActionModifiers modifiers = ActionModifiers.None);
+    Task<InputResult> SendDrag(Point start, Point end, MouseAction button, ActionModifiers modifiers = ActionModifiers.None);
+    InputResult ClearStuckModifiers();
+}
 interface IModifierDetector    { ActionModifiers GetCurrentModifiers(); }
 interface IScrollHotKeyService { List<string> Register(); void Unregister(); bool IsRegistered; }
 interface IScreenBoundsProvider { Rectangle GetPrimaryScreenBounds(); double GetDpiScale(); }
@@ -47,6 +53,8 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 - `KeyEvent` event raised on UI thread only.
 - If `SetWindowsHookEx` returns null, `Enable()` returns `false`; overlay closed + tray notification.
 - `Disable()`: only nulls `_hookProc` (allowing GC) if `UnhookWindowsHookEx` returns success. Prevents crash from collected callback if unhook fails.
+- `Dispose()` reports a failed unhook and remains retryable; settings resource owners retain failed cleanup callbacks. Main/scroll/macro hotkey cleanup clears registration flags only after successful native unregistration and reports failures, attempting both scroll releases independently.
+- A disposal attempt stops queued/new consumer dispatch and key suppression even if native unhook fails. The callback remains rooted until successful release; a disposed/disposing hook cannot be re-enabled. The internal held-hook/unhook seam tests failed release without installing or touching a native hook.
 - Constructor accepts optional `ILogger? logger = null`. Logs at Debug level: "Keyboard hook enabled", "Keyboard hook disabled", "Keyboard hook enable failed". Uses `[LoggerMessage]` source generator. Does not log captured key values.
 - Supports multiple instances per process (e.g. overlay hook + key press display hook). Each instance owns its own `WH_KEYBOARD_LL` hook and `_generation` counter.
 
@@ -59,10 +67,14 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 ## `IMouseActionService` — `SendInput`
 
 - `MoveTo`: normalizes physical-pixel coords to 0–65535 against the virtual desktop (`SM_*VIRTUALSCREEN`), then sends `MOUSEINPUT` with `MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_VIRTUALDESK`. Guards against zero-dimension screens with `Math.Max(bounds.Width - 1, 1)` divisor. `NormalizeAbsolute(point, virtualScreen)` is unit-tested with a negative origin.
-- `SendAction`: calls `MoveTo` first, then sends appropriate `MOUSEEVENTF_*DOWN/UP` pairs. `MoveOnly` action returns after `MoveTo` — no click inputs sent. Double-click = two left-click pairs in sequence. When `modifiers != None`, wraps all click pairs in `KEYDOWN`/`KEYUP` for Shift/Ctrl/Alt via a single `SendInput` call.
+- `SendAction`: calls `MoveTo` first; an incomplete movement suppresses the dependent click. `MoveOnly`/`DragDrop` return its movement result without button input. Double-click = two left-click pairs in sequence. Requested modifiers wrap clicks in Shift/Ctrl/Alt `KEYDOWN`/`KEYUP` order in one batch.
 - `INPUT` struct uses nested union pattern (`INPUT` → `INPUT_UNION`) for correct x64 alignment. The runtime handles padding between `type` and the union.
-- Partial `SendInput` sends trigger compensating `KEYUP` events to prevent stuck modifiers.
-- `SendDrag`: single `SendInput` call with move-to-start + button-down + move-to-end + button-up, plus modifier KEYDOWN/KEYUP bracket. Button mapping: `LeftClick`/`DoubleClick` → left, `RightClick` → right, `MiddleClick` → middle. `MoveOnly`/`DragDrop` defensively rejected (return without action).
+- Every send returns `InputSendOutcome` (stage, requested/sent counts, nullable native error). `InputResult` retains all primary phase outcomes plus any release-cleanup outcome. The native sender captures last-error before compensation; zero means diagnostics unavailable, not evidence of success. UIPI rejection may provide no useful error.
+- Incomplete sends track held synthetic buttons/modifiers from the accepted prefix, including earlier drag phases, and attempt one release-only batch (button before modifiers). No click, movement or wheel replay; no extra releases for unsent inputs. Cleanup failure is logged and retained without overwriting the primary failure. This is best effort: Windows can reject releases too, and synthetic key-up can affect physically held keys.
+- `ClearStuckModifiers` retains Alt/Ctrl/Shift release order and reports incomplete release without retry.
+- `SendDrag`: an owned background task preserves the original initial-phase dispatch boundary. Three phases: modifier-downs + move-to-start + button-down; 100 ms delay; threshold nudge; 50 ms delay; move-to-end + button-up + modifier-ups. Each phase checks its typed outcome before proceeding. Button mapping remains left/right/middle (`DoubleClick` maps left); invalid drag buttons throw. Delays use `IDelayProvider` without UI-context capture or blocking sleeps. Once dispatched, drag phases finish/release before a macro observes cancellation; cancellation cannot undo sent input.
+- Internal typed `IInputSender`, virtual-screen geometry delegate and delay seams support hermetic tests without exposing native arrays in public app APIs. The Win32 `INPUT` layout is unchanged.
+- All action/coordinator/scroll callers observe results and log failures. Non-macro drag observers await/catch task failures; they do not change recording contents or overlay restoration. Macro playback awaits drag and returns `InputFailed` without progress for the failed step.
 - All geometry in physical pixels; DIP→physical conversion happens at WPF rendering boundary only, via `PresentationSource.CompositionTarget.TransformToDevice`.
 - `SendScroll`: sends `MOUSEEVENTF_WHEEL` at current cursor position. `mouseData` = `WHEEL_DELTA (120) × scrollAmount`. Positive = up, negative = down. No cursor move. When `modifiers != None`, wraps wheel event in `KEYDOWN`/`KEYUP` bracket via single `SendInput` call with partial-send compensation.
 
@@ -108,20 +120,12 @@ interface IDisplayCatalog { DisplayCatalogResult GetSnapshot(); }
 ## `IForegroundWindowProvider` — `DwmGetWindowAttribute` + `IsIconic`
 
 - Two-method API: `GetForegroundWindowHandle()` returns the HWND of the foreground window; `GetWindowBounds(nint hwnd)` returns the window's physical-pixel bounds.
-- `GetWindowBounds` uses `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` for accurate bounds (excludes invisible DWM borders). `Marshal.SizeOf<RECT>()` cached in a static field.
-- `IsIconic(hwnd)` check: minimized windows return `Rectangle.Empty` — callers must validate.
-- Bounds validation: zero or negative width/height → `Rectangle.Empty`.
+- `GetWindowBounds` uses `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` for visible bounds excluding invisible shadow/border padding. `Marshal.SizeOf<RECT>()` is cached in static `RectSize` to avoid per-call reflection.
+- `IsIconic(hwnd)` is checked before DWM, which may return stale restored geometry for minimized windows. Minimized windows return `Rectangle.Empty`; callers must validate.
+- Failure → `Rectangle.Empty`: invalid/zero HWND, DWM failure, or zero/negative width or height; callers must validate this result.
 - Pre-capture pattern: `NavigatorCoordinator` captures `_preOverlayHwnd` via `GetForegroundWindowHandle()` before showing the overlay (in `OnHotKeyActivated`). The app-scope chord later uses this saved handle to get the target window's bounds — ensuring the overlay's own HWND isn't captured.
-- Real implementation: `Win32ForegroundWindowProvider` wraps `NativeMethods`. Fake: `FakeForegroundWindowProvider` with configurable `Handle` and `Bounds` properties.
-
-- Two-method API: `GetForegroundWindowHandle()` returns the current foreground window HWND; `GetWindowBounds(nint hwnd)` returns physical-pixel bounds for a given HWND.
-- Bounds acquired via `DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS)` — returns the visible window rect excluding invisible Win10+ shadow/border.
-- Minimized detection: `IsIconic(hwnd)` called before DWM query. DWM may return stale restored geometry for minimized windows.
-- Pre-capture pattern: HWND captured in `OnHotKeyActivated` before `Show()` to avoid self-detection (overlay becomes foreground after `Show()`). Bounds retrieved for stored HWND at chord-press time.
-- Failure → `Rectangle.Empty`: null/zero HWND, minimized, DWM failure, or zero-area bounds.
-- Production: `Win32ForegroundWindowProvider` wraps `NativeMethods`. Fake: `FakeForegroundWindowProvider` with configurable `Handle` and `Bounds`.
+- Production: `Win32ForegroundWindowProvider` wraps `NativeMethods`. Fake: `FakeForegroundWindowProvider` with configurable `Handle` and `Bounds` properties.
 - Part of `IPlatformServices`; injected via DI.
-- `Marshal.SizeOf<RECT>()` cached in a static `RectSize` field to avoid per-call reflection.
 
 ## `NativeMethods.GetWindowTitle(nint)` — `GetWindowTextW` + `GetWindowTextLengthW`
 

@@ -10,6 +10,8 @@ namespace Klikety.Config;
 public sealed class ConfigLoadResult {
     public required ConfigModel Config { get; init; }
     public IReadOnlyList<string> Violations { get; init; } = [];
+    public IReadOnlyList<string> SettingsBlockingErrors { get; init; } = [];
+    public IReadOnlyList<string> SettingsWarnings { get; init; } = [];
 }
 
 /// <summary>
@@ -43,6 +45,145 @@ public static class ConfigLoader {
     };
 
     public static ConfigLoadResult Load() => Load(ConfigPath);
+
+    // Settings must never migrate or substitute defaults for an unreadable document.
+    internal static ConfigLoadResult ReadSettings(string json, IEnumerable<string>? editedPaths = null) {
+        using var document = System.Text.Json.JsonDocument.Parse(json, new() {
+            CommentHandling = System.Text.Json.JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        });
+        if (document.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) {
+            throw new InvalidDataException("Settings config must be a JSON object.");
+        }
+        var config = System.Text.Json.JsonSerializer.Deserialize<ConfigModel>(json, JsonOptions)
+            ?? throw new InvalidDataException("Settings config is null.");
+        if (config.ConfigVersion != ConfigMigrator.CurrentConfigVersion) {
+            throw new InvalidDataException($"Settings edits version {ConfigMigrator.CurrentConfigVersion} only. Reload/migrate the config before opening Settings.");
+        }
+        if (config.HotKey is null || config.Modes is null ||
+            config.Modes.UniformGrid is null || config.Modes.Crosshair is null ||
+            config.Modes.LogCrosshair is null || config.Modes.LogGrid is null || config.Modes.ElementHints is null ||
+            config.HorizontalKeys is null || config.VerticalKeys is null ||
+            config.ActionBindings is null || config.ScrollHotKeys is null ||
+            config.ScrollHotKeys.ScrollUpKey is null || config.ScrollHotKeys.ScrollDownKey is null ||
+            config.KeyPressVisualization is null || config.Macros is null ||
+            config.Macros.PlaybackIndicator is null || config.AppScope is null || config.HelpBinding is null ||
+            config.Theme is null || config.LogLevel is null) {
+            throw new InvalidDataException("Required config sections/values cannot be null.");
+        }
+        var violations = Validate(config);
+        if (!Enum.GetNames<Microsoft.Extensions.Logging.LogLevel>().Contains(config.LogLevel, StringComparer.OrdinalIgnoreCase)) {
+            violations.Add($"logLevel must be one of Trace, Debug, Information, Warning, Error, Critical, or None (got '{config.LogLevel}').");
+        }
+        if (config.RetainedLogFileCount < 1) {
+            violations.Add($"retainedLogFileCount must be at least 1 (got {config.RetainedLogFileCount}).");
+        }
+        if (!double.IsFinite(config.MinLabelFontSize) || config.MinLabelFontSize <= 0) {
+            violations.Add("Minimum label size must be a finite number greater than zero.");
+        }
+        if (config.Level3CellSizeThreshold < 0) {
+            violations.Add("Level-3 area threshold must be zero or greater.");
+        }
+        ValidateSettingsFields(config, violations);
+        var changed = editedPaths?.ToArray() ?? [];
+        var warnings = GetSettingsWarnings(config, changed);
+        return new ConfigLoadResult {
+            Config = config,
+            Violations = violations,
+            SettingsBlockingErrors = violations.Where(error =>
+                !warnings.Contains(error, StringComparer.Ordinal) && !IsUneditedLegacyFloor(config, error, changed)).ToArray(),
+            SettingsWarnings = warnings,
+        };
+    }
+
+    private static void ValidateSettingsFields(ConfigModel config, List<string> errors) {
+        void Key(string path, VKey key) {
+            if (!Enum.IsDefined(key)) { errors.Add($"{path}: unrecognized physical key."); }
+        }
+        void Hotkey(string path, HotKeyConfig hotkey) {
+            Key(path + ".key", hotkey.Key);
+            if (((int)hotkey.Modifiers & ~15) != 0) { errors.Add($"{path}.modifiers: invalid modifier flags."); }
+        }
+        Hotkey("hotKey", config.HotKey);
+        Key("helpBinding.key", config.HelpBinding.Key);
+        Hotkey("scrollHotkeys.scrollUpKey", config.ScrollHotKeys.ScrollUpKey);
+        Hotkey("scrollHotkeys.scrollDownKey", config.ScrollHotKeys.ScrollDownKey);
+        if (config.ScrollHotKeys.ScrollAmount is < 1 or > 100) {
+            errors.Add("scrollHotkeys.scrollAmount must be between 1 and 100.");
+        }
+        foreach (var (name, mode) in new[] {
+            ("uniformGrid", config.Modes.UniformGrid), ("crosshair", config.Modes.Crosshair),
+            ("logCrosshair", config.Modes.LogCrosshair), ("logGrid", config.Modes.LogGrid),
+            ("elementHints", config.Modes.ElementHints),
+        }) {
+            if (mode.ChordKey is { } chord) { Key($"modes.{name}.chordKey", chord); }
+            if (mode.LogBaseSize is < 2 or > 50) { errors.Add($"modes.{name}.logBaseSize must be between 2 and 50."); }
+            if (mode.LogGridBaseSize is < 2 or > 50) { errors.Add($"modes.{name}.logGridBaseSize must be between 2 and 50."); }
+        }
+        if (config.AppScope.ChordKey is { } scope) { Key("appScope.chordKey", scope); }
+        foreach (var key in config.HorizontalKeys) { Key("horizontalKeys", key); }
+        foreach (var key in config.VerticalKeys) { Key("verticalKeys", key); }
+        foreach (var (name, action) in config.ActionBindings) {
+            if (!Enum.TryParse<VKey>(name, true, out var key) || !Enum.IsDefined(key)) {
+                errors.Add($"actionBindings: unrecognized key '{name}'.");
+            }
+            if (!Enum.IsDefined(action)) { errors.Add($"actionBindings: unrecognized action for '{name}'."); }
+        }
+        Key("macros.recordKey", config.Macros.RecordKey);
+        Key("macros.helperKey", config.Macros.HelperKey);
+        if (config.Macros.GlobalHotKey is { } global) { Hotkey("macros.globalHotKey", global); }
+        if (config.Macros.SlotKeys is null) { errors.Add("macros.slotKeys cannot be null."); } else { foreach (var key in config.Macros.SlotKeys) { Key("macros.slotKeys", key); } }
+    }
+
+    private static List<string> GetSettingsWarnings(ConfigModel config, IReadOnlyCollection<string>? editedPaths = null) {
+        var warnings = new List<string>();
+        if (config.Modes.LogGrid.Enabled &&
+            LogGridKeyPolicy.Evaluate(config.HorizontalKeys, config.VerticalKeys).Warning is { } keyWarning) {
+            warnings.Add(keyWarning);
+        }
+        if (config.Macros.Enabled && config.Macros.SlotKeys is { } keys) {
+            if (keys.Length < 10) {
+                warnings.Add($"macros.slotKeys has fewer than 10 entries (got {keys.Length}); missing slots will use defaults.");
+            } else if (keys.Length > 10) {
+                warnings.Add($"macros.slotKeys has more than 10 entries (got {keys.Length}); extra entries ignored.");
+            }
+        }
+        var indicator = config.Macros.PlaybackIndicator;
+        AddLegacyFloorWarning("macros.playbackIndicator.initialRadius", indicator.InitialRadius is > 0 and < 1,
+            IndicatorFloorError("macros.playbackIndicator.initialRadius", "1 DIP", indicator.InitialRadius), editedPaths);
+        AddLegacyFloorWarning("macros.playbackIndicator.finalRadius", indicator.FinalRadius is > 0 and < 1,
+            IndicatorFloorError("macros.playbackIndicator.finalRadius", "1 DIP", indicator.FinalRadius), editedPaths);
+        AddLegacyFloorWarning("macros.playbackIndicator.animationDurationMs", indicator.AnimationDurationMs is > 0 and < 100,
+            IndicatorFloorError("macros.playbackIndicator.animationDurationMs", "100 ms", indicator.AnimationDurationMs), editedPaths);
+        return warnings;
+
+        void AddLegacyFloorWarning(string path, bool belowFloor, string message, IReadOnlyCollection<string>? changedPaths) {
+            if (belowFloor && !IsEdited(path, changedPaths)) {
+                warnings.Add(message + "; existing legacy value is retained until edited.");
+            }
+        }
+    }
+
+    private static bool IsEdited(string path, IReadOnlyCollection<string>? changedPaths) =>
+        changedPaths?.Any(changed => path.Equals(changed, StringComparison.OrdinalIgnoreCase) ||
+            path.StartsWith(changed + ".", StringComparison.OrdinalIgnoreCase) ||
+            changed.StartsWith(path + ".", StringComparison.OrdinalIgnoreCase)) == true;
+
+    private static bool IsUneditedLegacyFloor(ConfigModel config, string error, IReadOnlyCollection<string> editedPaths) {
+        var indicator = config.Macros.PlaybackIndicator;
+        return !IsEdited("macros.playbackIndicator.initialRadius", editedPaths) && indicator.InitialRadius is > 0 and < 1 &&
+                   error == IndicatorFloorError("macros.playbackIndicator.initialRadius", "1 DIP", indicator.InitialRadius) ||
+               !IsEdited("macros.playbackIndicator.finalRadius", editedPaths) && indicator.FinalRadius is > 0 and < 1 &&
+                   error == IndicatorFloorError("macros.playbackIndicator.finalRadius", "1 DIP", indicator.FinalRadius) ||
+               !IsEdited("macros.playbackIndicator.animationDurationMs", editedPaths) && indicator.AnimationDurationMs is > 0 and < 100 &&
+                   error == IndicatorFloorError("macros.playbackIndicator.animationDurationMs", "100 ms", indicator.AnimationDurationMs);
+    }
+
+    private static string IndicatorFloorError(string path, string floor, double value) =>
+        $"{path} must be at least {floor} (got {value}).";
+
+    private static string IndicatorFloorError(string path, string floor, int value) =>
+        $"{path} must be at least {floor} (got {value}).";
 
     public static ConfigLoadResult Load(string path) {
         // Run migration pre-pass before deserialization
@@ -234,6 +375,11 @@ public static class ConfigLoader {
 
         // === Macro key validation ===
         ValidateMacros(config, violations, actionKeys, allNavKeys, hotkeyVKeys);
+        if (config.Macros?.PlaybackIndicator is { } indicator) {
+            ValidatePlaybackIndicator(indicator, violations);
+        } else {
+            violations.Add("macros.playbackIndicator cannot be null.");
+        }
 
         // === App-scope validation ===
         ValidateAppScope(config, violations, actionKeys, allNavKeys, hotkeyVKeys);
@@ -310,8 +456,9 @@ public static class ConfigLoader {
                 continue;
             }
 
-            // Enabled non-default mode must have a chord key
-            if (!mc.Default && mc.ChordKey is null) {
+            // Default element hints already expose UniformGrid through Enter.
+            if (!mc.Default && mc.ChordKey is null &&
+                !(name == "UniformGrid" && modes.ElementHints is { Enabled: true, Default: true })) {
                 violations.Add($"{name}: enabled non-default mode must have a chordKey.");
                 continue;
             }
@@ -410,13 +557,15 @@ public static class ConfigLoader {
 
     private static void ValidateMacros(ConfigModel config, List<string> violations, HashSet<VKey> actionKeys, HashSet<VKey> navKeys, HashSet<VKey> hotkeyVKeys) {
         var macros = config.Macros;
-        if (macros is null || !macros.Enabled) {
+        if (macros is null) {
             return;
         }
 
-        // SpeedModifier validation
-        if (macros.SpeedModifier < 0) {
-            violations.Add($"macros.speedModifier must be >= 0 (got {macros.SpeedModifier}); clamped to 0.");
+        if (!double.IsFinite(macros.SpeedModifier) || macros.SpeedModifier < 0) {
+            violations.Add($"macros.speedModifier must be finite and >= 0 (got {macros.SpeedModifier}).");
+        }
+        if (!macros.Enabled) {
+            return;
         }
 
         // Collect chord keys for conflict checking
@@ -525,17 +674,44 @@ public static class ConfigLoader {
         "TopLeft", "TopRight", "BottomLeft", "BottomRight",
     };
 
+    private static void ValidatePlaybackIndicator(PlaybackIndicatorConfig indicator, List<string> violations) {
+        if (!IsValidHexColor(indicator.FillColor)) {
+            violations.Add("macros.playbackIndicator.fillColor must be a valid hex color.");
+        }
+        if (!IsValidHexColor(indicator.StrokeColor)) {
+            violations.Add("macros.playbackIndicator.strokeColor must be a valid hex color.");
+        }
+        if (!double.IsFinite(indicator.StrokeThickness) || indicator.StrokeThickness < 0) {
+            violations.Add("macros.playbackIndicator.strokeThickness must be a finite number greater than or equal to 0.");
+        }
+        if (!double.IsFinite(indicator.InitialRadius * 2) || indicator.InitialRadius <= 0) {
+            violations.Add("macros.playbackIndicator.initialRadius must be a finite number greater than 0.");
+        } else if (indicator.InitialRadius < 1) {
+            violations.Add(IndicatorFloorError("macros.playbackIndicator.initialRadius", "1 DIP", indicator.InitialRadius));
+        }
+        if (!double.IsFinite(indicator.FinalRadius * 2) || indicator.FinalRadius <= 0) {
+            violations.Add("macros.playbackIndicator.finalRadius must be a finite number greater than 0.");
+        } else if (indicator.FinalRadius < 1) {
+            violations.Add(IndicatorFloorError("macros.playbackIndicator.finalRadius", "1 DIP", indicator.FinalRadius));
+        }
+        if (indicator.AnimationDurationMs <= 0) {
+            violations.Add("macros.playbackIndicator.animationDurationMs must be greater than 0.");
+        } else if (indicator.AnimationDurationMs < 100) {
+            violations.Add(IndicatorFloorError("macros.playbackIndicator.animationDurationMs", "100 ms", indicator.AnimationDurationMs));
+        }
+    }
+
     private static void ValidateKeyPressVisualization(KeyPressVisualizationConfig kpv, List<string> violations) {
-        if (kpv.FontSize <= 0) {
-            violations.Add($"keyPressVisualization.fontSize must be > 0 (got {kpv.FontSize}).");
+        if (!double.IsFinite(kpv.FontSize) || kpv.FontSize <= 0) {
+            violations.Add($"keyPressVisualization.fontSize must be finite and > 0 (got {kpv.FontSize}).");
         }
 
-        if (kpv.OutlineThickness < 0) {
-            violations.Add($"keyPressVisualization.outlineThickness must be >= 0 (got {kpv.OutlineThickness}).");
+        if (!double.IsFinite(kpv.OutlineThickness) || kpv.OutlineThickness < 0) {
+            violations.Add($"keyPressVisualization.outlineThickness must be finite and >= 0 (got {kpv.OutlineThickness}).");
         }
 
-        if (kpv.Margin < 0) {
-            violations.Add($"keyPressVisualization.margin must be >= 0 (got {kpv.Margin}).");
+        if (!double.IsFinite(kpv.Margin) || kpv.Margin < 0) {
+            violations.Add($"keyPressVisualization.margin must be finite and >= 0 (got {kpv.Margin}).");
         }
 
         if (!IsValidHexColor(kpv.FontColor)) {
@@ -567,7 +743,7 @@ public static class ConfigLoader {
         }
     }
 
-    private static bool IsValidHexColor(string color) {
+    internal static bool IsValidHexColor(string color) {
         if (string.IsNullOrEmpty(color) || color[0] != '#') {
             return false;
         }

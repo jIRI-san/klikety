@@ -9,6 +9,7 @@ globs:
   - src/Klikety/Overlay/MacroPickerOverlay.xaml*
   - src/Klikety/Overlay/MacroPlaybackOverlay.xaml*
   - src/Klikety/Overlay/ClickIndicatorWindow.cs
+  - src/Klikety/Overlay/ClickIndicatorLifecycle.cs
   - src/Klikety/Services/MacroHotKeyService.cs
 ---
 
@@ -40,7 +41,7 @@ MacrosFile
 
 - `MacroActionType`: `LeftClick`, `RightClick`, `MiddleClick`, `DoubleClick`, `MoveOnly`, `DragDrop`, `Scroll`.
 - `MacroPositionMode`: `Absolute` (default, screen coordinates), `WindowRelative` (offsets from target window top-left).
-- `RelativeTimeMs`: delay before this step (relative to recording start, not previous step).
+- `RelativeTimeMs`: persisted inter-step interval. The first step measures from recording start; later steps measure from the preceding recorder timer reset, not an absolute timestamp. A drag pair stores the interval captured at its start; selecting its endpoint resets the timer again, so the following step measures from endpoint selection. Saved values and format are unchanged.
 - `SpeedModifier`: per-macro speed multiplier (default 1.0). Overrides global `config.macros.speedModifier` when ≠ 1.0.
 - `StartFromCursor`: `bool` on `MacroStep`, default `false`. Only valid on `DragDrop` steps. `[JsonIgnore(Condition = WhenWritingDefault)]` suppresses serialization when false.
 - `WindowRelative` fields: `WindowWidth`/`WindowHeight` = recorded window dimensions, `WindowTitlePattern` = substring for title matching at playback.
@@ -116,11 +117,12 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 - **Per-step drift check** (WindowRelative): before each action step, re-verify foreground HWND matches and window bounds haven't changed. Focus lost → `PlaybackResult.WindowDrift`. Resized → `WindowDrift`. Moved → update bounds for next step (coordinates stay correct).
 - **StartFromCursor** (WindowRelative DragDrop): when `step.StartFromCursor == true`, drag starts from `PlaybackContext.InitialCursorPosition` instead of resolved step position. End point still resolved normally.
 - **PlaybackContext**: record passed to `Play()` with `PositionMode`, `WindowBounds`, `WindowTitle`, `WindowHwnd`, `InitialCursorPosition`. `PlaybackContext.Absolute` for screen-space macros. Built from `_preOverlayHwnd` (captured before overlay opens). **Critical**: `StartPlayback(macro, targetHwnd)` takes an explicit HWND parameter — callers must save `_preOverlayHwnd` before any `_overlayWindow.Hide()` call, because `Hide()` triggers `DeactivateOverlay()` which zeros `_preOverlayHwnd`. Global hotkey path captures HWND at activation time.
-- **PlaybackResultKind**: `Completed`, `Cancelled`, `ScreenMismatch`, `WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`.
-- **Speed modifier**: `delay = Math.Max(50, (int)(relativeTimeMs × speedModifier))`. When `speedModifier == 0` → 100ms fixed. 50ms global floor prevents input coalescing. Per-macro `SpeedModifier` overrides global config when ≠ 1.0.
+- **PlaybackResultKind**: `Completed`, `Cancelled`, `InputFailed`, `ScreenMismatch`, `WindowMismatch`, `CoordinateOutOfBounds`, `WindowDrift`. An incomplete native action carries its `InputResult` and diagnostic message, stops later steps and emits no progress for the failed step. The handler logs one playback error, closes progress and returns to idle with the existing overlay restoration; no new tray event.
+- **Speed modifier**: `delay = Math.Max(50, (int)(relativeTimeMs × speedModifier))`. When `speedModifier == 0` → 100ms fixed. 50ms global floor prevents input coalescing. Per-macro `SpeedModifier` overrides global config when ≠ 1.0. The global Settings value must be finite and ≥ 0; negative values are rejected rather than silently clamped.
 - **Delay chunking**: delays split into 50ms ticks for live countdown updates. `DelayUpdate(remainingMs, actionType)` event fires each tick.
-- **Click indicator**: `IClickIndicator.ShowAndWait(x, y)` called before each action step (except `MoveOnly`). Non-activating, click-through WPF window. Shrinking circle animation (configurable via `PlaybackIndicatorConfig`). Waits for animation to complete before executing the click.
-- **Cancellation**: `CancellationToken` checked before each step. Escape via hook → cancel CTS.
+- **Drag sequencing**: await the typed drag outcome before reporting progress or starting the next saved inter-step interval. Native drag delays remain 100 ms then 50 ms. This intentionally removes the old fire-and-forget overlap (about 150 ms); serialized intervals, speed scaling and floors remain unchanged.
+- **Click indicator**: `IClickIndicator.ShowAndWait(x, y, ct)` called before each action step (except `MoveOnly`). Non-activating, click-through WPF window. `ClickIndicatorLifecycle` composes dispatcher/view seams; completion, cancellation and disposal stop animations, detach handlers and hide on the dispatcher. Operation identity guards ignore stale completions after reuse. Cancellation callbacks only queue cleanup; they never synchronously invoke the dispatcher.
+- **Cancellation**: `CancellationToken` checked before each step and immediately before input dispatch, after any awaited indicator. Escape via hook cancels the current operation. Cancellation skips pending input and its progress event; it cannot undo input already dispatched.
 - **Progress**: `StepCompleted(completed, total)` event per step → updates `MacroPlaybackOverlay` progress bar.
 
 ### Playback Overlay
@@ -130,13 +132,17 @@ Full chain in `OnKeyEvent` (coordinator delegates to `MacroHandler.TryHandleKey(
 ### Async Lifecycle
 
 ```csharp
-try { result = await _player.Play(macro, _playbackCts.Token); }
-catch (OperationCanceledException) { /* normal cancel */ }
-catch (Exception ex) { _logger.LogError(...); }
-finally { if (!_disposed) OnPlaybackFinished(result); }
+try { result = await operation.Player.Play(macro, context, operation.Cancellation.Token); }
+catch (OperationCanceledException) when (operation.Cancellation.IsCancellationRequested) { /* normal cancel */ }
+catch (Exception ex) { /* InputFailed with diagnostic; handler logs once */ }
+finally { /* dispose operation CTS; finish only if still current and not disposed */ }
 ```
 
-`Dispose()`: cancel CTS → `_playbackTask.Wait()` (drain) → `_disposed = true` → existing teardown.
+`Dispose()` marks the handler disposed, releases its current-operation reference and initiates cancellation without draining playback. Each operation owns its task/CTS; resource completion and native drag delays do not capture the UI context, so CTS cleanup can finish after the dispatcher stops pumping. A small operation lock serializes cancellation against CTS disposal. Progress/restoration marshal through the captured synchronization context with identity/disposal guards; late callbacks cannot mutate a replacement.
+
+Indicator teardown runs directly when already on its dispatcher, otherwise queues there. Cancellation callbacks queue active-view cleanup; not-yet-started operations complete cancellation without dispatcher pumping and cannot start later. Thus quit can cancel queued starts and stop/hide/unsubscribe before `Shutdown()` without a dispatcher wait. No live WPF/STA harness is required for these ownership rules.
+
+Recording still stores attempted actions before native dispatch, including failed attempts. Non-macro drag observers log typed failures or task exceptions without changing the existing recording prompt, 200 ms resume scheduling or successful overlay restoration policy.
 
 ### Post-Playback Restoration
 
@@ -152,8 +158,10 @@ finally { if (!_disposed) OnPlaybackFinished(result); }
 - `RecordKey` (VKey, default `OemPipe` = backslash)
 - `HelperKey` (VKey, default `OemTilde` = backtick)
 - `SlotKeys` (VKey[10], default `F1`–`F10`)
-- `SpeedModifier` (double, default 1.0; 0 → 100ms fixed; negative → clamped to 0)
-- `PlaybackIndicator` (PlaybackIndicatorConfig — fill/stroke color, initial/final radius, animation duration)
+- `SpeedModifier` (double, default 1.0; finite and ≥ 0; 0 → 100ms fixed)
+- `PlaybackIndicator` (`fillColor`, `strokeColor`, `strokeThickness`, `initialRadius`, `finalRadius`, `animationDurationMs`). Settings requires finite/safe colors and dimensions; edited radii must be ≥ 1 DIP and duration ≥ 100 ms. Untouched legacy values below these schema floors are warned and preserved. Invalid runtime construction is reported, not silently replaced with a red brush.
+
+The production Settings window edits these values without touching `macros.json`; recorded definitions remain isolated in that separate file. See [settings.design.md](settings.design.md) for draft, JSONC, and apply/recovery behavior.
 
 Config version: v4→v5 migration adds `macros` section. Key collision matrix validates all macro keys against reserved/action/nav/chord/scroll/hotkey sets.
 

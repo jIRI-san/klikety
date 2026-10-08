@@ -57,6 +57,13 @@ Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, Actio
 
 ## Mode Switching (Chord Dispatch)
 
+The settings editor exposes changing the default mode and explicitly configuring
+the former default's chord. `BuildChordKeyMap` includes enabled Uniform grid with a
+configured chord. Missing mode objects are seeded with their effective defaults during
+targeted settings edits to avoid resetting omitted bools. Settings shows both logarithmic
+size fields in each mode's Advanced section and explains that only the matching mode uses
+each value. See [settings.design.md](settings.design.md).
+
 - Each mode except the default has a `ChordKey` (`VKey?`).
 - Chord keys are processed before the active session when `_modeLocked` is false.
 - After any nav/arrow/action key is pressed, `_modeLocked = true` — subsequent chord keys go to the session (which flashes invalid).
@@ -90,7 +97,7 @@ Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, Actio
 **Grid**: `LogGridCalculator` produces a `(N+1)×(M+1)` grid with logarithmic cell sizing. Cells grow geometrically from center outward. **Cross-arm cells** (center row and center column) expand proportionally in their perpendicular dimension: horizontal arm cells grow in height (30% of width, minimum = center row height), vertical arm cells grow in width (30% of height, minimum = center column width). This ensures labels remain readable on all cross cells regardless of aspect ratio.
 
 Algorithm:
-1. Center cell has `logBaseSize` pixels width/height (default 5).
+1. Center cell has `logBaseSize` pixels width/height (default 10).
 2. Growth ratio found via binary search per axis: `baseSize · (r + r² + … + r^cellsPerSide) = availableDistance`.
 3. The shorter half-axis constrains the ratio; outermost cells on the longer side absorb remaining space (last-cell absorption).
 4. Cross-arm cells are anchored on the center axis (centerY for horiz arm, centerX for vert arm) and expand symmetrically.

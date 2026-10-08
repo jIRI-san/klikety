@@ -1,4 +1,143 @@
-# Pre-human implementation checkpoint
+# Settings implementation evidence
+
+## User-directed verification correction (2026-10-08)
+
+The user's exact decisions are retained in [intent](intent.md):
+"skip these, i will validate and fix issues when needed. just finish the plan and merge",
+then "Defer those checks to me; finalize, archive, and merge".
+The affected CIP criteria now distinguish nondeferred completion from user-owned
+native interaction/DPI follow-up. These decisions supersede the prior publication
+hold without inventing missing evidence or changing production behavior.
+
+| User-owned remaining manual row | Evidence state |
+|---|---|
+| Actual 100/150/200% all-page layout, >=1280x720 DIP | Only actual 96 DPI/work-area measured; complete matrix not exercised |
+| Actual scrolling effect, pause/resume preservation and tray agreement | Real up/down registrations and saved amount observed; wheel effect not established |
+| Macro activation/picker/playback/indicator and live recording/playback busy rejection | Managed contracts pass; actual interaction not exercised |
+| Enabled HUD refresh/failure, live hook/window count and tray agreement | Startup-disabled visual save observed; active native row not exercised |
+| Fixture tray conflict reservation/release and live input-dependent controls | Managed owner-aware contracts pass; tray interaction not exercised |
+| All-page keyboard-only edits/lists/capture/Advanced/error/Save/Discard/Close and announcements | General keyboard/cancel/confirmation observations retained; complete live workflow not exercised |
+
+No unsupported row is recorded as passed. The user's correction makes these
+follow-up rows nonblocking for plan finalization; managed failures, unsafe isolation
+or a demonstrated code defect would still stop publication.
+
+## Isolated Sandbox progress and eligible step closures
+
+The approved, already enabled Sandbox started successfully using installed
+`MicrosoftWindows.WindowsSandbox` version `0.8.107.0`. Its environment ID is
+`a1da0308-b75c-4660-b59d-3287df458ff5`, remote-session PID 40304. The guest user
+is `WDAGUtilityAccount`; the actual Release runtime fixture PID is 16740 and
+all mutable app files are confined to `C:\KliketyFixture`. Only the self-contained
+app and runner folders were mapped read-only, with a dedicated writable evidence
+folder. Networking and clipboard sharing are disabled. Host production PID 37704
+remained responsive; no host config, registry, DPI or process was changed.
+
+Native observations, screenshots and transcripts are retained locally under
+`C:\Users\jiri\.copilot\session-state\b833fd48-09d8-47d2-9bda-332fde5a7f44\files\settings-sandbox\results`.
+The bundle is built from the production source of `58f1500`; later `f843f24`
+only commits validation/review documentation.
+
+| Observed native check | Result |
+|---|---|
+| Actual fixture tray Settings entry opened twice | Reused HWND 131676 |
+| General Save/apply, Close, tray reopen | Saved retained log count matched fixture disk; real main shortcut remained registered |
+| General keyboard editing, Alt+C/No, Alt+D/Yes | Close-cancel retained draft; Discard cleared it without changing disk |
+| Focused key capture Escape | Cancelled without changing the clean draft |
+| Navigation edit | Uniform-grid size saved through actual captured runtime composition |
+| v8 help fields | Require Shift edited/saved through the actual editor |
+| Appearance/logging | Light theme applied; real log file created only inside fixture root |
+| Scroll enabled/amount | Saved; actual Ctrl+Alt+PageUp/PageDown registrations observed |
+| Candidate main fault and retry | Explicit failure, retained candidate, exact previous config/backup SHA256, real old main registration restored; retry succeeded |
+| Candidate logger/overlay/coordinator/main/scroll-up/scroll-down/scroll/macro/indicator faults | Each executed in the actual runtime, reported its exact injected stage, retained draft, restored previous disk bytes/protected original backup and restored real main registration |
+| Candidate disk-save fault | Explicit refusal before disk change; retained draft and real main registration |
+| Disabled-HUD visual edit | Saved through actual runtime; enabled-HUD refresh is not established |
+| External edit during candidate activation | Newer candidate bytes/comment and original backup retained; previous native main restored; Save blocked until explicit reload; edited Save resynchronized |
+| Independent disk-restoration failure | Saved candidate disk retained, original backup protected and prior runtime restored; explicit reload/edited Save resynchronized |
+| Independent runtime-restoration failure | Exact old disk restored, backup protected, candidate retained, explicit runtime error and missing main registration observed; explicit Save retry rebuilt native runtime successfully |
+
+The runtime-recovery runner initially assumed every runtime restoration failure
+must disable Save. `SettingsSaveTransaction` requires reload only when disk restoration
+fails; stable restored disk deliberately permits an explicit retained-draft retry.
+The unsupported runner assumption was corrected against that existing contract,
+not by changing production code or criteria. Its subsequent complete run returned
+guest exit 0 and observed the real main registration restored on retry.
+The file-recovery assertions succeeded, but their final screenshot returned
+`The handle is invalid` and the script exited 1; that screenshot is not credited.
+
+Only checks actually observed above are credited. The scripted scroll target's
+visible line remained `0 -> 0`; registration succeeds but a real wheel effect is
+**unverified**, not passed. No send-scroll error was found in the fixture log.
+Later guest `SendKeys` returned exact `Access is denied`. Checked Win32 `SendInput`
+returned **0 of 8 inputs, error 5**; guest session 1 was active on input desktop
+`Default`. No locking/minimization cause is inferred and no privilege bypass was
+attempted. This is an input-runner
+limitation, not evidence of a production app defect; physical activation, pause,
+recording/playback and enabled HUD still need an interactive native operator.
+The accessible native Yes/No confirmations are invoked only after verifying their
+button class and ownership by the exact guest fixture PID.
+
+The final bounded macro-options/native conflict attempt did **not execute**:
+`The Windows Sandbox ID provided was not found.` The installed CLI subsequently
+reported `WindowsSandboxEnvironments: []`; remote-session PID 40304 was absent.
+The previously successful native assertions remain evidence. No unexecuted script
+is credited; no Sandbox was relaunched and no host process was stopped.
+
+`GetDpiForWindow` on Settings returned **96 DPI / 100%**, with actual work area
+**3056x1639 DIP**. This identifies the running display; it does not pass the
+all-page keyboard/layout row. The guest's System Settings has no Display page:
+`ms-settings:display` opened Home, and explicit System navigation still exposed
+no Display entry. Installed `wsb connect --help` has no scaling option. Neither
+150% nor 200% was exercised. No host scaling, guest registry hack, app transform
+or process-DPI override was used as matrix evidence.
+
+Direct class evidence was extracted from the already-green full-suite TRX and
+passed `Invoke-DirectEvidence`:
+
+| Class | Passed |
+|---|---:|
+| SettingsDraftTests | 3 |
+| SettingsWindowTests | 10 |
+| SettingsApplyTests | 31 |
+| SettingsRecoveryTests | 10 |
+| SettingsConfigStoreTests | 36 |
+| SettingsKeyEditorTests | 12 |
+| SettingsRoundTripTests | 5 |
+| SettingsNavigationTests | 4 |
+| SettingsValidationTests | 54 |
+| SettingsCoverageTests | 1 |
+| SettingsIsolationTests | 14 |
+| SettingsThemeTests | 1 |
+
+The original `ThemeLoaderTests` marker lookup had no current class and was
+rejected, not treated as a suite failure or passing evidence. Current theme
+contracts are exercised by the named Settings isolation/validation/theme cases.
+The complete ordinary managed run remains 1304 passed, 0 failed, 0 skipped.
+
+Closure proceeded in prerequisite order: **1.2** combines draft/window tests with
+actual tray reuse and fixture General keyboard/confirmation checks; **2.2**
+combines file/apply/recovery tests with actual General save/reopen and native
+failed-apply/retained-draft/retry observations. Their closure admits **3.1-3.3**:
+collection/picker/capture, navigation/scope and appearance/diagnostics contracts
+are verified by the named store/editor/round-trip/validation/isolation cases,
+plus the native observations above. The all-page live usability matrix is still
+owned by 5.2/5.3; those criteria were not folded into these closures.
+
+| Step | Current state | Remaining requirement |
+|---|---|---|
+| 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3 | Complete | Direct evidence above; no independent earlier-step blocker identified |
+| 4.1 | Pending | Real scroll effect, pause/resume preservation and tray state |
+| 4.2 | Pending | Interactive macro activation/indicator and recording/playback busy observations |
+| 4.3 | Pending | Enabled HUD refresh, live hook/window behavior and tray-state agreement |
+| 5.1 | Dependency-blocked | Its machine coverage/isolation/fault tests pass; 4.1-4.3 remain open |
+| 5.2 | Dependency/native-blocked | 5.1, every-page keyboard/announcements and genuine 100/150/200% matrix |
+| 5.3 | Human/native-blocked | 5.1/5.2 and complete actual isolated runtime/display exercise |
+| 6.1 | Dependency-blocked | 5.3, final reconciliation, terminal review, compaction and learning handoff |
+
+**Seven of fourteen steps are closed.** This is not finalization. The earlier
+archive refusal at 2/14 is historical; no subsequent archive or publication
+attempt was made. User-directed merge hold remains until native evidence and
+successful whole-plan finalization permit scripted archival.
 
 ## Final integrated managed validation and publication hold
 

@@ -1,7 +1,7 @@
 # Proposed Design
 
-Complete draft for confirmation; the planning-confirmed marker is still pending.
-Requirements and choices are in their own assets, linked from plan.md.
+Confirmed design with the affected 2026-10-08 verification correction in intent,
+requirements, risks and decisions. Requirements and choices are linked from plan.md.
 
 ## Outcome and proposed behavior
 
@@ -147,6 +147,10 @@ failure with retry/reload/config-folder actions; do not imply successful apply.
 - The existing hook-free demo remains useful for layout but does not prove runtime apply.
   Add or use a separately configured runtime verification path with file/log/theme/macro/
   topology paths confined to fixtures, distinct hotkeys, and an explicit desktop safety check.
+- Genuine Sandbox tray/save/registration/recovery observations are retained. Remaining
+  unsupported native interaction/DPI checks are explicitly deferred to the user, not
+  passed, under the finalization correction. Product behavior and fixture safety
+  contracts are unchanged; managed failures or demonstrated defects still block.
 
 ## Optional call stacks
 

@@ -21,12 +21,21 @@
   capture hook. Existing reserved/collision behavior remains authoritative.
 - Observe keyboard and layout at 100/150/200% with >=1280x720 DIP work area; smaller
   displays remain best-effort work-area adaptation, not an added acceptance promise.
+  Verification exception confirmed by the user on 2026-10-08: unavailable native
+  DPI and input-dependent scroll/pause/tray, macro activation/playback/busy, active
+  HUD/fault/lifecycle/tray, fixture conflict-control and all-page keyboard/status rows
+  are deferred to their manual validation, not marked passed. Managed contracts and
+  genuine native save/registration/recovery results remain required. This supersedes
+  the earlier mandatory-unavailable-row completion hold; finalize/archive and merge
+  after the remaining nondeferred gates pass. Exact wording is retained in intent.md.
 - History is advisory, current implementation authoritative per user. Filtered index
   reported no intentCandidates/errors; relevant archived 013/014/015 decisions identified.
   Bounded reader returned missing legacy assets, so no accepted historical artifact
   provenance is claimed and legacy plan.md was not loaded outside that reader.
 - No implementation, publication, merge or cleanup authorized by this planning session.
   Mandatory two-call pre-confirmation advice occurs once, before final user confirmation.
+  This describes original planning admission; later explicit user implementation,
+  archival and direct-main authorization is recorded in the finalization correction.
 - Review-selected refinements: independent disk/runtime recovery baselines, explicit
   captured-model/path seam, resource/logger ownership, full shortcut inventory, guarded
   original backup, comment-aware collection representation and scalar-first MVP.

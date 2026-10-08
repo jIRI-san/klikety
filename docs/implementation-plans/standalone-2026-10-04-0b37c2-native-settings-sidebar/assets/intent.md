@@ -76,7 +76,28 @@ starting point, not a fixed size that overrides accessibility/work-area adaptati
 - Every current user-editable config value has a named editor; metadata stays read-only.
 - Save/reopen and runtime application agree; failed apply attempts recovery and explains
   actual disk/runtime state without a success-shaped fallback.
-- Keyboard-only and DPI checks exercise the real window, not an isolated settings mock.
+- Observed native checks exercise the real window, not an isolated settings mock.
+  Unavailable native interaction/DPI rows follow the explicit user-owned deferral below.
+
+### User-directed finalization correction (2026-10-08)
+
+- Source: coordinating parent's relay of the user's answer to the Sandbox DPI question.
+  Operator wording: "skip these, i will validate and fix issues when needed. just finish the plan and merge".
+  Confirmed interpretation: defer the unsupported native DPI matrix to the user;
+  finalize/archive the plan and merge directly to main after green managed validation
+  and review. This supersedes the preceding native-check publication hold, not the
+  implementation's keyboard/DPI behavior or safety requirements.
+- Source: coordinating parent's relay of an explicit additional confirmation.
+  Question: "Sandbox also blocks simulated keyboard/mouse input with \"Access is denied\", leaving scrolling/macro activation, active HUD refresh, and full keyboard-only workflows unverified. Should those remaining native interaction checks also be deferred to your manual validation so we can finalize, archive, and merge? Automated tests and the native save/recovery checks passed."
+  Operator wording: "Defer those checks to me; finalize, archive, and merge".
+  Confirmed interpretation: the user owns remaining input-dependent native scrolling/
+  pause/tray, macro picker/playback/indicator/busy, active HUD refresh/fault/hook/window/
+  tray, fixture conflict-control and all-page keyboard/focus/announcement checks.
+  Retain the genuine tray/save/registration/recovery observations. Record unsupported
+  rows as deferred/not exercised, never passed. Do not retry unavailable input
+  indefinitely, change host DPI/config, stop the user's app or set up another VM.
+  Nondeferred managed checks, documented safety contracts and final review still gate
+  completion; a new demonstrated defect remains blocking.
 
 ## Non-goals
 
@@ -100,7 +121,9 @@ starting point, not a fixed size that overrides accessibility/work-area adaptati
 
 ## Definition of done
 
-All requirements have implementation evidence, focused regressions and live isolated
-runtime/layout checks; related design notes describe production behavior and limitations.
-Existing prototype checks are starting evidence, not completed production plan steps.
-Implementation permission remains a later user decision.
+All nondeferred acceptance checks have implementation evidence and regressions;
+genuine isolated native results and the explicitly user-owned outstanding interaction/
+layout rows are separately recorded. Related design notes describe production behavior,
+recovery limits and residual manual validation. Prototype checks are not production proof.
+The user has authorized implementation, this verification correction, scripted archival
+after finalization, and direct non-force publication to main without a PR.

@@ -1,7 +1,7 @@
 # 0b37c2: Native Settings Sidebar
 <!-- plan-id: 0b37c2 -->
 <!-- cip-stage: drafted -->
-<!-- planning-confirmed: sha256:80b78524ded3486fa80a0dec5a7ada7a9de1855eb469f976d8c2819871fae66d -->
+<!-- planning-confirmed: sha256:c343277963b9c912a2ac876aa63080721616f2e0a1221c432ed94d18983251ff -->
 <!-- execution-mode: manual -->
 <!-- scope: step -->
 <!-- evidence: required -->
@@ -47,7 +47,7 @@ verification; none of these steps is completed by Workshop approval.
   to the user instead of silently round-tripping the model or dropping comments.
 
   </details>
-- [ ] 1.2 Establish native tray-to-typed-draft General editor (REQ-1, REQ-7) [after: 1.1] `M`
+- [x] 1.2 Establish native tray-to-typed-draft General editor (REQ-1, REQ-7) [after: 1.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** One reusable native sidebar window edits activation settings through a
@@ -103,7 +103,7 @@ verification; none of these steps is completed by Workshop approval.
 
   </details>
 
-- [ ] 2.2 Connect Save & apply end-to-end and retain drafts on failure (REQ-1, REQ-5, RISK-2, RISK-5) [after: 1.2, 2.1] `M`
+- [x] 2.2 Connect Save & apply end-to-end and retain drafts on failure (REQ-1, REQ-5, RISK-2, RISK-5) [after: 1.2, 2.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** General Save & apply runs validation/preflight/commit/activation/recovery
@@ -127,7 +127,7 @@ verification; none of these steps is completed by Workshop approval.
 
 ## Phase 3: Complete navigation, binding and appearance editing
 
-- [ ] 3.1 Implement comment-aware collections, key editors and capture (REQ-2, REQ-3, REQ-4, REQ-6, REQ-7, RISK-1, RISK-6) [after: 2.2] `L`
+- [x] 3.1 Implement comment-aware collections, key editors and capture (REQ-2, REQ-3, REQ-4, REQ-6, REQ-7, RISK-1, RISK-6) [after: 2.2] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Key bindings page edits action rows and ordered axis lists with readable
@@ -152,7 +152,7 @@ verification; none of these steps is completed by Workshop approval.
   collection editing loses comments; retain picker option, escalate specific requirement gap.
 
   </details>
-- [ ] 3.2 Complete Navigation and app-scope editors (REQ-2, REQ-3, REQ-6, REQ-7, RISK-4) [after: 3.1] `M`
+- [x] 3.2 Complete Navigation and app-scope editors (REQ-2, REQ-3, REQ-6, REQ-7, RISK-4) [after: 3.1] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** All four mode flags, default/chords, optional scope, mode sizes and level-3
@@ -174,7 +174,7 @@ verification; none of these steps is completed by Workshop approval.
   scope, each size field round-trip; impossible combinations block without file writes.
 
   </details>
-- [ ] 3.3 Complete Appearance and General diagnostics (REQ-2, REQ-3, REQ-7, RISK-4) [after: 2.2] `M`
+- [x] 3.3 Complete Appearance and General diagnostics (REQ-2, REQ-3, REQ-7, RISK-4) [after: 2.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Built-in/custom theme reference and label floor plus all logging values
@@ -210,6 +210,8 @@ verification; none of these steps is completed by Workshop approval.
 
   **Verify:** Enable/disable and hotkey/amount round-trip, duplicate collision rejection,
   fake registration/recovery tests, preserved pause and tray menu behavior.
+  Managed pause/tray contracts remain required; unavailable live scroll/pause/tray
+  interaction is user-owned deferred verification per the 2026-10-08 intent correction.
 
   </details>
 - [ ] 4.2 Implement macro options and playback indicator controls (REQ-2, REQ-3, REQ-5, REQ-6, REQ-7, RISK-4) [after: 3.1] `M`
@@ -233,6 +235,8 @@ verification; none of these steps is completed by Workshop approval.
 
   **Verify:** Null/enabled/hotkey/list/options/indicator round-trip; invalid and disabled
   field cases; separate macro-file warning remains advisory; apply/recovery and busy guards.
+  Unavailable live macro activation/playback/indicator/busy interaction is user-owned
+  deferred verification; managed behavior and fault contracts remain required.
 
   **Stop/escalate when:** Correcting an existing consumer quirk changes valid stored
   behavior outside the settings feature; present that compatibility decision explicitly.
@@ -252,6 +256,9 @@ verification; none of these steps is completed by Workshop approval.
 
   **Verify:** All ten HUD fields, invalid color/corner/ranges, active/off apply and
   failure recovery; no leaked extra hook/old window and tray state matches actual HUD.
+  Managed active/off/recovery/lifetime contracts remain required; the unavailable
+  enabled-HUD native refresh/fault/hook/window/tray observations are user-owned deferred
+  verification, not established by the actual startup-disabled HUD save.
 
   </details>
 
@@ -289,13 +296,15 @@ verification; none of these steps is completed by Workshop approval.
 
   **Constraints:** Logical work area >=1280x720 DIP at 100/150/200%; scroll and footer
   access required; no simulated screenshots claimed as actual native DPI evidence.
+  The complete genuine display matrix and remaining all-page keyboard/status interaction
+  are deferred to the user under the 2026-10-08 correction, not marked passed.
 
   **Verify:** Tab/Shift+Tab/category arrows, capture cancel, collection edit, Advanced,
   error navigation, save/discard/close; automation names/focus and layout bounds at
   each scaling. Record unsupported live rows for the human verification step.
 
   </details>
-- [ ] 5.3 Exercise actual isolated native registration/apply/recovery and layout matrix (REQ-5, REQ-7, REQ-8, RISK-2, RISK-7, RISK-8) @human [after: 5.1, 5.2] `M`
+- [ ] 5.3 Reconcile actual isolated native evidence and user-owned manual deferrals (REQ-5, REQ-7, REQ-8, RISK-2, RISK-7, RISK-8) @human [after: 5.1, 5.2] `M`
   <details><summary>Details</summary>
 
   **Steps:**
@@ -308,11 +317,18 @@ verification; none of these steps is completed by Workshop approval.
      controls; verify explicit error, recovery and unchanged newer external edit.
   4. Use keyboard-only workflow on each page; inspect 100/150/200% at the confirmed
      logical work area; mark every unverified row rather than calling it passed.
+  5. Reconcile observed results with the explicit 2026-10-08 user decision to defer
+     unavailable native interaction and DPI checks. Record the remaining rows and
+     manual operator procedure with the user as owner; their confirmation permits
+     finalization without claiming those checks ran.
 
   **Verify:** Successful values match disk/runtime; busy rejects without file change;
   invalid binding rejects; recovery states and registration cleanup are observable;
   one Settings window, clean key capture, focus/status and unclipped action controls
-  for each matrix row. Any unavailable mandatory row blocks completion.
+  for each matrix row. Unavailable input-dependent scroll/pause/tray, macro playback/
+  busy, enabled HUD refresh/fault/lifecycle, fixture conflict-control, all-page keyboard/
+  status and DPI rows are explicitly user-owned deferred verification, not passed.
+  All nondeferred evidence, isolation and demonstrated-defect stops remain in force.
 
   **Rollback:** Close/stop only the identified fixture process; release its test
   registrations and restore its fixture backup. Do not delete worktrees, alter the
@@ -341,7 +357,8 @@ verification; none of these steps is completed by Workshop approval.
 
 ## Execution evidence
 
-[Pre-human implementation checkpoint](assets/evidence.md) records the source commit,
-focused Release results, direct evidence, completed automation and remaining native
-requirements. Only 1.1 and 2.1 are closed. Other steps retain their prerequisite/native
-gates; implementation of their safe automated portions does not close those steps.
+[Implementation and native evidence](assets/evidence.md) records source commits,
+Release results, direct evidence, isolated Sandbox observations and remaining native
+requirements. Steps 1.1, 1.2, 2.1, 2.2 and 3.1-3.3 are closed after prerequisite
+reconciliation. Steps 4.1-4.3, 5.1-5.3 and 6.1 retain their explicit native or
+dependency gates. No whole-plan completion, terminal review or archival is claimed.

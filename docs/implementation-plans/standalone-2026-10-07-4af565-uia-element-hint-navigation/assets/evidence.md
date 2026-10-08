@@ -186,3 +186,88 @@ Unresolved: denied fixture foreground acquisition, the historical fresh-package
 handshake timeout, the cold root-only discovery timeout and the initial
 development-package test failure. They are documented, not attributed to a
 runtime defect or declared fixed by retry. No push, merge or PR is authorized.
+
+## Sandbox visual-clutter follow-up (2026-10-08)
+
+User feedback described a black diagnostic bar, top-clustered pairs and unreadable
+connectors. Windows Sandbox was already enabled (`Containers-DisposableClientVM`
+InstallState 1; hypervisor present). No features, elevation or security settings
+were changed. The owned modern Sandbox guest used Windows 26100 and
+WDAGUtilityAccount, with networking, clipboard, audio/video and printer redirection
+disabled. Only the scratch package/config/harness directory was mapped read-only;
+a separate narrow capture directory was writable. No host worktree, AppData,
+private files or user applications were exposed to guest discovery/input.
+
+The guest harness created a harmless WinForms fixture and used guest-only Alt,
+activation chord, Tab, A/Q and Escape. No action/click keys were sent. Package
+execution was normal-user, copied from the read-only mapping to `C:\GuestApp`.
+The native screen was **3046x1650 physical pixels**, overlay **1523x825 DIPs**,
+**200% scale**. Before and successful initial-after fixture-geometry files have the
+same SHA256 `0F7A32EAF0E1EE40E9B7D78BBC3F87CF3AE64106EBEF5FC0593891C6C20A833C`.
+
+| Actual capture | Observation |
+|---|---|
+| Before, successful baseline | Partial snapshot: 48 controls, 5 invalid-geometry omissions. A top target/collision switched the entire page to two global top rows with all-target connectors. Black diagnostic banner began at (16,16), was 3014 physical pixels wide and reserved 128 pixels vertically. |
+| Initial rendering fix, successful guest run at 07:10 | Partial: 48 retained, 57 visited, 5 omitted; same fixture geometry. All labels stayed near their targets, no unselected connectors or outlines. Prefix capture highlighted its target group; AQ selection highlighted the target and dimmed others. Footer black-pixel bounding box: **(923,1579), 1200x55 physical pixels**. Counts/reasons were in debug logs, not the footer. |
+| Final package, checked-ready run at 07:19/07:20 | Native owned HWND/PID and occupied activation hotkey verified; overlay became foreground under app PID 14688 and was responsive. Discovery returned **Timeout, 0 visited/retained**. Actual loading/timeout captures show concise footer/fallback, but are not successful label-layout evidence. |
+| One bounded warm final-package attempt at 07:21 | Ownership/readiness verified under PID 4108; again **Timeout, 0 visited/retained**. No further retries or raised budgets. Cause is unresolved. |
+
+The root rendering defect was deterministic: any top-edge/overlapping label
+triggered whole-page fallback, while fallback painted a connector for every
+target and a full-width technical status banner. The fix uses bounded nearby
+placement with gaps, selected-only displacement connectors/outlines and a compact
+bottom footer. Severe crowding retains a right-side page list, original VKeys and
+physical target coordinates. Font size/floor is unchanged; the user's permitted
+1-2-point reduction was not needed for the successful capture. Final capacity now
+also fits the narrower fallback list. Frozen longer-glyph redraws scroll to the
+selection/prefix and keep the connector aligned with the actual scroll offset.
+These later list/paging/scroll details have deterministic WPF coverage; they were
+not demonstrated by the final guest attempts that timed out.
+
+Harness limitations and bounded corrections were recorded rather than hidden:
+
+- Windows PowerShell 5.1 did not recognize `[ushort]`; harness uses `[UInt16]`.
+- Native foreground acquisition initially failed. A guest-only Alt event before
+  normal SetForegroundWindow permitted the harmless fixture to activate. This is
+  test harness input, not a production foreground-guard change.
+- Two read-only mapped-runtime attempts timed out; copying runtime files to
+  guest-local storage then yielded the successful before/initial-after captures.
+  This does not establish every historical timeout's cause.
+- One final-package attempt captured only the fixture, not an overlay. It is
+  excluded from successful evidence. A title-only window lookup was invalid, and
+  an owned native window at 952 ms did not imply hotkey registration: the chord
+  was still free. A bounded 8-second harness startup settle plus native
+  ownership/registration and post-activation checks prevented fixture-only
+  captures from being counted. This startup settle is outside, and does not
+  modify, the worker's 1500 ms discovery budget. It does not retrospectively
+  prove the exact cause of the earlier missed activation.
+
+Local ignored evidence is under
+`src\Klikety\bin\uia-sandbox-20261008`: `baseline-evidence` contains actual before
+PNG/JPEG captures, fixture geometry and logs; `before-output\after` contains the
+successful initial-fix captures. `before-output\final-ready` and `final-warm`
+retain the final timeout evidence; `final-after` is fixture-only and
+`final-diagnostic`/`final-owned-window` contain harness diagnostic failures.
+`input` retains the minimal config and guest-only reproduction/inspection tools.
+
+Final source verification: Release solution build **0 warnings/0 errors**,
+**990 hermetic tests passed**, including **11 actual STA rendering cases**,
+formatting passes. New cases cover ordinary top-edge/collision placement, no
+connector soup, bounded crowding and fallback-list capacity. Existing
+font-floor/negative-origin/DPI/tiny-viewport/frozen-page regressions still pass;
+the frozen-page test additionally observes scrolling and connector alignment.
+Fresh extracted self-contained package gate passed with PATH empty and
+DOTNET_ROOT unavailable: start/write/received/parsed **42/54/619/625 ms**,
+worker readiness **448 ms**. Source/publish paths for this follow-up use
+`uia-visual-publish`, `uia-visual-release.zip` and `uia-visual-extracted`.
+
+The guest app/helpers were absent after exact-path inspection; the owned Sandbox
+guest `b22363fb-3045-4c15-9c5a-8dd944d5cc8a` was stopped and guest listing was empty.
+Host PID **6508**, its previous `uia-followup-extracted\Klikety.exe`, and user config
+were left untouched. Config SHA256 remained
+`AB81C7C0C4BEB5478CFC2C1C6089D0769FFA473124682CC00C04859534BE27EF`.
+The running host app is therefore still the earlier build, not silently replaced.
+Human **4.2 remains open**. Final guest discovery timeouts, earlier startup/focus
+uncertainties and unobserved physical/mixed-display/third-party scenarios remain
+explicitly unresolved; successful initial-fix captures are not universal or
+whole-plan acceptance.

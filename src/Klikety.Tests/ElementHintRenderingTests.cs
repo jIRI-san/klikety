@@ -39,15 +39,22 @@ public class ElementHintRenderingTests {
             }).ToArray();
             renderer.Render(targets, 0, 2, null, null, "Partial controls");
             canvas.Measure(new Size(800, 600)); canvas.Arrange(new Rect(0, 0, 800, 600));
-            var cards = canvas.Children.OfType<Border>().ToArray();
-            var glyphs = canvas.Children.OfType<Path>().Where(p => p.Stroke is null).ToArray();
+            var list = canvas.Children.OfType<ScrollViewer>().SingleOrDefault(s => s.Content is Canvas);
+            var cardCanvas = list?.Content as Canvas ?? canvas;
+            var cards = cardCanvas.Children.OfType<Border>().ToArray();
+            var glyphs = cardCanvas.Children.OfType<Path>().Where(p => p.Stroke is null).ToArray();
             Assert.Equal(capacity, cards.Length); Assert.Equal(capacity, glyphs.Length);
             for (int i = 0; i < capacity; i++) {
                 var card = new Rect(Canvas.GetLeft(cards[i]), Canvas.GetTop(cards[i]), cards[i].Width, cards[i].Height);
                 Assert.True(card.Contains(glyphs[i].Data.Bounds), $"Text {glyphs[i].Data.Bounds} is outside {card}");
-                Assert.True(new Rect(0, 0, 800, 600).Contains(card));
+                Assert.True(new Rect(0, 0, list is null ? 800 : cardCanvas.Width,
+                    list is null ? 600 : cardCanvas.Height).Contains(card));
                 Assert.All(cards.Skip(i + 1), other => Assert.False(card.IntersectsWith(
                     new Rect(Canvas.GetLeft(other), Canvas.GetTop(other), other.Width, other.Height))));
+            }
+            if (list is not null) {
+                Assert.True(new Rect(0, 0, 800, 600).Contains(
+                    new Rect(Canvas.GetLeft(list), Canvas.GetTop(list), list.Width, list.Height)));
             }
             Assert.All(targets, t => Assert.Equal(new Automation.HintPoint(-1899, -999), t.Preview));
         });
@@ -117,6 +124,12 @@ public class ElementHintRenderingTests {
                 Assert.Equal(1, moves);
                 var list = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
                 Assert.Equal(4, Assert.IsType<Canvas>(list.Content).Children.OfType<Border>().Count());
+                canvas.Measure(new Size(300, 150)); canvas.Arrange(new Rect(0, 0, 300, 150)); canvas.UpdateLayout();
+                Assert.True(list.VerticalOffset > 0);
+                var selectedCard = Assert.IsType<Canvas>(list.Content).Children.OfType<Border>().ElementAt(1);
+                var connector = Assert.Single(canvas.Children.OfType<Line>());
+                Assert.Equal(Canvas.GetTop(list) + Canvas.GetTop(selectedCard) - list.VerticalOffset +
+                    selectedCard.Height / 2, connector.Y1, 3);
                 session.OnKey(VKey.A); session.Redraw();
                 Assert.Equal(0, session.Prefix);
                 Assert.Equal(1, session.Page);
@@ -125,10 +138,91 @@ public class ElementHintRenderingTests {
                 Assert.Single(service.Scans);
                 session.Relayout();
                 Assert.Equal(0, session.Page);
-                Assert.Equal(11, session.PageCount);
+                int capacity = renderer.GetPageCapacity(new(0, 0, 300, 150), 4);
+                Assert.Equal((11 + capacity - 1) / capacity, session.PageCount);
+                Assert.True(session.PageCount > 3);
                 Assert.Null(session.Selected);
                 Assert.Null(session.Prefix);
             } finally { session.Deactivate(); }
+        });
+    }
+
+    [Fact]
+    public void TopEdgeOrSingleCollisionDoesNotMoveEveryLabelToAListOrDrawConnectorSoup() {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 800, Height = 600 };
+            canvas.Measure(new Size(800, 600)); canvas.Arrange(new Rect(0, 0, 800, 600));
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 15,
+                [VKey.A, VKey.S], [VKey.Q, VKey.W], new FakeKeyLabelResolver(),
+                () => (new(0, 0), Matrix.Identity));
+            Assert.Equal(4, renderer.GetPageCapacity(new(0, 0, 800, 600), 4));
+            var targets = FakeElementHintService.Result(4).Targets.Select((t, i) => t with {
+                Bounds = new(i < 2 ? 100 : 200 + i * 130, i < 2 ? 5 : 250, 30, 20),
+                VisibleBounds = new(i < 2 ? 100 : 200 + i * 130, i < 2 ? 5 : 250, 30, 20),
+                Preview = new(i < 2 ? 115 : 215 + i * 130, i < 2 ? 15 : 260),
+            }).ToArray();
+            renderer.Render(targets, 0, 1, null, null, "");
+            Assert.DoesNotContain(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
+            var cards = canvas.Children.OfType<Border>().ToArray();
+            Assert.Equal(4, cards.Length);
+            Assert.All(cards.Skip(2), card => Assert.InRange(Canvas.GetTop(card), 230, 270));
+            Assert.Empty(canvas.Children.OfType<Line>());
+            Assert.Empty(canvas.Children.OfType<Rectangle>());
+            var footer = Assert.Single(canvas.Children.OfType<ScrollViewer>());
+            Assert.True(footer.Width < 800);
+            Assert.True(Canvas.GetTop(footer) > 500);
+            var text = Assert.IsType<TextBlock>(Assert.IsType<Border>(footer.Content).Child);
+            Assert.DoesNotContain("Page", text.Text);
+            Assert.Contains("Enter: grid", text.Text);
+            renderer.Render(targets, 0, 1, null, targets[1].Token, "");
+            Assert.Single(canvas.Children.OfType<Rectangle>());
+            Assert.Single(canvas.Children.OfType<Line>());
+            Assert.All(targets, t => Assert.Equal(t.Bounds.Center, t.Preview));
+        });
+    }
+
+    [Fact]
+    public void PathologicalCrowdingKeepsEveryLabelInBoundedListWithoutUnselectedConnectors() {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 800, Height = 600 };
+            canvas.Measure(new Size(800, 600)); canvas.Arrange(new Rect(0, 0, 800, 600));
+            var keys = new ConfigModel();
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 15,
+                keys.HorizontalKeys, keys.VerticalKeys, new FakeKeyLabelResolver());
+            Assert.Equal(50, renderer.GetPageCapacity(new(0, 0, 800, 600), 50));
+            renderer.Render(FakeElementHintService.Result(50).Targets, 0, 2, null, null, "Some controls unavailable");
+            var list = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
+            Assert.True(list.Width <= 360);
+            Assert.Equal(50, Assert.IsType<Canvas>(list.Content).Children.OfType<Border>().Count());
+            Assert.Empty(canvas.Children.OfType<Line>());
+            var footer = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Border);
+            var text = Assert.IsType<TextBlock>(Assert.IsType<Border>(footer.Content).Child);
+            Assert.Contains("Some controls unavailable", text.Text);
+            Assert.Contains("Page 1/2", text.Text);
+            renderer.Render(FakeElementHintService.Result(50).Targets, 1, 2, null, 40, "");
+            Assert.Single(canvas.Children.OfType<Line>());
+            Assert.Single(canvas.Children.OfType<Rectangle>());
+        });
+    }
+
+    [Fact]
+    public void PageCapacityFitsTheNarrowFallbackListWithoutHidingLabelRows() {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 800, Height = 600 };
+            canvas.Measure(new Size(800, 600)); canvas.Arrange(new Rect(0, 0, 800, 600));
+            var keys = new ConfigModel();
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 40,
+                keys.HorizontalKeys, keys.VerticalKeys, new FakeKeyLabelResolver(),
+                () => (new(0, 0), Matrix.Identity));
+            int keyCapacity = keys.HorizontalKeys.Length * keys.VerticalKeys.Length;
+            int capacity = renderer.GetPageCapacity(new(0, 0, 800, 600), keyCapacity);
+            Assert.InRange(capacity, 1, keyCapacity - 1);
+            renderer.Render(FakeElementHintService.Result(capacity).Targets, 0, 2, null, null, "");
+            var list = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
+            var content = Assert.IsType<Canvas>(list.Content);
+            Assert.Equal(capacity, content.Children.OfType<Border>().Count());
+            Assert.True(content.Height <= list.Height);
+            Assert.True(content.Width <= list.Width);
         });
     }
 

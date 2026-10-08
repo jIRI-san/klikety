@@ -21,6 +21,10 @@ and bounded covered-point/ancestry checks. Coordinator/session tests explicitly
 cover display-topology events, config-disposal, focus-loss and late discovery/action
 completion. STA rendering tests include 1x1-DIP containment and longer glyphs
 without remapping frozen pages.
+Rendering regressions also cover a top-edge collision without global list
+fallback, no unselected connectors/outlines, selected-only displacement guides,
+bounded severe-crowding presentation and page capacity that fits the narrower
+list. Geometry tests inject their coordinate space rather than using host DPI.
 `Klikety.WorkerFixture` is test-only; production has no hang command. Tests use fake
 service/point-guard seams for deterministic action delivery.
 
@@ -35,6 +39,16 @@ destroyed-window tests do not require acquiring foreground. Keep healthy/covered
 cases failing if normal activation is denied; do not skip or weaken them. The
 development packaging test includes typed outcome/timing diagnostics and retires
 its helper even when the assertion fails.
+
+Visual evidence for the clutter follow-up comes from an offline Windows Sandbox,
+with only a read-only test package/config/harness mapping and a narrow writable
+capture mapping. Guest-only keyboard activation/selection targets a harmless
+WinForms fixture; no action keys or host input are sent. Screenshots, native
+screen geometry, fixture bounds and application logs are actual guest evidence,
+not replaced by WPF containment tests. Guest app readiness/foreground ownership
+must be checked before treating a capture as an overlay; fixture-only or timed-out
+captures are not successful label evidence. The observed 200% before/after and
+bounded unsuccessful final-package attempts are documented in plan 4af565.
 
 ## Unit Tests
 

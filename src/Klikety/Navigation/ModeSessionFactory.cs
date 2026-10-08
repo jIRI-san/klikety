@@ -3,6 +3,8 @@ using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Services;
 
+using Microsoft.Extensions.Logging;
+
 namespace Klikety.Navigation;
 
 /// <summary>
@@ -18,6 +20,7 @@ public sealed class ModeSessionFactory {
     private readonly LogGridKeyPolicyResult _logGridKeyPolicy;
     private readonly IElementHintService _elementHintsService;
     private readonly IElementHintsRenderer? _elementHintsRenderer;
+    private readonly ILogger? _logger;
 
     public ModeSessionFactory(
         ConfigModel config, ActionMapper actionMapper,
@@ -25,7 +28,7 @@ public sealed class ModeSessionFactory {
         ILogCrosshairRenderer? logCrosshairRenderer = null,
         ILogGridRenderer? logGridRenderer = null,
         IElementHintsRenderer? elementHintsRenderer = null,
-        IElementHintService? elementHintsService = null) {
+        IElementHintService? elementHintsService = null, ILogger? logger = null) {
         _config = config;
         _actionMapper = actionMapper;
         _gridRenderer = gridRenderer;
@@ -34,6 +37,7 @@ public sealed class ModeSessionFactory {
         _logGridRenderer = logGridRenderer;
         _elementHintsRenderer = elementHintsRenderer;
         _elementHintsService = elementHintsService ?? new UiaWorkerSupervisor();
+        _logger = logger;
         _logGridKeyPolicy = LogGridKeyPolicy.Evaluate(config.HorizontalKeys, config.VerticalKeys);
     }
 
@@ -70,7 +74,7 @@ public sealed class ModeSessionFactory {
         "LogGrid" => CreateLogGrid(),
         "ElementHints" when IsElementHintsAvailable && targetContext is not null =>
             new ElementHintsSession(_config.HorizontalKeys, _config.VerticalKeys, _actionMapper,
-                targetContext, _elementHintsService, _elementHintsRenderer),
+                targetContext, _elementHintsService, _elementHintsRenderer, _logger),
         "ElementHints" => throw new NotSupportedException("ElementHints requires valid configuration and an explicit target application."),
         _ => throw new ArgumentException($"Unknown mode: {modeName}", nameof(modeName)),
     };

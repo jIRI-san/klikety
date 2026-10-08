@@ -144,7 +144,7 @@ public partial class App : Application {
                 config.HorizontalKeys, config.VerticalKeys, resolver) : null;
         var actionMapper = new ActionMapper(config.ActionBindings);
         var sessionFactory = new ModeSessionFactory(config, actionMapper, gridRenderer, crosshairRenderer, logCrosshairRenderer, logGridRenderer,
-            elementHintsRenderer);
+            elementHintsRenderer, logger: logger);
 
         // LogGrid key-policy warning (trim or unavailability)
         if (sessionFactory.LogGridKeyPolicyWarning is { } logGridWarning) {

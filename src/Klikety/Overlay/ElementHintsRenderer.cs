@@ -40,13 +40,14 @@ public sealed class ElementHintsRenderer : IElementHintsRenderer {
     private static SolidColorBrush Brush(string color) => new((Color)ColorConverter.ConvertFromString(color));
     public int GetPageCapacity(System.Drawing.Rectangle region, int keyCapacity) {
         var measured = Enumerable.Range(0, keyCapacity).Select(i => Text(Label(i))).ToArray();
-        _cellWidth = measured.Max(t => t.WidthIncludingTrailingWhitespace) + 16 + _theme.LabelOutlineThickness * 2;
-        _cellHeight = measured.Max(t => t.Height) + 12 + _theme.LabelOutlineThickness * 2;
+        _cellWidth = measured.Max(t => t.WidthIncludingTrailingWhitespace) + 12 + _theme.LabelOutlineThickness * 2;
+        _cellHeight = measured.Max(t => t.Height) + 8 + _theme.LabelOutlineThickness * 2;
         var scale = Coordinates().Scale;
         _width = _canvas.ActualWidth > 0 ? _canvas.ActualWidth : region.Width * scale.M11;
         _height = _canvas.ActualHeight > 0 ? _canvas.ActualHeight : region.Height * scale.M22;
         var areas = Areas(_width, _height);
-        _columns = Math.Max(1, (int)Math.Floor(areas.Width / _cellWidth));
+        double listWidth = Math.Min(areas.Width, Math.Max(_cellWidth, 360));
+        _columns = Math.Max(1, (int)Math.Floor(listWidth / _cellWidth));
         _fitCapacity = Math.Clamp(_columns * Math.Max(1, (int)Math.Floor(areas.Height / _cellHeight)), 1, keyCapacity);
         return _fitCapacity;
     }
@@ -57,42 +58,57 @@ public sealed class ElementHintsRenderer : IElementHintsRenderer {
         var (origin, scale) = Coordinates();
         double width = _width, height = _height;
         var areas = Areas(width, height);
-        bool scroll = _cellWidth > areas.Width || _cellHeight > areas.Height || targets.Count > _fitCapacity;
-        Canvas? listCanvas = scroll ? new Canvas {
-            Width = Math.Max(areas.Width, _cellWidth),
-            Height = Math.Max(_cellHeight, Math.Ceiling((double)targets.Count / _columns) * _cellHeight)
-        } : null;
+        var viewport = new Rect(areas.Inset, areas.ListTop, areas.Width, areas.Height);
         var placed = new List<Rect>();
-        var inline = new List<Rect>();
-        bool list = scroll;
+        bool list = _cellWidth > areas.Width || _cellHeight > areas.Height || targets.Count > _fitCapacity;
         foreach (var target in targets) {
             var point = OverlayDip.ToCanvasPoint(target.Preview.X, target.Preview.Y, origin, scale);
-            var rect = new Rect(point.X - _cellWidth / 2, point.Y - _cellHeight / 2, _cellWidth, _cellHeight);
-            if (rect.X < 0 || rect.Y < areas.ListTop || rect.Right > width ||
-                rect.Bottom > height || placed.Any(r => r.IntersectsWith(rect))) { list = true; }
-            placed.Add(rect); inline.Add(rect);
+            if (list || PlaceNear(point, viewport, placed) is not { } rect) { list = true; break; }
+            placed.Add(rect);
         }
+        double listWidth = Math.Min(areas.Width, Math.Max(_cellWidth, 360));
+        int listColumns = Math.Max(1, (int)Math.Floor(listWidth / _cellWidth));
+        Canvas? listCanvas = list && targets.Count > 0 ? new Canvas {
+            Width = Math.Max(listWidth, _cellWidth),
+            Height = Math.Max(_cellHeight, Math.Ceiling((double)targets.Count / listColumns) * _cellHeight)
+        } : null;
+        double listLeft = width - areas.Inset - listWidth;
+        int previewIndex = selectedToken is { } token ? targets.ToList().FindIndex(t => t.Token == token) :
+            prefix is { } column ? column * _vertical.Length : 0;
+        double scrollOffset = listCanvas is not null && previewIndex >= 0 && previewIndex < targets.Count ?
+            previewIndex / listColumns * _cellHeight : 0;
+        Line? selectedLine = null;
+        Rect selectedLabel = default;
         for (int index = 0; index < targets.Count; index++) {
             var target = targets[index];
-            var rect = list ? new Rect((scroll ? 0 : areas.Inset) + index % _columns * _cellWidth,
-                (scroll ? 0 : areas.ListTop) + index / _columns * _cellHeight, _cellWidth - 4, _cellHeight - 4) : inline[index];
+            var slot = list ? new Rect(index % listColumns * _cellWidth,
+                index / listColumns * _cellHeight, _cellWidth, _cellHeight) : placed[index];
+            var rect = new Rect(slot.X, slot.Y, slot.Width - 4, slot.Height - 4);
             bool selected = target.Token == selectedToken;
-            double opacity = prefix is null || index / _vertical.Length == prefix ? 1 : .2;
+            bool matching = prefix is not null && index / _vertical.Length == prefix;
+            double opacity = prefix is not null ? matching ? 1 : .2 : selectedToken is null || selected ? 1 : .35;
             var targetRect = new Rect((target.VisibleBounds.X - origin.X) * scale.M11,
                 (target.VisibleBounds.Y - origin.Y) * scale.M22,
                 target.VisibleBounds.Width * scale.M11, target.VisibleBounds.Height * scale.M22);
-            Add(new Rectangle {
-                Width = targetRect.Width, Height = targetRect.Height,
-                Stroke = Brush(_theme.LabelColor), StrokeThickness = selected ? 3 : 1, Opacity = opacity * .7
-            },
-                targetRect.X, targetRect.Y);
-            if (list && !scroll) {
+            if (selected || matching) {
+                Add(new Rectangle {
+                    Width = targetRect.Width, Height = targetRect.Height,
+                    Stroke = Brush(_theme.ConnectorLineColor), StrokeThickness = selected ? 3 : 1, Opacity = .8
+                }, targetRect.X, targetRect.Y);
+            }
+            if (selected) {
                 var point = OverlayDip.ToCanvasPoint(target.Preview.X, target.Preview.Y, origin, scale);
-                _canvas.Children.Add(new Line {
-                    X1 = rect.Right, Y1 = rect.Top + rect.Height / 2,
-                    X2 = point.X, Y2 = point.Y, Stroke = Brush(_theme.ConnectorLineColor), StrokeThickness = 1,
-                    Opacity = selected ? 1 : .25
-                });
+                var start = list ? new Point(listLeft + Math.Min(listWidth, rect.Right),
+                    areas.ListTop + Math.Clamp(rect.Top - scrollOffset + rect.Height / 2, 0, areas.Height)) :
+                    new Point(rect.Left + rect.Width / 2, rect.Top + rect.Height / 2);
+                if (list || !rect.Contains(point)) {
+                    selectedLabel = rect;
+                    selectedLine = new Line {
+                        X1 = start.X, Y1 = start.Y, X2 = point.X, Y2 = point.Y,
+                        Stroke = Brush(_theme.ConnectorLineColor), StrokeThickness = 2
+                    };
+                    _canvas.Children.Add(selectedLine);
+                }
             }
             var cardCanvas = listCanvas ?? _canvas;
             AddTo(cardCanvas, new Border {
@@ -110,26 +126,60 @@ public sealed class ElementHintsRenderer : IElementHintsRenderer {
             cardCanvas.Children.Add(new Path { Data = geometry, Fill = Brush(_theme.LabelColor), Opacity = opacity });
         }
         if (listCanvas is not null) {
-            Add(new ScrollViewer {
-                Content = listCanvas, Width = areas.Width, Height = areas.Height,
+            var scroll = new ScrollViewer {
+                Content = listCanvas, Width = listWidth, Height = Math.Min(areas.Height, listCanvas.Height + 2),
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            }, areas.Inset, areas.ListTop);
+            };
+            if (selectedLine is not null) {
+                scroll.ScrollChanged += (_, _) => {
+                    selectedLine.X1 = listLeft + Math.Clamp(selectedLabel.Right - scroll.HorizontalOffset, 0, scroll.ViewportWidth);
+                    selectedLine.Y1 = areas.ListTop + Math.Clamp(selectedLabel.Top - scroll.VerticalOffset +
+                        selectedLabel.Height / 2, 0, scroll.ViewportHeight);
+                };
+            }
+            scroll.ScrollToVerticalOffset(scrollOffset);
+            Add(scroll, listLeft, areas.ListTop);
         }
+        var messages = new List<string>();
+        if (!string.IsNullOrEmpty(status)) { messages.Add(status); }
+        if (selectedToken is not null) {
+            messages.Add("Selected: action key to act");
+        } else if (prefix is not null) {
+            messages.Add("Type the second label key");
+        } else {
+            messages.Add(list ? "Crowded controls: label keys preview a target" : "Two label keys select; action key acts");
+        }
+        if (pageCount > 1) { messages.Add($"Page {page + 1}/{pageCount}: Left/Right"); }
+        messages.Add("Enter: grid; Esc: cancel");
         var statusText = new TextBlock {
-            Text = $"{status}\nPage {page + 1}/{pageCount}; Left/Right: pages" +
-            (list ? "; list labels point to controls" : ""), FontSize = Math.Max(14, Math.Min(_fontSize, 20)),
-            Foreground = Brush(_theme.LabelColor), Background = Brush(_theme.LabelOutlineColor),
-            TextWrapping = TextWrapping.Wrap, MaxWidth = areas.Width
+            Text = string.Join(" | ", messages), FontSize = Math.Max(14, Math.Min(_fontSize, 20)),
+            Foreground = Brush(_theme.LabelColor), TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(8, 4, 8, 4), MaxWidth = areas.Width
         };
+        statusText.Measure(new Size(areas.Width, double.PositiveInfinity));
+        double statusWidth = Math.Min(areas.Width, statusText.DesiredSize.Width);
+        double statusHeight = Math.Min(areas.StatusHeight, statusText.DesiredSize.Height);
         Add(new ScrollViewer {
-            Content = statusText, Width = areas.Width,
-            Height = areas.StatusHeight, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        }, areas.Inset, areas.StatusY);
+            Content = new Border { Child = statusText, Background = Brush(_theme.LabelOutlineColor), CornerRadius = new CornerRadius(4) },
+            Width = statusWidth, Height = statusHeight, VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        }, (width - statusWidth) / 2, height - areas.StatusY - statusHeight);
+    }
+    private Rect? PlaceNear(Point point, Rect viewport, List<Rect> placed) {
+        if (_cellWidth > viewport.Width || _cellHeight > viewport.Height) { return null; }
+        var center = new Point(Math.Clamp(point.X - _cellWidth / 2, viewport.Left, viewport.Right - _cellWidth),
+            Math.Clamp(point.Y - _cellHeight / 2, viewport.Top, viewport.Bottom - _cellHeight));
+        for (int ring = 0; ring <= 4; ring++) {
+            foreach (var (x, y) in new[] { (0, -1), (1, 0), (0, 1), (-1, 0), (-1, -1), (1, -1), (1, 1), (-1, 1) }) {
+                var rect = new Rect(center.X + x * ring * (_cellWidth + 2), center.Y + y * ring * (_cellHeight + 2), _cellWidth, _cellHeight);
+                if (viewport.Contains(rect) && !placed.Any(r => r.IntersectsWith(rect))) { return rect; }
+            }
+        }
+        return null;
     }
     private static (double Inset, double StatusY, double StatusHeight, double ListTop, double Width, double Height) Areas(double width, double height) {
         double inset = Math.Min(8, width / 4), gap = Math.Min(8, height / 8);
-        double statusHeight = Math.Min(64, height / 3), listTop = gap + statusHeight + gap;
-        return (inset, gap, statusHeight, listTop, width - inset * 2, height - listTop - gap);
+        double statusHeight = Math.Min(48, height / 3);
+        return (inset, gap, statusHeight, gap, width - inset * 2, height - statusHeight - gap * 3);
     }
     private (System.Drawing.Point Origin, Matrix Scale) Coordinates() =>
         _coordinateSpace?.Invoke() ?? (OverlayDip.WindowOrigin(_canvas), OverlayDip.ScaleOf(_canvas));

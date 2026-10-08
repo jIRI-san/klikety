@@ -111,6 +111,11 @@ First run extracts default config and theme files automatically.
 
 ### Element Hints (opt-in)
 
+Labels stay near detected controls. Ordinary overlaps are resolved locally;
+severe crowding uses a compact paged list. Only a selected displaced label draws
+a connector. A small bottom footer shows state and fallback guidance; technical
+discovery counts are in debug logs.
+
 Add `"elementHints": { "enabled": true, "chordKey": "Tab", "twoKey": true,
 "arrowKeys": true }` under `modes`, then reload configuration from the tray.
 Keep `uniformGrid.enabled` true. Version 9 migration leaves this mode disabled;

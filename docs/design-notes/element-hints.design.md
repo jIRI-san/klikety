@@ -70,10 +70,16 @@ geometry contributes an explicit omission; invalid root geometry rejects discove
 
 Targets sort by physical top/left/token. Per-page labels use horizontal-first,
 vertical-second VKey pairs; current-layout glyphs come from `IKeyLabelResolver`.
-The measured font floor and viewport bound page capacity. Inline hints are used
-when collision-free; crowded hints use a page-local list and connectors. Extremely
-small viewports/long labels use a contained scrolling list, never smaller text or
-silent target removal. Capacity and painting share adaptive status/list regions,
+The measured font floor and viewport bound page capacity. Hints first try their
+target center, clamped to the viewport, then four bounded rings of nearby slots
+with collision gaps. An ordinary top-edge target or one overlap does not relocate
+every hint. Severe crowding uses a compact right-side page-local list; capacity
+also fits that narrower list so initial pages do not hide label rows. Extremely
+small viewports/long labels use contained scrolling, never smaller text or silent
+target removal. Frozen glyph-only redraws retain all assignments and scroll toward
+the selected target or active prefix. Only a displaced selected label gets a
+connector; target outlines appear only for the selected target or prefix group.
+Unselected labels dim after selection. Capacity and painting share adaptive footer/list regions,
 including sub-8-DIP viewports; the initial physical-region fallback is retained
 until a measured canvas viewport is available. Labels are window-origin-relative DIPs; click coordinates
 remain physical desktop pixels.
@@ -83,7 +89,10 @@ a selection. Left/Right page without moving the cursor and clear prefix/selectio
 Escape clears prefix/selection, then cancels. Enter explicitly falls back to
 UniformGrid, including loading/failure/mode lock. Redraw/layout-glyph refresh
 preserves snapshot identities, label VKeys, page and selection. Viewport capacity
-changes explicitly reset pages; loading/partial/error status lives on RootCanvas,
+changes explicitly reset pages. A content-sized bottom footer shows concise
+loading/partial/error state, selection guidance, paging only when needed, and
+Enter/Escape fallback. Counts, omission reasons and viewport-capacity changes go
+to debug logging, not an intrusive normal-mode banner. This stays on RootCanvas,
 independent of macro/drag StatusCanvas and HelpCanvas.
 
 ## Action transaction
@@ -134,3 +143,9 @@ ownership: normal activation can be denied while validation correctly fails clos
 
 Live physical-input, mixed-display/DPI and third-party coverage remain the human
 gate in plan 4af565. Automated WPF discovery is not universal provider evidence.
+Actual offline Windows Sandbox WinForms captures at 200% reproduced the old
+full-width diagnostic banner and all-target connector clutter, then demonstrated
+near-target labels without unselected connectors and a compact footer. Later
+final-package guest attempts timed out within the unchanged discovery budget;
+passing earlier captures are not proof that the intermittent timeout is fixed.
+See the plan's evidence asset for exact artifacts and outstanding conditions.

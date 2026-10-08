@@ -2,6 +2,7 @@
 description: Grid rendering — DIP-space computation, font auto-scaling, outlined text, external labels, and theme system.
 globs:
   - src/Klikety/Overlay/GridRenderer.cs
+  - src/Klikety/Overlay/ElementHintsRenderer.cs
   - src/Klikety/Overlay/LogCrosshairRenderer.cs
   - src/Klikety/Overlay/LogGridRenderer.cs
   - src/Klikety/Overlay/OverlayWindow.xaml
@@ -18,10 +19,14 @@ globs:
 
 `ElementHintsRenderer` uses measured current-layout pair labels, theme outlined
 geometry and `OverlayDip.WindowOrigin`/scale. Physical target points never follow
-label displacement. Collision-free hints render inline; crowded targets use a
-page-local list with connectors. Page capacity fits measured text at
+label displacement. Bounded nearby placement handles ordinary overlaps and
+display edges without moving every label into global top rows. Severe crowding
+uses a compact right-side page list, with at most one selected-target connector;
+only selection/prefix targets are outlined. Page capacity fits that narrower list and measured text at
 `MinLabelFontSize`; extreme font/viewports use contained scrolling rather than
-smaller or dropped labels. Status is on RootCanvas, leaving macro/drag/help layers
+smaller or dropped labels. A content-sized bottom footer replaces the full-width
+top diagnostic banner; useful state/fallback remains visible and technical counts
+go to debug logs. Status is on RootCanvas, leaving macro/drag/help layers
 independent. Glyph-only redraw preserves assignments; viewport capacity changes
 explicitly reset pages. Actual STA WPF containment tests cover 100/150/200% scales,
 negative origins, crowded geometry and long VKey fallback labels.
@@ -29,6 +34,10 @@ Capacity and painting share adaptive status/list insets so even 1x1-DIP viewport
 scroll regions stay inside the canvas. Font size is not reduced. An actual WPF
 session test forces longer glyphs after selection: scrolling retains the frozen
 page/label assignments; only explicit viewport relayout recomputes pages.
+The scrolling list follows a selected target/prefix when a frozen redraw grows
+labels beyond the page's earlier capacity. Offline guest captures at native 200%
+confirmed the placement/footer change on a real UIA WinForms snapshot, not a
+host-render fake. The final-package guest timeout is recorded separately.
 
 ## Overlay placement
 

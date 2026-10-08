@@ -5,6 +5,9 @@ using Klikety.Config;
 using Klikety.Input;
 using Klikety.Services;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+
 namespace Klikety.Navigation;
 
 public interface IElementHintsRenderer {
@@ -15,11 +18,12 @@ public interface IElementHintsRenderer {
     void FlashInvalidKey();
 }
 
-public sealed class ElementHintsSession : IModeSession {
+public sealed partial class ElementHintsSession : IModeSession {
     private readonly VKey[] _horizontal, _vertical;
     private readonly ActionMapper _actions;
     private readonly IElementHintsRenderer? _renderer;
     private readonly IElementHintService _service;
+    private readonly ILogger _logger;
     private CancellationTokenSource? _lifetime;
     private HintTarget[] _targets = [];
     private int _capacity, _page;
@@ -29,9 +33,10 @@ public sealed class ElementHintsSession : IModeSession {
     private Rectangle _bounds;
 
     public ElementHintsSession(VKey[] horizontal, VKey[] vertical, ActionMapper actions,
-        ElementTargetContext context, IElementHintService service, IElementHintsRenderer? renderer) {
+        ElementTargetContext context, IElementHintService service, IElementHintsRenderer? renderer, ILogger? logger = null) {
         _horizontal = horizontal; _vertical = vertical; _actions = actions;
         Context = context; _service = service; _renderer = renderer;
+        _logger = logger ?? NullLogger.Instance;
         _capacity = horizontal.Length * vertical.Length;
     }
     public ElementTargetContext Context { get; }
@@ -66,14 +71,17 @@ public sealed class ElementHintsSession : IModeSession {
         if (lifetime.IsCancellationRequested || _lifetime != lifetime) { return; }
         _targets = response.Targets;
         RootProcessId = response.RootProcessId;
+        LogDiscovery(response.Outcome, _targets.Length, response.Visited, response.Omitted, response.Reason);
         _status = response.Outcome switch {
-            HintOutcome.Success => $"{_targets.Length} controls; two keys select, action key acts",
-            HintOutcome.Partial => $"Partial: {_targets.Length} controls; {response.Omitted} omitted branches/targets ({response.Reason})",
+            HintOutcome.Success => "",
+            HintOutcome.Partial => "Some controls unavailable",
             HintOutcome.NoTargets => "No controls found",
             HintOutcome.Timeout => "Control discovery timed out",
             HintOutcome.AccessDenied => "Application access denied",
-            HintOutcome.Unavailable => "Element hints unavailable: bundled helper missing or failed to start",
-            _ => $"Element hints: {response.Outcome} ({response.Reason})",
+            HintOutcome.Unavailable => "Element hints unavailable",
+            HintOutcome.InvalidRoot => "Application unavailable",
+            HintOutcome.CleanupFailed => "Helper cleanup failed; restart Klikety",
+            _ => "Control discovery failed",
         };
         Render(relayout: true);
     }
@@ -116,10 +124,10 @@ public sealed class ElementHintsSession : IModeSession {
         int capacity = Math.Max(1, _renderer?.GetPageCapacity(_bounds, _horizontal.Length * _vertical.Length) ?? _capacity);
         if (relayout && capacity != _capacity) {
             _capacity = capacity; _page = 0; _prefix = null; _selected = null;
-            if (_targets.Length > 0) { _status += "; pages recomputed for viewport"; }
+            LogPageCapacity(_capacity);
         }
         _renderer?.Render(_targets.Skip(_page * _capacity).Take(_capacity).ToArray(),
-            _page, PageCount, _prefix, _selected?.Token, _status + "; Enter: grid; Esc: cancel");
+            _page, PageCount, _prefix, _selected?.Token, _status);
     }
     public void Suspend() => Deactivate();
     public void Deactivate() {
@@ -132,4 +140,8 @@ public sealed class ElementHintsSession : IModeSession {
     private async Task RetireAsync() {
         if (!await _service.RetireAsync()) { FailureReported?.Invoke("UIA helper cleanup failed; further scans disabled."); }
     }
+    [LoggerMessage(Level = LogLevel.Debug, Message = "UIA discovery {Outcome}: retained={Retained}, visited={Visited}, omitted={Omitted}, reason={Reason}")]
+    private partial void LogDiscovery(HintOutcome outcome, int retained, int visited, int omitted, string? reason);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Element hint pages recomputed for viewport: capacity={Capacity}")]
+    private partial void LogPageCapacity(int capacity);
 }

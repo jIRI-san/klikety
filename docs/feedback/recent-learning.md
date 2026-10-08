@@ -1,11 +1,10 @@
 # Recent learning
 
-Source plan: `31191b keybinding-help-overlay`
-Source commit: `a4a4e35fef9631565c8c60c9efd4c43febe3158e`
+Source plan: `0b37c2 native-settings-sidebar`
+Source commit: `e0991863cbccf4facb0339f6b87a41670e7e523a`
 
 ## Lessons
 
-- Measure wrapped WPF command cards before placing rows; fixed key heights do not prove that text fits. — `src/Klikety.Tests/HelpOverlayRenderingTests.cs`
-- Latch help and Escape as close-only inputs; dismiss and forward other non-modifier keys through the existing dispatcher once. — `src/Klikety/NavigatorCoordinator.cs`
-- Check staggered-row extents and exact boundary tests before accepting a review claim about keyboard width. — `src/Klikety.Tests/HelpKeyboardLayoutTests.cs`
-- Add default keyboard bindings through collision-aware versioned migration without stealing configured commands. — `src/Klikety/Config/ConfigMigrator.cs`
+- Capture disk and active runtime baselines independently; permit explicit retry after stable disk restoration and require reload after disk divergence. — `src/Klikety/Config/SettingsSaveTransaction.cs`
+- Retain failed native cleanup ownership and quiesce hook consumer dispatch before retrying disposal. — `src/Klikety/Services/KeyboardHookService.cs`
+- Native observations and unsupported input/display rows are distinct from managed tests; user-authorized deferrals must be reconfirmed and committed before finalization. — `docs/implementation-plans/standalone-2026-10-04-0b37c2-native-settings-sidebar/assets/intent.md`

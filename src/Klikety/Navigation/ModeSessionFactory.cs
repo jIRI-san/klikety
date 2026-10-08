@@ -18,7 +18,7 @@ public sealed class ModeSessionFactory {
     private readonly ILogCrosshairRenderer? _logCrosshairRenderer;
     private readonly ILogGridRenderer? _logGridRenderer;
     private readonly LogGridKeyPolicyResult _logGridKeyPolicy;
-    private readonly IElementHintService _elementHintsService;
+    private IElementHintService? _elementHintsService;
     private readonly IElementHintsRenderer? _elementHintsRenderer;
     private readonly ILogger? _logger;
 
@@ -36,7 +36,7 @@ public sealed class ModeSessionFactory {
         _logCrosshairRenderer = logCrosshairRenderer;
         _logGridRenderer = logGridRenderer;
         _elementHintsRenderer = elementHintsRenderer;
-        _elementHintsService = elementHintsService ?? new UiaWorkerSupervisor();
+        _elementHintsService = elementHintsService;
         _logger = logger;
         _logGridKeyPolicy = LogGridKeyPolicy.Evaluate(config.HorizontalKeys, config.VerticalKeys);
     }
@@ -74,7 +74,8 @@ public sealed class ModeSessionFactory {
         "LogGrid" => CreateLogGrid(),
         "ElementHints" when IsElementHintsAvailable && targetContext is not null =>
             new ElementHintsSession(_config.HorizontalKeys, _config.VerticalKeys, _actionMapper,
-                targetContext, _elementHintsService, _elementHintsRenderer, _logger),
+                targetContext, _elementHintsService ??= new UiaWorkerSupervisor(_config.Modes.ElementHints.DiscoveryTimeoutMs),
+                _elementHintsRenderer, _logger, _config.Modes.ElementHints.ArrowKeys),
         "ElementHints" => throw new NotSupportedException("ElementHints requires valid configuration and an explicit target application."),
         _ => throw new ArgumentException($"Unknown mode: {modeName}", nameof(modeName)),
     };

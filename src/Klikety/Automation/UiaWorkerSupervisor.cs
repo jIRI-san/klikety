@@ -11,7 +11,7 @@ public sealed record ElementTargetContext(nint Hwnd, int OwnerProcessId, int Pro
 
 public interface IElementHintService {
     Task<HintResponse> DiscoverAsync(ElementTargetContext context, HintRect region, CancellationToken ct);
-    Task<HintResponse> ValidateAsync(int token, CancellationToken ct);
+    Task<HintResponse> ValidateAsync(int token, CancellationToken ct, bool moveOnly = false);
     Task<bool> RetireAsync();
 }
 
@@ -42,6 +42,7 @@ public sealed class UiaWorkerSupervisor : IElementHintService {
     private readonly SemaphoreSlim _gate = new(1);
     private readonly string _executable;
     private readonly string? _arguments;
+    private readonly int _discoveryTimeoutMs;
     private Process? _process;
     private SafeFileHandle? _job;
     private Task? _stderr;
@@ -52,10 +53,18 @@ public sealed class UiaWorkerSupervisor : IElementHintService {
     private bool _cleanupFailed;
     internal int? OwnedProcessId => _started && _process is not null ? _process.Id : null;
 
-    public UiaWorkerSupervisor() : this(Path.Combine(AppContext.BaseDirectory, "uia-worker", "Klikety.UiaWorker.exe")) { }
-    internal UiaWorkerSupervisor(string executable, string? arguments = null) {
+    public UiaWorkerSupervisor(int discoveryTimeoutMs = ElementHintProtocol.DiscoveryMs)
+        : this(Path.Combine(AppContext.BaseDirectory, "uia-worker", "Klikety.UiaWorker.exe"),
+            discoveryTimeoutMs: discoveryTimeoutMs) { }
+    internal UiaWorkerSupervisor(string executable, string? arguments = null,
+        int discoveryTimeoutMs = ElementHintProtocol.DiscoveryMs) {
+        if (discoveryTimeoutMs is < ElementHintProtocol.MinDiscoveryMs or > ElementHintProtocol.MaxDiscoveryMs) {
+            throw new ArgumentOutOfRangeException(nameof(discoveryTimeoutMs), discoveryTimeoutMs,
+                $"Discovery timeout must be between {ElementHintProtocol.MinDiscoveryMs} and {ElementHintProtocol.MaxDiscoveryMs} ms.");
+        }
         _executable = Path.GetFullPath(executable);
         _arguments = arguments;
+        _discoveryTimeoutMs = discoveryTimeoutMs;
     }
 
     public async Task<HintResponse> DiscoverAsync(ElementTargetContext context, HintRect region, CancellationToken ct) {
@@ -66,17 +75,19 @@ public sealed class UiaWorkerSupervisor : IElementHintService {
         try {
             if (!await RetireCoreAsync().ConfigureAwait(false)) { return Failure(request, HintOutcome.CleanupFailed); }
             _snapshot = request;
-            return await ExchangeAsync(request, ElementHintProtocol.DiscoveryMs, start: true, ct).ConfigureAwait(false);
+            return await ExchangeAsync(request, _discoveryTimeoutMs, start: true, ct).ConfigureAwait(false);
         } finally { _gate.Release(); }
     }
 
-    public async Task<HintResponse> ValidateAsync(int token, CancellationToken ct) {
+    public async Task<HintResponse> ValidateAsync(int token, CancellationToken ct, bool moveOnly = false) {
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try {
             if (_snapshot is null) {
                 return Failure(new(ElementHintProtocol.Version, Guid.Empty, Guid.Empty, HintCommand.Validate), HintOutcome.StaleTarget);
             }
-            return await ExchangeAsync(_snapshot with { Command = HintCommand.Validate, RequestId = Guid.NewGuid(), Token = token },
+            return await ExchangeAsync(_snapshot with {
+                Command = HintCommand.Validate, RequestId = Guid.NewGuid(), Token = token, MoveOnly = moveOnly
+            },
                 ElementHintProtocol.ValidationMs, start: false, ct).ConfigureAwait(false);
         } finally { _gate.Release(); }
     }

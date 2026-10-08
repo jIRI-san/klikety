@@ -25,6 +25,7 @@ public sealed class SettingsWindowTests {
             "modes.logCrosshair.enabled", "modes.logCrosshair.arrowKeys", "modes.logCrosshair.twoKey", "modes.logCrosshair.chordKey", "modes.logCrosshair.logBaseSize", "modes.logCrosshair.logGridBaseSize",
             "modes.logGrid.enabled", "modes.logGrid.arrowKeys", "modes.logGrid.twoKey", "modes.logGrid.chordKey", "modes.logGrid.logBaseSize", "modes.logGrid.logGridBaseSize",
             "modes.elementHints.enabled", "modes.elementHints.arrowKeys", "modes.elementHints.twoKey", "modes.elementHints.chordKey", "modes.elementHints.logBaseSize", "modes.elementHints.logGridBaseSize",
+            "modes.elementHints.discoveryTimeoutMs",
         ],
         ["helpBinding.enabled", "helpBinding.key", "helpBinding.requireShift", "actionBindings.add.key", "actionBindings.add.action", "horizontalKeys.item.0", "verticalKeys.item.0"],
         ["theme", "minLabelFontSize", "metadata.themeFolder", "metadata.themeFolder.open"],

@@ -1,12 +1,13 @@
+using Klikety.Automation;
 using Klikety.Input;
 
 namespace Klikety.Config;
 
 /// <summary>
-/// Per-mode configuration. Each navigation mode has its own toggles, chord key,
-/// and axis key arrays.
+/// Per-mode configuration. Each navigation mode has its own toggles and chord key;
+/// axis key arrays are shared at the configuration root.
 /// <para>
-/// Bool properties default to <c>false</c> and arrays to <c>null</c> by design.
+/// Bool properties default to <c>false</c> by design.
 /// Usable defaults live in <see cref="ModesConfig"/> property initializers.
 /// The config loader (JsonDocument pre-pass) is responsible for merging partial
 /// user overrides onto those defaults — bare <c>new ModeConfig()</c> yields an
@@ -31,6 +32,11 @@ public sealed class ModeConfig {
     /// Only meaningful for LogGrid mode. Default 10.
     /// </summary>
     public int LogGridBaseSize { get; init; } = 10;
+
+    /// <summary>
+    /// UIA discovery deadline including helper startup. Only meaningful for ElementHints.
+    /// </summary>
+    public int DiscoveryTimeoutMs { get; init; } = ElementHintProtocol.DiscoveryMs;
 }
 
 /// <summary>

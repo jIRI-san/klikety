@@ -40,7 +40,7 @@ public class UiaWorkerSupervisorTests {
 
     [Fact]
     public async Task CancellationAndNextScanUseOneOwnedWorker() {
-        var worker = new UiaWorkerSupervisor(Fixture, "hang");
+        var worker = new UiaWorkerSupervisor(Fixture, "hang", discoveryTimeoutMs: 10000);
         using var cts = new CancellationTokenSource(100);
         var response = await worker.DiscoverAsync(new(1, 1), new(0, 0, 100, 100), cts.Token);
         Assert.Equal(HintOutcome.Cancelled, response.Outcome);
@@ -78,13 +78,55 @@ public class UiaWorkerSupervisorTests {
             Assert.Equal(HintOutcome.NoTargets, (await worker.DiscoverAsync(new(1, 1),
                 new(0, 0, 100, 100), CancellationToken.None)).Outcome);
         } finally { Assert.True(await worker.RetireAsync()); File.Delete(marker); }
-        var validationWorker = new UiaWorkerSupervisor(Fixture, "validation-hang");
+        var validationWorker = new UiaWorkerSupervisor(Fixture, "validation-hang", discoveryTimeoutMs: 10000);
         await validationWorker.DiscoverAsync(new(1, 1), new(0, 0, 100, 100), CancellationToken.None);
         var watch = Stopwatch.StartNew();
         Assert.Equal(HintOutcome.Timeout, (await validationWorker.ValidateAsync(1, CancellationToken.None)).Outcome);
         Assert.True(watch.ElapsedMilliseconds < 1000);
         Assert.Null(validationWorker.OwnedProcessId);
     }
+
+    [Fact]
+    public async Task MoveOnlyIntentIsSentPerValidationAndNeverLeaksIntoTheNextClick() {
+        var worker = new UiaWorkerSupervisor(Fixture, "validation-intent");
+        try {
+            Assert.Equal(HintOutcome.NoTargets, (await worker.DiscoverAsync(new(1, 1),
+                new(0, 0, 100, 100), CancellationToken.None)).Outcome);
+            var move = await worker.ValidateAsync(1, CancellationToken.None, moveOnly: true);
+            Assert.Equal(HintOutcome.Success, move.Outcome);
+            Assert.Equal("MoveOnly", move.Reason);
+            var click = await worker.ValidateAsync(1, CancellationToken.None);
+            Assert.Equal(HintOutcome.Success, click.Outcome);
+            Assert.Equal("DirectAction", click.Reason);
+        } finally { Assert.True(await worker.RetireAsync()); }
+    }
+
+    [Theory]
+    [InlineData(1000, HintOutcome.Timeout)]
+    [InlineData(5000, HintOutcome.NoTargets)]
+    public async Task ConfiguredDeadlineAllowsSlowDiscoveryButStillBoundsTheWorker(int timeoutMs, HintOutcome outcome) {
+        var worker = new UiaWorkerSupervisor(Fixture, "delay 1800", discoveryTimeoutMs: timeoutMs);
+        var watch = Stopwatch.StartNew();
+        try {
+            var response = await worker.DiscoverAsync(new(1, 1), new(0, 0, 100, 100), CancellationToken.None);
+            Assert.Equal(outcome, response.Outcome);
+            Assert.True(watch.ElapsedMilliseconds < timeoutMs + ElementHintProtocol.CleanupMs + 500);
+            if (outcome == HintOutcome.NoTargets) {
+                Assert.True(watch.ElapsedMilliseconds >= 1800);
+                Assert.NotNull(worker.OwnedProcessId);
+            } else {
+                Assert.True(watch.ElapsedMilliseconds >= timeoutMs - 100);
+                Assert.Null(worker.OwnedProcessId);
+            }
+        } finally { Assert.True(await worker.RetireAsync()); }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(99)]
+    [InlineData(60001)]
+    public void InvalidDeadlineCannotDisableTheWatchdog(int timeoutMs) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => new UiaWorkerSupervisor(timeoutMs));
 }
 
 public class ElementHintPackagingTests {

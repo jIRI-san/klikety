@@ -171,7 +171,16 @@
         },
         "elementHints": {
           "$ref": "#/$defs/modeConfig",
-          "description": "Opt-in foreground-window UI Automation hints. Requires twoKey, arrowKeys and enabled UniformGrid. Tab switches in; Enter returns to grid."
+          "description": "Opt-in foreground-window UI Automation hints. Requires twoKey (adaptive one/two-key labels) and enabled UniformGrid. ArrowKeys optionally focuses controls/groups; PgUp/PgDn page only when necessary. + opens nested control groups, Esc goes back, Enter returns to grid.",
+          "properties": {
+            "discoveryTimeoutMs": {
+              "type": "integer",
+              "description": "Discovery deadline in milliseconds, including helper startup. Increase for slow UIA providers such as Word. Validation and cleanup deadlines remain fixed.",
+              "default": 1500,
+              "minimum": 100,
+              "maximum": 60000
+            }
+          }
         },
         "logGrid": {
           "allOf": [{ "$ref": "#/$defs/modeConfig" }],

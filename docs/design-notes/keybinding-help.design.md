@@ -15,10 +15,12 @@ globs:
 
 ElementHints participates in binding conflicts and effective mode projection.
 While active, the existing help view projects `ElementHintsHelpState` from the
-session: discovery outcome/status, actual renderer-limited page count, prefix and
-selection. It includes configured first/second label keys in order using current
-layout glyphs, selection without clicking, wrapping Left/Right paging that clears
-prefix/selection, and the current page. Action cards use effective bindings,
+session: discovery outcome/status, depth, single/pair key scheme, group focus,
+actual renderer-limited rare page count, prefix and selection. It includes configured
+label keys in order using current layout glyphs, label-only group opening, selection
+without clicking, optional arrow focus and independent wrapping PgUp/PgDn paging.
+Paging cards appear only with multiple pages; arrow cards mute when disabled.
+Action cards use effective bindings,
 including overridden Space; they mute until a target is selected. Prompts explain
 modifier clicks, modifier-free move-only, validated actions and two-phase drag.
 Enter grid fallback remains available during loading, failures, prefix/selection
@@ -27,7 +29,8 @@ keys: those commands mute and help asks the user to finish setup. During recordi
 Escape cancels recording before normal hint Escape stages apply.
 
 Help/Escape closes help only. Outside help, Escape clears a first key or selected
-target, then cancels; with neither it cancels immediately. Opening/closing help
+pair, otherwise pops a level or cancels at L1 (also from a selected leaf).
+Opening/closing help
 preserves prefix/page/selection without rescanning. A session state-change event
 refreshes visible help when discovery completes or viewport capacity changes.
 SessionManager unsubscribes before retirement; late results cannot replace a new
@@ -61,7 +64,7 @@ normal-mode rendering receives no new diagnostics/banner.
 - Current drag target meanings; recording slot, overwrite, and start-from-cursor prompts; macro slot names; and reasons for commands that are temporarily unavailable.
 - Navigation-only keys are not drawn: help renders only labeled command cards, with no empty key rectangles. Canonical keyboard slots still preserve command positions; custom command keys outside the diagram use a centered auxiliary strip, without reserving auxiliary slots for navigation-only keys. Disabled features are omitted.
 - Element-hint label axes are listed in the prompt area, not duplicated as keycaps.
-  Only pairs printed on the current page are valid. Loading/partial/no-target/error
+  Only single keys/pairs printed on the current level/page are valid. Loading/partial/no-target/error
   guidance stays concise; technical traversal counts remain in logs. UniformGrid's
   configured chord is projected alongside other enabled modes; Enter is a distinct
   fallback entry only while ElementHints is active.

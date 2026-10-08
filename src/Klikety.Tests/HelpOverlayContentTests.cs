@@ -9,6 +9,22 @@ using Klikety.Tests.Fakes;
 namespace Klikety.Tests;
 
 public class HelpBindingModelTests {
+    [Fact]
+    public void SingleKeyGroupHelpMutesActionsAndPagingStaysIndependentOfArrows() {
+        var config = new ConfigModel { Modes = new() { ElementHints = new() { Enabled = true, ArrowKeys = false, TwoKey = true } } };
+        var content = Build(config, hints: new(HintOutcome.Success, "", 1, 3, 250, null, false,
+            Depth: 2, SingleKey: true, FocusedGroup: true, ArrowKeys: false));
+        Assert.Contains(content.Prompts, p => p.StartsWith("Level 2: one-key"));
+        Assert.Contains(content.Prompts, p => p.StartsWith("Group focused."));
+        Assert.Contains(content.Prompts, p => p.StartsWith("Label keys:"));
+        Assert.DoesNotContain(content.Prompts, p => p.StartsWith("First label key:"));
+        Assert.All(content.Entries.Where(e => e.Category == HelpEntryCategory.Action), e => Assert.False(e.IsAvailable));
+        Assert.All(content.Entries.Where(e => e.Key is VKey.Left or VKey.Right or VKey.Up or VKey.Down),
+            e => Assert.False(e.IsAvailable));
+        Assert.Contains(content.Entries, e => e.Key == VKey.Next && e.KeyLabel == "PgDn" && e.IsAvailable);
+        Assert.Contains(content.Entries, e => e.Key == VKey.Prior && e.KeyLabel == "PgUp" && e.IsAvailable);
+        Assert.Contains(content.Entries, e => e.Key == VKey.Return && e.IsAvailable);
+    }
     [Theory]
     [InlineData(MacroRecorderState.AwaitSlot)]
     [InlineData(MacroRecorderState.AwaitOverwrite)]
@@ -79,7 +95,7 @@ public class HelpBindingModelTests {
         Assert.Contains(content.Prompts, prompt => prompt.Contains("Move only ignores modifiers"));
         Assert.Contains(content.Prompts, prompt => prompt.Contains("Start drag") && prompt.Contains("destination"));
         Assert.Contains(content.Prompts, prompt => prompt.Contains("Outside help: Escape clears"));
-        Assert.Contains(content.Prompts, prompt => prompt.Contains("with neither, it cancels immediately"));
+        Assert.Contains(content.Prompts, prompt => prompt.Contains("at Level 1 it cancels immediately"));
         Assert.Contains(content.Prompts, prompt => prompt.Contains("Some controls unavailable"));
         Assert.Contains(content.Prompts, prompt =>
             selected ? prompt.Contains("Target selected") : prompt.Contains("First key S entered"));

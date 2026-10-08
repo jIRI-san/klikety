@@ -1,0 +1,82 @@
+{
+  "fixtureDpi": 192,
+  "nativeSize": {
+    "width": 3046,
+    "height": 1650
+  },
+  "hints": {
+    "targets": 47,
+    "entries": 20,
+    "children": 3,
+    "role": "Combo box (3 controls)"
+  },
+  "images": [
+    {
+      "name": "uniform-grid.png",
+      "width": 3046,
+      "height": 1650,
+      "sha256": "abcb7a04f492e2ba1af370de38fdfb96778cbffc547c33b3e45947efd304afa3"
+    },
+    {
+      "name": "uniform-grid-zoom.png",
+      "width": 3046,
+      "height": 1650,
+      "sha256": "85a2dbf9c068c590e903b4a0d00eebc909e5593b038e3bd382dc73b06485904e"
+    },
+    {
+      "name": "crosshair.png",
+      "width": 3046,
+      "height": 1650,
+      "sha256": "03983061c910a892dbb08b1ae0af93f471bd7d67f74b99dc52ae9decc21c222f"
+    },
+    {
+      "name": "log-crosshair.png",
+      "width": 3046,
+      "height": 1650,
+      "sha256": "1f0c242dd74b110633b3ab1dbe7fc2a8ff7cd7baa197bf1d097e264b58ab7ef0"
+    },
+    {
+      "name": "log-grid.png",
+      "width": 3046,
+      "height": 1650,
+      "sha256": "fe591fc7b65c62e671dfe972cfa64825cd4d611a80a28da075ef96c1f890bee1"
+    },
+    {
+      "name": "element-hints.png",
+      "width": 3046,
+      "height": 1650,
+      "sha256": "12a23ab17e4edb953c5a42555cd3bf2338c550c856faf1609649d8e67039b182"
+    },
+    {
+      "name": "element-hints-children.png",
+      "width": 3046,
+      "height": 1650,
+      "sha256": "3a50ec7d4ecaf498f4a011c52af65ddad66073e28216bedbee6af267184540de"
+    },
+    {
+      "name": "navigation-demo.png",
+      "width": 960,
+      "height": 520,
+      "sha256": "1f552e4a9543516054192d2551c75542078bb21f74b8cae54415a59820593e4b"
+    }
+  ],
+  "animation": {
+    "width": 960,
+    "height": 520,
+    "frames": 6,
+    "frameDelayMs": 1400,
+    "loops": 0,
+    "crcValid": true
+  },
+  "links": {
+    "documents": 16,
+    "localLinks": 52
+  },
+  "browser": {
+    "version": "Edg/154.0.4258.62",
+    "decodedFrames": 6,
+    "animationObserved": true
+  },
+  "capturedAtUtc": "2026-10-08T13:09:10.303Z",
+  "verifiedAtUtc": "2026-10-08T13:09:19.084Z"
+}

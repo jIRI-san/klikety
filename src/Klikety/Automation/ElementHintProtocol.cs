@@ -31,24 +31,34 @@ public readonly record struct HintRect(double X, double Y, double Width, double 
 
 public readonly record struct HintPoint(int X, int Y);
 public sealed record HintTarget(int Token, int[] RuntimeId, int ProcessId, int ControlType,
-    HintCapabilities Capabilities, HintRect Bounds, HintRect VisibleBounds, HintPoint Preview);
+    HintCapabilities Capabilities, HintRect Bounds, HintRect VisibleBounds, HintPoint Preview,
+    int ContainerId = 0);
+public sealed record HintContainer(int Id, int ParentId, int TargetToken, int ProcessId,
+    int ControlType, HintRect Bounds);
 public sealed record HintRequest(int Version, Guid SessionId, Guid RequestId, HintCommand Command,
     long Hwnd = 0, int OwnerProcessId = 0, HintRect Region = default, int Token = 0,
-    int ExpectedProcessId = 0, long ExpectedProcessStart = 0);
+    int ExpectedProcessId = 0, long ExpectedProcessStart = 0, bool MoveOnly = false);
 public sealed record HintResponse(int Version, Guid SessionId, Guid RequestId, HintOutcome Outcome,
     HintTarget[] Targets, int Visited = 0, int Omitted = 0, string? Reason = null,
-    HintPoint? Point = null, int RootProcessId = 0);
+    HintPoint? Point = null, int RootProcessId = 0, HintContainer[]? Containers = null);
 
 public static class ElementHintProtocol {
     public const int Version = 1;
     public const int DiscoveryMs = 1500, ValidationMs = 500, CleanupMs = 500;
+    public const int MinDiscoveryMs = 100, MaxDiscoveryMs = 60000;
     public const int MaxNodes = 20000, MaxDepth = 64, MaxTargets = 2000;
+    public const int MaxContainers = MaxTargets * 2;
     public const int MaxRequestBytes = 64 * 1024, MaxResponseBytes = 2 * 1024 * 1024;
     public const int MaxDiagnosticBytes = 64 * 1024, MaxRuntimeId = 64;
     private static readonly JsonSerializerOptions Options = new() { MaxDepth = 32 };
 
     public static HintResponse BoundSnapshotResponse(HintResponse response) {
         if (JsonSerializer.SerializeToUtf8Bytes(response, Options).Length <= MaxResponseBytes) { return response; }
+        // Byte truncation invalidates subtree completeness. Keep targets, not grouping claims.
+        response = response with {
+            Targets = response.Targets.Select(t => t with { ContainerId = 0 }).ToArray(),
+            Containers = null
+        };
         var partial = response with { Outcome = HintOutcome.Partial, Reason = "Response byte limit" };
         int low = 0, high = response.Targets.Length;
         while (low < high) {
@@ -103,6 +113,48 @@ public static class ElementHintProtocol {
                 !target.VisibleBounds.Contains(target.Preview)) {
                 throw new InvalidDataException("Invalid UIA candidate.");
             }
+        }
+        var containers = new Dictionary<int, HintContainer>();
+        var depths = new Dictionary<int, int>();
+        var ownTokens = new HashSet<int>();
+        if (response.Containers?.Length > MaxContainers) {
+            throw new InvalidDataException("UIA container limit exceeded.");
+        }
+        foreach (var container in response.Containers ?? []) {
+            if (container is null || container.Id <= 0 || containers.ContainsKey(container.Id) ||
+                container.ParentId < 0 || container.ParentId >= container.Id ||
+                container.ParentId != 0 && !containers.ContainsKey(container.ParentId) ||
+                container.ProcessId <= 0 || !container.Bounds.IsValid ||
+                !container.Bounds.Clip(request.Region).IsValid ||
+                container.TargetToken < 0 || container.TargetToken != 0 &&
+                    (!tokens.Contains(container.TargetToken) || !ownTokens.Add(container.TargetToken))) {
+                throw new InvalidDataException("Invalid UIA container.");
+            }
+            int depth = container.ParentId == 0 ? 1 : depths[container.ParentId] + 1;
+            if (depth > MaxDepth + 1 || container.ParentId != 0 &&
+                containers[container.ParentId].ProcessId != container.ProcessId) {
+                throw new InvalidDataException("Invalid UIA container ancestry.");
+            }
+            containers.Add(container.Id, container);
+            depths.Add(container.Id, depth);
+        }
+        var counts = containers.Keys.ToDictionary(id => id, _ => 0);
+        foreach (var target in response.Targets) {
+            if (target.ContainerId < 0 || target.ContainerId != 0 &&
+                (!containers.TryGetValue(target.ContainerId, out var container) ||
+                 container.ProcessId != target.ProcessId)) {
+                throw new InvalidDataException("Invalid UIA target ancestry.");
+            }
+            if (target.ContainerId != 0) { counts[target.ContainerId]++; }
+        }
+        foreach (var container in containers.Values.Reverse()) {
+            if (container.TargetToken != 0 && !response.Targets.Any(t =>
+                t.Token == container.TargetToken && t.ContainerId == container.Id &&
+                t.ProcessId == container.ProcessId && t.Bounds == container.Bounds)) {
+                throw new InvalidDataException("Invalid UIA container action.");
+            }
+            if (counts[container.Id] < 2) { throw new InvalidDataException("Incomplete UIA container."); }
+            if (container.ParentId != 0) { counts[container.ParentId] += counts[container.Id]; }
         }
         if (response.Point is { } point && !request.Region.Contains(point)) {
             throw new InvalidDataException("UIA validation point outside region.");

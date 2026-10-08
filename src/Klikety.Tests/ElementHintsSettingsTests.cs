@@ -40,6 +40,8 @@ public sealed class ElementHintsSettingsTests {
             Assert.True(Find<CheckBox>(host, "modes.elementHints.twoKey").IsChecked);
             Assert.True(Find<CheckBox>(host, "modes.elementHints.arrowKeys").IsChecked);
             Assert.Equal(VKey.Tab, Find<ComboBox>(host, "modes.elementHints.chordKey").SelectedValue);
+            Assert.Equal("1500", Find<TextBox>(host, "modes.elementHints.discoveryTimeoutMs").Text);
+            Find<TextBox>(host, "modes.elementHints.discoveryTimeoutMs").Text = "10000";
             defaults.SelectedIndex = 4;
             categories.SelectedIndex = 2;
             Find<ComboBox>(host, "horizontalKeys.item.1").SelectedValue = VKey.D;
@@ -57,6 +59,7 @@ public sealed class ElementHintsSettingsTests {
             Assert.True(result.Config.Modes.ElementHints.Default);
             Assert.True(result.Config.Modes.ElementHints.TwoKey);
             Assert.True(result.Config.Modes.ElementHints.ArrowKeys);
+            Assert.Equal(10000, result.Config.Modes.ElementHints.DiscoveryTimeoutMs);
             Assert.True(result.Config.Modes.UniformGrid.Enabled);
             Assert.False(result.Config.Modes.UniformGrid.Default);
             Assert.Null(result.Config.Modes.UniformGrid.ChordKey);
@@ -70,6 +73,7 @@ public sealed class ElementHintsSettingsTests {
             categories.SelectedIndex = 1;
             Assert.Equal(4, Find<ComboBox>(host, "defaultMode").SelectedIndex);
             Assert.True(Find<CheckBox>(host, "modes.elementHints.enabled").IsChecked);
+            Assert.Equal("10000", Find<TextBox>(host, "modes.elementHints.discoveryTimeoutMs").Text);
             var text = File.ReadAllText(path);
             Assert.Contains("// keep user guidance", text);
             Assert.Contains("\"extension\":{\"untouched\":42}", text);
@@ -86,11 +90,26 @@ public sealed class ElementHintsSettingsTests {
             var twoKey = Find<CheckBox>(host, "modes.elementHints.twoKey");
             twoKey.IsChecked = false;
             Assert.IsType<Button>(window.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.Contains("twoKey and arrowKeys must both be true",
+            Assert.Contains("twoKey must be true",
                 Assert.IsType<TextBlock>(window.FindName("Status")).Text);
             Assert.False(twoKey.IsChecked);
             Assert.Equal(original, File.ReadAllBytes(path));
             Assert.False(File.Exists(path + ".settings.bak"));
+        });
+
+    [Fact]
+    public void NativeEditorSavesHintsWithArrowNavigationDisabled() =>
+        WithDialog(Document, (path, window) => {
+            Assert.IsType<ListBox>(window.FindName("Categories")).SelectedIndex = 1;
+            var host = Assert.IsType<ContentControl>(window.FindName("PageHost"));
+            Find<CheckBox>(host, "modes.elementHints.enabled").IsChecked = true;
+            Find<CheckBox>(host, "modes.elementHints.arrowKeys").IsChecked = false;
+            Assert.IsType<Button>(window.FindName("SaveButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            var result = new SettingsConfigStore(path).Open();
+            Assert.Empty(result.SettingsBlockingErrors);
+            Assert.True(result.Config.Modes.ElementHints.Enabled);
+            Assert.False(result.Config.Modes.ElementHints.ArrowKeys);
+            Assert.True(result.Config.Modes.ElementHints.TwoKey);
         });
 
     [Theory]
@@ -125,8 +144,10 @@ public sealed class ElementHintsSettingsTests {
 
     [Theory]
     [InlineData("modes.uniformGrid.enabled", "false", "UniformGrid")]
-    [InlineData("modes.elementHints.twoKey", "false", "twoKey and arrowKeys")]
-    [InlineData("modes.elementHints.arrowKeys", "false", "twoKey and arrowKeys")]
+    [InlineData("modes.elementHints.twoKey", "false", "twoKey must be true")]
+    [InlineData("modes.elementHints.discoveryTimeoutMs", "0", "discoveryTimeoutMs")]
+    [InlineData("modes.elementHints.discoveryTimeoutMs", "99", "discoveryTimeoutMs")]
+    [InlineData("modes.elementHints.discoveryTimeoutMs", "60001", "discoveryTimeoutMs")]
     [InlineData("modes.elementHints.default", "true", "exactly one")]
     [InlineData("modes.elementHints.chordKey", "\"A\"", "chord")]
     [InlineData("modes.elementHints.chordKey", "\"Space\"", "chord")]

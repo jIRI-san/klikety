@@ -27,6 +27,10 @@ When the user says **"update docs"**:
 
 Detailed patterns and implementation guidance in `docs/design-notes/`. The root index file is always loaded first.
 
+README demo captures use the repo-specific `/capture-demo` skill in
+`.github/skills/capture-demo/SKILL.md`. Its supporting automation is in
+`scripts/readme-demo/`; preserve the offline Sandbox and host-isolation boundaries.
+
 <instructions>
 <instruction>
   <description>Always load first — root design-note index, governance rules, and directory of all available design notes with their scopes. Load before any implementation, documentation, or design work.</description>

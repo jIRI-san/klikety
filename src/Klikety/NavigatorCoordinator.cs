@@ -649,7 +649,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _overlayHost.Hide();
             _platform.ForegroundWindow.SetForegroundWindow(hints.Context.Hwnd);
             _hostBusy = false;
-            var response = await hints.ValidateAsync(intent.Token);
+            var response = await hints.ValidateAsync(intent.Token, moveOnly: action == MouseAction.MoveOnly);
             if (intent.IsCancellationRequested || _pendingElementAction != intent ||
                 _sessionManager.ActiveSession != hints) { return; }
             if (response.Outcome != HintOutcome.Success || response.Point is not { } point ||

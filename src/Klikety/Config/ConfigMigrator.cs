@@ -407,6 +407,7 @@ public static class ConfigMigrator {
     private static JsonObject CreateElementHints() => new() {
         ["enabled"] = false, ["default"] = false, ["chordKey"] = "Tab",
         ["twoKey"] = true, ["arrowKeys"] = true,
+        ["discoveryTimeoutMs"] = new ModeConfig().DiscoveryTimeoutMs,
     };
 
     private static JsonObject CreateDefaultMacros() => new() {

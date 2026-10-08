@@ -10,12 +10,23 @@ globs:
 ## ElementHints (version 9)
 
 Version 9 additively migrates `modes.elementHints` with disabled defaults, Tab chord
-and required `twoKey=true`/`arrowKeys=true`. Unknown fields, keys and defaults are
+and `twoKey=true`/`arrowKeys=true` defaults. Only `twoKey` remains required for
+adaptive single/pair labels; arrows optionally focus controls/groups, never page.
+PgUp/PgDn are reserved from local label/action/chord/scope/help/macro bindings
+while hints are enabled. Modified global scroll shortcuts keep their separate role.
+Unknown fields, keys and defaults are
 preserved. Partial element settings merge defaults without overriding explicit
 values. `ElementHintsPolicy` requires enabled UniformGrid fallback, valid disjoint
 label axes and collision-free commands. Invalid settings suppress its factory,
 default and chord dispatch and produce a configuration violation. All mode/help/
 scope/macro/scroll collision lists include the fifth mode.
+`modes.elementHints.discoveryTimeoutMs` optionally controls discovery including
+helper startup: default 1500 ms, valid integer range 100-60000 ms. Missing fields
+retain the default without rewriting existing version-9 files; newly migrated and
+first-run hint blocks include it. `ModeConfig` carries the property for the shared
+mode shape, but only ElementHints consumes/edits it. Out-of-range values remain
+unchanged, produce violations, suppress hint dispatch and block Settings saving
+even with hints disabled. Validation and helper cleanup stay fixed at 500 ms.
 Native Settings edits all five mode blocks and the shared default picker. Its
 strict read requires current version 9 rather than silently migrating during
 editing. With ElementHints as the default, enabled UniformGrid needs no separate
@@ -90,13 +101,13 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.
 - `ShutdownMode=OnExplicitShutdown` — process persists until "Quit" menu item calls `Application.Current.Shutdown()`.
-- Context menu items: **Settings...**, **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Show Key Presses** (runtime toggle — creates/destroys visualization resources via activation transaction; see `key-press-visualization.design.md`), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, key press visualization, tray icon, logger factory).
+- Context menu items: **Settings...**, **About** (small `AboutWindow`), **Open Configuration Folder** (`Process.Start("explorer.exe", path)`), **Reload Configuration** (reload/apply edited JSONC while idle), **Reset Configuration** (visible only with blocking violations — disposes coordinator, re-bootstraps), **Start with Windows** (toggle with checkmark), **Show Key Presses** (runtime toggle — creates/destroys visualization resources via activation transaction; see `key-press-visualization.design.md`), **Pause/Resume Scroll Keys** (visible only when scroll hotkeys enabled — toggles `Unregister()`/`Register()` without config change), **Quit** (disposes coordinator, hotkey service, scroll service, key press visualization, tray icon, logger factory).
 - Tray notifications used for: hotkey conflict, hook install failure, config/key-binding violations, theme load failure.
 
 ## Logging
 
 - `Microsoft.Extensions.Logging` with rolling file sink → `%APPDATA%\Klikety\logs\`.
-- Config: `logLevel` (default `Warning`), `fileLoggingEnabled` (default `false`), `retainedLogFileCount` (default `7`).
+- Omitted-field model defaults: `logLevel: Warning`, `fileLoggingEnabled: false`, `retainedLogFileCount: 7`. The extracted first-run template explicitly enables `Debug` file logging. Existing configs retain their values.
 - Debug-level logging in `NavigatorCoordinator`:
   - Every mapped keystroke: key name + state before processing.
   - State transitions: `{before} → {after}` when state changes.

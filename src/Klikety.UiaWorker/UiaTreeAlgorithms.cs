@@ -15,7 +15,7 @@ internal interface IHintTree<T> where T : class {
 }
 
 internal sealed record HintDiscovery<T>(IReadOnlyList<(T Element, HintTarget Target)> Entries,
-    int Visited, int Omitted, string? Reason) where T : class;
+    int Visited, int Omitted, string? Reason, HintContainer[] Containers) where T : class;
 
 internal readonly record struct HintRootIdentity(int ProcessId, long ProcessStart, int[] RuntimeId, HintRect Bounds);
 
@@ -26,6 +26,10 @@ internal static class UiaTreeAlgorithms {
         public int Descendants { get; set; }
         public int SoleDescendant { get; set; } = -1;
         public bool Complete { get; set; } = true;
+        public HintNode? Data { get; set; }
+        public int Retained { get; set; }
+        public int ProcessId { get; set; }
+        public int RetainedChildBranches { get; set; }
     }
 
     public static bool ValidId(int[] id) => id is { Length: > 0 and <= ElementHintProtocol.MaxRuntimeId };
@@ -49,6 +53,7 @@ internal static class UiaTreeAlgorithms {
             visited++;
             try {
                 var data = tree.Read(element);
+                branch.Data = data;
                 if (data.ProcessId != ownerProcessId && data.ProcessId != workerProcessId &&
                     data.Enabled && !data.Offscreen &&
                     ElementHintCandidatePolicy.IsInteractive(data.ControlType, data.Capabilities)) {
@@ -109,9 +114,50 @@ internal static class UiaTreeAlgorithms {
                 }
             }
         }
+        var containers = new List<HintContainer>();
+        if (!capped) {
+            for (int i = branches.Count - 1; i >= 0; i--) {
+                var branch = branches[i];
+                if (branch.Candidate >= 0 && !redundant.Contains(branch.Candidate)) {
+                    branch.Retained++;
+                    int pid = entries[branch.Candidate].Target.ProcessId;
+                    branch.ProcessId = branch.ProcessId == 0 || branch.ProcessId == pid ? pid : -1;
+                }
+                if (branch.Parent < 0) { continue; }
+                var parent = branches[branch.Parent];
+                parent.Retained += branch.Retained;
+                if (branch.Retained > 0) {
+                    parent.RetainedChildBranches++;
+                    parent.ProcessId = parent.ProcessId == 0 || parent.ProcessId == branch.ProcessId ? branch.ProcessId : -1;
+                }
+            }
+            var containerIds = new int[branches.Count];
+            for (int i = 0; i < branches.Count; i++) {
+                var branch = branches[i];
+                int parentId = branch.Parent < 0 ? 0 : containerIds[branch.Parent];
+                bool own = branch.Candidate >= 0 && !redundant.Contains(branch.Candidate);
+                // Skip passive unary chains; preserve only complete, same-process branching structure.
+                if (containers.Count < ElementHintProtocol.MaxContainers && branch.Complete &&
+                    branch.Retained >= 2 && (own || branch.RetainedChildBranches >= 2) &&
+                    branch.Data is { } data && data.ProcessId == branch.ProcessId &&
+                    data.Bounds.IsValid && data.Bounds.Clip(region).IsValid && ValidId(data.RuntimeId)) {
+                    parentId = i + 1;
+                    containers.Add(new(parentId, branch.Parent < 0 ? 0 : containerIds[branch.Parent],
+                        own ? entries[branch.Candidate].Target.Token : 0,
+                        data.ProcessId, data.ControlType, data.Bounds));
+                }
+                containerIds[i] = parentId;
+                if (own && parentId != 0) {
+                    var entry = entries[branch.Candidate];
+                    if (branches[parentId - 1].ProcessId == entry.Target.ProcessId) {
+                        entries[branch.Candidate] = (entry.Element, entry.Target with { ContainerId = parentId });
+                    }
+                }
+            }
+        }
         entries = entries.Where((_, i) => !redundant.Contains(i)).ToList();
         return new(entries.OrderBy(e => e.Target.Bounds.Y).ThenBy(e => e.Target.Bounds.X)
-            .ThenBy(e => e.Target.Token).ToArray(), visited, omitted, reason);
+            .ThenBy(e => e.Target.Token).ToArray(), visited, omitted, reason, containers.ToArray());
     }
 
     private static bool IsRedundantListWrapper(HintTarget wrapper, HintTarget descendant) =>
@@ -154,7 +200,8 @@ internal static class UiaTreeAlgorithms {
     }
 
     public static HintPoint? VerifiedPoint<T>(HintRect area, HintPoint? clickable,
-        Func<HintPoint, bool> nativeOwns, Func<HintPoint, T> hit, int[] selectedId, IHintTree<T> tree) where T : class {
+        Func<HintPoint, bool> nativeOwns, Func<HintPoint, T> hit, int[] selectedId, IHintTree<T> tree,
+        bool moveOnly = false) where T : class {
         var points = new List<HintPoint>();
         if (clickable is { } preferred) { points.Add(preferred); }
         points.Add(area.Center);
@@ -164,7 +211,10 @@ internal static class UiaTreeAlgorithms {
             }
         }
         foreach (var point in points.Distinct()) {
-            if (area.Contains(point) && nativeOwns(point) && OwnsHit(hit(point), selectedId, tree)) { return point; }
+            if (!area.Contains(point) || !nativeOwns(point)) { continue; }
+            var element = hit(point);
+            // Moving into a descendant does not activate its independent action.
+            if (moveOnly ? DescendsFrom(element, selectedId, tree) : OwnsHit(element, selectedId, tree)) { return point; }
         }
         return null;
     }

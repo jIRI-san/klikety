@@ -18,6 +18,7 @@ var input = Console.OpenStandardInput();
 var output = Console.OpenStandardOutput();
 var request = await ElementHintProtocol.ReadAsync<HintRequest>(input, ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
 if (args[0] == "recover" && !File.Exists(args[1])) { await Task.Delay(Timeout.Infinite); }
+if (args[0] == "delay") { await Task.Delay(int.Parse(args[1])); }
 switch (args[0]) {
     case "hang": await Task.Delay(Timeout.Infinite); break;
     case "crash": Environment.Exit(3); break;
@@ -35,6 +36,15 @@ switch (args[0]) {
     default:
         await ElementHintProtocol.WriteAsync(output, new HintResponse(1, request.SessionId, request.RequestId,
             HintOutcome.NoTargets, []), ElementHintProtocol.MaxResponseBytes, CancellationToken.None);
+        if (args[0] == "validation-intent") {
+            while (true) {
+                request = await ElementHintProtocol.ReadAsync<HintRequest>(input, ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
+                await ElementHintProtocol.WriteAsync(output,
+                    new HintResponse(ElementHintProtocol.Version, request.SessionId, request.RequestId, HintOutcome.Success, [],
+                        Reason: request.MoveOnly ? "MoveOnly" : "DirectAction", Point: new(20, 20), RootProcessId: 42),
+                    ElementHintProtocol.MaxResponseBytes, CancellationToken.None);
+            }
+        }
         if (args[0] == "validation-hang") {
             _ = await ElementHintProtocol.ReadAsync<HintRequest>(input, ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
         }

@@ -1,3 +1,4 @@
+using Klikety.Automation;
 using Klikety.Input;
 
 namespace Klikety.Config;
@@ -5,10 +6,13 @@ namespace Klikety.Config;
 public static class ElementHintsPolicy {
     public static string? GetInvalidReason(ConfigModel config) {
         var mode = config.Modes.ElementHints;
-        if (!mode.Enabled) { return null; }
         const string prefix = "ElementHints: ";
+        if (mode.DiscoveryTimeoutMs is < ElementHintProtocol.MinDiscoveryMs or > ElementHintProtocol.MaxDiscoveryMs) {
+            return prefix + $"modes.elementHints.discoveryTimeoutMs must be between {ElementHintProtocol.MinDiscoveryMs} and {ElementHintProtocol.MaxDiscoveryMs}.";
+        }
+        if (!mode.Enabled) { return null; }
         if (!config.Modes.UniformGrid.Enabled) { return prefix + "enable UniformGrid for Enter fallback."; }
-        if (!mode.TwoKey || !mode.ArrowKeys) { return prefix + "twoKey and arrowKeys must both be true."; }
+        if (!mode.TwoKey) { return prefix + "twoKey must be true for adaptive labels."; }
         if (new[] { config.Modes.UniformGrid, config.Modes.Crosshair, config.Modes.LogCrosshair,
                 config.Modes.LogGrid, mode }.Count(m => m.Default) != 1) {
             return prefix + "exactly one mode must be default.";
@@ -17,7 +21,7 @@ public static class ElementHintsPolicy {
             return prefix + "minLabelFontSize must be finite and at least 4 DIP.";
         }
         var axes = config.HorizontalKeys.Concat(config.VerticalKeys).ToArray();
-        var reserved = new[] { VKey.Escape, VKey.Return, VKey.Left, VKey.Right, VKey.Up, VKey.Down,
+        var reserved = new[] { VKey.Escape, VKey.Return, VKey.Left, VKey.Right, VKey.Up, VKey.Down, VKey.Prior, VKey.Next,
             VKey.D1, VKey.D2, VKey.D3, VKey.D4, VKey.D5, VKey.D6, VKey.D7, VKey.D8, VKey.D9,
             VKey.Shift, VKey.LShift, VKey.RShift, VKey.Control, VKey.LControl, VKey.RControl,
             VKey.Menu, VKey.LMenu, VKey.RMenu, VKey.LWin, VKey.RWin };
@@ -41,6 +45,18 @@ public static class ElementHintsPolicy {
             commands.Add(config.Macros.RecordKey); commands.Add(config.Macros.HelperKey);
             commands.AddRange(config.Macros.SlotKeys);
             if (config.Macros.GlobalHotKey is { } macro) { commands.Add(macro.Key); }
+        }
+        var localCommands = actions.Concat(new[] { config.Modes.UniformGrid, config.Modes.Crosshair,
+            config.Modes.LogCrosshair, config.Modes.LogGrid, mode }
+            .Where(m => m.Enabled && m.ChordKey.HasValue).Select(m => m.ChordKey!.Value)).ToList();
+        if (config.AppScope.ChordKey is { } localScope) { localCommands.Add(localScope); }
+        if (config.HelpBinding.Enabled) { localCommands.Add(config.HelpBinding.Key); }
+        if (config.Macros.Enabled) {
+            localCommands.Add(config.Macros.RecordKey); localCommands.Add(config.Macros.HelperKey);
+            localCommands.AddRange(config.Macros.SlotKeys);
+        }
+        if (localCommands.Any(k => k is VKey.Prior or VKey.Next)) {
+            return prefix + "PageUp/PageDown are reserved for hint paging; change the conflicting command.";
         }
         if (axes.Any(commands.Contains)) { return prefix + "label keys conflict with an enabled command."; }
         if (!mode.Default && mode.ChordKey is null) { return prefix + "nondefault mode requires chordKey."; }

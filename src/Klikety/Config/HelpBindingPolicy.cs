@@ -25,7 +25,7 @@ public static class HelpBindingPolicy {
             return $"Help key value '{help.Key}' is not a recognized VKey.";
         }
 
-        if (ReservedKeys.Contains(help.Key)) {
+        if (ReservedKeys.Contains(help.Key) || config.Modes.ElementHints.Enabled && help.Key is VKey.Prior or VKey.Next) {
             return $"Help key '{help.Key}' is reserved.";
         }
 

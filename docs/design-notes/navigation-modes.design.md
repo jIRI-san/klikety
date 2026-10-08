@@ -1,5 +1,5 @@
 ---
-description: Navigation mode system — IModeSession interface, mode switching, Crosshair and LogCrosshair modes with their state machines, renderers, and grid calculators.
+description: Five navigation modes, their shared session contract, mode switching, grid calculators and hierarchical element navigation.
 globs:
   - src/Klikety/Navigation/IModeSession.cs
   - src/Klikety/Navigation/ModeSessionFactory.cs
@@ -28,9 +28,9 @@ globs:
 
 Five navigation modes, each implementing `IModeSession` with independent configuration via `ModeConfig`:
 
-- **ElementHints** — opt-in foreground-root UIA hints. Horizontal/vertical pairs select without clicking; action keys require fresh validation; Left/Right page; Enter explicitly falls back to UniformGrid even after mode lock. Layout-aware on non-QWERTY keyboards. See [element-hints.design.md](element-hints.design.md) for process/lifecycle/geometry contracts.
+- **ElementHints** — opt-in foreground-root UIA hints. Adaptive one/two-key levels preserve parent and nested actions; `+` groups open without clicking. Optional arrows focus entries, PgUp/PgDn handle rare paging, Escape clears a prefix or pops/cancels. Leaf action keys require fresh validation; Enter explicitly falls back to UniformGrid even after mode lock. Layout-aware on non-QWERTY keyboards. See [element-hints.design.md](element-hints.design.md) for process/lifecycle/geometry contracts.
 
-- **UniformGrid** — two-key grid scheme using `firstKeys`/`secondKeys`. L1→L2→L3 level stack.
+- **UniformGrid** — two-key grid scheme using root `horizontalKeys`/`verticalKeys` (10×10 by default). Internal state-machine parameters retain the names `firstKeys`/`secondKeys`. L1→L2→L3 level stack with small-cell key reduction.
 - **Crosshair** — cross-style axis key navigation with uniform grid cells. Supports L2 subgrid.
 - **LogCrosshair** — logarithmic-scaled cross grid centered on cursor. Supports L2 subgrid via `SubgridEntered` event and `UniformGridSession` level stack.
 - **LogGrid** — iterative two-key selection with log-scaled grid and recentering. Explicit-action mode (Space/X/C/V always required). Arrow navigation moves selection without recentering; recenter on Enter (arrow-selected) or two-key selection. Grid cells shrink geometrically toward screen edges; sub-5px cells at the boundary are collapsed to zero-width, effectively removing keys from the outside inward as the cursor approaches the screen edge.
@@ -53,7 +53,15 @@ All modes implement this interface. `NavigatorCoordinator` owns the active sessi
 
 ## `ModeSessionFactory`
 
-Creates `IModeSession` instances by mode name. Constructor: `(ConfigModel, ActionMapper, IGridRenderer?, ICrosshairRenderer?, ILogCrosshairRenderer?, ILogGridRenderer?)`. Renderers are nullable — null when the mode's renderer cannot be constructed (e.g., disabled mode with null keys). `RebuildLabels(IKeyLabelResolver)` forwards a fresh resolver to every available renderer.
+Creates `IModeSession` instances by mode name. It accepts the config, action mapper,
+four grid renderers and optional ElementHints renderer/service/logger dependencies.
+Renderers are nullable; `RebuildLabels(IKeyLabelResolver)` forwards a fresh resolver
+to every available renderer. `ElementTargetContext` pins the pre-overlay application
+for hint discovery and resumes.
+The ElementHints service is injected or lazily created once for a valid hint
+session using `modes.elementHints.discoveryTimeoutMs`; other modes and invalid
+hint configs never construct a supervisor with an invalid deadline. Discovery
+loading is passed explicitly to the renderer, independently of footer text.
 
 ## Mode Switching (Chord Dispatch)
 

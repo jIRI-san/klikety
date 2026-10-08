@@ -46,9 +46,9 @@ internal static class Program {
 
     internal static HintResponse Reply(HintRequest r, HintOutcome outcome, string? reason = null,
         HintTarget[]? targets = null, HintPoint? point = null, int rootPid = 0,
-        int visited = 0, int omitted = 0) =>
+        int visited = 0, int omitted = 0, HintContainer[]? containers = null) =>
         new(ElementHintProtocol.Version, r.SessionId, r.RequestId, outcome, targets ?? [],
-            visited, omitted, reason, point, rootPid);
+            visited, omitted, reason, point, rootPid, containers);
 }
 
 internal sealed class UiaSnapshot {
@@ -99,7 +99,8 @@ internal sealed class UiaSnapshot {
         var targets = discovery.Entries.Select(item => item.Target).ToArray();
         return Program.Reply(r, discovery.Reason is not null ? HintOutcome.Partial :
             targets.Length == 0 ? HintOutcome.NoTargets : HintOutcome.Success,
-            discovery.Reason, targets, rootPid: _rootPid, visited: discovery.Visited, omitted: discovery.Omitted);
+            discovery.Reason, targets, rootPid: _rootPid, visited: discovery.Visited, omitted: discovery.Omitted,
+            containers: discovery.Containers);
     }
 
     private HintResponse Validate(HintRequest r) {
@@ -138,7 +139,7 @@ internal sealed class UiaSnapshot {
         }
         var verified = UiaTreeAlgorithms.VerifiedPoint(entry.Target.VisibleBounds, preferred,
             point => Native.OwnsPoint((nint)_hwnd, point),
-            point => AutomationElement.FromPoint(new Point(point.X, point.Y)), entry.Target.RuntimeId, tree);
+            point => AutomationElement.FromPoint(new Point(point.X, point.Y)), entry.Target.RuntimeId, tree, moveOnly: r.MoveOnly);
         if (verified is { } safePoint) {
             return Program.Reply(r, HintOutcome.Success, point: safePoint, rootPid: _rootPid);
         }

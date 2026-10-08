@@ -6,6 +6,29 @@ namespace Klikety.Tests;
 
 public class ElementHintProtocolTests {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExplicitMoveOnlyIntentRoundTripsWithoutChangingOtherRequestFields(bool moveOnly) {
+        var request = new HintRequest(ElementHintProtocol.Version, Guid.NewGuid(), Guid.NewGuid(),
+            HintCommand.Validate, Token: 3, MoveOnly: moveOnly);
+        using var stream = new MemoryStream();
+        await ElementHintProtocol.WriteAsync(stream, request, ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
+        stream.Position = 0;
+        Assert.Equal(request, await ElementHintProtocol.ReadAsync<HintRequest>(stream,
+            ElementHintProtocol.MaxRequestBytes, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task MissingMoveOnlyFieldKeepsStrictValidationForOlderRequests() {
+        byte[] body = System.Text.Encoding.UTF8.GetBytes("""{"Version":1,"Command":2}""");
+        using var stream = new MemoryStream([.. BitConverter.GetBytes(body.Length), .. body]);
+        var request = await ElementHintProtocol.ReadAsync<HintRequest>(stream,
+            ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
+        Assert.Equal(HintCommand.Validate, request.Command);
+        Assert.False(request.MoveOnly);
+    }
+
+    [Theory]
     [InlineData(long.MaxValue)]
     [InlineData(0xffffffff)]
     [InlineData(-1)]
@@ -50,7 +73,9 @@ public class ElementHintProtocolTests {
             Enumerable.Repeat(int.MinValue, ElementHintProtocol.MaxRuntimeId).ToArray(), int.MaxValue, 50000,
             HintCapabilities.Invoke, bounds, bounds, new(-999999999, -999999999))).ToArray();
         var response = new HintResponse(1, request.SessionId, request.RequestId, HintOutcome.Success,
-            targets, Visited: ElementHintProtocol.MaxNodes, RootProcessId: 1);
+            targets.Select(t => t with { ContainerId = 1 }).ToArray(),
+            Visited: ElementHintProtocol.MaxNodes, RootProcessId: 1,
+            Containers: [new(1, 0, 1, int.MaxValue, 50000, bounds)]);
         using var stream = new MemoryStream();
         await Assert.ThrowsAsync<InvalidDataException>(() => ElementHintProtocol.WriteAsync(stream, response,
             ElementHintProtocol.MaxResponseBytes, CancellationToken.None));
@@ -60,6 +85,8 @@ public class ElementHintProtocolTests {
         Assert.True(bounded.Targets.Length < targets.Length);
         Assert.Equal(targets.Length - bounded.Targets.Length, bounded.Omitted);
         Assert.Equal("Response byte limit", bounded.Reason);
+        Assert.Null(bounded.Containers);
+        Assert.All(bounded.Targets, t => Assert.Equal(0, t.ContainerId));
         ElementHintProtocol.CheckResponse(request, bounded);
         await ElementHintProtocol.WriteAsync(stream, bounded, ElementHintProtocol.MaxResponseBytes, CancellationToken.None);
         Assert.True(stream.Length <= ElementHintProtocol.MaxResponseBytes + 4);

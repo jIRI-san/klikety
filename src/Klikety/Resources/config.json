@@ -104,13 +104,16 @@
       "twoKey": true,
       "logGridBaseSize": 10
     },
-    // Opt-in UIA controls. Two keys select; action keys act. Enter returns to grid.
+    // Opt-in UIA controls. Adaptive one/two-key labels open groups or select controls.
+    // Arrows focus entries; PgUp/PgDn page. Action keys act; Enter returns to grid.
     "elementHints": {
       "enabled": false,
       "default": false,
       "chordKey": "Tab",
       "arrowKeys": true,
-      "twoKey": true
+      "twoKey": true,
+      // Includes helper startup. Increase for slow UIA providers (e.g. Word).
+      "discoveryTimeoutMs": 1500
     }
   },
 

@@ -120,35 +120,49 @@ public static class HelpOverlayContentBuilder {
         if (elementHints is { } hints) {
             entries.Add(NewEntry(VKey.Return, "Grid fallback", HelpEntryCategory.Mode, labels, !macroBlocksNavigation));
             var hasTargets = hints.TargetCount > 0;
-            entries.Add(NewEntry(VKey.Left, "Previous page", HelpEntryCategory.Mode, labels, hasTargets && !macroBlocksNavigation));
-            entries.Add(NewEntry(VKey.Right, "Next page", HelpEntryCategory.Mode, labels, hasTargets && !macroBlocksNavigation));
+            foreach (var arrow in new[] { VKey.Left, VKey.Right, VKey.Up, VKey.Down }) {
+                entries.Add(NewEntry(arrow, "Focus control/group", HelpEntryCategory.Mode, labels,
+                    hasTargets && hints.ArrowKeys && !macroBlocksNavigation));
+            }
+            if (hints.PageCount > 1) {
+                entries.Add(NewEntry(VKey.Prior, "Previous page", HelpEntryCategory.Mode, labels, !macroBlocksNavigation));
+                entries.Add(NewEntry(VKey.Next, "Next page", HelpEntryCategory.Mode, labels, !macroBlocksNavigation));
+            }
             if (!string.IsNullOrWhiteSpace(hints.Status)) {
                 prompts.Add(hints.Status);
             }
             if (hasTargets) {
-                prompts.Add($"Page {hints.Page + 1} of {hints.PageCount}. Other controls may be on another page.");
+                prompts.Add($"Level {hints.Depth}: {(hints.SingleKey ? "one-key" : "two-key")} labels. + marks a navigation-only group.");
+                if (hints.PageCount > 1) {
+                    prompts.Add($"Page {hints.Page + 1} of {hints.PageCount}. Other controls may be on another page.");
+                }
             } else if (!macroBlocksNavigation) {
                 prompts.Add(hints.Outcome is null
                     ? "Wait for controls, or press Enter for the grid. No action is available while finding controls."
                     : "No selectable controls. Press Enter for the grid.");
             }
-            prompts.Add($"First label key: {string.Join(", ", config.HorizontalKeys.Select(labels.Resolve))}. Second label key: {string.Join(", ", config.VerticalKeys.Select(labels.Resolve))}.");
+            prompts.Add(hints.SingleKey
+                ? $"Label keys: {string.Join(", ", config.HorizontalKeys.Select(labels.Resolve))}."
+                : $"First label key: {string.Join(", ", config.HorizontalKeys.Select(labels.Resolve))}. Second label key: {string.Join(", ", config.VerticalKeys.Select(labels.Resolve))}.");
             if (macroBlocksNavigation) {
                 prompts.Add("Finish macro setup first: label, page, action and Enter keys are consumed until the macro slot/confirmation is complete.");
             } else {
-                prompts.Add("Type the two keys printed on a hint to select without clicking. Only displayed pairs are valid.");
+                prompts.Add("Type the label printed on a hint to select without clicking, or open a group. Only displayed labels are valid.");
                 prompts.Add(hints.HasSelection
                     ? "Target selected. Use an action key to click, move only, or start a drag; targets are checked again before acting."
                     : hints.Prefix is { } prefix
                         ? $"First key {labels.Resolve(config.HorizontalKeys[prefix])} entered. Type a second label key to select; action keys do nothing until selection."
-                        : "No target selected. Action keys do nothing until both label keys select a target.");
-                prompts.Add("Left/Right wrap pages and clear the first key and selection.");
+                        : hints.FocusedGroup
+                            ? "Group focused. Type its label to open; action keys cannot act on groups."
+                            : "No target selected. Action keys do nothing until a label or arrow selects a control.");
+                if (hints.ArrowKeys) { prompts.Add("Arrows focus controls or groups within this level, never switch pages."); }
+                if (hints.PageCount > 1) { prompts.Add("PgUp/PgDn wrap pages and clear the first key and selection, independently of arrow navigation."); }
                 prompts.Add("Enter switches to the grid while loading, after a failure, or with a first key/selection, even when mode changes are locked.");
             }
             prompts.Add("Hold Ctrl, Alt or Shift with a click to modify it. Move only ignores modifiers. Start drag selects its source; then select a destination and use a click action to finish.");
             prompts.Add(recording
-                ? "Outside help: Escape cancels macro recording first. Once recording is idle, Escape clears a first key or selection, then cancels on the next press."
-                : "Outside help: Escape clears a first key or selection, then cancels on the next press; with neither, it cancels immediately.");
+                ? "Outside help: Escape cancels macro recording first. Once idle, Escape clears a first key, otherwise returns to the previous level or cancels at Level 1."
+                : "Outside help: Escape clears a first key, otherwise returns to the previous level; at Level 1 it cancels immediately.");
         }
         var macrosEnabled = config.Macros.Enabled;
         if (macrosEnabled) {
@@ -288,6 +302,8 @@ public static class HelpOverlayContentBuilder {
             key switch {
                 VKey.Escape => "Esc",
                 VKey.Space => "Space",
+                VKey.Prior => "PgUp",
+                VKey.Next => "PgDn",
                 _ => labels.Resolve(key),
             },
             command,

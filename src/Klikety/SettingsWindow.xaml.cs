@@ -138,11 +138,15 @@ public partial class SettingsWindow : Window {
             Toggle(card, "Enabled", prefix + ".enabled", modes[i].Enabled);
             var controls = new StackPanel { Orientation = Orientation.Horizontal };
             card.Children.Add(controls);
-            Toggle(controls, "Arrow keys", prefix + ".arrowKeys", modes[i].ArrowKeys);
-            Toggle(controls, "Two-key selection", prefix + ".twoKey", modes[i].TwoKey);
+            Toggle(controls, modeNames[i] == "elementHints" ? "Arrow focus navigation" : "Arrow keys",
+                prefix + ".arrowKeys", modes[i].ArrowKeys);
+            Toggle(controls, modeNames[i] == "elementHints" ? "Adaptive one/two-key labels" : "Two-key selection",
+                prefix + ".twoKey", modes[i].TwoKey);
             KeyPicker(card, "Switch chord", prefix + ".chordKey", modes[i].ChordKey, nullable: true);
             if (modeNames[i] == "elementHints") {
-                Hint(card, "Element hints require two-key selection, arrow paging and enabled Uniform grid for Enter fallback.");
+                Hint(card, "Keep adaptive labels and Uniform grid enabled. Small levels use one key; + opens a nested control group. Arrows optionally focus controls, never switch pages. PgUp/PgDn page only when needed; Esc goes back; Enter opens the grid.");
+                Number(card, "Discovery timeout (ms)", prefix + ".discoveryTimeoutMs", modes[i].DiscoveryTimeoutMs, integer: true);
+                Hint(card, "100-60000 ms, including helper startup. Increase this for slow applications such as Word; Enter or Esc still exits while loading.");
             }
             var modeAdvanced = Advanced(card);
             Number(modeAdvanced, "Log crosshair center (px)", prefix + ".logBaseSize", modes[i].LogBaseSize, integer: true);

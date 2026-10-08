@@ -36,7 +36,10 @@ for both the editor and runtime-snapshot read.
 - **Navigation**: all five mode enabled/default/chord/two-key/arrow values, each mode's
   LogCrosshair and LogGrid sizes, optional app-scope chord, and Level-3 threshold.
   Element hints shares the existing controls/default picker; validation requires
-  two-key selection, arrow paging and enabled UniformGrid fallback when enabled.
+  adaptive one/two-key labels and enabled UniformGrid fallback when enabled.
+  Arrow focus navigation is optional; disabling it does not disable label keys
+  or PgUp/PgDn paging. The card explains `+` groups, Escape back and Enter fallback;
+  it does not add a separate hierarchy setting or rebind existing keys.
   With Element hints as the default, Enter supplies the UniformGrid fallback even
   without a separate grid chord. Strict Settings reads require current config
   version 9; version-8 files must migrate before editing.
@@ -45,7 +48,13 @@ for both the editor and runtime-snapshot read.
   them. Enabled hint requirements/collisions block saving rather than forcing
   controls or rebinding keys. Shared ordered axes, action mappings (including
   Space), help settings and label font floor use their existing pages/validators.
-  UIA watchdog, traversal and wire limits remain internal, not dialog fields.
+  The Element hints card exposes `modes.elementHints.discoveryTimeoutMs`, an
+  integer 100-60000 ms startup-inclusive deadline (default 1500 ms). Increasing
+  it gives slow providers such as Word more time; invalid values block saves
+  even with hints disabled. The field participates in the same typed draft,
+  targeted JSONC preservation, save/reload and runtime replacement as other
+  settings. UIA validation/cleanup deadlines, traversal and wire limits remain
+  internal, not dialog fields.
 - **Key bindings**: overlay help enablement, physical key and required-Shift flag,
   action mapping editor and ordered horizontal/vertical key lists.
 - **Appearance**: theme reference and label-size floor. Theme file contents remain separate.

@@ -28,13 +28,20 @@ SessionManager forwards only the active session's changes and unsubscribes befor
 retirement; visible help refreshes on discovery/capacity changes without rescanning
 or remapping a frozen page. Macro setup/confirmation consumes keys before the
 session; help mutes those commands rather than claiming Enter bypasses macro setup.
+Hint navigation has its own frozen level stack: a completed group label pushes,
+a leaf label selects/previews, optional arrows focus without paging, and Escape
+clears a prefix or pops/cancels. Enter remains grid fallback. Navigation-only group
+focus is never an actionable selection, so it cannot start an action transaction.
 
 Selected-target actions snapshot hook modifiers, drain capture and hide the whole
 host before helper validation. An activation-bound cancellation token and active
 session identity reject late/duplicate completions. Only approval plus a final
 native point/foreground guard reaches the prepared dispatcher path. Rejection
 closes and notifies without recording input. Drag starts validate before the normal
-default-mode reset. See `element-hints.design.md`.
+default-mode reset. The coordinator passes explicit move-only intent only for
+`MouseAction.MoveOnly`: validated descendant hits can receive cursor movement,
+never a click or drag. Identity/bounds/foreground/cancellation guards remain the
+same; all click and drag intents retain strict hit ownership. See `element-hints.design.md`.
 
 ## Overlay Lifecycle
 
@@ -75,7 +82,7 @@ Idle → L1_AwaitFirst → L1_AwaitSecond → L1_AwaitAction
 
 ### Unified Grid
 
-The full screen is covered by a single grid. `NavigatorStateMachine` takes flat `VKey[] firstKeys` and `VKey[] secondKeys` arrays (default 8 keys each: left+right hand combined). The same key sets are used at all levels (L1/L2/L3). No half-selection, no `ScreenHalf` enum.
+The full navigation region is covered by a single grid. `NavigatorStateMachine` takes flat `VKey[] firstKeys` and `VKey[] secondKeys` constructor arrays supplied by `ConfigModel.HorizontalKeys` and `ConfigModel.VerticalKeys` (default 10 keys each). The same configured axes feed L1/L2/L3; small cells may reduce the active key sets through `DynamicKeyReducer`. No half-selection, no `ScreenHalf` enum.
 
 - `Activate(l1Cells, cursorOrigin)` — takes a single full-screen cell list.
 - `HandleFirstKey(VKey, nextState, cells, level)` — used identically at L1/L2/L3. Indexes into `_firstKeys`.
@@ -149,7 +156,7 @@ Status text lives in a separate XAML layer (`StatusCanvas`) above the main `Root
 - `Arrow` — only arrow navigation; first/second key pairs ignored
 - `Both` (default) — both schemes active simultaneously; any state accepts either input type
 
-Arrow VKeys (`VK_LEFT`, `VK_RIGHT`, `VK_UP`, `VK_DOWN`) and `VK_RETURN` are **always reserved** — may not appear in `firstKeys`, `secondKeys`, or `ActionBindings`. Validated at startup.
+Arrow VKeys (`VK_LEFT`, `VK_RIGHT`, `VK_UP`, `VK_DOWN`) and `VK_RETURN` are **always reserved** — may not appear in `horizontalKeys`, `verticalKeys`, or `actionBindings`. Validated at startup. ElementHints also reserves local PgUp/PgDn independently of arrow navigation.
 
 ### Level-3 trigger
 
@@ -187,22 +194,24 @@ Arrow navigation operates on `_currentLevelCells` at whatever level is active, u
 
 ## Key Scheme
 
-### Unified 8×8 grid
+### Unified 10×10 grid
 
 The full screen is covered by a single grid using combined left+right hand keys:
 
-- First keys: `A S D F J K L ;` (8 keys → 8 columns)
-- Second keys: `W E R T Y U I O` (8 keys → 8 rows)
-- Total: 8×8 = 64 cells per level
-- L2/L3 subgrids use the same key sets (64 cells per sublevel)
+- Horizontal keys: `A S D F G H J K L ;` (10 keys → 10 columns)
+- Vertical keys: `Q W E R T Y U I O P` (10 keys → 10 rows)
+- Total: 10×10 = 100 cells at L1
+- L2/L3 use the same axes, reducing outer keys when cells would be too small
+- User-customized and migrated key arrays can produce other grid dimensions
 
 Config structure:
 ```jsonc
-"firstKeys": ["A","S","D","F","J","K","L","OemSemicolon"],
-"secondKeys": ["W","E","R","T","Y","U","I","O"]
+"horizontalKeys": ["A","S","D","F","G","H","J","K","L","OemSemicolon"],
+"verticalKeys": ["Q","W","E","R","T","Y","U","I","O","P"]
 ```
 
-`ConfigModel.FirstKeys` and `ConfigModel.SecondKeys` are flat `VKey[]` arrays.
+`ConfigModel.HorizontalKeys` and `ConfigModel.VerticalKeys` are flat `VKey[]` arrays.
+Internal `firstKeys`/`secondKeys` parameter names are not JSON property names.
 
 ### `LabelGenerator`
 

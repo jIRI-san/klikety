@@ -1,12 +1,14 @@
 ---
-description: Overlay lifecycle, navigation state machine, Win32 interop patterns, and key scheme for the keyboard-driven mouse navigator.
-globs:
-  - src/Klikety/**
-  - src/Klikety.Tests/**
-  - src/Klikety.SmokeTests/**
+description: Historical pre-split navigator design; superseded by the indexed subsystem notes.
 ---
 
 # Keyboard Navigator Design Note
+
+> **Historical, superseded.** This monolithic note records the older 8×8,
+> three-mode design and obsolete configuration/API examples. Do not use it as
+> current implementation guidance. The [project overview](project-description.design.md)
+> and [root index](.design-notes.md) point to current subsystem contracts.
+> Preserved here rather than rewriting historical details as current behavior.
 
 ## Overlay Lifecycle
 

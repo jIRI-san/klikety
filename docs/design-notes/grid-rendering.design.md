@@ -17,18 +17,43 @@ globs:
 
 ## Element-hint rendering
 
-`ElementHintsRenderer` uses measured current-layout pair labels, theme outlined
+`ElementHintsRenderer` consumes typed `HintLevelView`/`HintLabel` assignments from
+the session rather than inventing labels from target indices. It measures current-layout
+single/pair labels (including a reserved `+` width), theme outlined
 geometry and `OverlayDip.WindowOrigin`/scale. Physical target points never follow
 label displacement. Bounded nearby placement handles ordinary overlaps and
 display edges without moving every label into global top rows. Severe crowding
 uses a compact right-side page list, with at most one selected-target connector;
-only selection/prefix targets are outlined. Page capacity fits that narrower list and measured text at
+only selected/focused/prefix targets are outlined in ordinary levels. Page capacity fits that narrower list and measured text at
 `MinLabelFontSize`; extreme font/viewports use contained scrolling rather than
 smaller or dropped labels. A content-sized bottom footer replaces the full-width
 top diagnostic banner; useful state/fallback remains visible and technical counts
 go to debug logs. Status is on RootCanvas, leaving macro/drag/help layers
 independent. Glyph-only redraw preserves assignments; viewport capacity changes
-explicitly reset pages. Actual STA WPF containment tests cover 100/150/200% scales,
+explicitly reset L1. Rounded `+` group badges distinguish navigation from actions;
+group focus outlines the member area but never draws an action connector.
+Compound levels (`Compact` metadata at depth > 1) normally use the same key-only
+rectangular badges, anchored first at control corners, then nearby collision-free
+slots, preferring space above the control when its corners are occupied rather
+than covering its interior. Every visible entry receives a matched glyph/badge/control-outline accent
+and line pattern; displaced badges get matched leaders to the nearest outline
+edge. Identical bounds receive increasingly inset visual contours, capped at a
+quarter of the shorter dimension. Target metadata and physical points never change.
+The six fixed accents are `#56B4E9`, `#E69F00`, `#009E73`, `#CC79A7`, `#F0E442`,
+`#D55E00`; their solid/dash/dot arrays are `[]`, `[4,2]`, `[1,2]`, `[4,2,1,2]`,
+`[6,2]`, `[1,1]`. Styles repeat after six entries and remain stable on glyph-only
+redraw. Patterns, attachment/leaders, inset contours and key labels supplement
+color rather than treating hue as the sole identification cue. Black backing
+contours/leaders and a black glyph halo of at least 3 DIP preserve contrast even
+on light themes with configured outline thickness zero. Compound accents/halos
+intentionally override theme label/outline colors; font, translucent fill and
+prefix/selection dimming retain theme/existing behavior. Focus/selection thickens
+the corresponding contours and adds its role/capabilities to the footer.
+Only extreme crowded/oversized layouts fall back to a contained local one-column
+role list; descriptions scroll rather than shrinking text or dropping entries.
+The footer exposes depth, one/two-key scheme, group focus,
+optional arrow focus, rare PgUp/PgDn pages and Escape back/cancel.
+Actual STA WPF containment tests cover 100/150/200% scales,
 negative origins, crowded geometry and long VKey fallback labels.
 Capacity and painting share adaptive status/list insets so even 1x1-DIP viewport
 scroll regions stay inside the canvas. Font size is not reduced. An actual WPF
@@ -42,6 +67,21 @@ Final committed-code captures now also demonstrate the ordinary labels,
 prefix and selection states against a separately running real WinForms fixture
 after explicit guest-only provider initialization. Cold guest discovery remains
 distinct from this successful warm-condition rendering evidence.
+
+The [README gallery](readme-demo.design.md) adds native captures of all five
+modes and real control-associated L2 badges at 200%. Its DPI-aware demo fixture/probe keep
+UIA bounds and overlay positions in the same physical coordinate space; the
+seven stills retain full guest resolution. The separate grid-refinement APNG is
+resized to 960 pixels wide and uses true-color replacement frames.
+
+Hint badge fills are independently translucent at 40% brush opacity (multiplied
+by theme color alpha) in nearby and list layouts. Outlined text and borders retain
+their existing prefix/selection opacity; the footer stays opaque for readability.
+While the session's typed discovery flag is true, a theme-colored rotating arc
+is centered in the viewport, contained even at 1x1 DIP. Redraw stops the previous
+clock and all results remove it; `Unloaded` stops detached spinner animations.
+This is presentation-only: page assignments, physical target points and discovery
+deadlines are unchanged by drawing or animating the spinner.
 
 ## Overlay placement
 
@@ -126,7 +166,7 @@ Method: `ShouldUseExternalLabels(cellDipHeight, cellDipWidth, minLabelFontSize)`
 
 **Progressive reveal**: When awaiting first key, only column first-key labels are shown (top + bottom). After first key is pressed (`HighlightColumnOverGrid`), row second-key labels appear (left + right). This matches the natural key-entry order.
 
-**Fan-out algorithm**: With 8 labels per side, labels at the grid edge may overlap. `ComputeFanOut(labelCount, maxLabelSize, gridExtent, standardMargin)` computes:
+**Fan-out algorithm**: Labels at the grid edge may overlap with any configured axis count (10 by default). `ComputeFanOut(labelCount, maxLabelSize, gridExtent, standardMargin)` computes:
 - `distance`: how far from the grid edge to place the label line. When labels fit at standard spacing, equals `standardMargin` (fontSize × 1.5). When labels would overlap, increases by half the extra width needed.
 - `extent`: total width/height to spread labels across. Equals `gridExtent` when labels fit, otherwise `labelCount × (maxLabelSize + minGap)`.
 

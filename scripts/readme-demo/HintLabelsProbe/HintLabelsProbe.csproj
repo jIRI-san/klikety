@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\..\src\Klikety\Automation\ElementHintProtocol.cs" Link="ElementHintProtocol.cs" />
+    <Compile Include="..\..\..\src\Klikety\Automation\UiaWorkerSupervisor.cs" Link="UiaWorkerSupervisor.cs" />
+    <Compile Include="..\..\..\src\Klikety\Navigation\ElementHintHierarchy.cs" Link="ElementHintHierarchy.cs" />
+    <Compile Include="..\..\..\src\Klikety\Input\VKey.cs" Link="VKey.cs" />
+  </ItemGroup>
+</Project>

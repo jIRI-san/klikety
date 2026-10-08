@@ -41,6 +41,62 @@ public class UiaTreeAlgorithmsTests {
         node.Data.ControlType, node.Data.Capabilities, node.Data.Bounds, node.Data.Bounds, node.Data.Bounds.Center);
 
     [Fact]
+    public void CompleteCompoundMetadataSurvivesUnrelatedFailedBranchWithoutExtraProviderReads() {
+        var root = Element(1, 50032);
+        var row = Element(2, 50024, capabilities: HintCapabilities.Selection | HintCapabilities.Expand);
+        var button = Element(3, capabilities: HintCapabilities.Invoke);
+        var expander = Element(4, capabilities: HintCapabilities.Expand);
+        expander.Data = expander.Data with { Bounds = new(10, 10, 10, 10) };
+        row.Add(button, expander);
+        var failed = Element(5);
+        failed.Failure = new InvalidOperationException();
+        root.Add(row, failed);
+        var tree = new Tree();
+        var result = Scan(root, tree);
+        var container = Assert.Single(result.Containers);
+        Assert.Equal(1, container.TargetToken);
+        Assert.Equal(0, container.ParentId);
+        Assert.All(result.Entries, e => Assert.Equal(container.Id, e.Target.ContainerId));
+        Assert.Equal(5, tree.Reads);
+        Assert.Equal(0, tree.Parents);
+        var request = new HintRequest(1, Guid.NewGuid(), Guid.NewGuid(), HintCommand.Discover, Region: Region);
+        ElementHintProtocol.CheckResponse(request, new(1, request.SessionId, request.RequestId,
+            HintOutcome.Partial, result.Entries.Select(e => e.Target).ToArray(), Containers: result.Containers));
+    }
+
+    [Fact]
+    public void FailedDescendantDoesNotProduceAnAncestorGroupButCompleteSiblingStillDoes() {
+        var root = Element(1, 50032);
+        var incomplete = Element(2, 50024, capabilities: HintCapabilities.Selection);
+        var failed = Element(4); failed.Failure = new InvalidOperationException();
+        incomplete.Add(Element(3, capabilities: HintCapabilities.Invoke), failed);
+        var complete = Element(5, 50024, capabilities: HintCapabilities.Selection);
+        complete.Add(Element(6, capabilities: HintCapabilities.Invoke));
+        root.Add(incomplete, complete);
+        var result = Scan(root, new Tree());
+        var group = Assert.Single(result.Containers);
+        Assert.Equal(3, group.TargetToken);
+        Assert.All(result.Entries.Take(2), e => Assert.Equal(0, e.Target.ContainerId));
+        Assert.All(result.Entries.Skip(2), e => Assert.Equal(group.Id, e.Target.ContainerId));
+    }
+
+    [Fact]
+    public void PassiveBranchingContainersArePrunedAndForeignDescendantsDoNotShareGroups() {
+        var root = Element(1, 50032);
+        var pane = Element(2, 50026);
+        var unary = Element(3, 50026);
+        unary.Add(Element(4), Element(5));
+        pane.Add(unary);
+        root.Add(pane, Element(6, pid: 99));
+        var result = Scan(root, new Tree());
+        var group = Assert.Single(result.Containers);
+        Assert.Equal(0, group.TargetToken);
+        Assert.Equal(3, group.Id);
+        Assert.All(result.Entries.Take(2), e => Assert.Equal(3, e.Target.ContainerId));
+        Assert.Equal(0, result.Entries[^1].Target.ContainerId);
+    }
+
+    [Fact]
     public void RootOnlyRetainsIndependentNestedAndCrossProcessTargetsWithoutRectangleDedup() {
         var root = Element(1, 50032);
         var parent = Element(2, 50025, capabilities: HintCapabilities.Invoke);
@@ -366,6 +422,55 @@ public class UiaTreeAlgorithmsTests {
         Assert.True(UiaTreeAlgorithms.OwnsHit(childAction, childAction.Data.RuntimeId, tree));
         Assert.True(UiaTreeAlgorithms.DescendsFrom(childAction, parent.Data.RuntimeId, tree));
         Assert.False(UiaTreeAlgorithms.DescendsFrom(childAction, [999], tree));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CopilotTreeRowAllowsMoveIntoItsFullSizeButtonButNotAParentClick(bool nestedText) {
+        var row = Element(3950, 50024, capabilities: HintCapabilities.Selection | HintCapabilities.Expand);
+        var button = Element(3951, capabilities: HintCapabilities.Invoke);
+        var bounds = new HintRect(22, 930, 887, 127);
+        row.Data = row.Data with { Bounds = bounds };
+        button.Data = button.Data with { Bounds = bounds };
+        var text = Element(4932, 50026);
+        row.Add(button); button.Add(text);
+        var hit = nestedText ? text : button;
+        Assert.Null(UiaTreeAlgorithms.VerifiedPoint(bounds, bounds.Center, _ => true, _ => hit, row.Data.RuntimeId, new Tree()));
+        Assert.Equal(bounds.Center, UiaTreeAlgorithms.VerifiedPoint(bounds, bounds.Center,
+            _ => true, _ => hit, row.Data.RuntimeId, new Tree(), moveOnly: true));
+        Assert.Equal(bounds.Center, UiaTreeAlgorithms.VerifiedPoint(bounds, bounds.Center,
+            _ => true, _ => hit, button.Data.RuntimeId, new Tree()));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MoveOnlyRejectsForeignWindowsAndUnrelatedCoveringControls(bool nativeOwns) {
+        var root = Element(1, 50032);
+        var row = Element(2, 50024);
+        var blocker = Element(3);
+        root.Add(row, blocker);
+        int hits = 0;
+        Assert.Null(UiaTreeAlgorithms.VerifiedPoint(row.Data.Bounds, row.Data.Bounds.Center,
+            _ => nativeOwns, _ => { hits++; return blocker; }, row.Data.RuntimeId, new Tree(), moveOnly: true));
+        Assert.Equal(nativeOwns ? 5 : 0, hits);
+    }
+
+    [Fact]
+    public void MoveOnlyKeepsPointContainmentAndBoundedAncestry() {
+        var target = Element(1);
+        var child = Element(2);
+        target.Add(child);
+        var attempts = new List<HintPoint>();
+        Assert.Equal(target.Data.Bounds.Center, UiaTreeAlgorithms.VerifiedPoint(target.Data.Bounds, new(999, 999),
+            point => { attempts.Add(point); return true; }, _ => child, target.Data.RuntimeId, new Tree(), moveOnly: true));
+        Assert.Equal([target.Data.Bounds.Center], attempts);
+        var cycle = Element(3);
+        cycle.Parent = cycle;
+        var tree = new Tree();
+        Assert.False(UiaTreeAlgorithms.DescendsFrom(cycle, target.Data.RuntimeId, tree));
+        Assert.Equal(ElementHintProtocol.MaxDepth + 1, tree.Parents);
     }
 
     [Theory]

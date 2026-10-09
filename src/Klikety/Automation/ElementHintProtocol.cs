@@ -9,7 +9,7 @@ public enum HintOutcome {
     InvalidRoot, StaleTarget, NoSafePoint, Unavailable, ProtocolError, CleanupFailed, Cancelled,
 }
 
-public enum HintCommand { Hello, Discover, Validate }
+public enum HintCommand { Hello, Discover, Validate, Continue, Expand, Release }
 
 [Flags]
 public enum HintCapabilities { None = 0, Invoke = 1, Toggle = 2, Selection = 4, Expand = 8, Value = 16 }
@@ -32,34 +32,42 @@ public readonly record struct HintRect(double X, double Y, double Width, double 
 public readonly record struct HintPoint(int X, int Y);
 public sealed record HintTarget(int Token, int[] RuntimeId, int ProcessId, int ControlType,
     HintCapabilities Capabilities, HintRect Bounds, HintRect VisibleBounds, HintPoint Preview,
-    int ContainerId = 0);
+    int ContainerId = 0, int DiscoveryGroupId = 0);
 public sealed record HintContainer(int Id, int ParentId, int TargetToken, int ProcessId,
     int ControlType, HintRect Bounds);
+public sealed record HintGroup(int Id, int ParentId, HintRect Bounds, int ChildCount);
 public sealed record HintRequest(int Version, Guid SessionId, Guid RequestId, HintCommand Command,
     long Hwnd = 0, int OwnerProcessId = 0, HintRect Region = default, int Token = 0,
-    int ExpectedProcessId = 0, long ExpectedProcessStart = 0, bool MoveOnly = false);
+    int ExpectedProcessId = 0, long ExpectedProcessStart = 0, bool MoveOnly = false,
+    bool Incremental = false, int GroupId = 0,
+    int CacheWindowCount = ElementHintProtocol.DefaultCacheWindowCount);
 public sealed record HintResponse(int Version, Guid SessionId, Guid RequestId, HintOutcome Outcome,
     HintTarget[] Targets, int Visited = 0, int Omitted = 0, string? Reason = null,
-    HintPoint? Point = null, int RootProcessId = 0, HintContainer[]? Containers = null);
+    HintPoint? Point = null, int RootProcessId = 0, HintContainer[]? Containers = null,
+    HintGroup[]? Groups = null, bool IsComplete = true, int GroupId = 0, int CacheHits = 0);
 
 public static class ElementHintProtocol {
     public const int Version = 1;
-    public const int DiscoveryMs = 1500, ValidationMs = 500, CleanupMs = 500;
+    public const int DiscoveryMs = 10000, ValidationMs = 500, CleanupMs = 500;
     public const int MinDiscoveryMs = 100, MaxDiscoveryMs = 60000;
     public const int MaxNodes = 20000, MaxDepth = 64, MaxTargets = 2000;
     public const int MaxContainers = MaxTargets * 2;
     public const int MaxRequestBytes = 64 * 1024, MaxResponseBytes = 2 * 1024 * 1024;
     public const int MaxDiagnosticBytes = 64 * 1024, MaxRuntimeId = 64;
+    public const int DefaultCacheWindowCount = 5, MaxCacheWindowCount = 20;
+    public const int DiscoverySliceMs = 25, DiscoveryBatchMs = 35, CacheMaxAgeMs = 5000, CacheIdleMs = 30000;
     private static readonly JsonSerializerOptions Options = new() { MaxDepth = 32 };
 
-    public static HintResponse BoundSnapshotResponse(HintResponse response) {
-        if (JsonSerializer.SerializeToUtf8Bytes(response, Options).Length <= MaxResponseBytes) { return response; }
+    public static HintResponse BoundSnapshotResponse(HintResponse response, HintResponse? published = null) {
+        // Progressive frames reserve space for a final partial diagnostic without dropping published identities.
+        int limit = !response.IsComplete || published is not null ? MaxResponseBytes - 1024 : MaxResponseBytes;
+        if (JsonSerializer.SerializeToUtf8Bytes(response, Options).Length <= limit) { return response; }
         // Byte truncation invalidates subtree completeness. Keep targets, not grouping claims.
         response = response with {
             Targets = response.Targets.Select(t => t with { ContainerId = 0 }).ToArray(),
             Containers = null
         };
-        var partial = response with { Outcome = HintOutcome.Partial, Reason = "Response byte limit" };
+        var partial = response with { Outcome = HintOutcome.Partial, Reason = "Response byte limit", IsComplete = true };
         int low = 0, high = response.Targets.Length;
         while (low < high) {
             int count = (low + high + 1) / 2;
@@ -67,7 +75,15 @@ public static class ElementHintProtocol {
                 Targets = response.Targets[..count],
                 Omitted = response.Omitted + response.Targets.Length - count,
             };
-            if (JsonSerializer.SerializeToUtf8Bytes(candidate, Options).Length <= MaxResponseBytes) { low = count; } else { high = count - 1; }
+            if (JsonSerializer.SerializeToUtf8Bytes(candidate, Options).Length <= limit) { low = count; } else { high = count - 1; }
+        }
+        if (published is not null && low < published.Targets.Length) {
+            return partial with {
+                Targets = published.Targets.Select(t => t with { ContainerId = 0 }).ToArray(),
+                Groups = published.Groups,
+                Omitted = response.Omitted + response.Targets.Length - published.Targets.Length +
+                    (response.Groups?.Length ?? 0) - (published.Groups?.Length ?? 0),
+            };
         }
         return partial with { Targets = response.Targets[..low], Omitted = response.Omitted + response.Targets.Length - low };
     }
@@ -101,8 +117,33 @@ public static class ElementHintProtocol {
             response.RequestId != request.RequestId || !Enum.IsDefined(response.Outcome) ||
             response.Targets is null || response.Targets.Length > MaxTargets ||
             response.Visited < 0 || response.Visited > MaxNodes || response.Omitted < 0 ||
-            response.Reason?.Length > 256) {
+            response.Reason?.Length > 256 || response.CacheHits < 0 ||
+            response.Groups?.Length > MaxTargets || response.GroupId != request.GroupId) {
             throw new InvalidDataException("UIA protocol identity or limits mismatch.");
+        }
+        var groups = new Dictionary<int, HintGroup>();
+        var groupDepths = new Dictionary<int, int>();
+        foreach (var group in response.Groups ?? []) {
+            if (group is null || group.Id <= 0 || group.Id > MaxNodes ||
+                groups.ContainsKey(group.Id) || group.ParentId < 0 || group.ParentId >= group.Id ||
+                group.ParentId != 0 && !groups.ContainsKey(group.ParentId) ||
+                !group.Bounds.IsValid || !group.Bounds.Clip(request.Region).IsValid ||
+                group.ChildCount <= 0 ||
+                group.ChildCount > MaxNodes) {
+                throw new InvalidDataException("Invalid UIA deferred group.");
+            }
+            int depth = group.ParentId == 0 ? 1 : groupDepths[group.ParentId] + 1;
+            if (depth > MaxDepth) { throw new InvalidDataException("UIA deferred group depth exceeded."); }
+            groups.Add(group.Id, group);
+            groupDepths.Add(group.Id, depth);
+        }
+        if (response.GroupId != 0 && response.Outcome is HintOutcome.Success or HintOutcome.Partial &&
+            !groups.ContainsKey(response.GroupId)) {
+            throw new InvalidDataException("Missing UIA discovery group.");
+        }
+        if (!response.IsComplete && (request.Command is not (HintCommand.Discover or HintCommand.Continue or HintCommand.Expand) ||
+            response.Outcome is not (HintOutcome.Success or HintOutcome.Partial) || response.RootProcessId <= 0)) {
+            throw new InvalidDataException("Invalid UIA progress frame.");
         }
         var tokens = new HashSet<int>();
         foreach (var target in response.Targets) {
@@ -110,9 +151,11 @@ public static class ElementHintProtocol {
                 target.RuntimeId is not { Length: > 0 and <= MaxRuntimeId } ||
                 target.ProcessId <= 0 || !target.Bounds.IsValid || !target.VisibleBounds.IsValid ||
                 target.Bounds.Clip(request.Region) != target.VisibleBounds ||
-                !target.VisibleBounds.Contains(target.Preview)) {
+                !target.VisibleBounds.Contains(target.Preview) ||
+                target.DiscoveryGroupId < 0 || target.DiscoveryGroupId != 0 && !groups.ContainsKey(target.DiscoveryGroupId)) {
                 throw new InvalidDataException("Invalid UIA candidate.");
             }
+
         }
         var containers = new Dictionary<int, HintContainer>();
         var depths = new Dictionary<int, int>();
@@ -159,14 +202,34 @@ public static class ElementHintProtocol {
         if (response.Point is { } point && !request.Region.Contains(point)) {
             throw new InvalidDataException("UIA validation point outside region.");
         }
-        if (request.Command == HintCommand.Discover &&
-            ((response.Outcome is HintOutcome.Success && response.Targets.Length == 0) ||
-             (response.Outcome is HintOutcome.NoTargets && response.Targets.Length != 0))) {
+        if (request.Command is HintCommand.Discover or HintCommand.Continue or HintCommand.Expand &&
+            ((response.Outcome is HintOutcome.Success && response.IsComplete && response.Targets.Length == 0 &&
+                groups.Count == 0) ||
+             (response.Outcome is HintOutcome.NoTargets && (response.Targets.Length != 0 || groups.Count != 0)))) {
             throw new InvalidDataException("Inconsistent UIA scan outcome.");
         }
         if (request.Command == HintCommand.Validate && response.Outcome == HintOutcome.Success &&
             (response.Point is null || response.RootProcessId <= 0 || response.Targets.Length != 0)) {
             throw new InvalidDataException("Incomplete UIA validation approval.");
+        }
+    }
+
+    public static void CheckProgress(HintResponse previous, HintResponse current) {
+        if (current.Outcome is not (HintOutcome.Success or HintOutcome.Partial or HintOutcome.NoTargets)) { return; }
+        var targets = current.Targets.ToDictionary(t => t.Token);
+        foreach (var old in previous.Targets) {
+            if (!targets.TryGetValue(old.Token, out var target) || !old.RuntimeId.SequenceEqual(target.RuntimeId) ||
+                old.ProcessId != target.ProcessId || old.ControlType != target.ControlType ||
+                old.Capabilities != target.Capabilities || old.Bounds != target.Bounds ||
+                old.VisibleBounds != target.VisibleBounds || old.Preview != target.Preview ||
+                old.DiscoveryGroupId != target.DiscoveryGroupId) {
+                throw new InvalidDataException("UIA progress remapped a published target.");
+            }
+        }
+        var groups = (current.Groups ?? []).ToDictionary(g => g.Id);
+        if ((previous.Groups ?? []).Any(g => !groups.TryGetValue(g.Id, out var currentGroup) || g != currentGroup) ||
+            previous.RootProcessId != current.RootProcessId) {
+            throw new InvalidDataException("UIA progress changed its root or a published group.");
         }
     }
 }

@@ -15,7 +15,7 @@ not the hook/UI thread. Before overlay Show, `ElementPointGuard.Capture` records
 HWND/PID/process-start identity. Inherited bounded stdio carries only capabilities,
 identity and physical geometry. `UiaWorkerSupervisor` assigns the helper to its
 kill-on-close job before sending UIA work, uses the configured discovery deadline
-(default 1500 ms) and a fixed 500 ms validation deadline
+(default 10000 ms) and a fixed 500 ms validation deadline
 and a 500 ms cleanup budget. Native WindowFromPoint/GetAncestor and foreground/PID
 checks supplement fresh UIA validation. No Invoke/SetValue/SetFocus, elevation or
 UIAccess. Failed identity capture is an invalid-root outcome, never a broadened

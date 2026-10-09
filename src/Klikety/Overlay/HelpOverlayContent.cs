@@ -119,7 +119,7 @@ public static class HelpOverlayContentBuilder {
         var prompts = new List<string>();
         if (elementHints is { } hints) {
             entries.Add(NewEntry(VKey.Return, "Grid fallback", HelpEntryCategory.Mode, labels, !macroBlocksNavigation));
-            var hasTargets = hints.TargetCount > 0;
+            var hasTargets = hints.EntryCount is { } entryCount ? entryCount > 0 : hints.TargetCount > 0;
             foreach (var arrow in new[] { VKey.Left, VKey.Right, VKey.Up, VKey.Down }) {
                 entries.Add(NewEntry(arrow, "Focus control/group", HelpEntryCategory.Mode, labels,
                     hasTargets && hints.ArrowKeys && !macroBlocksNavigation));
@@ -133,6 +133,7 @@ public static class HelpOverlayContentBuilder {
             }
             if (hasTargets) {
                 prompts.Add($"Level {hints.Depth}: {(hints.SingleKey ? "one-key" : "two-key")} labels. + marks a navigation-only group.");
+                if (hints.Outcome is null) { prompts.Add("Controls continue to appear. Existing labels stay fixed and can be used now."); }
                 if (hints.PageCount > 1) {
                     prompts.Add($"Page {hints.Page + 1} of {hints.PageCount}. Other controls may be on another page.");
                 }

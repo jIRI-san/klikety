@@ -28,10 +28,17 @@ SessionManager forwards only the active session's changes and unsubscribes befor
 retirement; visible help refreshes on discovery/capacity changes without rescanning
 or remapping a frozen page. Macro setup/confirmation consumes keys before the
 session; help mutes those commands rather than claiming Enter bypasses macro setup.
-Hint navigation has its own frozen level stack: a completed group label pushes,
+Hint navigation has its own frozen level stack: completing a group label pushes,
 a leaf label selects/previews, optional arrows focus without paging, and Escape
 clears a prefix or pops/cancels. Enter remains grid fallback. Navigation-only group
 focus is never an actionable selection, so it cannot start an action transaction.
+Discovery appends usable hints while the foreground-root scan is still running.
+Published keys, active prefixes, selection and entered levels stay fixed. Child
+counts never defer UIA branches; groups contain already discovered entries for
+label capacity or competing compound badges. Escape restores the parent while
+discovery continues. Closing a completed session releases the active
+frontier but can retain event-observed, window-LRU-bounded caches until the idle
+deadline. Factory disposal explicitly shuts down that helper even from another mode.
 
 Selected-target actions snapshot hook modifiers, drain capture and hide the whole
 host before helper validation. An activation-bound cancellation token and active

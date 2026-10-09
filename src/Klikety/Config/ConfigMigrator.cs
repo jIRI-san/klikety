@@ -408,6 +408,7 @@ public static class ConfigMigrator {
         ["enabled"] = false, ["default"] = false, ["chordKey"] = "Tab",
         ["twoKey"] = true, ["arrowKeys"] = true,
         ["discoveryTimeoutMs"] = new ModeConfig().DiscoveryTimeoutMs,
+        ["cacheWindowCount"] = new ModeConfig().CacheWindowCount,
     };
 
     private static JsonObject CreateDefaultMacros() => new() {

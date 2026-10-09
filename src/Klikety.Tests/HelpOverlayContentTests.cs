@@ -50,7 +50,7 @@ public class HelpBindingModelTests {
     [InlineData(HintOutcome.AccessDenied, "Application access denied")]
     [InlineData(HintOutcome.Unavailable, "Element hints unavailable")]
     [InlineData(HintOutcome.InvalidRoot, "Application unavailable")]
-    [InlineData(HintOutcome.CleanupFailed, "Helper cleanup failed; restart Klikety")]
+    [InlineData(HintOutcome.CleanupFailed, "Helper cleanup pending; reopen hints to retry")]
     [InlineData(HintOutcome.ProviderError, "Control discovery failed")]
     public void Build_HintLoadingAndFailuresMuteActionsButNeverLockGridFallback(HintOutcome? outcome, string status) {
         var content = Build(new ConfigModel(),

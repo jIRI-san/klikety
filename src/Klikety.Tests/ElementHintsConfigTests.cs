@@ -68,7 +68,8 @@ public class ElementHintsConfigTests {
             var node = JsonNode.Parse(File.ReadAllText(path))!;
             Assert.Equal(9, node["configVersion"]!.GetValue<int>());
             Assert.False(node["modes"]!["elementHints"]!["enabled"]!.GetValue<bool>());
-            Assert.Equal(1500, node["modes"]!["elementHints"]!["discoveryTimeoutMs"]!.GetValue<int>());
+            Assert.Equal(10000, node["modes"]!["elementHints"]!["discoveryTimeoutMs"]!.GetValue<int>());
+            Assert.Equal(5, node["modes"]!["elementHints"]!["cacheWindowCount"]!.GetValue<int>());
             Assert.Equal("RightClick", node["actionBindings"]!["Tab"]!.GetValue<string>());
             Assert.Equal(42, node["unknown"]!.GetValue<int>());
             Assert.False(ConfigMigrator.MigrateIfNeeded(path).WasMigrated);
@@ -86,7 +87,7 @@ public class ElementHintsConfigTests {
             File.WriteAllText(path, document.ToJsonString());
             var result = ConfigLoader.Load(path);
             Assert.Null(ElementHintsPolicy.GetInvalidReason(result.Config));
-            Assert.Equal(1500, result.Config.Modes.ElementHints.DiscoveryTimeoutMs);
+            Assert.Equal(10000, result.Config.Modes.ElementHints.DiscoveryTimeoutMs);
             Assert.True(new ModeSessionFactory(result.Config, new ActionMapper([]), null).IsElementHintsAvailable);
             settings[twoKey] = false;
             File.WriteAllText(path, document.ToJsonString());
@@ -197,5 +198,52 @@ public class ElementHintsConfigTests {
                 Assert.False(new ModeSessionFactory(runtime.Config, new ActionMapper([]), null).IsElementHintsAvailable);
             } finally { File.Delete(path); File.Delete(path + ".bak"); }
         }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(5)]
+    [InlineData(20)]
+    public void ProgressiveCacheSettingsHaveBoundedDefaultsAndPreserveValidLimits(int windows) {
+        var defaults = ConfigLoader.ReadSettings("""{"configVersion":9}""").Config.Modes.ElementHints;
+        Assert.Equal(5, defaults.CacheWindowCount);
+        var root = JsonNode.Parse("""{"configVersion":9,"modes":{"elementHints":{}}}""")!.AsObject();
+        SettingsValidationTests.Set(root, "modes.elementHints.cacheWindowCount", JsonValue.Create(windows));
+        var result = ConfigLoader.ReadSettings(root.ToJsonString());
+        Assert.Empty(result.SettingsBlockingErrors);
+        Assert.Equal(windows, result.Config.Modes.ElementHints.CacheWindowCount);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(30)]
+    [InlineData(1001)]
+    public void RetiredThresholdFieldsAreIgnoredWithoutRewritingVersionNine(int threshold) {
+        var root = JsonNode.Parse("""{"configVersion":9,"modes":{"elementHints":{"groupChildThreshold":10}}}""")!.AsObject();
+        SettingsValidationTests.Set(root, "modes.elementHints.rootGroupChildThreshold", JsonValue.Create(threshold));
+        string json = root.ToJsonString();
+        string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".json");
+        try {
+            File.WriteAllText(path, json);
+            var runtime = ConfigLoader.Load(path);
+            var settings = ConfigLoader.ReadSettings(json);
+            Assert.Empty(runtime.Violations);
+            Assert.Empty(settings.SettingsBlockingErrors);
+            Assert.Equal(5, runtime.Config.Modes.ElementHints.CacheWindowCount);
+            Assert.Equal(5, settings.Config.Modes.ElementHints.CacheWindowCount);
+            Assert.Equal(json, File.ReadAllText(path));
+            Assert.False(File.Exists(path + ".bak"));
+        } finally { File.Delete(path); File.Delete(path + ".bak"); }
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(21)]
+    public void InvalidCacheSettingsBlockDisabledHintsWithoutClamping(int windows) {
+        var root = JsonNode.Parse("""{"configVersion":9,"modes":{"elementHints":{"enabled":false}}}""")!.AsObject();
+        SettingsValidationTests.Set(root, "modes.elementHints.cacheWindowCount", JsonValue.Create(windows));
+        var result = ConfigLoader.ReadSettings(root.ToJsonString());
+        Assert.Contains(result.SettingsBlockingErrors, error => error.Contains("cacheWindowCount"));
+        Assert.Equal(windows, result.Config.Modes.ElementHints.CacheWindowCount);
     }
 }

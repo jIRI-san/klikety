@@ -4,7 +4,7 @@ using Klikety.Input;
 namespace Klikety.Navigation;
 
 public sealed record HintEntry(int Id, HintTarget? Target, HintRect Bounds, HintPoint Preview,
-    string Description, IReadOnlyList<HintEntry> Children, bool Compact = false) {
+    string Description, IReadOnlyList<HintEntry> Children, bool Compact = false, int RemoteGroupId = 0) {
     public bool IsGroup => Target is null;
 }
 
@@ -18,7 +18,9 @@ internal sealed class ElementHintHierarchy {
     private readonly Dictionary<int, HintContainer> _containers;
     private readonly Dictionary<int, HashSet<int>> _members;
 
-    public ElementHintHierarchy(HintTarget[] targets, HintContainer[] containers) {
+    public int NextGroupId => _nextGroup;
+    public ElementHintHierarchy(HintTarget[] targets, HintContainer[] containers, int nextGroupId = 0) {
+        _nextGroup = nextGroupId;
         _containers = containers.ToDictionary(c => c.Id);
         _members = containers.ToDictionary(c => c.Id, _ => new HashSet<int>());
         foreach (var target in targets) {

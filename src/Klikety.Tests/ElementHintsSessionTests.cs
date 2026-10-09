@@ -96,7 +96,7 @@ public class ElementHintsStateMachineTests {
         renderer.Capacity = 2;
         session.Relayout();
         Assert.Equal(new ElementHintsHelpState(HintOutcome.Success, "", 0, 1, 10, null, false,
-            SingleKey: true), session.HelpState);
+            SingleKey: true, EntryCount: 2), session.HelpState);
         Assert.Single(service.Scans);
         Assert.Empty(service.Validations);
         session.Deactivate();
@@ -159,7 +159,8 @@ public class ElementHintsStateMachineTests {
         manager.FailureReported += failures.Add;
         manager.ActivateDefaultSession(new(0, 0, 100, 100), default, "ElementHints");
         manager.DeactivateSession();
-        Assert.Contains("cleanup failed", Assert.Single(failures));
+        Assert.Equal("UIA helper cleanup pending (Teardown unconfirmed); reopen hints to retry.",
+            Assert.Single(failures));
     }
 
     [Fact]

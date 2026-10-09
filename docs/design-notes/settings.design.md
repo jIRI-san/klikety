@@ -49,12 +49,17 @@ for both the editor and runtime-snapshot read.
   controls or rebinding keys. Shared ordered axes, action mappings (including
   Space), help settings and label font floor use their existing pages/validators.
   The Element hints card exposes `modes.elementHints.discoveryTimeoutMs`, an
-  integer 100-60000 ms startup-inclusive deadline (default 1500 ms). Increasing
+  integer 100-60000 ms startup-inclusive deadline (default 10000 ms). Increasing
   it gives slow providers such as Word more time; invalid values block saves
   even with hints disabled. The field participates in the same typed draft,
   targeted JSONC preservation, save/reload and runtime replacement as other
   settings. UIA validation/cleanup deadlines, traversal and wire limits remain
   internal, not dialog fields.
+  The same card edits `cacheWindowCount` (0-20 windows, default 5; 0 disables
+  reuse). Child-count collapse settings are no longer exposed or consumed.
+  It explains capacity groups/pages, separate counting of app windows, frozen two-key labels for
+  growing levels, and fresh action validation. These fields use the same typed
+  draft, JSONC-preserving saves, disabled-mode validation, and runtime replacement.
 - **Key bindings**: overlay help enablement, physical key and required-Shift flag,
   action mapping editor and ordered horizontal/vertical key lists.
 - **Appearance**: theme reference and label-size floor. Theme file contents remain separate.
@@ -71,7 +76,9 @@ are not invented. F11 is supported; F12 is excluded (reserved for the Windows de
 Collection rows wrap rather than clipping; add/move/remove returns keyboard focus to
 the affected row.
 Field labels, picker/text input contents and adjacent capture buttons are vertically
-centered; wrapping key rows keep the same shared control alignment.
+centered; wrapping key rows keep the same shared control alignment. Field captions
+wrap inside their fixed-width column rather than clipping long labels, retaining
+their input targets and accessible names.
 Ordered-list reorder buttons use compact vector arrows with descriptive tooltips and
 item-specific automation names; disabled arrows inherit the button's disabled foreground.
 Every displayed local path has an **Open folder** button: the config file and local

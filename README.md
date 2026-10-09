@@ -206,7 +206,7 @@ config files are not overwritten by changes to the template.
 | `modes` | object | see below | Navigation mode config. Each mode has `enabled`, `default`, `chordKey`, `twoKey`, `arrowKeys`. |
 | `modes.logCrosshair.logBaseSize` | int | `10` | Base cell size (px) for LogCrosshair center cell. Range: 2–50. |
 | `modes.logGrid.logGridBaseSize` | int | `10` | Base cell size (px) for LogGrid center cells. Range: 2–50. |
-| `modes.elementHints.discoveryTimeoutMs` | int | `1500` | Discovery deadline including helper startup, 100–60000 ms. Does not change action validation or cleanup deadlines. |
+| `modes.elementHints.discoveryTimeoutMs` | int | `10000` | Discovery deadline including helper startup, 100–60000 ms. Early hints remain usable while discovery continues. Does not change action validation or cleanup deadlines. |
 | `navigationMode` | string | `"both"` | Legacy field. Migrated to `modes.uniformGrid` on first load. |
 | `theme` | string | `"dark"` | Theme name or relative path to `.theme.json` |
 | `logLevel` | string | `"Debug"` | Log level: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None` |
@@ -272,10 +272,15 @@ when discovery finishes. Macro setup must finish before navigation keys can run.
 Discovery is limited to the application HWND captured before the overlay, clipped
 to the navigation display/scope. A centered spinner runs during discovery; hint
 badge backgrounds are translucent so underlying icons remain visible.
-The bundled helper defaults to a 1500 ms scan deadline. Change **Settings >
+Controls appear progressively in breadth-first order. Child counts do not collapse
+panes or session lists; groups/pages are used for label capacity and competing badges.
+Visible key labels remain stable as more controls arrive.
+
+The bundled helper defaults to a 10000 ms scan deadline. Change **Settings >
 Navigation > Element hints > Discovery timeout (ms)** or
 `modes.elementHints.discoveryTimeoutMs` (100–60000 ms); for slow applications such
-as Word, try `10000`. Existing configs retain 1500 ms when the field is absent.
+as Word, increase it if needed. Explicit existing deadlines are preserved;
+configs without the field use the new default.
 The timeout includes helper startup; Enter/Escape remain available while loading.
 The 500 ms action-validation deadline and bounded traversal (20000 nodes,
 depth 64, 2000 targets) remain unchanged. Partial/empty/provider/permission failures stay visible.

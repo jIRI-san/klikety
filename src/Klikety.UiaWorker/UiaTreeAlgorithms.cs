@@ -3,7 +3,8 @@ using Klikety.Automation;
 namespace Klikety.UiaWorker;
 
 internal sealed record HintNode(int[] RuntimeId, int ProcessId, int ControlType,
-    HintCapabilities Capabilities, HintRect Bounds, bool Enabled = true, bool Offscreen = false);
+    HintCapabilities Capabilities, HintRect Bounds, bool Enabled = true, bool Offscreen = false,
+    bool ChildrenComplete = true);
 
 internal interface IHintTree<T> where T : class {
     HintNode Read(T element);
@@ -36,6 +37,13 @@ internal static class UiaTreeAlgorithms {
 
     public static HintDiscovery<T> Discover<T>(T root, IHintTree<T> tree, HintRect region,
         int ownerProcessId, int workerProcessId) where T : class {
+        var discovery = new ProgressiveHintDiscovery<T>(root, tree, region, ownerProcessId, workerProcessId);
+        while (!discovery.IsComplete) { discovery.Step(maxOperations: 1024); }
+        return discovery.Snapshot();
+    }
+
+    internal static HintDiscovery<T> Canonicalize<T>(T root, IHintTree<T> tree, HintRect region,
+        int ownerProcessId, int workerProcessId, bool forceCapped = false) where T : class {
         var entries = new List<(T Element, HintTarget Target)>();
         var branches = new List<DiscoveryBranch>();
         var pending = new Stack<(T Element, int Depth, int Parent)>();
@@ -43,7 +51,7 @@ internal static class UiaTreeAlgorithms {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         int visited = 0, omitted = 0;
         string? reason = null;
-        bool capped = false;
+        bool capped = forceCapped;
         while (pending.Count > 0) {
             if (visited == ElementHintProtocol.MaxNodes) { reason = "Node limit reached"; omitted++; capped = true; break; }
             var (element, depth, parent) = pending.Pop();
@@ -54,6 +62,7 @@ internal static class UiaTreeAlgorithms {
             try {
                 var data = tree.Read(element);
                 branch.Data = data;
+                branch.Complete = data.ChildrenComplete;
                 if (data.ProcessId != ownerProcessId && data.ProcessId != workerProcessId &&
                     data.Enabled && !data.Offscreen &&
                     ElementHintCandidatePolicy.IsInteractive(data.ControlType, data.Capabilities)) {

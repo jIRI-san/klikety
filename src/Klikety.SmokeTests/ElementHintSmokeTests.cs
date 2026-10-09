@@ -189,4 +189,48 @@ public class ElementHintSmokeTests(ITestOutputHelper output) {
             Assert.Null(response.Point);
         } finally { Assert.True(await worker.RetireAsync()); }
     }
+
+    [Fact]
+    public async Task ProgressiveWorkerReusesCachedWpfControlsAndObservesIdlePropertyAndStructureChanges() {
+        await using var fixture = await Fixture.StartAsync();
+        var worker = new UiaWorkerSupervisor(discoveryTimeoutMs: 10000, cacheWindowCount: 2);
+        var context = new ElementPointGuard().Capture((nint)fixture.Hwnd, Environment.ProcessId);
+        var bounds = PlatformServices.Instance.ForegroundWindow.GetWindowBounds((nint)fixture.Hwnd);
+        var region = new HintRect(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        async Task<HintResponse> Scan() {
+            HintResponse? final = null;
+            var watch = Stopwatch.StartNew();
+            await foreach (var response in worker.DiscoverIncrementallyAsync(context, region, CancellationToken.None)) {
+                final = response;
+                output.WriteLine($"progress complete={response.IsComplete}; elapsed={watch.ElapsedMilliseconds} ms; targets={response.Targets.Length}; cached={response.CacheHits}; outcome={response.Outcome}; reason={response.Reason}");
+            }
+            Assert.NotNull(final);
+            Assert.Equal(HintOutcome.Success, final.Outcome);
+            return final;
+        }
+        try {
+            var first = await Scan();
+            Assert.Equal(4, first.Targets.Length);
+            int? pid = worker.OwnedProcessId;
+            Assert.True(await worker.ReleaseAsync());
+            var cached = await Scan();
+            Assert.Equal(pid, worker.OwnedProcessId);
+            Assert.True(cached.CacheHits > 0);
+            Assert.Equal(first.Targets.Select(t => string.Join(",", t.RuntimeId)),
+                cached.Targets.Select(t => string.Join(",", t.RuntimeId)));
+            Assert.True(await worker.ReleaseAsync());
+            Assert.Equal("done", await fixture.CommandAsync("disable"));
+            await Task.Delay(200);
+            var changed = await Scan();
+            Assert.Equal(3, changed.Targets.Length);
+            Assert.DoesNotContain(changed.Targets, t => t.ControlType == 50000);
+            Assert.True(await worker.ReleaseAsync());
+            Assert.Equal("done", await fixture.CommandAsync("replace"));
+            await Task.Delay(200);
+            var replaced = await Scan();
+            Assert.Equal(4, replaced.Targets.Length);
+            Assert.DoesNotContain(replaced.Targets, t => t.RuntimeId.SequenceEqual(
+                first.Targets.Single(old => old.ControlType == 50000).RuntimeId));
+        } finally { Assert.True(await worker.RetireAsync()); }
+    }
 }

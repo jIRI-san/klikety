@@ -82,15 +82,29 @@ public sealed class SettingsAccessibilityTests {
                         foreach (var label in elements.OfType<Label>()) {
                             if (label.Target is not FrameworkElement target ||
                                 label.Parent is not System.Windows.Controls.Grid row) { continue; }
+                            var caption = Descendants(label).OfType<TextBlock>()
+                                .Single(block => block.Text == AutomationProperties.GetName(target));
+                            Assert.Equal(TextWrapping.Wrap, caption.TextWrapping);
+                            var textBounds = caption.TransformToAncestor(label).TransformBounds(new Rect(caption.RenderSize));
+                            Assert.True(textBounds.Left >= -0.1 && textBounds.Right <= label.ActualWidth + 0.1,
+                                $"{index} width {width}: {caption.Text} caption exceeds its label column");
+                            var measured = new TextBlock {
+                                Text = caption.Text, FontFamily = caption.FontFamily,
+                                FontSize = caption.FontSize, FontWeight = caption.FontWeight,
+                                FontStyle = caption.FontStyle, TextWrapping = TextWrapping.Wrap,
+                            };
+                            measured.Measure(new Size(caption.ActualWidth, double.PositiveInfinity));
+                            Assert.True(caption.ActualHeight >= measured.DesiredSize.Height - 0.1,
+                                $"{index} width {width}: {caption.Text} caption is vertically clipped");
                             var captionBounds = label.TransformToAncestor(row).TransformBounds(new Rect(label.RenderSize));
                             var targetBounds = target.TransformToAncestor(row).TransformBounds(new Rect(target.RenderSize));
                             Assert.True(Math.Abs(CenterY(captionBounds) - CenterY(targetBounds)) <= 0.5,
-                                $"{index} width {width}: {label.Content} label is not centered with its field");
+                                $"{index} width {width}: {caption.Text} label is not centered with its field");
                             if (target.Parent is WrapPanel inputs) {
                                 foreach (var input in inputs.Children.OfType<Control>()) {
                                     var inputBounds = input.TransformToAncestor(row).TransformBounds(new Rect(input.RenderSize));
                                     Assert.True(Math.Abs(CenterY(inputBounds) - CenterY(targetBounds)) <= 0.5,
-                                        $"{index} width {width}: {label.Content} picker and capture button are not centered");
+                                        $"{index} width {width}: {caption.Text} picker and capture button are not centered");
                                 }
                             }
                             Assert.Equal(VerticalAlignment.Center, Assert.IsAssignableFrom<Control>(target).VerticalContentAlignment);

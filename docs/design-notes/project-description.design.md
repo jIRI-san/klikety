@@ -31,7 +31,9 @@ clears a partial label, otherwise pops a level or cancels.
 
 Discovery uses a separately owned, bounded UIA worker, not the WPF dispatcher.
 Badge fills are 40% opaque; a centered spinner shows pending discovery.
-`modes.elementHints.discoveryTimeoutMs` defaults to 1500 ms, including startup,
+Controls appear progressively in breadth-first order; child counts do not collapse
+panes or session lists. Capacity groups/pages keep labels readable and stable.
+`modes.elementHints.discoveryTimeoutMs` defaults to 10000 ms, including startup,
 and accepts 100-60000 ms. Validation and cleanup remain 500 ms. Fresh identity,
 geometry and point ownership checks gate physical actions; cursor-only moves
 also permit verified interactive descendants. Group entries never dispatch input.

@@ -7,6 +7,8 @@ using System.Windows.Automation;
 
 using Klikety.Automation;
 
+using UiaAutomation = System.Windows.Automation.Automation;
+
 namespace Klikety.UiaWorker;
 
 internal static class Program {
@@ -15,7 +17,8 @@ internal static class Program {
     private static int Main() {
         using var input = Console.OpenStandardInput();
         using var output = Console.OpenStandardOutput();
-        var worker = new UiaSnapshot();
+        using var worker = new UiaSnapshot();
+        HintResponse? published = null;
         using (var process = Process.GetCurrentProcess()) {
             Console.Error.WriteLine($"uia-worker-ready startupMs={Math.Max(0, (long)(DateTime.UtcNow - process.StartTime.ToUniversalTime()).TotalMilliseconds)}");
         }
@@ -27,6 +30,7 @@ internal static class Program {
             } catch (EndOfStreamException) { return 0; } catch (Exception ex) when (
                 ex is IOException or InvalidDataException or System.Text.Json.JsonException) { return 2; }
             if (request.Version != ElementHintProtocol.Version || !Enum.IsDefined(request.Command)) { return 2; }
+            if (request.Command is HintCommand.Discover or HintCommand.Release) { published = null; }
             HintResponse response;
             try {
                 response = worker.Handle(request);
@@ -37,9 +41,13 @@ internal static class Program {
                     ? HintOutcome.AccessDenied : HintOutcome.ProviderError, $"Provider error 0x{ex.HResult:X8}");
             }
             try {
-                response = ElementHintProtocol.BoundSnapshotResponse(response);
+                bool discovery = request.Command is HintCommand.Discover or HintCommand.Continue or HintCommand.Expand;
+                response = ElementHintProtocol.BoundSnapshotResponse(response, discovery ? published : null);
                 ElementHintProtocol.WriteAsync(output, response, ElementHintProtocol.MaxResponseBytes,
                     CancellationToken.None).GetAwaiter().GetResult();
+                if (discovery && response.Outcome is HintOutcome.Success or HintOutcome.Partial or HintOutcome.NoTargets) {
+                    published = response;
+                }
             } catch (IOException) { return 2; }
         }
     }
@@ -48,10 +56,10 @@ internal static class Program {
         HintTarget[]? targets = null, HintPoint? point = null, int rootPid = 0,
         int visited = 0, int omitted = 0, HintContainer[]? containers = null) =>
         new(ElementHintProtocol.Version, r.SessionId, r.RequestId, outcome, targets ?? [],
-            visited, omitted, reason, point, rootPid, containers);
+            visited, omitted, reason, point, rootPid, containers, GroupId: r.GroupId);
 }
 
-internal sealed class UiaSnapshot {
+internal sealed class UiaSnapshot : IDisposable {
     private readonly Dictionary<int, (AutomationElement Element, HintTarget Target)> _targets = [];
     private AutomationElement? _root;
     private int[] _rootId = [];
@@ -61,16 +69,26 @@ internal sealed class UiaSnapshot {
     private long _hwnd;
     private Guid _session;
     private HintRect _region;
+    private HintWindowCache<AutomationElement>? _cache;
+    private int _cacheCapacity = -1;
+    private HintTreeCache<AutomationElement>? _tree;
+    private ProgressiveHintDiscovery<AutomationElement>? _discovery;
 
     public HintResponse Handle(HintRequest r) => r.Command switch {
         HintCommand.Hello => Program.Reply(r, HintOutcome.Success),
         HintCommand.Discover => Discover(r),
         HintCommand.Validate => Validate(r),
+        HintCommand.Continue => Continue(r),
+        HintCommand.Expand => Program.Reply(r, HintOutcome.StaleTarget, "Child-count groups are no longer supported") with { GroupId = r.GroupId },
+        HintCommand.Release => Release(r),
         _ => Program.Reply(r, HintOutcome.ProtocolError),
     };
 
     private HintResponse Discover(HintRequest r) {
+        if (r.CacheWindowCount is < 0 or > ElementHintProtocol.MaxCacheWindowCount ||
+            r.GroupId != 0) { return Program.Reply(r, HintOutcome.ProtocolError, "Invalid discovery settings"); }
         _targets.Clear();
+        _discovery = null;
         _root = null;
         if (!r.Region.IsValid || r.Hwnd == 0 || !Native.IsWindow((nint)r.Hwnd) ||
             Native.IsIconic((nint)r.Hwnd)) { return Program.Reply(r, HintOutcome.InvalidRoot, "Invalid or minimized window"); }
@@ -93,6 +111,11 @@ internal sealed class UiaSnapshot {
         _hwnd = r.Hwnd;
         _session = r.SessionId;
         _region = r.Region;
+        if (r.Incremental) {
+            _tree = CachedTree(r);
+            _discovery = new(_tree.Root!, _tree, r.Region, r.OwnerProcessId, Environment.ProcessId);
+            return Continue(r);
+        }
         var discovery = UiaTreeAlgorithms.Discover(_root, new AutomationTree(), r.Region,
             r.OwnerProcessId, Environment.ProcessId);
         foreach (var entry in discovery.Entries) { _targets.Add(entry.Target.Token, entry); }
@@ -102,6 +125,92 @@ internal sealed class UiaSnapshot {
             discovery.Reason, targets, rootPid: _rootPid, visited: discovery.Visited, omitted: discovery.Omitted,
             containers: discovery.Containers);
     }
+
+    private HintTreeCache<AutomationElement> CachedTree(HintRequest r) {
+        if (_cacheCapacity != r.CacheWindowCount) {
+            _cache?.Clear(RetireCache);
+            _cache = new(r.CacheWindowCount);
+            _cacheCapacity = r.CacheWindowCount;
+        }
+        var key = new HintWindowKey(r.Hwnd, _rootPid, _processStart);
+        _cache!.RemoveWhere(k => !Native.IsWindow((nint)k.Hwnd) ||
+            Native.GetWindowThreadProcessId((nint)k.Hwnd, out uint pid) == 0 || pid != k.ProcessId ||
+            k.Hwnd == key.Hwnd && k != key, RetireCache);
+        HintTreeCache<AutomationElement> Create() {
+            var cached = new HintTreeCache<AutomationElement>(new AutomationTree(),
+                cachedIdentity: element => element.GetCachedPropertyValue(AutomationElement.RuntimeIdProperty) as int[]) { Root = _root };
+            if (r.CacheWindowCount != 0) { Subscribe(cached, _root!); }
+            return cached;
+        }
+        var tree = _cache.Get(key, Create, RetireCache);
+        tree.Refresh();
+        if (!tree.TryReadCached(tree.Root!, out var old)) {
+            tree.Root = _root;
+        } else if (!old!.RuntimeId.SequenceEqual(_rootId)) {
+            _cache.RemoveWhere(k => k == key, RetireCache);
+            tree = _cache.Get(key, Create, RetireCache);
+        } else if (old.Bounds != _rootBounds) {
+            tree.MarkDirty(null);
+            tree.Root = _root;
+            tree.Refresh();
+        }
+        return tree;
+    }
+
+    private static void Subscribe(HintTreeCache<AutomationElement> tree, AutomationElement root) {
+        var cache = new CacheRequest { TreeScope = TreeScope.Element };
+        cache.Add(AutomationElement.RuntimeIdProperty);
+        void Dirty(object sender) {
+            try {
+                tree.MarkDirty((sender as AutomationElement)?.GetCachedPropertyValue(AutomationElement.RuntimeIdProperty) as int[]);
+            } catch (Exception ex) when (ex is InvalidOperationException or ElementNotAvailableException) {
+                // An unavailable event identity requires conservative window invalidation.
+                tree.MarkDirty(null);
+            }
+        }
+        StructureChangedEventHandler structure = (sender, _) => Dirty(sender);
+        AutomationPropertyChangedEventHandler properties = (sender, _) => Dirty(sender);
+        using (cache.Activate()) {
+            UiaAutomation.AddStructureChangedEventHandler(root, TreeScope.Subtree, structure);
+            try {
+                UiaAutomation.AddAutomationPropertyChangedEventHandler(root, TreeScope.Subtree, properties,
+                    AutomationElement.BoundingRectangleProperty, AutomationElement.IsOffscreenProperty,
+                    AutomationElement.IsEnabledProperty, AutomationElement.IsInvokePatternAvailableProperty,
+                    AutomationElement.IsTogglePatternAvailableProperty, AutomationElement.IsSelectionItemPatternAvailableProperty,
+                    AutomationElement.IsExpandCollapsePatternAvailableProperty, AutomationElement.IsValuePatternAvailableProperty);
+            } catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or COMException or ArgumentException) {
+                UiaAutomation.RemoveStructureChangedEventHandler(root, structure);
+                throw;
+            }
+        }
+        tree.Unsubscribe = () => {
+            UiaAutomation.RemoveStructureChangedEventHandler(root, structure);
+            UiaAutomation.RemoveAutomationPropertyChangedEventHandler(root, properties);
+        };
+    }
+
+    private static void RetireCache(HintTreeCache<AutomationElement> tree) => tree.Unsubscribe?.Invoke();
+
+    private bool SameSnapshot(HintRequest r) => _root is not null && r.SessionId == _session &&
+        r.Hwnd == _hwnd && r.Region == _region && r.ExpectedProcessId == _rootPid &&
+        r.ExpectedProcessStart == _processStart;
+
+    private HintResponse Continue(HintRequest r) {
+        if (!SameSnapshot(r) || _discovery is null || r.GroupId != 0) {
+            return Program.Reply(r, HintOutcome.StaleTarget, "Discovery scope changed") with { GroupId = r.GroupId };
+        }
+        _discovery.Step();
+        foreach (var entry in _discovery.Entries) { _targets[entry.Target.Token] = entry; }
+        return _discovery.Response(r, _rootPid, _tree?.Hits ?? 0);
+    }
+
+    private HintResponse Release(HintRequest r) {
+        if (r.SessionId != _session) { return Program.Reply(r, HintOutcome.StaleTarget, "Session changed"); }
+        _targets.Clear(); _discovery = null; _root = null; _tree = null;
+        return Program.Reply(r, HintOutcome.Success);
+    }
+
+    public void Dispose() => _cache?.Clear(RetireCache);
 
     private HintResponse Validate(HintRequest r) {
         HintResponse Reject(HintOutcome outcome, string reason) => Program.Reply(r, outcome, reason);
@@ -151,9 +260,10 @@ internal sealed class UiaSnapshot {
 
 internal sealed class AutomationTree : IHintTree<AutomationElement> {
     private readonly CacheRequest _cache = new() { TreeScope = TreeScope.Element };
+    private readonly Dictionary<AutomationElement, HintNode> _prefetched = new(ReferenceEqualityComparer.Instance);
     public AutomationTree() {
         foreach (var property in new[] {
-            AutomationElement.ControlTypeProperty, AutomationElement.BoundingRectangleProperty,
+            AutomationElement.RuntimeIdProperty, AutomationElement.ControlTypeProperty, AutomationElement.BoundingRectangleProperty,
             AutomationElement.IsEnabledProperty, AutomationElement.IsOffscreenProperty,
             AutomationElement.ProcessIdProperty, AutomationElement.IsInvokePatternAvailableProperty,
             AutomationElement.IsTogglePatternAvailableProperty, AutomationElement.IsSelectionItemPatternAvailableProperty,
@@ -161,7 +271,10 @@ internal sealed class AutomationTree : IHintTree<AutomationElement> {
         }) { _cache.Add(property); }
     }
     public HintNode Read(AutomationElement element) {
-        var cached = element.GetUpdatedCache(_cache);
+        if (_prefetched.Remove(element, out var data)) { return data; }
+        return ReadCached(element.GetUpdatedCache(_cache));
+    }
+    private static HintNode ReadCached(AutomationElement cached) {
         var data = cached.Cached;
         HintCapabilities capabilities = HintCapabilities.None;
         if (cached.GetCachedPropertyValue(AutomationElement.IsInvokePatternAvailableProperty) is true) { capabilities |= HintCapabilities.Invoke; }
@@ -170,12 +283,19 @@ internal sealed class AutomationTree : IHintTree<AutomationElement> {
         if (cached.GetCachedPropertyValue(AutomationElement.IsExpandCollapsePatternAvailableProperty) is true) { capabilities |= HintCapabilities.Expand; }
         if (cached.GetCachedPropertyValue(AutomationElement.IsValuePatternAvailableProperty) is true) { capabilities |= HintCapabilities.Value; }
         var bounds = data.BoundingRectangle;
-        return new(element.GetRuntimeId(), data.ProcessId, data.ControlType.Id, capabilities,
+        return new((int[])cached.GetCachedPropertyValue(AutomationElement.RuntimeIdProperty), data.ProcessId, data.ControlType.Id, capabilities,
             new(bounds.X, bounds.Y, bounds.Width, bounds.Height), data.IsEnabled, data.IsOffscreen);
     }
     public int[] RuntimeId(AutomationElement element) => element.GetRuntimeId();
-    public AutomationElement? FirstChild(AutomationElement element) => TreeWalker.ControlViewWalker.GetFirstChild(element);
-    public AutomationElement? NextSibling(AutomationElement element) => TreeWalker.ControlViewWalker.GetNextSibling(element);
+    private AutomationElement? Prefetch(AutomationElement? element) {
+        if (element is not null) {
+            if (_prefetched.Count == ElementHintProtocol.MaxNodes) { _prefetched.Clear(); }
+            _prefetched[element] = ReadCached(element);
+        }
+        return element;
+    }
+    public AutomationElement? FirstChild(AutomationElement element) => Prefetch(TreeWalker.ControlViewWalker.GetFirstChild(element, _cache));
+    public AutomationElement? NextSibling(AutomationElement element) => Prefetch(TreeWalker.ControlViewWalker.GetNextSibling(element, _cache));
     public AutomationElement? Parent(AutomationElement element) => TreeWalker.RawViewWalker.GetParent(element);
     public bool IsBranchFailure(Exception exception) => exception is ElementNotAvailableException or InvalidOperationException or COMException;
 }

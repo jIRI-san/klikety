@@ -26,6 +26,27 @@ public class ElementHintProtocolTests {
             ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
         Assert.Equal(HintCommand.Validate, request.Command);
         Assert.False(request.MoveOnly);
+        Assert.Equal(5, request.CacheWindowCount);
+    }
+
+    [Fact]
+    public async Task OptionalGroupMetadataRoundTripsAndRejectsEmptyChildCounts() {
+        var request = new HintRequest(1, Guid.NewGuid(), Guid.NewGuid(), HintCommand.Expand,
+            Region: new(0, 0, 100, 100), Incremental: true, GroupId: 2);
+        using var stream = new MemoryStream();
+        await ElementHintProtocol.WriteAsync(stream, request, ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
+        stream.Position = 0;
+        Assert.Equal(request, await ElementHintProtocol.ReadAsync<HintRequest>(stream,
+            ElementHintProtocol.MaxRequestBytes, CancellationToken.None));
+        var response = new HintResponse(1, request.SessionId, request.RequestId, HintOutcome.Success, [],
+            RootProcessId: 42, GroupId: 2, Groups: [new(2, 0, new(0, 0, 100, 100), 41), new(3, 2, new(0, 0, 100, 100), 8)]);
+        ElementHintProtocol.CheckResponse(request, response);
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckResponse(request, response with {
+            Groups = [response.Groups![0] with { ChildCount = 0 }, response.Groups[1]]
+        }));
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckResponse(request, response with {
+            Groups = [response.Groups![0], response.Groups[1] with { ChildCount = 0 }]
+        }));
     }
 
     [Theory]
@@ -91,6 +112,75 @@ public class ElementHintProtocolTests {
         await ElementHintProtocol.WriteAsync(stream, bounded, ElementHintProtocol.MaxResponseBytes, CancellationToken.None);
         Assert.True(stream.Length <= ElementHintProtocol.MaxResponseBytes + 4);
         Assert.Same(bounded, ElementHintProtocol.BoundSnapshotResponse(bounded));
+    }
+
+    [Fact]
+    public async Task ProgressiveByteCapDoesNotRemovePublishedTargetsWhenNewGroupsConsumeTheBudget() {
+        var request = new HintRequest(1, Guid.NewGuid(), Guid.NewGuid(), HintCommand.Continue,
+            Region: new(-2000000000, -2000000000, 2000000001, 2000000001), Incremental: true);
+        var bounds = new HintRect(-1999999999.1234567, -1999999999.1234567, 1999999999.2345679, 1999999999.2345679);
+        var targets = Enumerable.Range(1, ElementHintProtocol.MaxTargets).Select(i => new HintTarget(i,
+            Enumerable.Repeat(int.MinValue, ElementHintProtocol.MaxRuntimeId).ToArray(), int.MaxValue, 50000,
+            HintCapabilities.Invoke, bounds, bounds, new(-999999999, -999999999))).ToArray();
+        var full = new HintResponse(1, request.SessionId, request.RequestId, HintOutcome.Success, targets,
+            RootProcessId: 1, IsComplete: false);
+        var published = ElementHintProtocol.BoundSnapshotResponse(full) with {
+            Outcome = HintOutcome.Success,
+            Reason = null,
+            Omitted = 0,
+            IsComplete = false
+        };
+        ElementHintProtocol.CheckResponse(request, published);
+        var current = published with {
+            Groups = Enumerable.Range(1, ElementHintProtocol.MaxTargets)
+                .Select(i => new HintGroup(i, 0, bounds, 31)).ToArray()
+        };
+        var bounded = ElementHintProtocol.BoundSnapshotResponse(current, published);
+        Assert.Equal(HintOutcome.Partial, bounded.Outcome);
+        Assert.True(bounded.IsComplete);
+        Assert.Equal(published.Targets, bounded.Targets);
+        Assert.Equal(ElementHintProtocol.MaxTargets, bounded.Omitted);
+        Assert.Equal("Response byte limit", bounded.Reason);
+        ElementHintProtocol.CheckProgress(published, bounded);
+        ElementHintProtocol.CheckResponse(request, bounded);
+        using var stream = new MemoryStream();
+        await ElementHintProtocol.WriteAsync(stream, bounded, ElementHintProtocol.MaxResponseBytes, CancellationToken.None);
+    }
+
+    [Fact]
+    public void ProgressFramesRequireKnownGroupsValidScopeAndAUsableRoot() {
+        var request = new HintRequest(1, Guid.NewGuid(), Guid.NewGuid(), HintCommand.Continue,
+            Region: new(0, 0, 100, 100), Incremental: true);
+        var response = new HintResponse(1, request.SessionId, request.RequestId, HintOutcome.Success, [],
+            RootProcessId: 42, Groups: [new(2, 0, new(0, 0, 100, 100), 11)], IsComplete: false);
+        ElementHintProtocol.CheckResponse(request, response);
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckResponse(request, response with { RootProcessId = 0 }));
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckResponse(request, response with {
+            Groups = [new(2, 3, new(0, 0, 100, 100), 11)]
+        }));
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckResponse(request, response with {
+            Groups = [new(2, 0, new(0, 0, 100, 100), 0)]
+        }));
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckResponse(request, response with { GroupId = 2 }));
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckResponse(request, response with {
+            Targets = [new(1, [42, 1], 42, 50000, HintCapabilities.Invoke,
+                new(0, 0, 10, 10), new(0, 0, 10, 10), new(5, 5), DiscoveryGroupId: 3)]
+        }));
+    }
+
+    [Fact]
+    public void ProgressMayAppendButCannotRemoveTargetsOrChangeGroupIdentity() {
+        var first = FakeElementHintService.Result(1) with {
+            Groups = [new(2, 0, new(10, 10, 100, 100), 11)],
+            IsComplete = false
+        };
+        var next = FakeElementHintService.Result(2) with { Groups = first.Groups };
+        ElementHintProtocol.CheckProgress(first, next);
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckProgress(first, next with { Targets = [next.Targets[1]] }));
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckProgress(first, next with {
+            Groups = [first.Groups![0] with { Bounds = new(20, 10, 100, 100) }]
+        }));
+        Assert.Throws<InvalidDataException>(() => ElementHintProtocol.CheckProgress(first, next with { RootProcessId = 99 }));
     }
 }
 

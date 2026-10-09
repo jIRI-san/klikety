@@ -2,7 +2,7 @@
 <!-- plan-id: 36ef5d -->
 <!-- cip-stage: drafted -->
 <!-- planning-confirmed: sha256:9ce632d01bf74c5760aeea70dcb008538755e97656dcc3af95f65f8f6feffad5 -->
-<!-- Legacy folder retained so links to Plan 021 remain valid. -->
+<!-- Retained copy archived on 2026-10-08 at the user's request. -->
 
 <!-- execution-mode: manual -->
 <!-- scope: step -->
@@ -25,9 +25,11 @@
 
 ## Retained record identity
 
-This retained active-path copy is canonical `36ef5d`; its original title, confirmation marker and completion evidence remain historical content. The original canonical [`000021` record](../archived/021-keyboard-layout-refresh/plan.md) remains archived.
+This retained copy is canonical `36ef5d`; its original title, confirmation marker and completion evidence remain historical content. The original canonical [`000021` record](../021-keyboard-layout-refresh/plan.md) remains archived.
 
-Git commit `499a70835b68121f2bc3c27e8ee4a40ea6ead51f` moved the original record and all eight assets into the archive. Commit `cad26e1` then recreated this identical `plan.md` at its old path without assets. Identity repair assigns a collision-checked ID to that later copy and restores its eight assets byte-for-byte from `e70acbe`, matching the archived assets. Both paths are retained; this repair does not archive this copy, reinterpret its checkboxes or claim new validation of the historical implementation.
+Git commit `499a70835b68121f2bc3c27e8ee4a40ea6ead51f` moved the original record and all eight assets into the archive. Commit `cad26e1` then recreated this identical `plan.md` at its old path without assets. Identity repair assigned a collision-checked ID to that later copy and restored its eight assets byte-for-byte from `e70acbe`, matching the archived assets. That repair retained both paths without archiving this copy, reinterpreting its checkboxes or claiming new validation of the historical implementation.
+
+On 2026-10-08, the user requested archival of the finished retained copy. This archive preserves its identity, confirmation marker, completed checklist and all eight assets; it adds no new implementation or manual-acceptance claims.
 
 ## Phase 1: Rebuildable label infrastructure
 

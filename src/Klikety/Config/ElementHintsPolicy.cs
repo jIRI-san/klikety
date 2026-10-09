@@ -10,6 +10,9 @@ public static class ElementHintsPolicy {
         if (mode.DiscoveryTimeoutMs is < ElementHintProtocol.MinDiscoveryMs or > ElementHintProtocol.MaxDiscoveryMs) {
             return prefix + $"modes.elementHints.discoveryTimeoutMs must be between {ElementHintProtocol.MinDiscoveryMs} and {ElementHintProtocol.MaxDiscoveryMs}.";
         }
+        if (mode.CacheWindowCount is < 0 or > ElementHintProtocol.MaxCacheWindowCount) {
+            return prefix + $"modes.elementHints.cacheWindowCount must be between 0 and {ElementHintProtocol.MaxCacheWindowCount}.";
+        }
         if (!mode.Enabled) { return null; }
         if (!config.Modes.UniformGrid.Enabled) { return prefix + "enable UniformGrid for Enter fallback."; }
         if (!mode.TwoKey) { return prefix + "twoKey must be true for adaptive labels."; }

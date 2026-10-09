@@ -300,7 +300,18 @@ internal sealed partial class SessionManager : IDisposable {
 
     public void Dispose() {
         UnsubscribeAndDeactivateSession();
+        _ = RetireElementHintsAsync();
     }
+
+    private async Task RetireElementHintsAsync() {
+        if (!await _sessionFactory.RetireElementHintsAsync()) {
+            LogElementHintsCleanupFailed();
+            FailureReported?.Invoke("UIA helper cleanup failed; restart Klikety.");
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "UIA helper cleanup failed during navigation disposal.")]
+    private partial void LogElementHintsCleanupFailed();
 
     // --- Private helpers ---
 

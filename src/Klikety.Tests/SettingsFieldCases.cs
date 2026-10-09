@@ -31,6 +31,7 @@ internal static class SettingsFieldCases {
         new(1, "modes.elementHints.arrowKeys", "true"), new(1, "modes.elementHints.twoKey", "true"),
         new(1, "modes.elementHints.chordKey", "\"Tab\""),
         new(1, "modes.elementHints.discoveryTimeoutMs", "10000"),
+        new(1, "modes.elementHints.cacheWindowCount", "3"),
         new(1, "modes.elementHints.logBaseSize", "19"), new(1, "modes.elementHints.logGridBaseSize", "20"),
         new(1, "appScope.chordKey", "null"), new(1, "level3CellSizeThreshold", "400"),
         new(2, "helpBinding.enabled", "false"), new(2, "helpBinding.key", "\"OemCloseBrackets\""),

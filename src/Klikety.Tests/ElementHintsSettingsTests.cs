@@ -40,8 +40,10 @@ public sealed class ElementHintsSettingsTests {
             Assert.True(Find<CheckBox>(host, "modes.elementHints.twoKey").IsChecked);
             Assert.True(Find<CheckBox>(host, "modes.elementHints.arrowKeys").IsChecked);
             Assert.Equal(VKey.Tab, Find<ComboBox>(host, "modes.elementHints.chordKey").SelectedValue);
-            Assert.Equal("1500", Find<TextBox>(host, "modes.elementHints.discoveryTimeoutMs").Text);
+            Assert.Equal("10000", Find<TextBox>(host, "modes.elementHints.discoveryTimeoutMs").Text);
             Find<TextBox>(host, "modes.elementHints.discoveryTimeoutMs").Text = "10000";
+            Assert.Equal("5", Find<TextBox>(host, "modes.elementHints.cacheWindowCount").Text);
+            Find<TextBox>(host, "modes.elementHints.cacheWindowCount").Text = "2";
             defaults.SelectedIndex = 4;
             categories.SelectedIndex = 2;
             Find<ComboBox>(host, "horizontalKeys.item.1").SelectedValue = VKey.D;
@@ -60,6 +62,7 @@ public sealed class ElementHintsSettingsTests {
             Assert.True(result.Config.Modes.ElementHints.TwoKey);
             Assert.True(result.Config.Modes.ElementHints.ArrowKeys);
             Assert.Equal(10000, result.Config.Modes.ElementHints.DiscoveryTimeoutMs);
+            Assert.Equal(2, result.Config.Modes.ElementHints.CacheWindowCount);
             Assert.True(result.Config.Modes.UniformGrid.Enabled);
             Assert.False(result.Config.Modes.UniformGrid.Default);
             Assert.Null(result.Config.Modes.UniformGrid.ChordKey);
@@ -74,6 +77,7 @@ public sealed class ElementHintsSettingsTests {
             Assert.Equal(4, Find<ComboBox>(host, "defaultMode").SelectedIndex);
             Assert.True(Find<CheckBox>(host, "modes.elementHints.enabled").IsChecked);
             Assert.Equal("10000", Find<TextBox>(host, "modes.elementHints.discoveryTimeoutMs").Text);
+            Assert.Equal("2", Find<TextBox>(host, "modes.elementHints.cacheWindowCount").Text);
             var text = File.ReadAllText(path);
             Assert.Contains("// keep user guidance", text);
             Assert.Contains("\"extension\":{\"untouched\":42}", text);
@@ -148,6 +152,8 @@ public sealed class ElementHintsSettingsTests {
     [InlineData("modes.elementHints.discoveryTimeoutMs", "0", "discoveryTimeoutMs")]
     [InlineData("modes.elementHints.discoveryTimeoutMs", "99", "discoveryTimeoutMs")]
     [InlineData("modes.elementHints.discoveryTimeoutMs", "60001", "discoveryTimeoutMs")]
+    [InlineData("modes.elementHints.cacheWindowCount", "-1", "cacheWindowCount")]
+    [InlineData("modes.elementHints.cacheWindowCount", "21", "cacheWindowCount")]
     [InlineData("modes.elementHints.default", "true", "exactly one")]
     [InlineData("modes.elementHints.chordKey", "\"A\"", "chord")]
     [InlineData("modes.elementHints.chordKey", "\"Space\"", "chord")]

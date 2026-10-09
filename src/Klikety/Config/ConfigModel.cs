@@ -37,6 +37,7 @@ public sealed class ModeConfig {
     /// UIA discovery deadline including helper startup. Only meaningful for ElementHints.
     /// </summary>
     public int DiscoveryTimeoutMs { get; init; } = ElementHintProtocol.DiscoveryMs;
+    public int CacheWindowCount { get; init; } = ElementHintProtocol.DefaultCacheWindowCount;
 }
 
 /// <summary>

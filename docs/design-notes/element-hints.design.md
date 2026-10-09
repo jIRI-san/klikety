@@ -38,9 +38,21 @@ Startup is off the UI thread and within the discovery deadline. Unreaped startup
 unconfirmed cleanup or unsettled pipe reads prevent replacement workers rather than
 accumulating abandoned children/tasks.
 
+A cleanup timeout blocks replacement only while teardown is unconfirmed, not
+permanently. The next scan/release retries the bounded 500 ms cleanup and observes
+late startup and pipe completion, including expected faults/cancellation. The
+block clears only after startup has settled, the owned process/job are retired,
+and both response and diagnostic pipe tasks have completed. A null process alone
+does not establish cleanup: pending pipe tasks still block replacement. This
+applies with cache reuse both enabled and disabled.
+`CleanupFailureReason` identifies the pending startup, process, response-read or
+diagnostic-read stage without provider contents. Session retirement warns/logs
+that stage and asks the user to reopen hints to retry rather than claiming scans
+are disabled forever. Genuine outstanding cleanup remains fail-closed.
+
 | Contract | Limit |
 |---|---|
-| Discovery, including startup | `modes.elementHints.discoveryTimeoutMs`: default 1500 ms, range 100-60000 ms |
+| Discovery, including startup | `modes.elementHints.discoveryTimeoutMs`: default 10000 ms, range 100-60000 ms |
 | Validation | 500 ms |
 | Retirement | 500 ms cleanup budget |
 | Visited nodes / depth / retained targets | 20000 / 64 / 2000 |
@@ -48,14 +60,108 @@ accumulating abandoned children/tasks.
 | Runtime identity | 64 integers |
 | Pruned complete containers | 4000; ancestry depth bounded by traversal |
 
-The optional discovery field keeps config version 9 and the existing 1500 ms
-behavior when absent. Settings exposes it on Navigation's Element hints card.
+The optional discovery field keeps config version 9 and defaults to 10000 ms
+when absent. Explicit existing deadlines are preserved. Settings exposes it on
+Navigation's Element hints card. The longer default accommodates whole-window
+progressive scans; labels are usable before completion and Enter/Escape still exit.
 Invalid values report a configuration violation, suppress hint dispatch and block
 Settings saves, including when hints are disabled; they are never clamped or
 interpreted as an unlimited timeout. A larger deadline accommodates slow providers
 such as Word but does not guarantee coverage or a successful scan. Validation and
-retirement remain fixed at 500 ms; cancellation/Enter/Escape still retire the owned
-helper promptly instead of waiting for the discovery deadline.
+retirement remain fixed at 500 ms. Cancellation does not wait for the discovery
+deadline: an interrupted exchange retires the helper; closing an idle/completed
+session releases its frontier and uses the bounded cache lifetime below.
+
+### Progressive discovery and bounded reuse
+
+Production sessions use cooperative `Discover`/`Continue` exchanges.
+`ProgressiveHintDiscovery` prepares one control-view depth at a time, publishes
+leaf controls before descending, and schedules the next depth by ascending
+immediate-child count of its parents. Child enumeration is retained, not repeated
+for sorting. Every branch is scanned within the existing node/depth/target/deadline
+bounds; immediate child counts never collapse a document, pane or session list.
+Completed controls publish without waiting for an actionable document ancestor.
+Only a patternless ListItem that could participate in the narrow wrapper-folding
+rule holds its own descendants until that row completes. Complete ancestry may
+arrive later without changing published target identities or displayed keys.
+Canonicalization uses captured metadata, not another provider traversal.
+
+An exchange performs up to 64 traversal operations or approximately 25 ms of
+cooperative work. The first useful result returns promptly; additions are
+coalesced at 35 ms. Slices with no target/group additions continue immediately
+without another overlay redraw or artificial delay; the initial and final frames
+are always published. A single native provider call can still block: only the
+parent watchdog can interrupt that call by retiring the owned helper.
+Cumulative frames carry original target identities, completed container metadata,
+and available container metadata. The worker emits no deferred groups; groups
+are planned over known targets only for capacity or competing compound badges.
+The retired `rootGroupChildThreshold`/`groupChildThreshold` settings are ignored
+in existing files and absent from the editor/defaults/schema. This was chosen
+after live Copilot discovery produced four chrome controls and two page-center
+labels: a page-wide focus target and a collapsed content wrapper. Raising the
+threshold alone still withheld document descendants behind their unfinished
+actionable ancestor.
+Node/depth/target/frame caps remain bounded across the session.
+Read/probe failures report explicit omissions;
+completed unrelated branches remain usable.
+
+Progressive levels append entries without changing existing VKeys, prefix,
+selection, focus or entered levels. Growing levels freeze the pair-key scheme
+when their first entries appear; completed small levels can use single keys.
+New chunks use existing hierarchy planning; late overflow pages instead of
+regrouping a previously displayed hint. Explicit viewport relayout resets L1
+and resumes unfinished discovery without starting a new window scan. Keyboard
+layout redraw alone does not relayout. Late/retired scope results cannot repaint
+an old level. Help distinguishes visible navigation groups from actionable
+targets and explains that early labels are usable while discovery continues.
+
+Validation increments the discovery generation and acquires the exchange gate
+between slices. Its unchanged 500 ms budget includes waiting for a slice; if a
+native call blocks that budget, validation fails closed and cancels/retire-bounds
+the in-flight exchange. A cooperative overall discovery deadline returns an
+explicit partial snapshot when no provider call is in flight, keeping its worker
+available for fresh validation. Before starting another slice, it reserves two
+slice budgets plus one batch interval for slice/IPC overhead; a nearly exhausted
+budget therefore finishes cooperatively rather than starting a doomed call.
+A blocked-call timeout still retires the worker;
+it is not represented as successful cached discovery.
+
+`modes.elementHints.cacheWindowCount` defaults to 5 (integer 0-20).
+It limits an LRU of **windows**, keyed by HWND/PID/process-start identity; separate
+windows of one app consume separate slots. Each window retains at most 20000
+cached nodes/navigation edges and a bounded dirty-identity set. `0` disables
+reuse and event subscriptions. A single owned helper stores the LRU, not one
+helper per window. Closed/replaced roots are removed; runtime-root replacement
+also replaces its event subscriptions. Window/root bounds changes invalidate
+geometry, and a different clipping region reuses source metadata but recomputes
+visible geometry.
+
+Structure events and geometry/offscreen/enabled/capability property events are
+subscribed/removed on the worker's MTA. Event-source runtime identities are
+prefetched; callbacks only enqueue dirty identities, never query UIA or rebuild.
+Known changes invalidate the nearest cached pane/group/tree/list and its child
+enumeration edges. Dirty identities and their roots are resolved as one batch
+before removing cache entries. Duplicate roots and roots covered by a dirty
+ancestor are invalidated once, so a pane/child event burst does not turn a known
+identity into an unknown one or leave sibling data stale. Other panes keep their
+data. Unknown/coarse events invalidate
+the whole window. Entries older than 5 seconds refresh conservatively even if
+events were missed; text/name/value changes are not polled or read. Provider
+notifications are not a complete change log and coarse root events cannot be
+cheaply partitioned. Navigation resolves new UIA wrappers to existing cached nodes
+using prefetched runtime identities, so re-enumerating a changed parent's children
+does not discard an unchanged sibling pane merely because its wrapper is new.
+
+Closing a completed hint session releases its active tokens/frontier but keeps
+event-observed source caches. After 30 seconds idle, the parent retires the helper
+and all caches. Factory/coordinator disposal and configuration replacement
+explicitly shut it down, including when the active mode is not ElementHints.
+Cancellation of an in-flight blocked exchange still kills the helper, so reuse
+is not promised after interruption/failure. Native TreeWalker cache-request
+overloads prefetch metadata during navigation instead of following navigation
+with another property fetch; fresh validation uses a new uncached reader.
+Debug logging records first usable hint time, completed-scope elapsed time,
+retained/visited/omitted counts and cache hits, never provider content.
 
 Frames use a four-byte little-endian byte length followed by versioned JSON.
 Session/request IDs, limits, finite geometry, clipping and validation approvals
@@ -65,7 +171,10 @@ access denial, invalid root, no targets and partial scans remain distinct.
 
 Worst-case runtime identities/geometry can fill the byte budget before the target
 count cap. The worker keeps the fitting prefix and returns an explicit partial
-snapshot with omitted counts. Truncated headers/bodies are protocol errors.
+snapshot with omitted counts. Progressive frames reserve diagnostic space and
+never shrink the already published target/group set: if new metadata would force
+that, the completed partial frame keeps the last published set instead.
+Truncated headers/bodies are protocol errors.
 The additive optional `HintTarget.ContainerId`/`HintResponse.Containers` fields
 carry navigation metadata, never actionable identities. `HintContainer` records
 parent ID, optional own-action token, process, type and full bounds. Parents precede
@@ -94,16 +203,24 @@ coincident siblings remain reachable.
 The bounded traversal records control-view parent indices and aggregates
 canonical descendant counts bottom-up, saturated at two. It makes no additional
 UIA/parent/hit-test calls for canonicalization. Failed/invalid/depth-limited
-descendants prevent folding their ancestors. Node/target truncation skips folding
-altogether, retaining the existing caps and explicit partial response rather than
-assuming unvisited actions are absent. Unrelated invalid branches do not prevent
+descendants prevent folding their ancestors. One-shot node/target truncation skips
+folding altogether, retaining the existing caps and explicit partial response
+rather than assuming unvisited actions are absent. Progressive publication folds
+only proven-complete ListItem subtrees; a later cap does not remap those already
+published identities. Unrelated invalid branches do not prevent
 folding a complete list row. Other provider/proxy overlaps remain ambiguous and
 are not generalized from this narrow evidence.
 
 Branch failures and traversal caps report partial results and
 omitted branch/target counts, not a claim of complete provider coverage.
-`UiaTreeAlgorithms` is the production traversal/identity/hit-testing kernel,
-shared by source with hermetic tests. `AutomationTree` supplies cached native UIA
+`ProgressiveHintDiscovery` is the breadth-first production discovery kernel,
+including the compatibility one-shot API. `UiaTreeAlgorithms` canonicalizes
+recorded metadata and performs identity/hit-testing checks; its depth-first replay
+never discovers provider nodes. Both are shared by source with hermetic tests.
+Captured child-enumeration completeness is explicit metadata, not a replay
+exception: known descendants remain reachable when an ancestor's enumeration
+fails, while incomplete ancestry cannot justify wrapper folding or containers.
+`AutomationTree` supplies cached native UIA
 properties and bounded ancestry reads. Invalid interactive-target identity or
 geometry contributes an explicit omission; invalid root geometry rejects discovery.
 
@@ -113,8 +230,10 @@ Traversal reuses cached control-view ancestry and reads, aggregates retained cou
 and process consistency bottom-up, then emits only complete branching containers
 or actionable ancestors with at least two targets. Passive unary chains are pruned.
 Incomplete ancestors stay flat; unrelated complete branches can still group in
-a partial snapshot. Node/target truncation emits no grouping claims. Canonical
-wrapper folding remains the narrow, independent policy above.
+a partial snapshot. One-shot node/target truncation emits no grouping claims.
+Progressive caps preserve published targets; incomplete containers
+are not used to claim complete ancestry. Canonical wrapper folding remains the
+narrow, independent policy above.
 
 `ElementHintHierarchy` is a pure planner over this metadata. `HintEntry` separates
 original actionable leaves from negative-ID navigation groups; groups carry child
@@ -138,12 +257,15 @@ as needed. At default capacity 100, 250 flat controls yield three groups with
 100/100/50 children. With only one readable slot grouping cannot reduce a level,
 so PgUp/PgDn paging is the fallback. Every retained target occurs once in the tree.
 
-Targets sort by physical top/left/token. Each frozen level uses configured horizontal
-single keys when its entries fit both that axis and measured single-key capacity;
-otherwise horizontal-first, vertical-second VKey pairs. Current-layout glyphs come
-from `IKeyLabelResolver`. Assignments, level capacity and scheme freeze on entry.
+Targets sort by physical top/left/token within each newly published batch. Batches
+append without reordering already displayed entries. Completed levels use configured
+horizontal single keys when their entries fit both that axis and measured single-key
+capacity; growing levels freeze horizontal-first, vertical-second VKey pairs on
+first content. Current-layout glyphs come from `IKeyLabelResolver`. Assignments,
+level capacity and scheme freeze on entry.
 Glyph redraw changes paint metrics but not keys, focus, selection or stack.
-Explicit viewport relayout rebuilds L1 from the same snapshot, without rescanning.
+Explicit viewport relayout rebuilds L1 from accumulated entries and resumes an
+unfinished root scope; it does not restart provider discovery.
 The measured font floor and viewport bound level capacity. Hints first try their
 target center, clamped to the viewport, then four bounded rings of nearby slots
 with collision gaps. An ordinary top-edge target or one overlap does not relocate
@@ -244,14 +366,17 @@ Enter fallback is described for loading/failure/selected/locked states. Help exp
 label-only group opening, optional arrow focus, independent paging and Escape back.
 The merged native Settings editor includes all five modes in its default picker
 and preserves each mode block plus user extensions/comments. It edits the existing
-hint enable/default/chord/two-key/arrow/discovery-timeout fields and shared axes/actions/help on their
+hint enable/default/chord/two-key/arrow/discovery-timeout/cache-size
+fields and shared axes/actions/help on their
 normal pages. PgUp/PgDn are reserved against label/action/mode/scope/help/macro collisions while
 hints are enabled. Invalid fallback, default, key and label-floor combinations block
 save instead of silently enabling/rebinding/normalizing them. Helper traversal,
 wire, validation and cleanup limits remain internal. See `settings.design.md`.
 Recording resumes with retained target/display context. Display changes rescan the
 same application clipped to the selected display. Drag start validates coordinates
-before the normal default-mode reset. Topology/config/deactivation retire the helper.
+before the normal default-mode reset. Topology/deactivation release hint work under
+the bounded idle-cache policy. Configuration replacement and app disposal retire
+the helper and its caches.
 
 Normal app builds copy worker output to an isolated subfolder. Publish invokes the
 worker with the app's RID/self-contained/version settings. The release workflow

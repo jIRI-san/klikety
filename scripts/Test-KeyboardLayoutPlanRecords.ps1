@@ -14,7 +14,7 @@ $indexScript = Join-Path $root '.github\skills\cip\scripts\Get-PlanIndex.ps1'
 $stateScript = Join-Path $ciScripts 'Get-PlanState.ps1'
 $expected = @(
     @{ Id = '000021'; Path = 'docs\implementation-plans\archived\021-keyboard-layout-refresh\plan.md'; Archived = $true },
-    @{ Id = $RetainedId; Path = 'docs\implementation-plans\021-keyboard-layout-refresh\plan.md'; Archived = $false }
+    @{ Id = $RetainedId; Path = 'docs\implementation-plans\archived\standalone-2026-10-08-36ef5d-keyboard-layout-refresh\plan.md'; Archived = $true }
 )
 if ($RetainedId -eq '000021') {
     throw 'The retained copy must have a distinct canonical identity.'
@@ -87,10 +87,10 @@ foreach ($record in $expected) {
     Assert-Check ((Get-Content -LiteralPath $maintenance -Raw).Contains("]($incoming)")) "Missing affected incoming reference to $($record.Id)."
 }
 
-$activeAssets = Join-Path $root 'docs\implementation-plans\021-keyboard-layout-refresh\assets'
+$retainedAssets = Join-Path $root 'docs\implementation-plans\archived\standalone-2026-10-08-36ef5d-keyboard-layout-refresh\assets'
 $archivedAssets = Join-Path $root 'docs\implementation-plans\archived\021-keyboard-layout-refresh\assets'
-foreach ($file in Get-ChildItem -LiteralPath $activeAssets -File -Recurse) {
-    $relative = [System.IO.Path]::GetRelativePath($activeAssets, $file.FullName)
+foreach ($file in Get-ChildItem -LiteralPath $retainedAssets -File -Recurse) {
+    $relative = [System.IO.Path]::GetRelativePath($retainedAssets, $file.FullName)
     $archived = Join-Path $archivedAssets $relative
     Assert-Check ((Get-FileHash -LiteralPath $file.FullName).Hash -ceq (Get-FileHash -LiteralPath $archived).Hash) "Recovered asset differs from preserved archive: $relative"
 }

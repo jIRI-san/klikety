@@ -74,11 +74,14 @@ public sealed class ModeSessionFactory {
         "LogGrid" => CreateLogGrid(),
         "ElementHints" when IsElementHintsAvailable && targetContext is not null =>
             new ElementHintsSession(_config.HorizontalKeys, _config.VerticalKeys, _actionMapper,
-                targetContext, _elementHintsService ??= new UiaWorkerSupervisor(_config.Modes.ElementHints.DiscoveryTimeoutMs),
+                targetContext, _elementHintsService ??= new UiaWorkerSupervisor(_config.Modes.ElementHints.DiscoveryTimeoutMs,
+                    _config.Modes.ElementHints.CacheWindowCount),
                 _elementHintsRenderer, _logger, _config.Modes.ElementHints.ArrowKeys),
         "ElementHints" => throw new NotSupportedException("ElementHints requires valid configuration and an explicit target application."),
         _ => throw new ArgumentException($"Unknown mode: {modeName}", nameof(modeName)),
     };
+
+    internal Task<bool> RetireElementHintsAsync() => _elementHintsService?.ShutdownAsync() ?? Task.FromResult(true);
 
     private UniformGridSession CreateUniformGrid() {
         return new UniformGridSession(

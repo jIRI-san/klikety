@@ -317,7 +317,7 @@ public class UiaTreeAlgorithmsTests {
         Assert.Contains(result.Entries, e => e.Target.RuntimeId[1] == 2);
         Assert.Contains(result.Entries, e => e.Target.RuntimeId[1] == 3);
         Assert.DoesNotContain(result.Entries, e => e.Target.RuntimeId[1] == 5);
-        Assert.Equal(nodeCap ? 20000 : 2002, result.Visited);
+        Assert.Equal(nodeCap ? 20000 : 2003, result.Visited);
     }
 
     [Fact]
@@ -400,8 +400,8 @@ public class UiaTreeAlgorithmsTests {
         var bad = Element(3); bad.Failure = new InvalidOperationException("Unavailable branch");
         root.Add(Element(2), bad, Element(4));
         var result = Scan(root, new Tree());
-        Assert.Single(result.Entries);
-        Assert.Equal(3, result.Visited);
+        Assert.Equal(2, result.Entries.Count);
+        Assert.Equal(4, result.Visited);
         Assert.Equal(1, result.Omitted);
         Assert.Equal("Provider branch unavailable", result.Reason);
         root.Failure = new InvalidOperationException("Unavailable root");

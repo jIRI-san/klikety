@@ -5,13 +5,15 @@ using Klikety.Config;
 namespace Klikety.Tests;
 
 public sealed class SettingsCoverageTests {
+    private static readonly string[] HintOnlyFields = [".discoveryTimeoutMs", ".cacheWindowCount"];
     [Fact]
     public void ExplicitCoverageMapMatchesEveryKnownEditableModelLeaf() {
         var document = SettingsFieldCases.Serialize(new ConfigModel());
         var known = Flatten(document, "").Where(path => path != "configVersion" &&
-            // The shared mode model carries this field, but only ElementHints consumes it.
-            (!path.EndsWith(".discoveryTimeoutMs", StringComparison.Ordinal) ||
-                path == "modes.elementHints.discoveryTimeoutMs")).Order(StringComparer.Ordinal).ToArray();
+            // Only ElementHints consumes these fields of the shared mode shape.
+            (!HintOnlyFields
+                .Any(suffix => path.EndsWith(suffix, StringComparison.Ordinal)) ||
+                path.StartsWith("modes.elementHints.", StringComparison.Ordinal))).Order(StringComparer.Ordinal).ToArray();
         var covered = SettingsFieldCases.All.Select(field => field.Path).Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(known, covered);
         Assert.Equal(covered.Length, covered.Distinct(StringComparer.Ordinal).Count());

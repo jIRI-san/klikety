@@ -30,7 +30,7 @@ text/border strength and prefix/selection dimming in nearby and list layouts.
 Spinner tests cover viewport center/containment, animation removal on redraw and
 unload, and session loading flags through success/empty/timeout/provider failures.
 Worker-fixture delayed responses prove a longer configured deadline can accept
-discovery past the default 1500 ms, while shorter deadlines still retire the worker.
+discovery past the former 1500 ms default, while shorter deadlines still retire the worker.
 Cancellation and validation keep their independent bounds even with long discovery
 settings. Config and real editor round trips cover absent/default/custom timeout
 values, range boundaries, invalid values without clamping, and JSONC extensions.
@@ -83,7 +83,24 @@ group non-actionability and strict validation of malformed container references.
 Worker tests check complete subtree metadata despite unrelated failures, passive
 chain pruning, same-process membership and no additional provider reads.
 Byte-cap tests require discarded ancestry, zero container IDs and explicit partial
-target prefixes. Real WPF compound-badge tests cover 100/150/200% scales, negative
+target prefixes. Progressive byte-cap regressions retain all published targets
+when newly discovered group metadata would otherwise shrink that prefix. Cache
+tests cover hard per-window bounds and unchanged-pane reuse even when navigation
+returns new wrappers for the same runtime identities. Kernel/session regressions
+also cover expanding a group before its parent completes, Escape/resume, stable
+tokens/labels and rejection of superseded streams. Active-scope reopen regressions
+cover incomplete and completed discovery, unchanged navigation-call counts,
+stable nested groups and target ownership, and reopening a parked scope.
+Batched cache invalidation tests cover pane/child events in both orders, overlapping
+ancestor/descendant roots, new wrappers, changed enabled state and genuinely unknown
+identities without discarding unrelated panes.
+Threshold regressions check the 30/31 boundary through passive UIA wrappers on
+the first navigation level and the independent smaller limit inside opened
+groups. Protocol tests validate cumulative root/nested groups against their
+own parent-scope limit, while supervisor fixture tests check configured limits
+on discovery and continuation exchanges. Config/editor tests cover absent
+defaults, range errors, migration, JSONC round trips and disabled-mode rejection.
+Real WPF compound-badge tests cover 100/150/200% scales, negative
 origins, light/dark themes (including zero configured text outline), six coincident
 controls, contained nonoverlapping badges, matched colors/patterns, six distinct
 non-color patterns and full-strength accent contrast of at least 4.5:1 against
@@ -142,6 +159,44 @@ frame count; caption bands are outside the native desktop capture.
 
 ## Unit Tests
 
+`ProgressiveHintDiscoveryTests`, `HintTreeCacheTests`, and
+`ProgressiveElementHintsSessionTests` link the production resumable/cache kernels.
+They check leaf-first breadth ordering, ascending small-branch expansion, exact
+wide branches without child-count collapse, document descendants appearing before
+the whole page finishes, independently streamed/folded session rows, stable tokens
+when complete ancestry arrives, node bounds, subtree invalidation, unknown
+event invalidation, age refresh, LRU eviction and disabled reuse. Session cases
+preserve label keys/prefix/selection, allow early actions, and reject retired or
+late group batches. Worker-fixture cases cover action priority, the validation
+budget including a blocked slice, empty-slice coalescing, cached helper release/reopen, immutable token
+continuations, cooperative partial deadlines and refusing a blocked slice when
+the remaining budget is too small. Config/schema/native-editor
+cases cover cache defaults/limits, ignored retired child thresholds and
+comment/extension preservation.
+
+Supervisor regressions hold startup/diagnostic completion beyond the cleanup
+budget. They verify no replacement while work remains pending, then successful
+reuse of the same supervisor after completion/fault/cancellation, with cache
+reuse on/off and cleared stage diagnostics. Internal startup/diagnostic-reader
+seams avoid timing-dependent native failures. Session coverage checks the pending
+stage warning and successful later activation instead of permanent-disable text.
+
+`ProgressiveWorkerReusesCachedWpfControlsAndObservesIdlePropertyAndStructureChanges`
+uses only the controlled WPF fixture and production worker. It proves progressive
+frames, cache hits with the same helper, idle enabled-state invalidation and
+replacement identity discovery. It sends fixture commands, not keyboard/mouse
+input or UIA actions. This is WPF provider evidence, not VS Code/Electron event
+coverage, a first-hint latency threshold, or universal provider reliability.
+
+A separate read-only live Copilot probe used the bundled production supervisor,
+not input injection or UIA actions. With the 10000 ms default it completed the
+selected window's traversal in about 3.7 seconds, retaining 130 targets including
+left-sidebar controls; non-chrome controls began arriving at about 1.2 seconds.
+There were no deferred child-count groups. Invalid provider geometry remained an
+explicit Partial outcome, not a claim that every control was discoverable. These
+are observations from that window, not latency guarantees or a hermetic CI test.
+The HWND-pinned diagnostic remains outside the repository.
+
 - **Unit tests** (`Klikety.Tests`): xUnit, 700+ tests covering `GridCalculator`, `SubgridCalculator`, `LabelGenerator`, `ConfigLoader`, `ConfigMigrator`, `NavigatorStateMachine`, `ArrowNavigator`, `NavigatorCoordinator` integration, `GridRenderer` threshold/fan-out logic, `CrosshairStateMachine`, `CrosshairSession`, `LogCrosshairStateMachine`, `LogCrosshairSession`, `LogGridCalculator`, `DynamicKeyReducer`, `AppScopeCoordinator` (chord activation, bounds clipping, drag reset, mode switching), and keyboard help binding/content/layout/lifecycle.
 - **Smoke tests** (`Klikety.SmokeTests`): `[Trait("Category", "Smoke")]`, exercises real Win32 P/Invoke on a live display. Not CI-safe.
 - `InternalsVisibleTo` in `Klikety.csproj` exposes `internal` types (e.g. `NativeMethods`) to both test projects.
@@ -182,8 +237,10 @@ resource/replacement engine, shortcut inventory and recovery transaction used by
 The explicit editable-field map drives store and real editor round trips; focused
 validation/isolation/capture/migration tests cover errors and compatibility boundaries.
 `SettingsAccessibilityTests` checks names, collapsed Advanced and logical bounds without
-showing a window; it is not native DPI evidence. WPF UI tests share one xUnit collection
-to avoid competing focus checks.
+showing a window. It also measures full wrapped caption height and containment in the
+label column, including long captions, at 980/1080/1280
+logical widths while preserving input alignment. It is not native DPI evidence.
+WPF UI tests share one xUnit collection to avoid competing focus checks.
 Footer Close checks cover clean close, cancelled/confirmed dirty or pending-apply
 close, unchanged disk/runtime on closing, accessible naming and Save-to-Close tab
 order. Logical footer bounds include both Save and Close at each tested width.

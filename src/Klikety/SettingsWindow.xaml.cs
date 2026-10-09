@@ -144,9 +144,12 @@ public partial class SettingsWindow : Window {
                 prefix + ".twoKey", modes[i].TwoKey);
             KeyPicker(card, "Switch chord", prefix + ".chordKey", modes[i].ChordKey, nullable: true);
             if (modeNames[i] == "elementHints") {
-                Hint(card, "Keep adaptive labels and Uniform grid enabled. Small levels use one key; + opens a nested control group. Arrows optionally focus controls, never switch pages. PgUp/PgDn page only when needed; Esc goes back; Enter opens the grid.");
+                Hint(card, "Keep adaptive labels and Uniform grid enabled. Completed small levels use one key; growing levels freeze two-key labels. + opens a nested control group. Arrows optionally focus controls, never switch pages. PgUp/PgDn page only when needed; Esc goes back; Enter opens the grid.");
                 Number(card, "Discovery timeout (ms)", prefix + ".discoveryTimeoutMs", modes[i].DiscoveryTimeoutMs, integer: true);
                 Hint(card, "100-60000 ms, including helper startup. Increase this for slow applications such as Word; Enter or Esc still exits while loading.");
+                Hint(card, "Controls appear as discovery progresses. Child counts never stop discovery. Groups and pages are used when labels cannot fit; existing key labels stay unchanged.");
+                Number(card, "Cached windows", prefix + ".cacheWindowCount", modes[i].CacheWindowCount, integer: true);
+                Hint(card, "0-20 recently used windows; default 5. Each window counts separately. 0 disables reuse. Actions always validate fresh controls.");
             }
             var modeAdvanced = Advanced(card);
             Number(modeAdvanced, "Log crosshair center (px)", prefix + ".logBaseSize", modes[i].LogBaseSize, integer: true);
@@ -275,7 +278,8 @@ public partial class SettingsWindow : Window {
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(215) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         var caption = new Label {
-            Content = label, Target = labelTarget ?? control, Padding = new Thickness(0, 4, 8, 4),
+            Content = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap },
+            Target = labelTarget ?? control, Padding = new Thickness(0, 4, 8, 4),
             VerticalAlignment = VerticalAlignment.Center,
         };
         grid.Children.Add(caption);

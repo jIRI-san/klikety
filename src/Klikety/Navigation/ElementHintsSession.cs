@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Drawing;
 
 using Klikety.Automation;
@@ -20,7 +21,7 @@ public interface IElementHintsRenderer {
 public sealed record ElementHintsHelpState(
     HintOutcome? Outcome, string Status, int Page, int PageCount, int TargetCount,
     int? Prefix, bool HasSelection, int Depth = 1, bool SingleKey = false,
-    bool FocusedGroup = false, bool ArrowKeys = true);
+    bool FocusedGroup = false, bool ArrowKeys = true, int? EntryCount = null);
 
 public sealed partial class ElementHintsSession : IModeSession {
     private readonly VKey[] _horizontal, _vertical;
@@ -31,6 +32,13 @@ public sealed partial class ElementHintsSession : IModeSession {
     private CancellationTokenSource? _lifetime;
     private HintTarget[] _targets = [];
     private HintContainer[] _containers = [];
+    private readonly Dictionary<int, List<HintEntry>> _scopeEntries = [];
+    private readonly HashSet<int> _plannedTokens = [], _plannedGroups = [], _completedScopes = [];
+    private bool _streaming;
+    private int _discoveryGeneration, _nextGroupId;
+    private readonly Dictionary<int, (HintOutcome? Outcome, string Status)> _scopeStates = [];
+    private Stopwatch? _discoveryWatch;
+    private bool _firstHintLogged;
     private readonly List<Level> _levels = [];
     private readonly bool _arrowKeys;
     private int _capacity, _page;
@@ -40,9 +48,12 @@ public sealed partial class ElementHintsSession : IModeSession {
     private HintOutcome? _outcome;
     private Rectangle _bounds;
     private int? _focusedId;
-    private sealed record Level(IReadOnlyList<HintEntry> Entries, bool SingleKey, bool Compact, int Capacity) {
+    private sealed record Level(IReadOnlyList<HintEntry> Entries, bool SingleKey, bool Compact, int Capacity,
+        int? RemoteGroupId = null) {
         public int Page { get; set; }
         public int? FocusedId { get; set; }
+        public HintOutcome? Outcome { get; set; }
+        public string Status { get; set; } = "Finding controls...";
     }
     private Level? Current => _levels.LastOrDefault();
     public int Depth => _levels.Count;
@@ -70,7 +81,7 @@ public sealed partial class ElementHintsSession : IModeSession {
     public ElementHintsHelpState HelpState =>
         new(_outcome, _status, _page, PageCount, _targets.Length, _prefix, _selected is not null,
             Math.Max(1, Depth), Current?.SingleKey ?? false,
-            PageEntries().Any(e => e.Id == _focusedId && e.IsGroup), _arrowKeys);
+            PageEntries().Any(e => e.Id == _focusedId && e.IsGroup), _arrowKeys, PageEntries().Count);
     public Task Discovery { get; private set; } = Task.CompletedTask;
     public Task Retirement { get; private set; } = Task.CompletedTask;
     public event Action<Point, MouseAction>? ActionRequested;
@@ -86,22 +97,49 @@ public sealed partial class ElementHintsSession : IModeSession {
         _outcome = null;
         RootProcessId = 0;
         _lifetime = new CancellationTokenSource();
+        _discoveryWatch = Stopwatch.StartNew();
         Render(relayout: true);
         Discovery = DiscoverAsync(_lifetime);
     }
     private async Task DiscoverAsync(CancellationTokenSource lifetime) {
-        HintResponse response;
+        int generation = ++_discoveryGeneration;
         try {
-            response = await _service.DiscoverAsync(Context,
-                new(_bounds.X, _bounds.Y, _bounds.Width, _bounds.Height), lifetime.Token);
+            await foreach (var response in _service.DiscoverIncrementallyAsync(Context,
+                new(_bounds.X, _bounds.Y, _bounds.Width, _bounds.Height), lifetime.Token)) {
+                if (lifetime.IsCancellationRequested || _lifetime != lifetime || generation != _discoveryGeneration) { return; }
+                ApplyDiscovery(response);
+            }
         } catch (OperationCanceledException) { return; }
-        if (lifetime.IsCancellationRequested || _lifetime != lifetime) { return; }
-        _targets = response.Targets;
-        _containers = response.Containers ?? [];
-        _outcome = response.Outcome;
-        RootProcessId = response.RootProcessId;
-        LogDiscovery(response.Outcome, _targets.Length, response.Visited, response.Omitted, response.Reason);
-        _status = response.Outcome switch {
+    }
+
+    private async Task DiscoverGroupAsync(int groupId, bool resume, CancellationTokenSource lifetime) {
+        int generation = ++_discoveryGeneration;
+        _outcome = null; _status = "Finding controls...";
+        Render();
+        try {
+            var discovery = resume ? _service.ResumeAsync(groupId, lifetime.Token) : _service.ExpandAsync(groupId, lifetime.Token);
+            await foreach (var response in discovery) {
+                if (lifetime.IsCancellationRequested || _lifetime != lifetime || generation != _discoveryGeneration) { return; }
+                ApplyDiscovery(response);
+            }
+        } catch (OperationCanceledException) { return; }
+    }
+
+    private void ApplyDiscovery(HintResponse response) {
+        bool usable = response.Outcome is HintOutcome.Success or HintOutcome.Partial or HintOutcome.NoTargets;
+        if (usable) {
+            _targets = response.Targets;
+            _containers = response.Containers ?? [];
+            RootProcessId = response.RootProcessId;
+        }
+        _streaming |= !response.IsComplete || response.Groups is { Length: > 0 };
+        _outcome = response.IsComplete ? response.Outcome : null;
+        if (response.IsComplete) { _completedScopes.Add(response.GroupId); }
+        if (response.IsComplete) {
+            LogDiscovery(response.Outcome, _targets.Length, response.Visited, response.Omitted, response.Reason,
+                _discoveryWatch?.ElapsedMilliseconds ?? 0, response.CacheHits, response.GroupId);
+        }
+        _status = !response.IsComplete ? "Finding controls..." : response.Outcome switch {
             HintOutcome.Success => "",
             HintOutcome.Partial => "Some controls unavailable",
             HintOutcome.NoTargets => "No controls found",
@@ -109,10 +147,53 @@ public sealed partial class ElementHintsSession : IModeSession {
             HintOutcome.AccessDenied => "Application access denied",
             HintOutcome.Unavailable => "Element hints unavailable",
             HintOutcome.InvalidRoot => "Application unavailable",
-            HintOutcome.CleanupFailed => "Helper cleanup failed; restart Klikety",
+            HintOutcome.StaleTarget => "Controls changed; reopen hints",
+            HintOutcome.CleanupFailed => "Helper cleanup pending; reopen hints to retry",
             _ => "Control discovery failed",
         };
-        Render(relayout: true);
+        _scopeStates[response.GroupId] = (_outcome, _status);
+        if (!_streaming) { Render(relayout: true); return; }
+        if (usable) {
+            foreach (var group in response.Groups ?? []) {
+                if (!_plannedGroups.Add(group.Id)) { continue; }
+                Entries(group.ParentId).Add(new(-ElementHintProtocol.MaxNodes - group.Id, null,
+                    group.Bounds, group.Bounds.Center, $"Controls ({group.ChildCount}+ children)", [],
+                    RemoteGroupId: group.Id));
+            }
+            foreach (var scope in _targets.Where(t => !_plannedTokens.Contains(t.Token)).GroupBy(t => t.DiscoveryGroupId)) {
+                var targets = scope.OrderBy(t => t.Bounds.Y).ThenBy(t => t.Bounds.X).ThenBy(t => t.Token).ToArray();
+                var planner = new ElementHintHierarchy(_targets, _containers, _nextGroupId);
+                Entries(scope.Key).AddRange(planner.Build(targets, _capacity));
+                _nextGroupId = planner.NextGroupId;
+                foreach (var target in targets) { _plannedTokens.Add(target.Token); }
+            }
+            for (int i = 0; i < _levels.Count; i++) {
+                var level = _levels[i];
+                if (level.RemoteGroupId is not { } scope) { continue; }
+                var known = Entries(scope);
+                var existing = level.Entries.Select(e => e.Id).ToHashSet();
+                var additions = known.Where(e => !existing.Contains(e.Id)).ToArray();
+                if (level.Entries.Count == 0 && additions.Length > 0) {
+                    _levels[i] = CreateLevel(additions, level.Compact, scope, freezePairs: !response.IsComplete);
+                } else if (additions.Length > 0) {
+                    _levels[i] = level with { Entries = [.. level.Entries, .. additions] };
+                }
+                if (scope == response.GroupId) {
+                    _levels[i].Outcome = _outcome; _levels[i].Status = _status;
+                }
+            }
+        }
+        if (!usable && Current is { } current) { current.Outcome = _outcome; current.Status = _status; }
+        Render();
+        if (!_firstHintLogged && Labels.Count > 0) {
+            _firstHintLogged = true;
+            LogFirstHints(_discoveryWatch?.ElapsedMilliseconds ?? 0, Labels.Count, response.CacheHits);
+        }
+    }
+
+    private List<HintEntry> Entries(int scope) {
+        if (!_scopeEntries.TryGetValue(scope, out var entries)) { _scopeEntries.Add(scope, entries = []); }
+        return entries;
     }
 
     public void OnKey(VKey key) {
@@ -121,8 +202,13 @@ public sealed partial class ElementHintsSession : IModeSession {
         if (key == VKey.Escape) {
             if (_prefix is not null) { _prefix = null; _selected = null; Render(); } else if (_levels.Count > 1) {
                 _levels.RemoveAt(_levels.Count - 1);
+                _discoveryGeneration++;
                 _page = Current!.Page; _focusedId = Current.FocusedId; _selected = null;
+                _outcome = Current.Outcome; _status = Current.Status;
                 Render();
+                if (_streaming && Current.RemoteGroupId is { } scope && !_completedScopes.Contains(scope)) {
+                    Discovery = DiscoverGroupAsync(scope, resume: true, _lifetime);
+                }
             } else { Cancelled?.Invoke(); }
             return;
         }
@@ -157,21 +243,35 @@ public sealed partial class ElementHintsSession : IModeSession {
         Task.FromResult(new HintResponse(ElementHintProtocol.Version, Guid.Empty, Guid.Empty, HintOutcome.StaleTarget, []));
 
     public void Redraw() => Render();
-    public void Relayout() => Render(relayout: true);
+    public void Relayout() {
+        if (_streaming) { _discoveryGeneration++; }
+        Render(relayout: true);
+        if (_streaming && !_completedScopes.Contains(0) && _lifetime is { } lifetime) {
+            Discovery = DiscoverGroupAsync(0, resume: true, lifetime);
+        }
+    }
     private List<HintEntry> PageEntries() =>
         Current?.Entries.Skip(_page * LevelCapacity).Take(LevelCapacity).ToList() ?? [];
-    private Level CreateLevel(IReadOnlyList<HintEntry> entries, bool compact) {
+    private Level CreateLevel(IReadOnlyList<HintEntry> entries, bool compact, int? remoteGroupId = null, bool freezePairs = false) {
         int singleCapacity = Math.Clamp(_renderer?.GetPageCapacity(_bounds, _horizontal.Length, singleKey: true) ??
             _horizontal.Length, 1, _horizontal.Length);
-        bool singleKey = entries.Count <= singleCapacity;
-        return new(entries, singleKey, compact, singleKey ? singleCapacity : _capacity);
+        bool singleKey = !freezePairs && entries.Count <= singleCapacity;
+        return new(entries, singleKey, compact, singleKey ? singleCapacity : _capacity, remoteGroupId) {
+            Outcome = _outcome, Status = _status
+        };
     }
     private void Choose(HintEntry entry) {
         _prefix = null; _selected = null; _focusedId = entry.Id;
         if (entry.IsGroup) {
             Current!.Page = _page; Current.FocusedId = entry.Id;
-            _levels.Add(CreateLevel(entry.Children, entry.Compact));
+            var children = entry.RemoteGroupId != 0 ? Entries(entry.RemoteGroupId) : entry.Children;
+            _levels.Add(CreateLevel(children.ToArray(), entry.Compact,
+                entry.RemoteGroupId == 0 ? null : entry.RemoteGroupId,
+                freezePairs: entry.RemoteGroupId != 0 && !_completedScopes.Contains(entry.RemoteGroupId)));
             _page = 0; _focusedId = null; Render();
+            if (entry.RemoteGroupId != 0 && !_completedScopes.Contains(entry.RemoteGroupId) && _lifetime is { } lifetime) {
+                Discovery = DiscoverGroupAsync(entry.RemoteGroupId, resume: false, lifetime);
+            }
         } else {
             _selected = entry.Target; Render();
             CursorMoveRequested?.Invoke(new(entry.Preview.X, entry.Preview.Y));
@@ -209,8 +309,14 @@ public sealed partial class ElementHintsSession : IModeSession {
             _levels.Clear();
             int singleCapacity = Math.Clamp(_renderer?.GetPageCapacity(_bounds, _horizontal.Length, singleKey: true) ??
                 _horizontal.Length, 1, _horizontal.Length);
-            _levels.Add(CreateLevel(new ElementHintHierarchy(_targets, _containers).Build(_targets,
-                Math.Max(_capacity, singleCapacity)), compact: false));
+            if (_streaming) {
+                if (_scopeStates.TryGetValue(0, out var state)) { _outcome = state.Outcome; _status = state.Status; }
+                _levels.Add(CreateLevel(Entries(0).ToArray(), compact: false, remoteGroupId: 0,
+                    freezePairs: !_completedScopes.Contains(0)));
+            } else {
+                _levels.Add(CreateLevel(new ElementHintHierarchy(_targets, _containers).Build(_targets,
+                    Math.Max(_capacity, singleCapacity)), compact: false, remoteGroupId: 0));
+            }
             LogPageCapacity(_capacity);
         }
         _renderer?.GetPageCapacity(_bounds, Current?.SingleKey == true ? _horizontal.Length :
@@ -225,14 +331,27 @@ public sealed partial class ElementHintsSession : IModeSession {
         _lifetime?.Cancel();
         _lifetime?.Dispose();
         _lifetime = null;
+        _discoveryGeneration++;
         _targets = []; _containers = []; _levels.Clear(); _prefix = null; _selected = null; _page = 0; _focusedId = null;
+        _scopeEntries.Clear(); _plannedTokens.Clear(); _plannedGroups.Clear(); _completedScopes.Clear();
+        _scopeStates.Clear(); _streaming = false; _nextGroupId = 0; _firstHintLogged = false;
+        _discoveryWatch = null;
         Retirement = RetireAsync();
     }
     private async Task RetireAsync() {
-        if (!await _service.RetireAsync()) { FailureReported?.Invoke("UIA helper cleanup failed; further scans disabled."); }
+        if (!await _service.ReleaseAsync()) {
+            string reason = _service.CleanupFailureReason ?? "Teardown unconfirmed";
+            LogCleanupPending(reason);
+            FailureReported?.Invoke($"UIA helper cleanup pending ({reason}); reopen hints to retry.");
+        }
     }
-    [LoggerMessage(Level = LogLevel.Debug, Message = "UIA discovery {Outcome}: retained={Retained}, visited={Visited}, omitted={Omitted}, reason={Reason}")]
-    private partial void LogDiscovery(HintOutcome outcome, int retained, int visited, int omitted, string? reason);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "UIA helper cleanup pending: {Reason}")]
+    private partial void LogCleanupPending(string reason);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "UIA discovery {Outcome}: retained={Retained}, visited={Visited}, omitted={Omitted}, reason={Reason}, elapsedMs={ElapsedMs}, cacheHits={CacheHits}, scope={Scope}")]
+    private partial void LogDiscovery(HintOutcome outcome, int retained, int visited, int omitted, string? reason,
+        long elapsedMs, int cacheHits, int scope);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "UIA first usable hints: elapsedMs={ElapsedMs}, entries={Entries}, cacheHits={CacheHits}")]
+    private partial void LogFirstHints(long elapsedMs, int entries, int cacheHits);
     [LoggerMessage(Level = LogLevel.Debug, Message = "Element hint pages recomputed for viewport: capacity={Capacity}")]
     private partial void LogPageCapacity(int capacity);
 }

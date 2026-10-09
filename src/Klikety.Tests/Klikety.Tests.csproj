@@ -30,6 +30,8 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <Compile Include="..\Klikety.UiaWorker\UiaTreeAlgorithms.cs" Link="UiaTreeAlgorithms.cs" />
+    <Compile Include="..\Klikety.UiaWorker\ProgressiveHintDiscovery.cs" Link="ProgressiveHintDiscovery.cs" />
+    <Compile Include="..\Klikety.UiaWorker\HintTreeCache.cs" Link="HintTreeCache.cs" />
   </ItemGroup>
 
 </Project>

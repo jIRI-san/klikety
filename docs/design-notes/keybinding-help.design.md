@@ -32,7 +32,10 @@ Help/Escape closes help only. Outside help, Escape clears a first key or selecte
 pair, otherwise pops a level or cancels at L1 (also from a selected leaf).
 Opening/closing help
 preserves prefix/page/selection without rescanning. A session state-change event
-refreshes visible help when discovery completes or viewport capacity changes.
+refreshes visible help as discovery publishes batches or viewport capacity changes.
+Availability uses the current visible entry count, including navigation-only capacity
+groups, rather than requiring an actionable target count. Loading guidance says
+early hints are usable while the remaining discovery continues.
 SessionManager unsubscribes before retirement; late results cannot replace a new
 help view. Refresh reuses HelpCanvas and keeps macro/drag content in the projection;
 normal-mode rendering receives no new diagnostics/banner.

@@ -171,7 +171,7 @@ public sealed class SettingsColorDialogTests {
             RunSta(() => {
                 string? selected = null;
                 var calls = 0;
-                var window = new SettingsWindow(configPath, true, _ => { },
+                var window = new SettingsWindow(configPath, _ => { },
                     () => new(new ConfigModel(), false, false), _ => SettingsApplyOutcome.Success,
                     _ => SettingsApplyOutcome.Success, confirmDiscard: _ => true, chooseColor: (label, value) => {
                         Assert.False(string.IsNullOrWhiteSpace(label));

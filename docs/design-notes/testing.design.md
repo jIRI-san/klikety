@@ -228,8 +228,10 @@ backup/conflict/guarded-restore behavior, malformed input, mode defaults, compat
 warnings, and validation rejection. `SettingsDraftTests`, `SettingsWindowTests`, and
 `AppPathsTests` cover changed/reverted values, page draft retention, injected apply
 failure, seven-page construction, action-binding save/reopen, focused key capture, and
-fixture-root path composition. The hook-free settings demo is not evidence of runtime
-registration. `--settings-runtime-fixture` is the isolated native host for registration
+fixture-root path composition and AppData separation. UI tests use the same editor
+constructor and injected runtime callbacks as production, without a demo flag;
+they check the normal title and applied-save status. The hook-free settings demo
+has been removed. `--settings-runtime-fixture` is the isolated native host for registration
 and recovery checks; use it only after confirming the fixture path and test hotkeys.
 Live tray reuse, display scaling, and the native layout matrix remain manual checks.
 `SettingsApplyTests`/`SettingsRecoveryTests` exercise the same operation gate, candidate
@@ -262,8 +264,9 @@ in Light/Dark/Light while preserving the draft. Popup cleanup and layout tests s
 cover control-template changes.
 `SettingsTrayTests` checks the actual tray-item factory's label/accessibility and
 Click callback without creating a taskbar icon or global runtime. `AppPathsTests`
-checks the production/fixture/demo Settings path resolver, including a nonstandard
-demo filename, without reading or writing the user's config. These are command/path
+checks fixture path admission and composition without reading or writing the user's
+config. The editor reads `AppPaths.ConfigPath` directly, shared with runtime startup.
+These are command/path
 contracts, not proof of actual shell tray reuse or live runtime activation.
 See [settings.design.md](settings.design.md) for the fixture-only fault controls and
 native operator procedure.

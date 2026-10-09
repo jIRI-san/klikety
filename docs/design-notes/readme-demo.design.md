@@ -5,11 +5,13 @@ globs:
   - scripts/readme-demo/**
   - docs/screenshots/**
   - README.md
+  - docs/navigation.md
 ---
 
 # README Demo Captures
 
-The README gallery uses the production app and bundled UIA worker over a separate
+The README animation and [navigation guide gallery](../navigation.md) use the
+production app and bundled UIA worker over a separate
 WinForms project dashboard containing synthetic data. All desktop capture and
 keyboard injection happen inside an owned Windows Sandbox, never on the host.
 These are native application screenshots, not composed renderer mockups.
@@ -78,8 +80,11 @@ atomic transaction; disk errors are surfaced and the backup is retained.
 
 `docs/screenshots/capture-info.json` records each run's UTC times, native size,
 fixture DPI, hierarchy counts, image hashes, APNG contract and browser proof.
-It excludes process IDs, host paths and provider names/values. README links and
-captions remain stable; the skill updates them when behavior changes.
+It excludes process IDs, host paths and provider names/values. Asset paths remain
+stable; README keeps the APNG and the navigation guide keeps the seven static
+screenshots. The skill updates those links/captions when behavior changes.
+Link verification includes all user guides even on a clean checkout, in addition
+to changed/new Markdown, the capture skill and this design note.
 
 Run focused helper regressions with:
 
@@ -149,8 +154,8 @@ When reusing completed captures, the wrapper copies them to its new output
 directory and re-encodes with the current storyboard, preserving old evidence.
 
 [Current Chrome, Edge, Firefox and Safari support APNG](https://caniuse.com/apng),
-including their modern mobile browsers. Keep a static-view link beside the README
-animation; embedded animations do not provide a universal pause/reduced-motion
+including their modern mobile browsers. Keep a link to the static navigation
+gallery beside the README animation; embedded animations do not provide a universal pause/reduced-motion
 control. Browser rendering is checked separately from native UI capture.
 
 ## Published Capture Evidence

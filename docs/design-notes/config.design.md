@@ -90,7 +90,7 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
   one reusable native WPF seven-category editor; repeat clicks activate it and restore it
   from minimized state rather than opening another draft. Closing releases the window
   reference so the next click opens a fresh session. Its config file comes from the same
-  captured `AppPaths` root as the runtime; demo mode retains its explicit filename.
+  captured `AppPaths.ConfigPath` as the runtime.
   Each page writes to a
   typed draft; focused key capture is local to its picker and does not install a global hook.
   Save validates the full candidate through `ConfigLoader.ReadSettings`, patches changed
@@ -107,7 +107,12 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
   `AppPaths` to confine config, logs, macros, themes, and topology to a fixture folder.
   It avoids first-run extraction and registry toggles, applies real runtime registrations,
   and uses dedicated Ctrl+Alt+Shift+F11/Pause hotkeys. Verify registration availability before
-  relying on the fixture; the hook-free `--settings-demo` is not runtime evidence.
+  relying on the fixture. The old hook-free `--settings-demo` mode is removed;
+  deprecated invocations fail before extraction, tray creation or registrations.
+  Runtime fixtures retain their admission checks, dedicated hotkeys and fault controls.
+
+- User-facing editor, JSONC field reference, themes and data-folder guidance lives
+  in [Settings and files](../settings.md), linked from the short root README.
 
 - Tray icon via `H.NotifyIcon.Wpf` (`TaskbarIcon` in XAML). No WinForms dependency.
 - `ShutdownMode=OnExplicitShutdown` — process persists until "Quit" menu item calls `Application.Current.Shutdown()`.

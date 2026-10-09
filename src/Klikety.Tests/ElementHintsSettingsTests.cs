@@ -201,7 +201,7 @@ public sealed class ElementHintsSettingsTests {
         var thread = new Thread(() => {
             SettingsWindow? window = null;
             try {
-                window = new SettingsWindow(path, true, _ => { },
+                window = new SettingsWindow(path, _ => { },
                     () => new SettingsRuntimeSnapshot(new ConfigModel(), false, false),
                     _ => SettingsApplyOutcome.Success, _ => SettingsApplyOutcome.Success, confirmDiscard: _ => true);
                 check(path, window);

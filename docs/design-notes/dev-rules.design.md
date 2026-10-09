@@ -7,6 +7,13 @@ globs:
 
 # Dev Rules
 
+## Documentation
+
+The root README is a landing page, not the full manual. User guides are indexed
+in `docs/README.md`; detailed setup, navigation/screenshots, settings/paths, macros
+and development stay there. `.github/copilot-instructions.md` records this split.
+Update relevant design notes alongside implementation and keep the guides current.
+
 ## Terminal Commands
 
 - **Never start a PowerShell command with `&` or wrap `.ps1` scripts with `powershell -File`** — both break VS Code Copilot agent auto-approval (it won't approve commands starting with `&` or `powershell`). The terminal is already PowerShell; invoke everything directly:

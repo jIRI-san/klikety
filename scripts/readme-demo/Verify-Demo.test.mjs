@@ -2,9 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { animationFrames, crc32, findBrowser, pngChunks, verifyAnimation, verifyCaptures } from './Verify-Demo.mjs';
+import { animationFrames, crc32, findBrowser, pngChunks, verifyAnimation, verifyCaptures, verifyLinks } from './Verify-Demo.mjs';
 
 const animation = readFileSync(fileURLToPath(new URL('../../docs/screenshots/navigation-demo.png', import.meta.url)));
+
+test('README, user guides and capture documentation have valid local links and anchors', () => {
+    const result = verifyLinks();
+    assert.ok(result.documents >= 9);
+    assert.ok(result.localLinks > 0);
+});
 
 test('Published APNG has all eleven true-color mode and navigation frames', () => {
     const result = verifyAnimation(animation);

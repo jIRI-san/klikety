@@ -1,7 +1,13 @@
 ---
-description: Current project overview, supported navigation modes, source structure and documentation boundaries; keep README aligned.
+description: Current project overview, user-guide structure, supported navigation modes and documentation boundaries; keep README aligned.
 globs:
   - README.md
+  - docs/README.md
+  - docs/getting-started.md
+  - docs/navigation.md
+  - docs/settings.md
+  - docs/macros.md
+  - docs/development.md
   - src/Klikety/**
   - src/Klikety.UiaWorker/**
 ---
@@ -50,8 +56,29 @@ also permit verified interactive descendants. Group entries never dispatch input
   read-only hierarchy probe, lossless APNG encoding, browser verification and
   automatic gallery publication with per-run provenance.
 
+## Documentation structure
+
+The [README](../../README.md) is a short app pitch, APNG, five-mode summary and
+feature overview with links to the user guides. Keep build commands, configuration
+tables, operator procedures and full screenshots out of the landing page.
+The former handwritten AI-development commentary has been removed.
+
+The [user documentation index](../README.md) links:
+
+| Guide | Scope |
+|---|---|
+| [Getting started](../getting-started.md) | Installation, first target, default shortcuts, tray toggles. |
+| [Navigation](../navigation.md) | Static mode gallery, action/help/scope controls and ElementHints limits. |
+| [Settings and files](../settings.md) | Editor, draft/save/recovery, AppData paths, JSONC defaults, themes and troubleshooting. |
+| [Macros](../macros.md) | Recording/picker/playback, coordinate checks and timing. |
+| [Development](../development.md) | Build/publish/tests, runtime fixture and offline demo capture. |
+
+The hook-free settings demo is removed; ordinary Settings and the isolated native
+runtime fixture remain. Deprecated demo commands exit explicitly rather than
+falling through to real user startup. Hermetic editor tests still inject runtime
+callbacks. This does not remove or change the separate README Sandbox demo runner.
+
 The [root index](.design-notes.md) lists authoritative subsystem notes.
-[README](../../README.md) is the user-facing overview and mode gallery.
 [Demo capture](readme-demo.design.md) distinguishes illustrative native screenshots
 from application compatibility, physical-input and DPI acceptance evidence.
 The README animation covers all five modes, nested hints and grid refinement;
@@ -61,4 +88,5 @@ Those human verification gates remain open.
 Archived implementation plans, prototype notes, the old monolithic navigator
 note and maintenance reports are history, not current behavior specifications.
 Preserve their evidence and qualify superseded statements rather than silently
-rewriting past results. Keep README synchronized when this overview changes.
+rewriting past results. Keep README and linked user guides synchronized when this
+overview changes.

@@ -27,6 +27,11 @@ When the user says **"update docs"**:
 
 Detailed patterns and implementation guidance in `docs/design-notes/`. The root index file is always loaded first.
 
+User guides are indexed in `docs/README.md`: getting started, navigation, settings
+and files, macros, and development. Keep the root `README.md` focused on the app
+pitch, animation, modes, and features; put detailed usage and configuration in
+those guides and keep them aligned with the design notes.
+
 README demo captures use the repo-specific `/capture-demo` skill in
 `.github/skills/capture-demo/SKILL.md`. Its supporting automation is in
 `scripts/readme-demo/`; preserve the offline Sandbox and host-isolation boundaries.

@@ -21,7 +21,7 @@ public sealed class SettingsThemeTests {
         Exception? failure = null;
         var thread = new Thread(() => {
             try {
-                var window = new SettingsWindow(path, true, _ => { },
+                var window = new SettingsWindow(path, _ => { },
                     () => new(new ConfigModel(), false, false), _ => SettingsApplyOutcome.Success,
                     _ => SettingsApplyOutcome.Success, confirmDiscard: _ => true);
                 var dialog = new SettingsColorDialog("#44112233", "Fixture color");

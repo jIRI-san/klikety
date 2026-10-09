@@ -31,7 +31,6 @@ public partial class SettingsWindow : Window {
     private readonly Func<string, bool> _confirmDiscard;
     private readonly Action<string> _openFolder;
     private readonly Func<string, string, string?> _chooseColor;
-    private readonly bool _demo;
     private readonly Dictionary<string, Field> _fields = [];
     private readonly Dictionary<string, SettingsModifierPicker> _modifierChoices = [];
     private readonly List<StackPanel> _pages = [];
@@ -46,7 +45,6 @@ public partial class SettingsWindow : Window {
 
     internal SettingsWindow(
         string path,
-        bool demo,
         Action<ConfigModel> preflight,
         Func<SettingsRuntimeSnapshot> captureRuntime,
         Func<ConfigModel, SettingsApplyOutcome> apply,
@@ -66,11 +64,6 @@ public partial class SettingsWindow : Window {
             MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
         _openFolder = openFolder ?? OpenInExplorer;
         _chooseColor = chooseColor ?? ShowColorDialog;
-        _demo = demo;
-        if (demo) {
-            Title = "Klikety Settings - ISOLATED DEMO (no global hooks)";
-            ScopeLabel.Text = "ISOLATED DEMO · Real file editing; navigation/hotkey activation is disabled.";
-        }
         ScopeLabel.ToolTip = path;
         LoadDraft();
         Categories.SelectedIndex = 0;
@@ -828,8 +821,7 @@ public partial class SettingsWindow : Window {
                 ShowStatus(string.Join("\n", outcome.Issues), error: true);
             }
             if (outcome.Succeeded) {
-                var status = _demo ? "Saved and reloaded demo config. Runtime activation is disabled."
-                    : "Saved and applied. Reopening Settings reads these values from disk.";
+                var status = "Saved and applied. Reopening Settings reads these values from disk.";
                 if (outcome.Issues.Count > 0) {
                     status += "\nNotices:\n" + string.Join("\n", outcome.Issues);
                 }

@@ -21,7 +21,7 @@ public sealed class SettingsAccessibilityTests {
         Exception? failure = null;
         var thread = new Thread(() => {
             try {
-                var window = new SettingsWindow(path, true, _ => { },
+                var window = new SettingsWindow(path, _ => { },
                     () => new(new ConfigModel(), false, false), _ => SettingsApplyOutcome.Success,
                     _ => SettingsApplyOutcome.Success, confirmDiscard: _ => true);
                 var categories = Assert.IsType<ListBox>(window.FindName("Categories"));

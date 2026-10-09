@@ -15,7 +15,9 @@ pushes or PRs are needed. Preserve unrelated dirty files and the running host ap
 
 Read `docs/design-notes/.design-notes.md`, then
 [`readme-demo.design.md`](../../../docs/design-notes/readme-demo.design.md).
-Check current `README.md`, the shipped config and existing gallery before editing.
+Check current `README.md`, `docs/navigation.md`, the shipped config and existing
+gallery before editing. Keep the APNG in README and static screenshots in the
+navigation guide; the README's static-view link points to that guide.
 The repository must be on Windows with .NET 10 SDK, `wsb.exe`, an interactive
 Sandbox connection, Node.js 22+ and installed Edge or Chrome. Do not install a
 browser, enable Windows features or change host config silently.

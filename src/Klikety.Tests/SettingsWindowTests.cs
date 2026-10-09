@@ -64,7 +64,7 @@ public sealed class SettingsWindowTests {
                 var confirmDiscard = false;
                 var openedFolders = new List<string>();
                 var openFolderFails = false;
-                var window = new SettingsWindow(path, true, _ => { }, () => snapshot,
+                var window = new SettingsWindow(path, _ => { }, () => snapshot,
                     _ => applySucceeds
                         ? SettingsApplyOutcome.Success
                         : new SettingsApplyOutcome(false, ["Injected runtime activation failure."]),
@@ -75,6 +75,8 @@ public sealed class SettingsWindowTests {
                     });
                 window.Show();
 
+                Assert.Equal("Klikety Settings", window.Title);
+                Assert.Equal(path, Assert.IsType<TextBlock>(window.FindName("ScopeLabel")).ToolTip);
                 var categories = Assert.IsType<ListBox>(window.FindName("Categories"));
                 Assert.Equal([
                     "General", "Navigation", "Key bindings", "Appearance", "Scrolling", "Macros", "Key-press HUD",
@@ -269,7 +271,7 @@ public sealed class SettingsWindowTests {
                 Assert.Equal(beforeDuplicateSave, File.ReadAllBytes(path));
                 collisionKey.SelectedValue = VKey.Z;
                 save.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                Assert.Contains("Saved", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
+                Assert.StartsWith("Saved and applied.", Assert.IsType<TextBlock>(window.FindName("Status")).Text);
                 Assert.False(save.IsEnabled);
                 var savedAll = SettingsFieldCases.Serialize(new SettingsConfigStore(path).Open().Config);
                 foreach (var field in SettingsFieldCases.All) {
@@ -304,7 +306,7 @@ public sealed class SettingsWindowTests {
 
                 File.WriteAllText(path, "{\"configVersion\":9,\"hotKey\":{\"key\":9999},\"macros\":{\"slotKeys\":null}}");
                 var invalidBefore = File.ReadAllBytes(path);
-                var repairWindow = new SettingsWindow(path, true, _ => { }, () => snapshot,
+                var repairWindow = new SettingsWindow(path, _ => { }, () => snapshot,
                     _ => SettingsApplyOutcome.Success, _ => SettingsApplyOutcome.Success, confirmDiscard: _ => true);
                 Assert.Equal(invalidBefore, File.ReadAllBytes(path));
                 var repairCategories = Assert.IsType<ListBox>(repairWindow.FindName("Categories"));
@@ -353,7 +355,7 @@ public sealed class SettingsWindowTests {
                 var prompts = new List<string>();
                 var applied = 0;
                 var snapshot = new SettingsRuntimeSnapshot(new ConfigModel(), false, false);
-                var window = new SettingsWindow(path, false, _ => { }, () => snapshot,
+                var window = new SettingsWindow(path, _ => { }, () => snapshot,
                     _ => { applied++; return SettingsApplyOutcome.Success; }, _ => SettingsApplyOutcome.Success,
                     completeRuntimeOperation: () => {
                         if (state == "pending-apply") { throw new InvalidOperationException("Injected cleanup failure."); }
@@ -437,7 +439,7 @@ public sealed class SettingsWindowTests {
         var thread = new Thread(() => {
             try {
                 var opened = new List<string>();
-                var window = new SettingsWindow(path, true, _ => { },
+                var window = new SettingsWindow(path, _ => { },
                     () => new(new ConfigModel(), false, false), _ => SettingsApplyOutcome.Success,
                     _ => SettingsApplyOutcome.Success, openFolder: opened.Add);
                 var page = Assert.IsType<ContentControl>(window.FindName("PageHost"));

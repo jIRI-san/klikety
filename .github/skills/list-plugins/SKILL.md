@@ -3,7 +3,6 @@ name: list-plugins
 description: 'List available and installed skalary plugins, with optional search by name, description, or tag.'
 argument-hint: 'Optional search query'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

@@ -3,7 +3,6 @@ name: pfb
 description: 'Post-plan feedback — compare the work a plan actually delivered against the intent it captured, record the operator''s verdict, and optionally scaffold a correction plan. Use after a plan completes, at the archival gate, or whenever asked how well delivered work matched what was asked for.'
 argument-hint: "Optional: plan reference (hash prefix, legacy number, slug, or date). Default: the most recently completed plan."
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

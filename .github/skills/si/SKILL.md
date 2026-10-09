@@ -3,7 +3,6 @@ name: si
 description: 'Self-improvement — read the bounded recent-learning handoff and rank improvements to this repo''s own skills, agents, and docs.'
 argument-hint: "Optional: source plan reference. Default: the most recently completed plan."
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

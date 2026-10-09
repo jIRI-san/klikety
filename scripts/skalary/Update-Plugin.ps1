@@ -59,7 +59,7 @@ function Get-SourceSnapshot {
     return [pscustomobject]@{ Root = $snapshot; Sha = $sha; Identity = $identity; TempPath = $snapshot }
 }
 
-function Get-ManifestFiles {
+function Get-PluginSnapshot {
     param([string]$SnapshotRoot, [string]$PluginName)
     $manifestPath = Join-Path $SnapshotRoot "plugins/$PluginName/plugin.json"
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
@@ -67,9 +67,25 @@ function Get-ManifestFiles {
     }
     $manifest = Read-JsonFile -Path $manifestPath
     if ([string]$manifest.name -cne $PluginName) { throw "Plugin manifest name does not match '$PluginName'." }
+
+    $registryPath = Join-Path $SnapshotRoot 'registry.json'
+    if (-not (Test-Path -LiteralPath $registryPath -PathType Leaf)) {
+        throw "Plugin '$PluginName' registry is unavailable from its immutable source."
+    }
+    $registry = Read-JsonFile -Path $registryPath
+    $registryPlugins = @($registry.plugins | Where-Object { [string]$_.name -ceq $PluginName })
+    if ($registryPlugins.Count -ne 1) {
+        throw "Plugin '$PluginName' must have exactly one immutable registry entry."
+    }
+    $registryPlugin = $registryPlugins[0]
+    if ([string]$registryPlugin.version -cne [string]$manifest.version) {
+        throw "Plugin '$PluginName' manifest and registry versions do not match."
+    }
+
     return [pscustomobject]@{
         Manifest = $manifest
-        Files = @($manifest.files | Where-Object { [string]$_.src -notmatch '^evals(?:/|$)' })
+        Registry = $registry
+        Files = @($registryPlugin.files | Where-Object { [string]$_.src -notmatch '^evals(?:/|$)' })
     }
 }
 
@@ -83,13 +99,12 @@ try {
     if (-not (Test-PluginSourceIdentityEqual -Left $receipt.sourceIdentity -Right $target.Identity)) {
         throw "Plugin '$Name' receipt source identity does not match the requested source."
     }
-    $registry = Read-JsonFile -Path (Join-Path $target.Root 'registry.json')
-    if (@($registry.retiredPlugins | Where-Object { [string]$_.name -ceq $Name }).Count -gt 0) {
+    $new = Get-PluginSnapshot -SnapshotRoot $target.Root -PluginName $Name
+    if (@($new.Registry.retiredPlugins | Where-Object { [string]$_.name -ceq $Name }).Count -gt 0) {
         throw "Plugin '$Name' is retired. Run Remove-Plugin.ps1 -Name $Name."
     }
-    $new = Get-ManifestFiles -SnapshotRoot $target.Root -PluginName $Name
     $old = Get-SourceSnapshot -TargetRepoRoot $targetRoot -SourcePath $Source -SourceRef ([string]$receipt.ref) -RemoteRepository $Repository
-    $previous = Get-ManifestFiles -SnapshotRoot $old.Root -PluginName $Name
+    $previous = Get-PluginSnapshot -SnapshotRoot $old.Root -PluginName $Name
     if ([string]$receipt.version -ceq [string]$new.Manifest.version -and [string]$receipt.ref -ceq [string]$target.Sha) {
         Write-Output "Plugin '$Name' is already up to date at '$($target.Sha)'."
         exit 0

@@ -3,7 +3,6 @@ name: ci
 description: 'Continue Implementation — execute confirmed plan criteria with direct evidence and bounded review.'
 argument-hint: 'Optional plan reference'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

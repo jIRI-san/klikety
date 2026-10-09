@@ -3,7 +3,6 @@ name: update-plugin
 description: 'Update an installed skalary plugin to the latest source version.'
 argument-hint: 'Plugin name (optionally: repository or ref)'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

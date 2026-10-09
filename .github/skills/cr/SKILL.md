@@ -3,7 +3,6 @@ name: cr
 description: 'Code review — run a bounded, risk-selected, read-only review and return direct advisory Markdown.'
 argument-hint: "Optional scope: 'uncommitted' | 'branch' | N | 'N batch' | file/folder path(s)."
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

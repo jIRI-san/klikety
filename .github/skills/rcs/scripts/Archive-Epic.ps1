@@ -102,6 +102,11 @@ if ($refreshScript.Count -ne 1) {
     throw "Cannot archive epic '$($resolved.Id)': New-Epic.ps1 is unavailable for child-table refresh."
 }
 
+$epicFile = Get-Item -LiteralPath $resolved.EpicFile -Force
+if (($epicFile.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "Cannot archive epic '$($resolved.Id)': link or reparse point '$($epicFile.FullName)'."
+}
+
 if (-not $PSCmdlet.ShouldProcess(
         $sourcePath,
         "Refresh the child table and move the completed epic to '$destinationPath'"

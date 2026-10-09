@@ -3,7 +3,6 @@ name: factory-loop
 description: "Set up and operate a bounded issue-to-production delivery loop with restart-safe local polling, human merge and promotion gates, and a real local demo."
 argument-hint: "setup|demo|tick|resume plus an explicit consumer repository path"
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

@@ -3,7 +3,6 @@ name: dr
 description: 'Design review — run a bounded, risk-selected, read-only review and return direct advisory Markdown.'
 argument-hint: 'Optional: repo-relative path to a plan file. Omit to use chat or session context.'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

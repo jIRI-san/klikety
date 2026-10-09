@@ -3,7 +3,6 @@ name: install-plugin
 description: 'Install a skalary plugin (and its dependencies) into this repo''s .github/, then optionally auto-approve its read-only scripts.'
 argument-hint: 'Plugin name (optionally: repository, ref, or local source path)'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

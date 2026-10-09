@@ -1,10 +1,10 @@
 {
   "name": "factory-loop",
-  "ref": "b358bb411b846f9691e34333ad7b88a9cbf6945b",
+  "ref": "50696891f44628c735ce0af6a95715df29a0600c",
   "sourceIdentity": {
     "identity": "github.com/jiri-san/skalary",
     "kind": "github",
     "version": 1
   },
-  "version": "0.1.8"
+  "version": "0.1.9"
 }

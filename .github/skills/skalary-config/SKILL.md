@@ -3,7 +3,6 @@ name: skalary-config
 description: "Discover Skalary configuration surfaces, their authorities, and safe read-only state. Use to inspect effective settings, validation availability, current diffs, or a mutation preview."
 argument-hint: "Optional: show|validate|diff|preview|bootstrap|edit|reset|apply|cancel plus a category"
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

@@ -3,7 +3,6 @@ name: design-notes
 description: 'Design-notes toolkit — bootstrap the docs/design-notes/ scaffold, create a new design note, or update existing notes from the current session. Use when initializing design notes in a repo, capturing a new subsystem/decision as a design note, or reflecting freshly implemented changes back into the notes. Invoke with /design-notes init (scaffold), /design-notes create <name> (new note), or /design-notes update (sync notes from this chat).'
 argument-hint: 'init (or bootstrap) | create <name> | update'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

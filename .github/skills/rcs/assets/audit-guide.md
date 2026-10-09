@@ -1,5 +1,40 @@
 # RCS audit guide
 
+## Scan ownership boundary
+
+The default survey covers customer repository-owned content, not installed Skalary plugins. Resolve
+this boundary before reading candidate content or running broad text searches:
+
+- Use available local installation metadata to identify Skalary payload paths: direct installs have
+  per-plugin receipts under `.github/.skalary/receipts`; their names identify plugins, not per-file
+  ownership. Match them to `files[].dest` in the corresponding manifest or catalog and prefix each
+  destination with `.github/`. Prefer metadata matching the receipt's installed ref; a newer catalog
+  alone does not establish the complete installed file set. For host-managed plugins, use the host's
+  plugin origin and installation root. Do not fetch a remote checkout to expand a routine survey.
+- Exclude identified installed payload files (skills, agents, prompts, scripts, bundled assets and
+  templates), including tracked files and locally modified installed copies. Exclude Skalary receipt,
+  catalog, marketplace, cache, and bootstrap/lifecycle tooling from customer-code review. Loading
+  `/rcs` guidance or invoking its helpers is tool use, not surveying those tools for findings.
+- Do not blanket-exclude `.github/`, `skills/`, `agents/`, `prompts/`, or `plugins/`. Customer-authored
+  instructions, skills, agents, prompts, workflows, source, tests, and configuration remain in scope,
+  including additional customer files beside installed payloads. First-use project content such as
+  plan records, design/architecture notes, local standards, and the maintenance record remains in
+  scope even when created from a Skalary scaffold; `scaffolds[]` are not installed `files[]`.
+- In the Skalary source repository, canonical plugin sources and tooling are repository-owned and
+  remain in scope. Use its local manifests to exclude generated dogfood destinations under `.github/`;
+  do not mistake the canonical sources for a customer installation.
+- If ownership cannot be established from available metadata, mark the ambiguous paths as a coverage
+  gap and leave them unscanned until the operator clarifies ownership. Do not guess from a skill name,
+  file extension, or Git tracking, and do not silently include suspected installed payloads.
+
+Build an explicit repository-owned path set and constrain content searches, subsystem discovery,
+dead-code traces, and delegated scopes to it. Do not run an unfiltered recursive repository search
+and discard plugin matches afterward. Stop a trace at an installed-plugin boundary; describe the
+customer integration or call site, not the plugin internals. Installed manifests may be read as
+ownership metadata, but their entry points are not customer subsystems or dead-code candidates.
+Record excluded payload paths/roots and ownership gaps in coverage. An earlier plugin finding outside
+the corrected scope is preserved as unreviewed history, not revalidated, resolved, or handed to `/cip`.
+
 ## Precedence and classification
 
 Use current explicit human intent, confirmed plan criteria, active architecture contracts, applicable
@@ -28,7 +63,7 @@ incomplete and identify the next evidence needed.
 ## Inventory and risk selection
 
 Summarize the surveyed plan/epic corpus and discovered subsystems before deep review. Use existing
-indexes, manifests, entry points, project/build files, and layout; classify boundaries from evidence,
+indexes, repository-owned manifests, entry points, project/build files, and layout; classify boundaries from evidence,
 not a new subsystem list. Include active and archived plan inventory, legacy layout, plans with no
 intent, malformed records, and absent corpora as applicable. For relevant plans inspect current state;
 historical intake is capped at three selected Markdown artifacts in total. Disclose when the current

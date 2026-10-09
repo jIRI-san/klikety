@@ -3,7 +3,6 @@ name: ws
 description: 'Workshop — compare up to three approved, runnable prototypes in isolated worktrees and hand the selected draft to /cip.'
 argument-hint: 'Idea, component, UI, or behavior to explore'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

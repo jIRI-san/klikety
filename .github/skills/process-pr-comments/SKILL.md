@@ -2,7 +2,6 @@
 name: process-pr-comments
 description: 'Process unresolved PR review feedback by classifying each thread, applying approved fixes, pushing safely to the PR head branch, and posting approved deduplicated replies.'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

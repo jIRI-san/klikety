@@ -3,7 +3,6 @@ name: cip
 description: 'Create Implementation Plan — confirm criteria and draft an implementation-ready vertical plan.'
 argument-hint: 'Plan name or existing plan reference'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

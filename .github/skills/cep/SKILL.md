@@ -3,7 +3,6 @@ name: cep
 description: 'Create Epic Plan — confirm an epic cut and scaffold independently executable child plans.'
 argument-hint: 'Epic goal or existing epic reference'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

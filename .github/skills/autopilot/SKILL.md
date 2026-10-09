@@ -2,7 +2,6 @@
 name: autopilot
 description: Autonomous execution mode orchestration for /ci
 user-invocable: false
-disable-model-invocation: true
 ---
 
 # Autopilot

@@ -3,7 +3,6 @@ name: work-hierarchy-sync
 description: 'Project a local implementation epic and its child plans into GitHub issues, preview the exact deterministic action set, and apply only after explicit operator confirmation.'
 argument-hint: 'Epic reference, GitHub owner/repository, and operator-owned mapping path'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

@@ -2,7 +2,6 @@
 name: architecture-notes
 description: 'Architecture Notes — author and evolve terse Markdown interface contracts separate from implementation-level design notes. Use to seed a project, add or update a contract, promote a contract to locked, or review the tier. Invoke directly, or via the /can and /uan prompt shortcuts.'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

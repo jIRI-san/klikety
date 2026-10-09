@@ -3,7 +3,6 @@ name: uninstall-plugin
 description: 'Uninstall a skalary plugin from this repo, cleaning up its auto-approve entries and guarding against removing a plugin others depend on.'
 argument-hint: 'Plugin name'
 user-invocable: true
-disable-model-invocation: true
 context: fork
 ---
 

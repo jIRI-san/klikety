@@ -125,7 +125,7 @@ config files are not overwritten by changes to the template.
 | `modes.logCrosshair.logBaseSize` | int | `10` | Base cell size (px) for LogCrosshair center cell. Range: 2–50. |
 | `modes.logGrid.logGridBaseSize` | int | `10` | Base cell size (px) for LogGrid center cells. Range: 2–50. |
 | `modes.elementHints.discoveryTimeoutMs` | int | `10000` | Discovery deadline including helper startup, 100–60000 ms. Early hints remain usable while discovery continues. Does not change action validation or cleanup deadlines. |
-| `modes.elementHints.cacheWindowCount` | int | `5` | Recently used windows retained for UIA metadata reuse, 0–20. Each app window counts separately; 0 disables reuse. Fresh action validation remains required. |
+| `modes.elementHints.cacheWindowCount` | int | `5` | Recently used windows retained for UIA metadata and best-effort combo reuse, 0–20. Each app window counts separately; 0 disables both. Combo memory is not persisted; fresh action validation remains required. |
 | `navigationMode` | string | Not emitted | Legacy field. Migrated to `modes.uniformGrid` on first load. |
 | `theme` | string | `"dark"` | Theme name or relative path to `.theme.json` |
 | `logLevel` | string | `"Debug"` | Log level: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None` |

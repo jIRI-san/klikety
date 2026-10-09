@@ -20,7 +20,7 @@
 
 ## Phase 1: Remember and reuse assignments
 
-- [ ] 1.1 Add a bounded parent-side assignment registry (REQ-1, REQ-2, RISK-1) `M`
+- [x] 1.1 Add a bounded parent-side assignment registry (REQ-1, REQ-2, RISK-1) `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Recently used windows retain one metadata-only assignment snapshot
@@ -36,7 +36,7 @@
   **Verify:** `test:ElementHintAssignmentTests`
 
   </details>
-- [ ] 1.2 Use explicit slots for progressive labels and key lookup (REQ-1, REQ-3, REQ-4, RISK-2) [after: 1.1] `L`
+- [x] 1.2 Use explicit slots for progressive labels and key lookup (REQ-1, REQ-3, REQ-4, RISK-2) [after: 1.1] `L`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Reopening an unchanged level restores remembered combos despite
@@ -60,7 +60,7 @@
 
 ## Phase 2: Verify and document best-effort boundaries
 
-- [ ] 2.1 Add regression coverage and update directly related docs (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2) [after: 1.2] `M`
+- [x] 2.1 Add regression coverage and update directly related docs (REQ-1, REQ-2, REQ-3, REQ-4, REQ-5, RISK-1, RISK-2) [after: 1.2] `M`
   <details><summary>Implementation contract</summary>
 
   **Outcome:** Exact reuse, safe misses, memory bounds and current-target routing
@@ -83,7 +83,9 @@
   Run the smallest affected suites, solution build, formatting and diff checks.
 
   </details>
-- [ ] 2.2 Check a few repeated reopenings on an unchanged app window (REQ-5) @human [after: 2.1] `S`
+- [x] 2.2 Check a few repeated reopenings on an unchanged app window (REQ-5) @human [after: 2.1] `S`
+  <!-- User accepted the rebuilt running app on 2026-10-09: "looks good, merge to main and push".
+       Individual native scenarios were not separately reported; no universal provider coverage is claimed. -->
   <details><summary>Details</summary>
 
   **Steps:**

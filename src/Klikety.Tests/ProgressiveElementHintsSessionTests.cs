@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Runtime.CompilerServices;
 
 using Klikety.Automation;
+using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
@@ -18,6 +19,7 @@ public sealed class ProgressiveElementHintsSessionTests {
         public List<int> ResumedScopes { get; } = [];
         public bool RetirementSucceeds { get; set; } = true;
         public string? CleanupFailureReason { get; set; }
+        public List<int> Validations { get; } = [];
         public Task<HintResponse> DiscoverAsync(ElementTargetContext context, HintRect region, CancellationToken ct) =>
             Task.FromResult(First);
         public async IAsyncEnumerable<HintResponse> DiscoverIncrementallyAsync(ElementTargetContext context, HintRect region,
@@ -33,8 +35,10 @@ public sealed class ProgressiveElementHintsSessionTests {
             ResumedScopes.Add(groupId);
             yield return await Resumed.Task;
         }
-        public Task<HintResponse> ValidateAsync(int token, CancellationToken ct, bool moveOnly = false) =>
-            Task.FromResult(First with { Targets = [], Point = new(60, 60) });
+        public Task<HintResponse> ValidateAsync(int token, CancellationToken ct, bool moveOnly = false) {
+            Validations.Add(token);
+            return Task.FromResult(First with { Targets = [], Point = new(60, 60) });
+        }
         public Task<bool> RetireAsync() => Task.FromResult(RetirementSucceeds);
     }
     private sealed class Renderer : IElementHintsRenderer {
@@ -44,8 +48,204 @@ public sealed class ProgressiveElementHintsSessionTests {
         public void RebuildLabels(IKeyLabelResolver resolver) { }
         public void FlashInvalidKey() { }
     }
-    private static ElementHintsSession Session(Service service, Renderer? renderer = null) =>
-        new([VKey.A, VKey.S], [VKey.Q, VKey.W], new ActionMapper([]), new(1, 1), service, renderer);
+    private static ElementHintsSession Session(Service service, Renderer? renderer = null,
+        ElementHintAssignmentCache? assignments = null) =>
+        new([VKey.A, VKey.S], [VKey.Q, VKey.W], new ActionMapper([]), new(1, 1, 42, 1), service, renderer) {
+            AssignmentCache = assignments
+        };
+    private static HintResponse Frame(params int[] ids) => FakeElementHintService.Result(0) with {
+        Targets = ids.Select(id => new HintTarget(id + 100, [42, id], 42, 50000, HintCapabilities.Invoke,
+            new(10, id * 20, 10, 10), new(10, id * 20, 10, 10), new(15, id * 20 + 5))).ToArray()
+    };
+    private static void Choose(ElementHintsSession session, HintLabel label) {
+        session.OnKey(label.First);
+        if (label.Second is { } second) { session.OnKey(second); }
+    }
+    private static async Task<Dictionary<int, (VKey First, VKey? Second)>> Seed(
+        ElementHintAssignmentCache cache, int count = 4) {
+        var service = new Service { First = Frame(1, 2) with { IsComplete = false } };
+        var session = Session(service, assignments: cache);
+        session.Activate(new(0, 0, 1000, 1000), default);
+        var labels = session.Labels.ToDictionary(l => l.Entry.Target!.RuntimeId[1], l => (l.First, l.Second));
+        service.Next.SetResult(Frame(Enumerable.Range(1, count).ToArray()));
+        await session.Discovery;
+        foreach (var label in session.Labels) { labels[label.Entry.Target!.RuntimeId[1]] = (label.First, label.Second); }
+        session.Deactivate();
+        await session.Retirement;
+        return labels;
+    }
+
+    [Fact]
+    public async Task ReopenedWindowRestoresCombosAcrossBatchesAndUsesOnlyCurrentTokens() {
+        var cache = new ElementHintAssignmentCache(5);
+        var expected = await Seed(cache);
+        var service = new Service {
+            First = Frame(4, 3) with {
+                IsComplete = false,
+                Targets = Frame(4, 3).Targets.Select(t => t with { Token = t.Token + 1000 }).ToArray()
+            }
+        };
+        var session = Session(service, assignments: cache);
+        try {
+            session.Activate(new(0, 0, 1000, 1000), default);
+            Assert.Equal(2, session.Labels.Count);
+            session.OnKey(VKey.A); session.OnKey(VKey.Q);
+            Assert.Null(session.Selected);
+            var selected = session.Labels.Single(l => l.Entry.Target!.RuntimeId[1] == 4);
+            Choose(session, selected);
+            Assert.Equal(1104, session.Selected!.Token);
+            await session.ValidateAsync(CancellationToken.None);
+            Assert.Equal([1104], service.Validations);
+            service.Next.SetResult(Frame(4, 3, 2, 1) with {
+                Targets = Frame(4, 3, 2, 1).Targets.Select(t => t with { Token = t.Token + 1000 }).ToArray()
+            });
+            await session.Discovery;
+            Assert.Equal(1104, session.Selected.Token);
+            foreach (var label in session.Labels) {
+                Assert.Equal(expected[label.Entry.Target!.RuntimeId[1]], (label.First, label.Second));
+            }
+            Assert.False(session.HelpState.SingleKey);
+        } finally { session.Deactivate(); await session.Retirement; }
+    }
+
+    [Fact]
+    public async Task NewControlCannotStealReservedComboAndLateEarlierPageCannotInterruptTyping() {
+        var cache = new ElementHintAssignmentCache(5);
+        await Seed(cache);
+        var service = new Service { First = Frame(5) with { IsComplete = false } };
+        var session = Session(service, assignments: cache);
+        try {
+            session.Activate(new(0, 0, 1000, 1000), default);
+            Assert.Equal(0, session.Page);
+            var first = Assert.Single(session.Labels);
+            Assert.Equal((VKey.A, (VKey?)VKey.Q), (first.First, first.Second));
+            session.OnKey(VKey.A);
+            service.Next.SetResult(Frame(1, 2, 3, 4, 5));
+            await session.Discovery;
+            Assert.Equal(1, session.Page);
+            Assert.Equal(2, session.PageCount);
+            Assert.Equal(0, session.Prefix);
+            Assert.Equal(first, Assert.Single(session.Labels));
+            session.OnKey(VKey.Q);
+            Assert.Equal(105, session.Selected!.Token);
+            session.OnKey(VKey.Prior);
+            Assert.Equal(0, session.Page);
+            Assert.Equal(4, session.Labels.Count);
+            Assert.DoesNotContain(session.Labels, l => l.Entry.Target!.RuntimeId[1] == 5);
+        } finally { session.Deactivate(); await session.Retirement; }
+    }
+
+    [Fact]
+    public async Task OffPageAssignmentsAreSavedWithoutVisitingThePage() {
+        var cache = new ElementHintAssignmentCache(5);
+        var service = new Service { First = Frame(1, 2, 3, 4) with { IsComplete = false } };
+        var session = Session(service, assignments: cache);
+        session.Activate(new(0, 0, 1000, 1000), default);
+        service.Next.SetResult(Frame(1, 2, 3, 4, 5, 6, 7, 8));
+        await session.Discovery;
+        Assert.Equal(2, session.PageCount);
+        Assert.Equal(0, session.Page);
+        session.Deactivate(); await session.Retirement;
+        var nextService = new Service { First = Frame(8) };
+        var next = Session(nextService, assignments: cache);
+        try {
+            next.Activate(new(0, 0, 1000, 1000), default);
+            var label = Assert.Single(next.Labels);
+            Assert.Equal((VKey.S, (VKey?)VKey.W), (label.First, label.Second));
+            Choose(next, label);
+            Assert.Equal(108, next.Selected!.Token);
+        } finally { next.Deactivate(); await next.Retirement; }
+    }
+
+    [Fact]
+    public async Task UnchangedGroupsAndPreviouslyVisitedLevelsRestoreTheirAssignments() {
+        var cache = new ElementHintAssignmentCache(5);
+        var service = new Service { First = Frame(1, 2, 3, 4, 5, 6) };
+        var session = Session(service, assignments: cache);
+        session.Activate(new(0, 0, 1000, 1000), default);
+        var rootGroup = session.Labels[0];
+        Choose(session, rootGroup);
+        var expected = session.Labels.ToDictionary(l => l.Entry.Target!.RuntimeId[1], l => (l.First, l.Second));
+        session.OnKey(VKey.Escape);
+        Assert.Equal(1, session.Depth);
+        session.Deactivate(); await session.Retirement;
+        var next = Session(new Service { First = Frame(4, 3, 2, 1, 6, 5) }, assignments: cache);
+        try {
+            next.Activate(new(0, 0, 1000, 1000), default);
+            var group = next.Labels[0];
+            Assert.Equal((rootGroup.First, rootGroup.Second), (group.First, group.Second));
+            Choose(next, group);
+            foreach (var label in next.Labels) {
+                Assert.Equal(expected[label.Entry.Target!.RuntimeId[1]], (label.First, label.Second));
+            }
+        } finally { next.Deactivate(); await next.Retirement; }
+    }
+
+    [Theory]
+    [InlineData(HintOutcome.ProviderError, false)]
+    [InlineData(HintOutcome.NoTargets, true)]
+    public async Task FailurePreservesHistoryButValidNoTargetsClearsIt(HintOutcome outcome, bool cleared) {
+        var cache = new ElementHintAssignmentCache(5);
+        await Seed(cache);
+        var failing = Session(new Service { First = Frame() with { Outcome = outcome } }, assignments: cache);
+        failing.Activate(new(0, 0, 1000, 1000), default);
+        failing.Deactivate(); await failing.Retirement;
+        var next = Session(new Service { First = Frame(4) }, assignments: cache);
+        try {
+            next.Activate(new(0, 0, 1000, 1000), default);
+            var label = Assert.Single(next.Labels);
+            Assert.Equal(cleared ? VKey.A : VKey.S, label.First);
+            Assert.Equal(cleared ? null : (VKey?)VKey.W, label.Second);
+        } finally { next.Deactivate(); await next.Retirement; }
+    }
+
+    [Fact]
+    public async Task CancelledPartialScanReplacesOnlySeenAssignmentsAndIgnoresLateFrames() {
+        var cache = new ElementHintAssignmentCache(5);
+        await Seed(cache);
+        var service = new Service { First = Frame(4) with { IsComplete = false } };
+        var partial = Session(service, assignments: cache);
+        partial.Activate(new(0, 0, 1000, 1000), default);
+        partial.Deactivate(); await partial.Retirement;
+        service.Next.SetResult(Frame(1, 2, 3, 4));
+        await partial.Discovery;
+        var next = Session(new Service { First = Frame(1, 4) }, assignments: cache);
+        try {
+            next.Activate(new(0, 0, 1000, 1000), default);
+            Assert.Equal(VKey.A, next.Labels.Single(l => l.Entry.Target!.RuntimeId[1] == 1).First);
+            Assert.Equal(VKey.W, next.Labels.Single(l => l.Entry.Target!.RuntimeId[1] == 4).Second);
+        } finally { next.Deactivate(); await next.Retirement; }
+    }
+
+    [Fact]
+    public async Task FactorySharesAssignmentsAcrossNewSessionsAndDropsThemOnDisposal() {
+        var config = new ConfigModel {
+            HorizontalKeys = [VKey.A, VKey.S],
+            VerticalKeys = [VKey.Q, VKey.W],
+            Modes = new() { ElementHints = new() { Enabled = true, ChordKey = VKey.Tab, TwoKey = true } }
+        };
+        var service = new FakeElementHintService { Response = Frame(1, 2, 3, 4) };
+        var factory = new ModeSessionFactory(config, new ActionMapper([]), null, elementHintsService: service);
+        ElementHintsSession Open(ModeSessionFactory owner) {
+            var session = Assert.IsType<ElementHintsSession>(owner.Create("ElementHints", new(1, 1, 42, 1)));
+            session.Activate(new(0, 0, 1000, 1000), default);
+            return session;
+        }
+        var first = Open(factory);
+        var expected = first.Labels.Single(l => l.Entry.Target!.RuntimeId[1] == 4);
+        first.Deactivate(); await first.Retirement;
+        await service.RetireAsync();
+        service.Response = Frame(4, 3, 2, 1);
+        var next = Open(factory);
+        var restored = next.Labels.Single(l => l.Entry.Target!.RuntimeId[1] == 4);
+        Assert.Equal((expected.First, expected.Second),
+            (restored.First, restored.Second));
+        next.Deactivate(); await next.Retirement;
+        await factory.RetireElementHintsAsync();
+        var replacement = Open(new(config, new ActionMapper([]), null, elementHintsService: service));
+        Assert.Equal(VKey.A, replacement.Labels[0].First);
+        replacement.Deactivate(); await replacement.Retirement;
+    }
 
     [Fact]
     public async Task PendingCleanupReportsItsStageWithoutClaimingScansArePermanentlyDisabled() {

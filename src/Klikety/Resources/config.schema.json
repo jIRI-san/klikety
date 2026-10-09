@@ -182,7 +182,7 @@
             },
             "cacheWindowCount": {
               "type": "integer",
-              "description": "Maximum recently used windows retained by the isolated UIA helper. Each window counts separately; 0 disables reuse. Actions always validate fresh state.",
+              "description": "Maximum recently used windows retained for UIA metadata and best-effort combo assignments. Each window counts separately; 0 disables both kinds of reuse. Actions always validate fresh state.",
               "default": 5,
               "minimum": 0,
               "maximum": 20

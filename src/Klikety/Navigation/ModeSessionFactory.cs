@@ -21,6 +21,7 @@ public sealed class ModeSessionFactory {
     private IElementHintService? _elementHintsService;
     private readonly IElementHintsRenderer? _elementHintsRenderer;
     private readonly ILogger? _logger;
+    private readonly ElementHintAssignmentCache _elementHintAssignments;
 
     public ModeSessionFactory(
         ConfigModel config, ActionMapper actionMapper,
@@ -38,6 +39,7 @@ public sealed class ModeSessionFactory {
         _elementHintsRenderer = elementHintsRenderer;
         _elementHintsService = elementHintsService;
         _logger = logger;
+        _elementHintAssignments = new(config.Modes.ElementHints.CacheWindowCount);
         _logGridKeyPolicy = LogGridKeyPolicy.Evaluate(config.HorizontalKeys, config.VerticalKeys);
     }
 
@@ -76,12 +78,17 @@ public sealed class ModeSessionFactory {
             new ElementHintsSession(_config.HorizontalKeys, _config.VerticalKeys, _actionMapper,
                 targetContext, _elementHintsService ??= new UiaWorkerSupervisor(_config.Modes.ElementHints.DiscoveryTimeoutMs,
                     _config.Modes.ElementHints.CacheWindowCount),
-                _elementHintsRenderer, _logger, _config.Modes.ElementHints.ArrowKeys),
+                _elementHintsRenderer, _logger, _config.Modes.ElementHints.ArrowKeys) {
+                AssignmentCache = _elementHintAssignments
+            },
         "ElementHints" => throw new NotSupportedException("ElementHints requires valid configuration and an explicit target application."),
         _ => throw new ArgumentException($"Unknown mode: {modeName}", nameof(modeName)),
     };
 
-    internal Task<bool> RetireElementHintsAsync() => _elementHintsService?.ShutdownAsync() ?? Task.FromResult(true);
+    internal Task<bool> RetireElementHintsAsync() {
+        _elementHintAssignments.Retire();
+        return _elementHintsService?.ShutdownAsync() ?? Task.FromResult(true);
+    }
 
     private UniformGridSession CreateUniformGrid() {
         return new UniformGridSession(

@@ -114,7 +114,7 @@
       "twoKey": true,
       // Includes helper startup. Increase for slow UIA providers (e.g. Word).
       "discoveryTimeoutMs": 10000,
-      // Recently used windows; each window counts separately. 0 disables reuse.
+      // Windows retained for metadata and best-effort combos. 0 disables both.
       "cacheWindowCount": 5
     }
   },

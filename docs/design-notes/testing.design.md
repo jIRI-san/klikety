@@ -9,6 +9,18 @@ globs:
 
 ## Element-hint evidence
 
+`ElementHintAssignmentTests` exercises exact role/capability/runtime identity,
+group fingerprints and parent paths, sparse reservations, remembered schemes,
+viewport/axis signatures, window LRU, disabled/missing identity, disposal and
+separate control/group record caps. `ProgressiveElementHintsSessionTests`
+reopens fresh sessions with reordered/split batches and current tokens; verifies
+reserved holes, late earlier-page pinning through a typed prefix, off-page and
+previously visited group retention, valid-empty versus failure history,
+cancelled partial snapshots and late-frame rejection. Factory cases retire the
+service without dropping parent assignments, then replace/dispose the factory.
+These are best-effort metadata/state-machine contracts, not live provider
+identity stability or native manual reopen acceptance.
+
 `ElementHintProtocolTests`, `UiaWorkerSupervisorTests`, `ElementHintsConfigTests`,
 `ElementHintsStateMachineTests`, `ElementHintsCoordinatorTests` and actual STA
 `ElementHintRenderingTests` cover bounded framing, hung/crashed/malformed children,

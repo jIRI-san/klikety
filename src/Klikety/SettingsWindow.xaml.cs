@@ -137,12 +137,12 @@ public partial class SettingsWindow : Window {
                 prefix + ".twoKey", modes[i].TwoKey);
             KeyPicker(card, "Switch chord", prefix + ".chordKey", modes[i].ChordKey, nullable: true);
             if (modeNames[i] == "elementHints") {
-                Hint(card, "Keep adaptive labels and Uniform grid enabled. Completed small levels use one key; growing levels freeze two-key labels. + opens a nested control group. Arrows optionally focus controls, never switch pages. PgUp/PgDn page only when needed; Esc goes back; Enter opens the grid.");
+                Hint(card, "Keep adaptive labels and Uniform grid enabled. Completed small levels use one key; fresh growing levels use two keys. Remembered levels retain their key scheme. + opens a nested control group. Arrows optionally focus controls, never switch pages. PgUp/PgDn page only when needed; Esc goes back; Enter opens the grid.");
                 Number(card, "Discovery timeout (ms)", prefix + ".discoveryTimeoutMs", modes[i].DiscoveryTimeoutMs, integer: true);
                 Hint(card, "100-60000 ms, including helper startup. Increase this for slow applications such as Word; Enter or Esc still exits while loading.");
                 Hint(card, "Controls appear as discovery progresses. Child counts never stop discovery. Groups and pages are used when labels cannot fit; existing key labels stay unchanged.");
                 Number(card, "Cached windows", prefix + ".cacheWindowCount", modes[i].CacheWindowCount, integer: true);
-                Hint(card, "0-20 recently used windows; default 5. Each window counts separately. 0 disables reuse. Actions always validate fresh controls.");
+                Hint(card, "0-20 recently used windows; default 5. Each window counts separately. This also remembers best-effort key combos for unchanged controls and groups. 0 disables both kinds of reuse. Actions always validate fresh controls.");
             }
             var modeAdvanced = Advanced(card);
             Number(modeAdvanced, "Log crosshair center (px)", prefix + ".logBaseSize", modes[i].LogBaseSize, integer: true);

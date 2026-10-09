@@ -5,6 +5,7 @@ globs:
   - src/Klikety.UiaWorker/**
   - src/Klikety/Navigation/ElementHintsSession.cs
   - src/Klikety/Navigation/ElementHintHierarchy.cs
+  - src/Klikety/Navigation/ElementHintAssignments.cs
   - src/Klikety/Overlay/ElementHintsRenderer.cs
   - src/Klikety.WorkerFixture/**
   - scripts/Test-UiaWorkerPackage.ps1
@@ -106,7 +107,7 @@ Read/probe failures report explicit omissions;
 completed unrelated branches remain usable.
 
 Progressive levels append entries without changing existing VKeys, prefix,
-selection, focus or entered levels. Growing levels freeze the pair-key scheme
+selection, focus or entered levels. Fresh growing levels freeze the pair-key scheme
 when their first entries appear; completed small levels can use single keys.
 New chunks use existing hierarchy planning; late overflow pages instead of
 regrouping a previously displayed hint. Explicit viewport relayout resets L1
@@ -114,6 +115,40 @@ and resumes unfinished discovery without starting a new window scan. Keyboard
 layout redraw alone does not relayout. Late/retired scope results cannot repaint
 an old level. Help distinguishes visible navigation groups from actionable
 targets and explains that early labels are usable while discovery continues.
+
+### Best-effort assignments across activations
+
+`ModeSessionFactory` owns a separate metadata-only `ElementHintAssignmentCache`.
+It uses the same `cacheWindowCount` LRU bound (0 disables it), survives helper
+idle retirement, and drops on factory disposal/config replacement. Window keys
+require captured HWND/PID/process-start identity; missing identity skips reuse.
+Each window keeps one snapshot with at most 2000 control and 4000 group records,
+including off-page allocations and levels visited before returning to L1.
+Records contain fingerprints/slots/schemes, never UIA objects or old targets.
+
+`ElementHintAssignments` fingerprints opaque runtime IDs, process, role and
+capabilities already in responses. Bounds/token changes do not change a control
+key. Groups match only their exact member identities, compactness and nested
+structure; child-level keys also incorporate their parent level. Rebuilt,
+regrouped or reparented entries can miss: there is no hierarchy replay, provider
+lookup, semantic/fuzzy matching or persistent identity guarantee.
+
+Each level reserves previous slots for the whole activation. Rediscovered
+entries recover their slots; new entries take the first unreserved slot.
+Rendering and key lookup use the same explicit map, not list indices. Holes
+reject input, overflow pages, and reused levels preserve their single/pair scheme.
+The active logical page stays pinned when an earlier reserved page fills;
+empty pages are skipped and the displayed page ordinal may change.
+Only freshly discovered entries are selectable with current tokens and normal
+action validation. Current prefix/selection/entered levels do not remap.
+
+Close replaces the snapshot with all allocated assignments after a usable frame;
+NoTargets clears it, while a scan with no usable frames preserves it. Partial or
+cancelled scans can forget unseen assignments next time; they do not prove
+absence. Late retired frames cannot save. Viewport/capacity/VKey-array changes,
+explicit relayout and LRU eviction can reset memory. Runtime IDs can be recycled
+with indistinguishable metadata: best-effort memory is not semantic identity or
+permission to dispatch stale actions. Nothing is persisted across app restarts.
 
 Validation increments the discovery generation and acquires the exchange gate
 between slices. Its unchanged 500 ms budget includes waiting for a slice; if a
@@ -154,7 +189,8 @@ does not discard an unchanged sibling pane merely because its wrapper is new.
 
 Closing a completed hint session releases its active tokens/frontier but keeps
 event-observed source caches. After 30 seconds idle, the parent retires the helper
-and all caches. Factory/coordinator disposal and configuration replacement
+and its source caches, not the separate parent assignment registry.
+Factory/coordinator disposal and configuration replacement
 explicitly shut it down, including when the active mode is not ElementHints.
 Cancellation of an in-flight blocked exchange still kills the helper, so reuse
 is not promised after interruption/failure. Native TreeWalker cache-request
@@ -260,8 +296,9 @@ so PgUp/PgDn paging is the fallback. Every retained target occurs once in the tr
 Targets sort by physical top/left/token within each newly published batch. Batches
 append without reordering already displayed entries. Completed levels use configured
 horizontal single keys when their entries fit both that axis and measured single-key
-capacity; growing levels freeze horizontal-first, vertical-second VKey pairs on
-first content. Current-layout glyphs come from `IKeyLabelResolver`. Assignments,
+capacity; fresh growing levels freeze horizontal-first, vertical-second VKey pairs
+on first content. Reused levels retain their remembered scheme, paging if they
+grow beyond its capacity. Current-layout glyphs come from `IKeyLabelResolver`. Assignments,
 level capacity and scheme freeze on entry.
 Glyph redraw changes paint metrics but not keys, focus, selection or stack.
 Explicit viewport relayout rebuilds L1 from accumulated entries and resumes an

@@ -23,6 +23,10 @@ while starting asynchronous discovery. SessionManager carries explicit pre-overl
 target context through every create/restart/resume path. Enter fallback is an
 element-only mode-lock exception. Help redraw does not rescan; picker/playback
 suspension retires hint work and resumes with a fresh snapshot.
+The factory also retains bounded best-effort combo assignments across new hint
+sessions, independent of helper retirement. Sparse slots drive both labels and
+key lookup; active logical pages stay pinned when earlier pages appear.
+Assignments authorize no input: only current scan targets can be selected.
 ElementHints publishes a typed help snapshot and state-change notification.
 SessionManager forwards only the active session's changes and unsubscribes before
 retirement; visible help refreshes on discovery/capacity changes without rescanning

@@ -32,11 +32,14 @@ Child-count collapsing has been removed. The former `rootGroupChildThreshold`
 and `groupChildThreshold` fields are ignored if present in an existing version-9
 file; loading does not rewrite it. Neither field is exposed in Settings or the
 default config/schema. `cacheWindowCount`
-(default 5, integer 0-20) bounds recently used window caches; `0` disables reuse.
+(default 5, integer 0-20) bounds recently used window source caches and the
+factory-owned best-effort combo registry; `0` disables both kinds of reuse.
 Windows of one app count separately. This is an optional additive version-9 field,
 included in first-run/migrated blocks, validated even when hints are disabled,
 and edited only on the Element hints card. Invalid values are reported, never
-clamped. Config replacement shuts down the previous owned cache helper.
+clamped. Config replacement shuts down the previous owned cache helper and drops
+the assignment registry. Combo memory is not persisted; no new field or migration
+is introduced.
 Native Settings edits all five mode blocks and the shared default picker. Its
 strict read requires current version 9 rather than silently migrating during
 editing. With ElementHints as the default, enabled UniformGrid needs no separate

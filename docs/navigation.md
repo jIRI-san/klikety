@@ -170,6 +170,19 @@ app count separately. UIA change events invalidate affected branches; coarse
 events or expired metadata require a fresh scan. Cache reuse never replaces
 fresh action validation, and the helper retires after 30 seconds idle.
 
+Combo assignments also have **best-effort memory** for the same number of
+recent windows. Rediscovered controls in unchanged levels keep their keys,
+even after the helper retires. New controls cannot take combos reserved for
+controls still being discovered. Pages may have holes; empty slots do nothing.
+An earlier page appearing later does not interrupt the page you are using.
+
+Memory lasts for the current Klikety configuration/runtime, not across app
+restarts. Rebuilt controls, changed groups, viewport/key changes and window
+eviction can reset combos. Partial/cancelled scans remember only allocated
+entries; unseen controls may lose their mappings next time. Group/page navigation
+is not guaranteed to stay identical when content changes. Set `cacheWindowCount`
+to 0 to disable both metadata reuse and combo memory.
+
 Traversal stays bounded at 20000 nodes, depth 64, and 2000 targets. The independent
 action-validation and cleanup deadlines remain 500 ms. Partial, empty, timeout,
 provider, and permission outcomes remain visible. If helper cleanup remains

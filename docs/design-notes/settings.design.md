@@ -60,9 +60,12 @@ User-facing pages, persistence, paths and configuration fields are documented in
   settings. UIA validation/cleanup deadlines, traversal and wire limits remain
   internal, not dialog fields.
   The same card edits `cacheWindowCount` (0-20 windows, default 5; 0 disables
-  reuse). Child-count collapse settings are no longer exposed or consumed.
-  It explains capacity groups/pages, separate counting of app windows, frozen two-key labels for
-  growing levels, and fresh action validation. These fields use the same typed
+  metadata and best-effort combo reuse). The same bound limits a parent-side
+  assignment registry; its memory survives helper idle retirement but not config
+  replacement. Child-count collapse settings are no longer exposed or consumed.
+  It explains capacity groups/pages, separate counting of app windows, frozen
+  labels for fresh growing levels, remembered schemes and fresh action validation.
+  These fields use the same typed
   draft, JSONC-preserving saves, disabled-mode validation, and runtime replacement.
 - **Key bindings**: overlay help enablement, physical key and required-Shift flag,
   action mapping editor and ordered horizontal/vertical key lists.

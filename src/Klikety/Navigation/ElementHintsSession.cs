@@ -29,6 +29,10 @@ public sealed partial class ElementHintsSession : IModeSession {
     private readonly IElementHintsRenderer? _renderer;
     private readonly IElementHintService _service;
     private readonly ILogger _logger;
+    internal ElementHintAssignmentCache? AssignmentCache { get; init; }
+    private ElementHintAssignments? _assignments;
+    private string _assignmentLayout = "";
+    private bool _hadUsableFrame;
     private CancellationTokenSource? _lifetime;
     private HintTarget[] _targets = [];
     private HintContainer[] _containers = [];
@@ -48,8 +52,10 @@ public sealed partial class ElementHintsSession : IModeSession {
     private HintOutcome? _outcome;
     private Rectangle _bounds;
     private int? _focusedId;
-    private sealed record Level(IReadOnlyList<HintEntry> Entries, bool SingleKey, bool Compact, int Capacity,
+    private sealed record Level(IReadOnlyList<HintEntry> Entries, ElementHintLevelAssignments Assignments, bool Compact,
         int? RemoteGroupId = null) {
+        public bool SingleKey => Assignments.SingleKey;
+        public int Capacity => Assignments.Capacity;
         public int Page { get; set; }
         public int? FocusedId { get; set; }
         public HintOutcome? Outcome { get; set; }
@@ -57,9 +63,11 @@ public sealed partial class ElementHintsSession : IModeSession {
     }
     private Level? Current => _levels.LastOrDefault();
     public int Depth => _levels.Count;
-    public IReadOnlyList<HintLabel> Labels => PageEntries().Select((entry, index) => new HintLabel(entry,
-        _horizontal[Current?.SingleKey == true ? index : index / _vertical.Length],
-        Current?.SingleKey == true ? null : _vertical[index % _vertical.Length])).ToArray();
+    public IReadOnlyList<HintLabel> Labels => PageEntries().Select(entry => {
+        int slot = Current!.Assignments.Slot(entry.Id) % LevelCapacity;
+        return new HintLabel(entry, _horizontal[Current.SingleKey ? slot : slot / _vertical.Length],
+            Current.SingleKey ? null : _vertical[slot % _vertical.Length]);
+    }).ToArray();
 
     public ElementHintsSession(VKey[] horizontal, VKey[] vertical, ActionMapper actions,
         ElementTargetContext context, IElementHintService service, IElementHintsRenderer? renderer,
@@ -72,14 +80,14 @@ public sealed partial class ElementHintsSession : IModeSession {
     }
     public ElementTargetContext Context { get; }
     public int RootProcessId { get; private set; }
-    public int Page => _page;
-    public int PageCount => Math.Max(1, ((Current?.Entries.Count ?? 0) + LevelCapacity - 1) / LevelCapacity);
+    public int Page => Math.Max(0, Array.IndexOf(Pages(), _page));
+    public int PageCount => Math.Max(1, Pages().Length);
     private int LevelCapacity => Current?.Capacity ?? _capacity;
     public int? Prefix => _prefix;
     public HintTarget? Selected => _selected;
     public string Status => _status;
     public ElementHintsHelpState HelpState =>
-        new(_outcome, _status, _page, PageCount, _targets.Length, _prefix, _selected is not null,
+        new(_outcome, _status, Page, PageCount, _targets.Length, _prefix, _selected is not null,
             Math.Max(1, Depth), Current?.SingleKey ?? false,
             PageEntries().Any(e => e.Id == _focusedId && e.IsGroup), _arrowKeys, PageEntries().Count);
     public Task Discovery { get; private set; } = Task.CompletedTask;
@@ -95,6 +103,8 @@ public sealed partial class ElementHintsSession : IModeSession {
         _bounds = screenBounds;
         _status = "Finding controls...";
         _outcome = null;
+        _assignments = null;
+        _hadUsableFrame = false;
         RootProcessId = 0;
         _lifetime = new CancellationTokenSource();
         _discoveryWatch = Stopwatch.StartNew();
@@ -128,6 +138,7 @@ public sealed partial class ElementHintsSession : IModeSession {
     private void ApplyDiscovery(HintResponse response) {
         bool usable = response.Outcome is HintOutcome.Success or HintOutcome.Partial or HintOutcome.NoTargets;
         if (usable) {
+            _hadUsableFrame = true;
             _targets = response.Targets;
             _containers = response.Containers ?? [];
             RootProcessId = response.RootProcessId;
@@ -174,8 +185,10 @@ public sealed partial class ElementHintsSession : IModeSession {
                 var existing = level.Entries.Select(e => e.Id).ToHashSet();
                 var additions = known.Where(e => !existing.Contains(e.Id)).ToArray();
                 if (level.Entries.Count == 0 && additions.Length > 0) {
-                    _levels[i] = CreateLevel(additions, level.Compact, scope, freezePairs: !response.IsComplete);
+                    _levels[i] = CreateLevel(additions, level.Compact, scope, freezePairs: !response.IsComplete,
+                        key: level.Assignments.Key);
                 } else if (additions.Length > 0) {
+                    Allocate(level.Assignments, additions);
                     _levels[i] = level with { Entries = [.. level.Entries, .. additions] };
                 }
                 if (scope == response.GroupId) {
@@ -214,7 +227,8 @@ public sealed partial class ElementHintsSession : IModeSession {
         }
         if (key is VKey.Prior or VKey.Next) {
             if (PageCount <= 1) { _renderer?.FlashInvalidKey(); return; }
-            _page = (_page + (key == VKey.Prior ? PageCount - 1 : 1)) % PageCount;
+            var pages = Pages();
+            _page = pages[(Page + (key == VKey.Prior ? pages.Length - 1 : 1)) % pages.Length];
             _prefix = null; _selected = null; _focusedId = null; Render(); return;
         }
         if (key is VKey.Left or VKey.Right or VKey.Up or VKey.Down) {
@@ -227,13 +241,13 @@ public sealed partial class ElementHintsSession : IModeSession {
         }
         int first = Array.IndexOf(_horizontal, key), second = Array.IndexOf(_vertical, key);
         if (Current?.SingleKey == true && first >= 0) {
-            if (first < PageEntries().Count) { Choose(PageEntries()[first]); return; }
+            if (EntryAt(first) is { } entry) { Choose(entry); return; }
         } else if (PageEntries().Count > 0 && first >= 0) {
             _prefix = first; _selected = null; _focusedId = null; Render(); return;
         }
         if (_prefix is { } col && second >= 0) {
             int index = col * _vertical.Length + second;
-            if (index < PageEntries().Count) { Choose(PageEntries()[index]); return; }
+            if (EntryAt(index) is { } entry) { Choose(entry); return; }
         }
         _renderer?.FlashInvalidKey();
     }
@@ -245,18 +259,30 @@ public sealed partial class ElementHintsSession : IModeSession {
     public void Redraw() => Render();
     public void Relayout() {
         if (_streaming) { _discoveryGeneration++; }
+        _assignments = new(null);
         Render(relayout: true);
         if (_streaming && !_completedScopes.Contains(0) && _lifetime is { } lifetime) {
             Discovery = DiscoverGroupAsync(0, resume: true, lifetime);
         }
     }
+    private int[] Pages() => Current?.Entries.Select(e => Current.Assignments.Slot(e.Id) / LevelCapacity)
+        .Distinct().Order().ToArray() ?? [];
     private List<HintEntry> PageEntries() =>
-        Current?.Entries.Skip(_page * LevelCapacity).Take(LevelCapacity).ToList() ?? [];
-    private Level CreateLevel(IReadOnlyList<HintEntry> entries, bool compact, int? remoteGroupId = null, bool freezePairs = false) {
+        Current?.Entries.Where(e => Current.Assignments.Slot(e.Id) / LevelCapacity == _page)
+            .OrderBy(e => Current.Assignments.Slot(e.Id)).ToList() ?? [];
+    private HintEntry? EntryAt(int slot) => PageEntries().FirstOrDefault(e =>
+        Current!.Assignments.Slot(e.Id) % LevelCapacity == slot);
+    private void Allocate(ElementHintLevelAssignments assignments, IReadOnlyList<HintEntry> entries) {
+        foreach (var entry in entries) { assignments.Allocate(entry, _assignments!.EntryKey(entry)); }
+    }
+    private Level CreateLevel(IReadOnlyList<HintEntry> entries, bool compact, int? remoteGroupId = null,
+        bool freezePairs = false, string key = "root") {
         int singleCapacity = Math.Clamp(_renderer?.GetPageCapacity(_bounds, _horizontal.Length, singleKey: true) ??
             _horizontal.Length, 1, _horizontal.Length);
         bool singleKey = !freezePairs && entries.Count <= singleCapacity;
-        return new(entries, singleKey, compact, singleKey ? singleCapacity : _capacity, remoteGroupId) {
+        var assignments = _assignments!.Level(key, singleKey, singleCapacity, _capacity);
+        Allocate(assignments, entries);
+        return new(entries, assignments, compact, remoteGroupId) {
             Outcome = _outcome, Status = _status
         };
     }
@@ -265,10 +291,11 @@ public sealed partial class ElementHintsSession : IModeSession {
         if (entry.IsGroup) {
             Current!.Page = _page; Current.FocusedId = entry.Id;
             var children = entry.RemoteGroupId != 0 ? Entries(entry.RemoteGroupId) : entry.Children;
+            string key = _assignments!.ChildLevelKey(Current.Assignments.Key, entry);
             _levels.Add(CreateLevel(children.ToArray(), entry.Compact,
                 entry.RemoteGroupId == 0 ? null : entry.RemoteGroupId,
-                freezePairs: entry.RemoteGroupId != 0 && !_completedScopes.Contains(entry.RemoteGroupId)));
-            _page = 0; _focusedId = null; Render();
+                freezePairs: entry.RemoteGroupId != 0 && !_completedScopes.Contains(entry.RemoteGroupId), key: key));
+            _page = Pages().FirstOrDefault(); _focusedId = null; Render();
             if (entry.RemoteGroupId != 0 && !_completedScopes.Contains(entry.RemoteGroupId) && _lifetime is { } lifetime) {
                 Discovery = DiscoverGroupAsync(entry.RemoteGroupId, resume: false, lifetime);
             }
@@ -309,6 +336,8 @@ public sealed partial class ElementHintsSession : IModeSession {
             _levels.Clear();
             int singleCapacity = Math.Clamp(_renderer?.GetPageCapacity(_bounds, _horizontal.Length, singleKey: true) ??
                 _horizontal.Length, 1, _horizontal.Length);
+            _assignmentLayout = ElementHintAssignments.Layout(_bounds, _capacity, singleCapacity, _horizontal, _vertical);
+            _assignments ??= new(AssignmentCache?.Load(Context, _assignmentLayout));
             if (_streaming) {
                 if (_scopeStates.TryGetValue(0, out var state)) { _outcome = state.Outcome; _status = state.Status; }
                 _levels.Add(CreateLevel(Entries(0).ToArray(), compact: false, remoteGroupId: 0,
@@ -319,15 +348,21 @@ public sealed partial class ElementHintsSession : IModeSession {
             }
             LogPageCapacity(_capacity);
         }
+        if (!Pages().Contains(_page)) { _page = Pages().FirstOrDefault(); }
         _renderer?.GetPageCapacity(_bounds, Current?.SingleKey == true ? _horizontal.Length :
             _horizontal.Length * _vertical.Length, Current?.SingleKey == true);
-        _renderer?.Render(new(Labels, Math.Max(1, Depth), _page, PageCount, _prefix,
+        _renderer?.Render(new(Labels, Math.Max(1, Depth), Page, PageCount, _prefix,
             _focusedId, _selected?.Token, _status, Current?.SingleKey ?? false, _arrowKeys,
             Current?.Compact ?? false, _lifetime is not null && _outcome is null));
         StateChanged?.Invoke();
     }
     public void Suspend() => Deactivate();
     public void Deactivate() {
+        if (_lifetime is not null && _hadUsableFrame && _assignments is not null) {
+            var snapshot = _assignments.Capture(_assignmentLayout, out bool limited);
+            AssignmentCache?.Save(Context, snapshot);
+            if (limited) { LogAssignmentLimit(); }
+        }
         _lifetime?.Cancel();
         _lifetime?.Dispose();
         _lifetime = null;
@@ -336,6 +371,7 @@ public sealed partial class ElementHintsSession : IModeSession {
         _scopeEntries.Clear(); _plannedTokens.Clear(); _plannedGroups.Clear(); _completedScopes.Clear();
         _scopeStates.Clear(); _streaming = false; _nextGroupId = 0; _firstHintLogged = false;
         _discoveryWatch = null;
+        _assignments = null; _hadUsableFrame = false;
         Retirement = RetireAsync();
     }
     private async Task RetireAsync() {
@@ -347,6 +383,8 @@ public sealed partial class ElementHintsSession : IModeSession {
     }
     [LoggerMessage(Level = LogLevel.Warning, Message = "UIA helper cleanup pending: {Reason}")]
     private partial void LogCleanupPending(string reason);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Element hint assignment retention reached its record limit.")]
+    private partial void LogAssignmentLimit();
     [LoggerMessage(Level = LogLevel.Debug, Message = "UIA discovery {Outcome}: retained={Retained}, visited={Visited}, omitted={Omitted}, reason={Reason}, elapsedMs={ElapsedMs}, cacheHits={CacheHits}, scope={Scope}")]
     private partial void LogDiscovery(HintOutcome outcome, int retained, int visited, int omitted, string? reason,
         long elapsedMs, int cacheHits, int scope);

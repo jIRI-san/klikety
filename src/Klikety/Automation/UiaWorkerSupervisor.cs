@@ -107,6 +107,33 @@ public sealed class UiaWorkerSupervisor : IElementHintService {
             Incremental: true, CacheWindowCount: _cacheWindowCount);
         int generation = Interlocked.Increment(ref _scanGeneration);
         var watch = Stopwatch.StartNew();
+        HintOutcome? retryOutcome = null;
+        bool hadTargets = false;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            bool retry = false;
+            await foreach (var response in DiscoverAttemptAsync(request, generation, watch, ct).ConfigureAwait(false)) {
+                hadTargets |= response.Targets.Length > 0 || response.Groups is { Length: > 0 };
+                if (attempt == 0 && !hadTargets && response.IsComplete &&
+                    (response.Outcome == HintOutcome.NoTargets && response.Visited > 0 ||
+                        response.Outcome == HintOutcome.ProviderError) &&
+                    Remaining(watch) > 150 + 2 * ElementHintProtocol.DiscoverySliceMs + ElementHintProtocol.DiscoveryBatchMs) {
+                    retryOutcome = response.Outcome;
+                    retry = true;
+                    break;
+                }
+                yield return retryOutcome is null ? response : response with {
+                    Reason = response.Reason ?? $"Discovery retry after {retryOutcome}"
+                };
+            }
+            if (!retry || generation != Volatile.Read(ref _scanGeneration)) { yield break; }
+            await Task.Delay(150, ct).ConfigureAwait(false);
+            if (generation != Volatile.Read(ref _scanGeneration)) { yield break; }
+            request = request with { RequestId = Guid.NewGuid() };
+        }
+    }
+
+    private async IAsyncEnumerable<HintResponse> DiscoverAttemptAsync(HintRequest request, int generation,
+        Stopwatch watch, [EnumeratorCancellation] CancellationToken ct) {
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         HintResponse first;
         try {

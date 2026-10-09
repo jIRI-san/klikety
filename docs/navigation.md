@@ -64,11 +64,14 @@ very small boundary cells collapse. An action key is still required to click.
 <summary><strong>ElementHints</strong> - control labels and nested action groups</summary>
 
 Enable ElementHints in Settings, open navigation, then press **Tab**.
-Type a control label to select it or a `+` label to open its group.
+Type a control label to select it or press an outlined region's number to open it.
 Small groups use one key; this combo box exposes its own action, button, and
 edit field without dropping any target. Enter always returns to grid.
 Badges and control outlines share colors and solid/dashed/dotted patterns;
 displaced badges have matching leader lines, so color is not the only cue.
+
+These captures predate numbered region navigation; the old `+` group badges
+are now numbered and have rounded region outlines.
 
 ![ElementHints: translucent control labels and plus-marked groups](screenshots/element-hints.png)
 ![ElementHints L2: linked one-key badges for the combo box, button, and edit](screenshots/element-hints-children.png)
@@ -132,10 +135,20 @@ tray or restart:
 ```
 
 Small levels use one horizontal label key; larger levels use horizontal/vertical
-pairs. A `+` badge opens a group that retains parent actions and independent
-children. Large target sets use suitable UIA containers or capacity groups
+pairs. Numbered rounded outlines show groups of already discovered controls;
+press **1-9** to switch to the matching top-level region from any depth. Its
+siblings' numbers and outlines stay visible, and the active region has a thicker
+outline. Nested groups open with letter labels, leaving the numbers free for
+switching regions. Groups retain parent actions and independent
+children. Toolbars/panes can form logical regions before labels overflow;
+large target sets use suitable UIA containers or spatially partitioned groups
 (250 flat targets, for example, become three groups of up to 100 controls).
-Groups are navigation-only and cannot receive mouse actions.
+Growing scans add new overflow regions without changing existing control labels.
+Groups are navigation-only and cannot receive mouse actions. In this mode,
+number keys no longer switch monitors and the other monitors' numbers are hidden.
+Returning to grid restores monitor-number shortcuts.
+The root region page stays pinned while inside a region; return to L1 with
+Escape before paging to other root regions.
 
 Arrow keys focus entries within the level, not pages. Disabling arrows does
 not disable label navigation. PgUp/PgDn handle rare paging when a useful level
@@ -148,8 +161,22 @@ Hints stay near controls. Nested badges use matched outlines, border patterns,
 and placement; coincident outlines are inset separately. Black halos preserve
 contrast. Focus/selection shows the control's role/actions in the footer; extreme
 layouts fall back to a scrolling role list. Ordinary levels show displacement
-guides only for the selected target. Badge fills are translucent, and a centered
-spinner indicates discovery.
+guides only for the selected target. Region numbers stay attached to their
+outlines even when control labels use the right-side list. Group labels are
+larger and bold, with stronger badge backings; top-level numbers never dim when
+a control is selected or a first key is entered. Only a number that
+cannot fit near its region uses the list too. Status-bar region outlines are
+not cropped to make room for the footer. Badge fills are translucent, and a centered
+spinner indicates discovery. It keeps rotating across newly discovered batches
+rather than restarting each time. Region outlines cover known members, not
+unfinished scan areas, so progress remains global rather than per group.
+
+For inconsistent scans or region navigation, enable **Debug** logging and file
+logging in settings. Logs are under `%APPDATA%\Klikety\logs\`.
+`HintDiag` entries correlate each activation's discovery counts, source-cache
+hits, remembered label assignments, list-fallback reason, region geometry and
+number-key routing. These diagnostics do not include control names, values or
+document text.
 
 ### Discovery, safety, and compatibility
 
@@ -157,12 +184,18 @@ Discovery scans only the application window captured before the overlay,
 clipped to the navigation display/scope. Controls appear progressively in
 breadth-first order; discovered labels stay stable and are usable before the
 scan finishes. Child counts do not collapse panes or session lists; grouping
-serves label capacity and nested actions.
+serves logical regions, label capacity and nested actions.
 
 The default **10000 ms** deadline includes worker startup. Adjust it in
 **Settings > Navigation > Element hints > Discovery timeout (ms)**; the valid
 range is 100-60000 ms. Existing explicit deadlines are preserved.
 Enter/Escape remain available while waiting.
+
+An empty scan or transient provider error before any usable hints triggers one
+short settling delay and retry within the **same** deadline. An empty cached
+tree is refreshed before retrying. Timeouts, permission/identity failures,
+protocol errors and pending cleanup are not retried; persistent failures remain
+visible. This cannot guarantee recovery from a blocked provider call.
 
 The helper caches up to **5 recently used windows** by default. Set
 `cacheWindowCount` to 0-20 in Settings; 0 disables reuse. Windows of the same

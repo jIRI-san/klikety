@@ -7,6 +7,46 @@ globs:
 
 # Test Infrastructure
 
+Numbered-region regressions cover logical four-control UIA panes below capacity,
+spatial separation of interleaved left/right panels, independent 1-9 group paging
+alongside control letters, non-actionability and grid fallback restoring monitor
+dispatch. Growing root sessions add spatial regions without changing previously
+published labels/selection; isolated additions still exercise off-page assignment
+retention. Real STA rendering checks rounded member outlines, badge/glyph accent
+association, containment at 100/150/200% and no group action connectors.
+Spinner tests require the same visual and animated transform across pending
+redraws, then removal/stopping on completion/unload. Worker fixtures exercise
+one empty/transient-error retry, persistent emptiness and the unchanged absolute
+deadline; empty production source caches are invalidated before rediscovery.
+These are hermetic contracts, not observed Outlook responsiveness or proof of
+every cold-provider failure's cause. No per-group progress is inferred.
+
+`CapturingLogger` regressions verify activation correlation across reopen and
+assignment reuse, number forwarding/matching/group opening, layout-fallback
+reasons and raw/clipped group geometry without provider descriptions or identity
+fingerprints. Live VS Code regressions remain unconfirmed by hermetic tests.
+Manual VS Code diagnostics identified a 105-label mixed page with 100-control
+capacity, group numbers moved into the list, and a 27.5-DIP status-bar region
+clipped to a 10.5-DIP outline by footer reservation. Rendering regressions replay
+100 controls plus five interleaved regions at 100/150/200% DPI with negative
+origins: all 100 control badges remain in the fallback list, five numbers remain
+on their outlines, and the selected connector uses the control-only row index.
+Separate tests cover fitting mixed pages, oversized control glyphs without
+oversized numeric badges, full-height status-bar contours and the 1x1 viewport
+fallback without dropped numbers. These do not prove every live symptom fixed.
+Bold-label tests compare rendered glyph geometry with the expected bold typeface,
+150% sizing/28-DIP floor and unchanged control glyphs, including fallback lists.
+Persistent-region cases cover fully visible digit-stable styles through
+prefix/selection, active contours, switching from nested depth without input
+actions, continued root discovery and rejection of superseded remote streams.
+Paging/partial-pair cases verify that child pages cannot change the pinned root
+region page, switching clears a prefix, and Escape through local nesting does not
+retire the ongoing root scan. Coordinator help retains root digits after switching.
+The user-requested investigation uses three manual activations of the same
+window, waiting for discovery and pressing a displayed region number each time.
+No autonomous Sandbox loop is part of this diagnostic change; further agent-run
+live experiments require approval after three runs.
+
 ## Element-hint evidence
 
 `ElementHintAssignmentTests` exercises exact role/capability/runtime identity,
@@ -34,13 +74,14 @@ cover display-topology events, config-disposal, focus-loss and late discovery/ac
 completion. STA rendering tests include 1x1-DIP containment and longer glyphs
 without remapping frozen pages.
 Rendering regressions also cover a top-edge collision without global list
-fallback, no ordinary-level unselected connectors/outlines, selected-only displacement guides,
+fallback, no ordinary-level unselected control connectors/outlines, selected-only displacement guides,
 bounded severe-crowding presentation and page capacity that fits the narrower
 list. Geometry tests inject their coordinate space rather than using host DPI.
 Badge regressions check independent 40% fill opacity, theme color alpha, unchanged
 text/border strength and prefix/selection dimming in nearby and list layouts.
-Spinner tests cover viewport center/containment, animation removal on redraw and
-unload, and session loading flags through success/empty/timeout/provider failures.
+Spinner tests cover viewport center/containment, clock retention across pending
+redraws, removal on completion/unload, and session loading flags through
+success/empty/timeout/provider failures.
 Worker-fixture delayed responses prove a longer configured deadline can accept
 discovery past the former 1500 ms default, while shorter deadlines still retire the worker.
 Cancellation and validation keep their independent bounds even with long discovery
@@ -88,7 +129,7 @@ foreground and physical center, both inside the 500 ms validation deadline. The
 probe sends only discovery/validation requests, never input.
 
 `ElementHintHierarchyTests` covers capacity-only groups (including 2000 targets),
-250-target 100/100/50 partitioning, flat passive containers until needed, unrelated
+250-target 100/100/50 partitioning, logical passive containers before overflow, unrelated
 coincident siblings, nested compounds, parent-own-action preservation, one-key
 levels, optional spatial arrows, independent one-slot paging, frozen redraw,
 group non-actionability and strict validation of malformed container references.
@@ -120,7 +161,7 @@ the black halo. Badge/control backing contours are checked, and displaced leader
 must match the control's color/pattern and terminate on its outline edge.
 They preserve physical preview points and association colors on longer-glyph
 redraw; focus thickens the matching outline and exposes its role in the footer.
-Pair-label tests retain prefix dimming, contained glyphs and rounded `+` group
+Pair-label tests retain prefix dimming, contained glyphs and rounded numbered group
 distinction without an action connector. Extreme-layout tests retain contained
 scrolling role descriptions. These are structural/contrast contracts, not clinical
 color-vision acceptance. Native Settings saves/reloads disabled arrows without forcing them on.

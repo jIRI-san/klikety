@@ -109,8 +109,11 @@ completed unrelated branches remain usable.
 Progressive levels append entries without changing existing VKeys, prefix,
 selection, focus or entered levels. Fresh growing levels freeze the pair-key scheme
 when their first entries appear; completed small levels can use single keys.
-New chunks use existing hierarchy planning; late overflow pages instead of
-regrouping a previously displayed hint. Explicit viewport relayout resets L1
+New chunks use hierarchy planning. Growing root levels put new overflow batches
+into numbered spatial regions sized for readable single-key child levels,
+without regrouping a previously displayed hint. Remembered root controls retain
+their existing level rather than being moved into new overflow groups; isolated
+additions and one-slot layouts can still page. Explicit viewport relayout resets L1
 and resumes unfinished discovery without starting a new window scan. Keyboard
 layout redraw alone does not relayout. Late/retired scope results cannot repaint
 an old level. Help distinguishes visible navigation groups from actionable
@@ -199,11 +202,46 @@ with another property fetch; fresh validation uses a new uncached reader.
 Debug logging records first usable hint time, completed-scope elapsed time,
 retained/visited/omitted counts and cache hits, never provider content.
 
+Debug `HintDiag` records share a fresh activation GUID across the session,
+coordinator and renderer. Startup records identify the app PID and effective
+cache/timeout settings; activation records identify the captured HWND/PID and
+viewport, not the window title. Each cumulative frame records scope, generation,
+completion, counts and source-cache hits. Planning/render records distinguish
+source-tree reuse from assignment snapshot reuse, restored/reserved slots,
+overflow grouping, visible region numbers and group entry. Digit routing records
+pending-action/help-latch/debounce suppression, macro consumption and forwarding.
+Renderer records explain the right-side list fallback (capacity, oversized
+labels or placement collision), render duration, DPI/origin and raw versus
+clipped/inset group geometry. Numeric region badges are measured/placed
+independently from control labels and remain on their outline corners when
+controls use the right-side list. Anchored groups do not consume control-list
+capacity or rows. Unplaceable numeric badges still use the contained list.
+Group contours clip to the full canvas, preserving status-bar member coverage;
+badge placement still respects the footer-reserved viewport. Per-group `list`
+diagnostics refer to that badge, not the whole control page. Stale frames record
+their rejected generation.
+No target names, values, descriptions, runtime IDs, fingerprints or document text
+are added to these diagnostics. Geometry records describe current discovered
+members, not future scan coverage.
+
 Frames use a four-byte little-endian byte length followed by versioned JSON.
 Session/request IDs, limits, finite geometry, clipping and validation approvals
 are checked before consumption. Diagnostics contain outcomes/error codes/counts,
 not element names, values, passwords or document text. Timeout, provider failure,
 access denial, invalid root, no targets and partial scans remain distinct.
+
+An incremental root activation retries once after an empty completed scan with
+visited nodes, or a transient provider error, only before any targets/groups
+have been published. The 150 ms settling delay, both attempts, worker startup
+and cleanup share the original discovery deadline. Retry requires enough budget
+for the delay and slice/IPC reserve; timeout, access denial, invalid identity,
+protocol failure and unconfirmed cleanup are not retried. A fresh request ID
+retains the activation's captured HWND/PID/start identity. An empty completed
+worker tree is marked dirty before rediscovery so a cached empty result cannot
+defeat the retry. Persistent failures remain explicit, and recovered scans
+without another reason identify the retry outcome in debug diagnostics.
+This handles transient cold-provider emptiness/errors, not a guarantee that
+Outlook/Word or a blocked native provider call will recover.
 
 Worst-case runtime identities/geometry can fill the byte budget before the target
 count cap. The worker keeps the fitting prefix and returns an explicit partial
@@ -286,12 +324,47 @@ placement/leaders and the focused/selected role/capability footer supplement
 color for colorblind users. Extreme layouts retain a contained scrolling
 role/capability list. No accessibility names or document contents are read.
 
-Passive UIA containers are candidates, not mandatory levels. When the flat level
-exceeds measured/key capacity, complete containers that reduce it are preferred.
-Otherwise ordered capacity chunks create navigation-only groups, recursively only
-as needed. At default capacity 100, 250 flat controls yield three groups with
-100/100/50 children. With only one readable slot grouping cannot reduce a level,
-so PgUp/PgDn paging is the fallback. Every retained target occurs once in the tree.
+Complete passive toolbars, groups and panes with at least four visible entries
+can form logical regions even when flat labels fit. A candidate must reduce the
+level and cannot wrap the whole level in a redundant parent. Other complete
+containers remain capacity candidates. Without suitable ancestry, overflow
+partitions spatially along the widest spread of preview points, recursively
+splitting at capacity-sized boundaries rather than slicing interleaved provider
+order. At default capacity 100, 250 flat controls still yield three groups with
+100/100/50 children. Growing root levels use the smaller measured single-key
+capacity for newly arriving overflow regions, while already displayed entries
+stay fixed. With only one readable slot grouping cannot reduce a level,
+so PgUp/PgDn paging remains the fallback. Every retained target occurs once.
+
+Top-level regions use a separate frozen assignment namespace, with invariant
+number-row labels 1-9 and renderer-measured capacity capped at nine. Control
+letters keep their single/pair assignments independently; a number never consumes
+a control-letter slot. Group and control assignments retain the existing bounded
+best-effort fingerprint memory. More groups page with independent numeric slots;
+holes are not selectable. Numbered badges and always-visible rounded member-union
+outlines share accents; outlines also use repeating line patterns. Focus thickens
+the outline without an action connector. The outline covers known members only,
+not an unscanned area.
+
+The root page's numbered outlines remain visible at every nested depth. D1-D9
+always switch its top-level regions, replacing the entered branch rather than
+pushing another sibling. Switching clears the local prefix/selection and never
+moves or acts on a target. The active region has a thicker contour; all root
+region numbers/contours remain fully visible despite local prefix/selection
+dimming, and their accents/patterns derive from the digit rather than child order.
+Nested groups share their level's letter assignments with controls, without
+duplicate slots or competing numeric shortcuts. Root region paging stays pinned
+while inside; Escape back to L1 allows changing that page. Switching remote
+regions rejects superseded discovery generations; local switching and Escape
+through local nesting keep root discovery running. Leaving a remote level resumes
+the nearest remaining remote scope if unfinished. `HintLevelView.Regions` carries the persistent root markers
+separately from current-level labels and `ActiveRegionId` identifies the branch.
+
+In ElementHints only, D1-D9 switch displayed top-level regions rather than monitors.
+The host omits satellite digits without changing display numbering or removing
+the dimmed satellite overlays. Returning to another mode restores monitor digits
+and dispatch. Macro setup retains its existing priority over hint navigation.
+Contextual help lists the active region numbers instead of display-switch commands.
 
 Targets sort by physical top/left/token within each newly published batch. Batches
 append without reordering already displayed entries. Completed levels use configured
@@ -316,28 +389,41 @@ Compound levels instead outline each visible entry with its badge's association
 style, using corner placement before bounded nearby slots. Their six accent/pattern
 styles repeat after six entries, not as globally unique target identities.
 Black backing contours and at least a 3-DIP black glyph halo preserve contrast;
-these compound-only accents/halos intentionally override theme label/outline
-colors while retaining theme font, badge fill and prefix/selection opacity.
-Unselected labels dim after selection. Capacity and painting share adaptive footer/list regions,
+these compound/group accents and black halos intentionally override theme label/outline
+colors. Group labels use bold type at 150% of the control font, with a 28-DIP
+minimum; measurement and painting use the same typeface/size, including contained
+fallback rows. Controls retain their existing font. Root region markers never
+dim with local selection/prefix; ordinary unselected labels retain their dimming.
+Capacity and painting share adaptive footer/list regions,
 including sub-8-DIP viewports; the initial physical-region fallback is retained
 until a measured canvas viewport is available. Labels are window-origin-relative DIPs; click coordinates
 remain physical desktop pixels.
 
-Badge background brushes use 40% opacity independently of text and borders, in
+Control badge background brushes use 40% opacity independently of text and borders, in
 both nearby and fallback-list layouts. Existing theme color alpha multiplies that
 opacity. Initial, matching-prefix and selected labels retain full-strength
 outlined glyphs/borders; the existing nonmatching/unselected dimming still applies.
 This makes underlying icons visible without weakening label contrast.
+Group badges instead use 90% backing opacity and a two-DIP ordinary border
+(thicker for active/focused regions), strengthening numeric contrast. Geometry
+diagnostics include the effective group font size and bold weight; region-state
+and region-switch logs identify persistent visibility and branch changes.
 
 The session passes a typed `isDiscovering` flag to its renderer, based on the
 active lifetime and absence of a discovery outcome, not status text. A rotating
 theme-colored arc appears at the viewport center while discovery is pending,
-scaled down only for tiny viewports. Redraw replaces/stops the previous animation;
-unloading the spinner also stops its clock. All completed outcomes remove it.
+scaled down only for tiny viewports. Incremental redraws keep the same spinner
+visual and animation clock, updating only its position/size. Other hint visuals
+are rebuilt without detaching the spinner, so large scans do not repeatedly reset
+its rotation. Completion, canvas removal and unloading stop its clock.
+There is one global spinner: discovered-member groups do not describe pending
+scan regions or per-region completion. Per-group progress would require an
+explicit early-region/completion contract, not an inferred status from group bounds.
 The existing footer and Enter/Escape handling remain available during loading,
 and retired discovery cannot repaint an old spinner or labels.
 
-Completing a group label opens its children without moving or clicking. Completing
+Pressing a displayed root region number switches to its children from any depth;
+nested group letter labels drill down without moving or clicking. Completing
 a leaf label selects and previews the cursor, without clicking. Action keys need
 an original leaf selection; group focus does not validate or dispatch.
 Optional arrows focus entries spatially within the level, with ordered navigation

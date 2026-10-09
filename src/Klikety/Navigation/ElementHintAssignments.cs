@@ -50,11 +50,16 @@ internal sealed class ElementHintAssignments(HintAssignmentSnapshot? previous) {
 
     private static string Fingerprint(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
+    private static string TargetKey(HintTarget target) => "T" + Fingerprint(FormattableString.Invariant(
+        $"{target.ProcessId}:{target.ControlType}:{(int)target.Capabilities}:") + string.Join(",", target.RuntimeId));
+
+    public bool WasAssigned(string level, HintTarget target) =>
+        previous?.Levels.GetValueOrDefault(level)?.Slots.ContainsKey(TargetKey(target)) == true;
+
     public string? EntryKey(HintEntry entry) {
         if (_entryKeys.TryGetValue(entry.Id, out var key)) { return key; }
         if (entry.Target is { } target) {
-            key = "T" + Fingerprint(FormattableString.Invariant(
-                $"{target.ProcessId}:{target.ControlType}:{(int)target.Capabilities}:") + string.Join(",", target.RuntimeId));
+            key = TargetKey(target);
         } else if (entry.RemoteGroupId == 0 && entry.Children.Count > 0) {
             var children = entry.Children.Select(EntryKey).ToArray();
             if (children.All(k => k is not null)) {
@@ -108,6 +113,8 @@ internal sealed class ElementHintLevelAssignments {
     public bool SingleKey { get; private set; }
     public int Capacity => SingleKey ? _singleCapacity : _pairCapacity;
     public IReadOnlyDictionary<string, int> RememberedSlots => _remembered;
+    public int ReservedCount => _previous?.Slots.Count ?? 0;
+    public int RestoredCount { get; private set; }
 
     public ElementHintLevelAssignments(string key, RememberedHintLevel? previous, bool preferSingle,
         int singleCapacity, int pairCapacity) {
@@ -127,6 +134,7 @@ internal sealed class ElementHintLevelAssignments {
         int slot;
         if (key is not null && _previous?.Slots.TryGetValue(key, out slot) == true) {
             _slots.Add(entry.Id, slot);
+            RestoredCount++;
         } else {
             while (_used.Contains(_next)) { _next++; }
             slot = _next++;

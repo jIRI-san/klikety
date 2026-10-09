@@ -9,6 +9,38 @@ public class UiaWorkerSupervisorTests {
     private static string Fixture => Path.Combine(AppContext.BaseDirectory, "worker-fixture", "Klikety.WorkerFixture.exe");
 
     [Theory]
+    [InlineData("cold-success", HintOutcome.Success)]
+    [InlineData("cold-error", HintOutcome.Success)]
+    [InlineData("cold-empty", HintOutcome.NoTargets)]
+    public async Task EmptyColdScanRetriesOnceWithinTheSameActivation(string scenario, HintOutcome outcome) {
+        var worker = new UiaWorkerSupervisor(Fixture, scenario, cacheWindowCount: 2);
+        var frames = new List<HintResponse>();
+        try {
+            await foreach (var frame in worker.DiscoverIncrementallyAsync(new(1, 1),
+                new(0, 0, 100, 100), CancellationToken.None)) { frames.Add(frame); }
+            var result = Assert.Single(frames);
+            Assert.Equal(outcome, result.Outcome);
+            Assert.Equal("discoveries=2", result.Reason);
+            Assert.NotNull(worker.OwnedProcessId);
+        } finally { Assert.True(await worker.RetireAsync()); }
+    }
+
+    [Fact]
+    public async Task ColdRetryDoesNotResetTheAbsoluteDiscoveryDeadline() {
+        var worker = new UiaWorkerSupervisor(Fixture, "cold-delay", discoveryTimeoutMs: 400, cacheWindowCount: 2);
+        var watch = Stopwatch.StartNew();
+        try {
+            HintResponse? result = null;
+            await foreach (var frame in worker.DiscoverIncrementallyAsync(new(1, 1),
+                new(0, 0, 100, 100), CancellationToken.None)) { result = frame; }
+            Assert.NotNull(result);
+            Assert.Contains(result.Outcome, new[] { HintOutcome.NoTargets, HintOutcome.Timeout });
+            if (result.Outcome == HintOutcome.NoTargets) { Assert.Equal("discoveries=1", result.Reason); }
+            Assert.True(watch.ElapsedMilliseconds < 400 + ElementHintProtocol.CleanupMs + 500);
+        } finally { Assert.True(await worker.RetireAsync()); }
+    }
+
+    [Theory]
     [InlineData("hang", HintOutcome.Timeout)]
     [InlineData("startup-hang", HintOutcome.Timeout)]
     [InlineData("crash", HintOutcome.ProviderError)]

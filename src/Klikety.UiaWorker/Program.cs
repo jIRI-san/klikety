@@ -87,6 +87,10 @@ internal sealed class UiaSnapshot : IDisposable {
     private HintResponse Discover(HintRequest r) {
         if (r.CacheWindowCount is < 0 or > ElementHintProtocol.MaxCacheWindowCount ||
             r.GroupId != 0) { return Program.Reply(r, HintOutcome.ProtocolError, "Invalid discovery settings"); }
+        if (_hwnd == r.Hwnd && _discovery is { IsComplete: true, Entries.Count: 0 }) {
+            // A cold provider's empty tree must not be reused by the bounded retry.
+            _tree?.MarkDirty(null);
+        }
         _targets.Clear();
         _discovery = null;
         _root = null;

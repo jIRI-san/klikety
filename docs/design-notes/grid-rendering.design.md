@@ -19,19 +19,49 @@ globs:
 
 `ElementHintsRenderer` consumes typed `HintLevelView`/`HintLabel` assignments from
 the session rather than inventing labels from target indices. It measures current-layout
-single/pair labels (including a reserved `+` width), theme outlined
+single/pair control labels and invariant region digits, theme outlined
 geometry and `OverlayDip.WindowOrigin`/scale. Physical target points never follow
 label displacement. Bounded nearby placement handles ordinary overlaps and
 display edges without moving every label into global top rows. Severe crowding
 uses a compact right-side page list, with at most one selected-target connector;
-only selected/focused/prefix targets are outlined in ordinary levels. Page capacity fits that narrower list and measured text at
+placeable numbered region badges stay anchored at their own outline corners,
+outside that control list. They have separately measured numeric metrics and do
+not consume control-list capacity. Groups that cannot fit even their numeric
+badge retain the contained scrolling fallback; no number is dropped. List row
+indices and selected/prefix scrolling exclude anchored group badges.
+Group glyphs are bold, 150% of the control font and at least 28 DIP, measured
+identically for capacity, placement and drawing. Group backings use 90% opacity
+and ordinary borders are two DIP; control glyphs/backings remain unchanged.
+`HintLevelView.Regions` keeps the root page's numbers/outlines visible beside
+current-level labels at every depth. These root markers remain fully opaque
+through local prefix/selection, and digit-derived styles stay stable when the
+child entry order changes. `ActiveRegionId` thickens the active contour to four
+DIP. Nested group letter labels remain distinct from numeric root markers.
+Numeric corner choices and coincident-region insets ignore the child entry order;
+each group's label has its own measured size so nested pairs cannot resize root
+badges. Root numbers are placed before child badges.
+Root contours paint above child lists/footer and below their number badges, so
+list fallbacks do not obscure other regions' boundaries.
+Only selected/focused/prefix targets are outlined in ordinary levels. Page capacity fits that narrower list and measured text at
 `MinLabelFontSize`; extreme font/viewports use contained scrolling rather than
 smaller or dropped labels. A content-sized bottom footer replaces the full-width
 top diagnostic banner; useful state/fallback remains visible and technical counts
 go to debug logs. Status is on RootCanvas, leaving macro/drag/help layers
 independent. Glyph-only redraw preserves assignments; viewport capacity changes
-explicitly reset L1. Rounded `+` group badges distinguish navigation from actions;
-group focus outlines the member area but never draws an action connector.
+explicitly reset L1. Rounded numbered group badges distinguish navigation from
+actions. Every group has a rounded member-area outline clipped to the full canvas,
+not the footer-reserved label viewport, in the badge's
+accent; repeating outline patterns and numbers supplement color. Group focus
+thickens the outline but never draws an action connector. Numeric capacity is
+measured separately and capped at nine; mixed frozen control/group pages may
+need the contained control scrolling fallback rather than remapping existing controls.
+The optional app logger correlates `HintDiag` layout and per-group geometry with
+the session activation GUID. Layout logs distinguish oversized metrics, page
+capacity and placement collisions; group logs include physical bounds, raw DIP
+bounds, the clipped/inset outline and badge-local bounds; the per-group `list`
+field reports whether that badge itself required list fallback. Canvas clipping
+and member-union coverage remain visible in this evidence rather than being inferred
+from target counts. Provider descriptions are not logged.
 Compound levels (`Compact` metadata at depth > 1) normally use the same key-only
 rectangular badges, anchored first at control corners, then nearby collision-free
 slots, preferring space above the control when its corners are occupied rather
@@ -79,8 +109,11 @@ Hint badge fills are independently translucent at 40% brush opacity (multiplied
 by theme color alpha) in nearby and list layouts. Outlined text and borders retain
 their existing prefix/selection opacity; the footer stays opaque for readability.
 While the session's typed discovery flag is true, a theme-colored rotating arc
-is centered in the viewport, contained even at 1x1 DIP. Redraw stops the previous
-clock and all results remove it; `Unloaded` stops detached spinner animations.
+is centered in the viewport, contained even at 1x1 DIP. Incremental redraw keeps
+the same visual/rotation clock instead of resetting it with every new batch;
+only its size/position changes. Completed results, external canvas removal and
+`Unloaded` stop the animation. One global spinner remains intentional: group
+outlines represent discovered members, not known unfinished scan regions.
 This is presentation-only: page assignments, physical target points and discovery
 deadlines are unchanged by drawing or animating the spinner.
 

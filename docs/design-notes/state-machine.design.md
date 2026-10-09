@@ -32,14 +32,25 @@ SessionManager forwards only the active session's changes and unsubscribes befor
 retirement; visible help refreshes on discovery/capacity changes without rescanning
 or remapping a frozen page. Macro setup/confirmation consumes keys before the
 session; help mutes those commands rather than claiming Enter bypasses macro setup.
-Hint navigation has its own frozen level stack: completing a group label pushes,
-a leaf label selects/previews, optional arrows focus without paging, and Escape
+Debug `HintDiag` number-key routes share the active hint session's activation
+GUID and distinguish receipt, pending-action/help-latch/debounce suppression,
+macro consumption and session forwarding. They do not change dispatch priority.
+Hint navigation has its own frozen level stack: a root number switches top-level
+regions from any depth, replacing the entered branch; nested group letter labels
+push, a leaf label selects/previews, optional arrows focus without paging, and Escape
 clears a prefix or pops/cancels. Enter remains grid fallback. Navigation-only group
 focus is never an actionable selection, so it cannot start an action transaction.
 Discovery appends usable hints while the foreground-root scan is still running.
 Published keys, active prefixes, selection and entered levels stay fixed. Child
 counts never defer UIA branches; groups contain already discovered entries for
-label capacity or competing compound badges. Escape restores the parent while
+logical regions, label capacity or competing compound badges. Groups have a
+separate measured 1-9 root assignment namespace; nested groups share letter
+assignments with controls. Root region markers remain visible throughout the
+entered branch; switching clears prefix/selection, invalidates superseded remote
+streams and retains unfinished root discovery for local regions. Root region
+paging remains pinned until returning to L1. Macro setup retains priority.
+New overflow batches form spatial regions without moving published/remembered
+root controls. Escape restores the parent while
 discovery continues. Closing a completed session releases the active
 frontier but can retain event-observed, window-LRU-bounded caches until the idle
 deadline. Factory disposal explicitly shuts down that helper even from another mode.
@@ -59,7 +70,7 @@ same; all click and drag intents retain strict hit ownership. See `element-hints
 - `OverlayWindow` is a WPF window: `WindowStyle=None`, `AllowsTransparency=True`, `Topmost=True`, sized to the **navigation display** `rcMonitor` converted to DIPs via that window’s `PresentationSource` transform.
 - `OverlayHost` owns one nav overlay plus N−1 `SatelliteWindow`s. Satellites: `ShowActivated=False`, `WS_EX_NOACTIVATE | TOOLWINDOW | TRANSPARENT`, never `Activate()`. Shown before nav. Single display: no satellites. `_hostBusy` extends the focus-lost switching guard around host show/hide.
 - Activation uses `IDisplayCatalog`: overlay on the display containing the cursor (`FindContaining` is inclusive on `rcMonitor` edges, 2px slop). `WM_DISPLAYCHANGE` on the nav HWND calls `DeactivateOverlay()`. Hotkey toggles only a **visible** overlay; a stale session (nav gone) is cleared then re-activated on the cursor display.
-- While overlay visible, D1–D9 are consumed before `MacroHandler`. Other numbered display → new L1 same mode at target center, cancel app-scope/drag, rebuild satellites, numbers unchanged.
+- Outside ElementHints, while the overlay is visible, D1–D9 are consumed before `MacroHandler`. Other numbered display → new L1 same mode at target center, cancel app-scope/drag, rebuild satellites, numbers unchanged. In ElementHints, digits pass through macro priority to numbered region navigation instead; satellite digits and display-switch help entries are hidden. Returning to grid/another mode restores monitor digits without showing/activating the navigation window again. `ShowLast` retains the current digit-visibility policy.
 - `DeactivateOverlay()` is the single idempotent exit method called from every path: action fired, Escape at L1, focus loss, hotkey toggle, display change, exception, Quit. It hides the overlay host (satellites + nav). Also calls `IKeyboardHookService.DrainAndDisable()` and clears session/debounce/drag state. Safe to call multiple times.
 - Help is a coordinator-owned presentation state, not a navigation state. It opens only when both the navigation session and overlay are active; a separate `HelpCanvas` leaves the session renderer and cursor/action point untouched. Escape and the help toggle close only help; any other non-modifier key closes help then continues through normal dispatch once. Modifiers alone leave help open. Both close keys are latched until key-up, and key-up only updates debounce/latch state. `ClearHelpState()` clears the flag and latches before hide, deactivation, disposal, or macro-picker suspension.
 - A visible help layer refreshes from the current effective bindings on keyboard-layout changes and relayouts on overlay viewport/DPI changes. Those refreshes do not mutate the active session. Global macro-picker activation during navigation disables the hook and suspends the overlay through the same handoff as the in-overlay picker; the original target HWND remains the playback target.

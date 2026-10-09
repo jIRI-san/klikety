@@ -165,6 +165,10 @@ public partial class App : Application {
             candidateLogger = LoggingSetup.CreateLoggerFactory(
                 config.LogLevel, config.FileLoggingEnabled, config.RetainedLogFileCount, _paths.LogsFolder);
             var logger = candidateLogger.CreateLogger<App>();
+            if (config.Modes.ElementHints.Enabled) {
+                LogHintDiagnosticsEnabled(logger, Environment.ProcessId, config.FileLoggingEnabled,
+                    config.Modes.ElementHints.CacheWindowCount, config.Modes.ElementHints.DiscoveryTimeoutMs);
+            }
             resources = SettingsRuntimeResources.Create(owner => {
                 owner.Checkpoint("logger");
                 var hook = owner.Own("navigation hook", new KeyboardHookService());
@@ -187,7 +191,7 @@ public partial class App : Application {
                     ? new LogGridRenderer(overlay.Canvas, theme, horizontal, vertical, config.MinLabelFontSize) : null;
                 var elementHints = config.Modes.ElementHints.Enabled
                     ? new ElementHintsRenderer(overlay.Canvas, theme, config.MinLabelFontSize,
-                        config.HorizontalKeys, config.VerticalKeys, resolver) : null;
+                        config.HorizontalKeys, config.VerticalKeys, resolver, logger: logger) : null;
                 var sessions = new ModeSessionFactory(config, new ActionMapper(config.ActionBindings),
                     grid, crosshair, logCrosshair, logGrid, elementHints, logger: logger);
                 if (sessions.LogGridKeyPolicyWarning is { } warning) { violations.Add(warning); }
@@ -690,6 +694,10 @@ public partial class App : Application {
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Startup violations: {Message}")]
     private static partial void LogStartupViolations(ILogger logger, string message);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "HintDiag ready appPid={AppPid} fileLogging={FileLogging} cacheWindows={CacheWindows} discoveryTimeoutMs={DiscoveryTimeoutMs}")]
+    private static partial void LogHintDiagnosticsEnabled(ILogger logger, int appPid, bool fileLogging,
+        int cacheWindows, int discoveryTimeoutMs);
 
     /// <summary>
     /// Activation transaction: creates all key press visualization resources and enables the hook.

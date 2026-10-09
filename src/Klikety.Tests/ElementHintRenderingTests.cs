@@ -1,11 +1,12 @@
+using System.Globalization;
 using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
 
-using Klikety.Config;
 using Klikety.Automation;
+using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
@@ -20,6 +21,288 @@ public class ElementHintRenderingTests {
     private sealed class LongKeyLabelResolver : IKeyLabelResolver {
         public string Resolve(VKey key) => $"LONG-FALLBACK-GLYPH-{key}";
     }
+    private sealed class PrintableKeyLabelResolver : IKeyLabelResolver {
+        public string Resolve(VKey key) => key == VKey.OemSemicolon ? ";" : key.ToString().ToUpperInvariant();
+    }
+
+    [Theory]
+    [InlineData(1.0, 18, 28, false)]
+    [InlineData(1.5, 18, 28, false)]
+    [InlineData(2.0, 18, 28, false)]
+    [InlineData(1.0, 40, 60, false)]
+    [InlineData(2.0, 18, 28, true)]
+    public void RegionNumbersUseLargerBoldGeometryAndStrongBackingWithoutChangingControls(
+        double dpi, double fontSize, double groupFontSize, bool crowded) {
+        RunSta(() => {
+            double width = crowded ? 200 : 800;
+            var canvas = new Canvas { Width = width, Height = 600 };
+            canvas.Measure(new Size(width, 600)); canvas.Arrange(new Rect(0, 0, width, 600));
+            var theme = new ThemeModel { LabelFontSize = fontSize };
+            var logger = new CapturingLogger();
+            IKeyLabelResolver resolver = crowded ? new LongKeyLabelResolver() : new FakeKeyLabelResolver();
+            var renderer = new ElementHintsRenderer(canvas, theme, fontSize,
+                [VKey.A], [VKey.Q], resolver,
+                () => (new(-1920, -1080), new Matrix(1 / dpi, 0, 0, 1 / dpi, 0, 0)), logger);
+            renderer.GetPageCapacity(new(-1920, -1080, (int)(width * dpi), (int)(600 * dpi)), 1, singleKey: true);
+            var target = FakeElementHintService.Result(1).Targets[0] with {
+                Bounds = new(-1920 + 40 * dpi, -1080 + 80 * dpi, 40 * dpi, 30 * dpi),
+                VisibleBounds = new(-1920 + 40 * dpi, -1080 + 80 * dpi, 40 * dpi, 30 * dpi),
+                Preview = new(-1920 + (int)(60 * dpi), -1080 + (int)(95 * dpi))
+            };
+            var bounds = new HintRect(-1920 + 20 * dpi, -1080 + 300 * dpi, 120 * dpi, 100 * dpi);
+            var group = new HintEntry(-1, null, bounds, bounds.Center, "Controls", []);
+            renderer.Render(new([new(ElementHintHierarchy.Leaf(target), VKey.A, null), new(group, VKey.D1, null)],
+                1, 0, 1, null, null, null, "", true, true, false));
+            var badge = Assert.Single(canvas.Children.OfType<Border>(), b => Equals(b.Tag, "group-badge:-1"));
+            Assert.Equal(.9, badge.Background.Opacity);
+            Assert.Equal(new Thickness(2), badge.BorderThickness);
+            var groupGlyph = canvas.Children.OfType<Path>().Last(p => p.Stroke is null);
+            Geometry Glyph(string text, double size, FontWeight weight) => new FormattedText(text,
+                CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+                new Typeface(new FontFamily(theme.LabelFontFamily), FontStyles.Normal, weight, FontStretches.Normal),
+                size, Brushes.White, VisualTreeHelper.GetDpi(canvas).PixelsPerDip).BuildGeometry(new Point(0, 0));
+            var bold = Glyph("1", groupFontSize, FontWeights.Bold);
+            Assert.Equal(bold.Bounds.Width, groupGlyph.Data.Bounds.Width, 5);
+            Assert.Equal(bold.Bounds.Height, groupGlyph.Data.Bounds.Height, 5);
+            Assert.True(groupGlyph.Data.GetArea() > Glyph("1", groupFontSize, FontWeights.Normal).GetArea());
+            var badgeBounds = new Rect(Canvas.GetLeft(badge), Canvas.GetTop(badge), badge.Width, badge.Height);
+            Assert.True(badgeBounds.Contains(groupGlyph.Data.Bounds));
+            var list = canvas.Children.OfType<ScrollViewer>().SingleOrDefault(s => s.Content is Canvas);
+            Assert.Equal(crowded, list is not null);
+            var controlCanvas = list?.Content as Canvas ?? canvas;
+            var controlGlyph = controlCanvas.Children.OfType<Path>().First(p => p.Stroke is null);
+            var normal = Glyph(resolver.Resolve(VKey.A), fontSize, FontWeights.Normal);
+            Assert.Equal(normal.Bounds.Width, controlGlyph.Data.Bounds.Width, 5);
+            Assert.Equal(normal.Bounds.Height, controlGlyph.Data.Bounds.Height, 5);
+            Assert.Equal(.4, controlCanvas.Children.OfType<Border>().First().Background.Opacity);
+            Assert.Contains(logger.Entries, e => e.Message.Contains($"fontSize={groupFontSize}") &&
+                e.Message.Contains("fontWeight=Bold"));
+        });
+    }
+
+    [Fact]
+    public void PersistentRegionsKeepNumbersColorsAndFullVisibilityInsideAnotherRegion() {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 800, Height = 600 };
+            canvas.Measure(new Size(800, 600)); canvas.Arrange(new Rect(0, 0, 800, 600));
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel { LabelFontSize = 18 }, 18,
+                [VKey.A, VKey.S], [VKey.Q, VKey.W], new FakeKeyLabelResolver(), () => (new(0, 0), Matrix.Identity));
+            renderer.GetPageCapacity(new(0, 0, 800, 600), 4);
+            HintLabel Region(int id, VKey key, double x) {
+                var bounds = new HintRect(x, 100, 200, 300);
+                return new(new(id, null, bounds, bounds.Center, "Controls", []), key, null);
+            }
+            HintLabel[] regions = [Region(-1, VKey.D1, 40), Region(-2, VKey.D2, 450)];
+            renderer.Render(new(regions, 1, 0, 1, null, null, null, "", true, true, false));
+            var colors = canvas.Children.OfType<Border>().Select(b => Assert.IsType<SolidColorBrush>(b.BorderBrush).Color).ToArray();
+            Rect Bounds(FrameworkElement element) => new(Canvas.GetLeft(element), Canvas.GetTop(element),
+                element.Width, element.Height);
+            var badges = canvas.Children.OfType<Border>().Select(Bounds).ToArray();
+            var outlines = canvas.Children.OfType<Rectangle>().Where(r => r.Tag is string).Select(Bounds).ToArray();
+            var target = FakeElementHintService.Result(1).Targets[0] with {
+                Bounds = regions[0].Entry.Bounds,
+                VisibleBounds = regions[0].Entry.Bounds
+            };
+            var nested = new HintEntry(-3, null, regions[0].Entry.Bounds, regions[0].Entry.Preview, "Controls", []);
+            renderer.Render(new([new(ElementHintHierarchy.Leaf(target), VKey.A, VKey.Q), new(nested, VKey.S, VKey.W)],
+                3, 0, 1, 0, null, target.Token, "", false, true, false, Regions: regions, ActiveRegionId: -2));
+            for (int i = 0; i < regions.Length; i++) {
+                var badge = Assert.Single(canvas.Children.OfType<Border>(),
+                    b => Equals(b.Tag, $"group-badge:{regions[i].Entry.Id}"));
+                var outline = Assert.Single(canvas.Children.OfType<Rectangle>(),
+                    r => Equals(r.Tag, $"group:{regions[i].Entry.Id}"));
+                Assert.Equal(colors[i], Assert.IsType<SolidColorBrush>(badge.BorderBrush).Color);
+                Assert.Equal(1, badge.Opacity);
+                Assert.Equal(1, outline.Opacity);
+                Assert.Equal(i == 1 ? 4 : 2, outline.StrokeThickness);
+                Assert.Equal(1, Panel.GetZIndex(outline));
+                Assert.Equal(badges[i], Bounds(badge));
+                Assert.Equal(outlines[i], Bounds(outline));
+            }
+            var footer = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Border);
+            Assert.Contains("Numbers: switch top-level regions",
+                Assert.IsType<TextBlock>(Assert.IsType<Border>(footer.Content).Child).Text);
+        });
+    }
+
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    [InlineData(2.0)]
+    public void ReproducedHundredControlsKeepFiveRegionBadgesOnCanvasDuringListFallback(double dpi) {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 1920, Height = 1080 };
+            canvas.Measure(new Size(1920, 1080)); canvas.Arrange(new Rect(0, 0, 1920, 1080));
+            var config = new ConfigModel();
+            var logger = new CapturingLogger();
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel { LabelFontSize = 18 }, 18,
+                config.HorizontalKeys, config.VerticalKeys, new PrintableKeyLabelResolver(),
+                () => (new(-3840, -2160), new Matrix(1 / dpi, 0, 0, 1 / dpi, 0, 0)), logger);
+            Assert.Equal(100, renderer.GetPageCapacity(new(-3840, -2160, (int)(1920 * dpi), (int)(1080 * dpi)), 100));
+            var targets = FakeElementHintService.Result(100).Targets.Select(t => t with {
+                Bounds = new(-3840 + 100 * dpi, -2160 + 100 * dpi, 10 * dpi, 10 * dpi),
+                VisibleBounds = new(-3840 + 100 * dpi, -2160 + 100 * dpi, 10 * dpi, 10 * dpi),
+                Preview = new(-3840 + (int)(105 * dpi), -2160 + (int)(105 * dpi))
+            }).ToArray();
+            var labels = new List<HintLabel>();
+            for (int i = 0; i < targets.Length; i++) {
+                if (i % 20 == 0) {
+                    int group = i / 20;
+                    var bounds = new HintRect(-3840 + 50 * dpi, -2160 + (200 + group * 130) * dpi, 500 * dpi, 100 * dpi);
+                    labels.Add(new(new(-group - 1, null, bounds, bounds.Center, "Controls", []),
+                        (VKey)((int)VKey.D1 + group), null));
+                }
+                labels.Add(new(ElementHintHierarchy.Leaf(targets[i]), config.HorizontalKeys[i / 10], config.VerticalKeys[i % 10]));
+            }
+            renderer.Render(new(labels, 1, 0, 3, null, null, targets[80].Token, "", false, true, false));
+            canvas.Measure(new Size(1920, 1080)); canvas.Arrange(new Rect(0, 0, 1920, 1080)); canvas.UpdateLayout();
+            var list = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
+            var content = Assert.IsType<Canvas>(list.Content);
+            Assert.Equal(100, content.Children.OfType<Border>().Count());
+            Assert.Equal(100, content.Children.OfType<Path>().Count(p => p.Stroke is null));
+            Assert.DoesNotContain(content.Children.OfType<Border>(), b => b.Tag is string);
+            Assert.Equal(5, canvas.Children.OfType<Border>().Count());
+            Assert.Equal(5, canvas.Children.OfType<Path>().Count(p => p.Stroke is null));
+            for (int group = 0; group < 5; group++) {
+                var badge = Assert.Single(canvas.Children.OfType<Border>(), b => Equals(b.Tag, $"group-badge:{-group - 1}"));
+                var outline = Assert.Single(canvas.Children.OfType<Rectangle>(), r => Equals(r.Tag, $"group:{-group - 1}"));
+                var badgeBounds = new Rect(Canvas.GetLeft(badge), Canvas.GetTop(badge), badge.Width, badge.Height);
+                var region = new Rect(Canvas.GetLeft(outline), Canvas.GetTop(outline), outline.Width, outline.Height);
+                Assert.True(new Rect(0, 0, 1920, 1080).Contains(badgeBounds));
+                Assert.True(badgeBounds.IntersectsWith(region));
+                Assert.Equal(Assert.IsType<SolidColorBrush>(outline.Stroke).Color,
+                    Assert.IsType<SolidColorBrush>(badge.BorderBrush).Color);
+            }
+            var connector = Assert.Single(canvas.Children.OfType<Line>());
+            var selected = content.Children.OfType<Border>().ElementAt(80);
+            Assert.Equal(Canvas.GetTop(list) + Canvas.GetTop(selected) - list.VerticalOffset + selected.Height / 2,
+                connector.Y1, 6);
+            Assert.Contains(logger.Entries, e => e.Message.Contains("fallback=placement-collision"));
+            Assert.Contains(logger.Entries, e => e.Message.Contains("listLabels=100 anchoredGroups=5"));
+            Assert.DoesNotContain(logger.Entries, e => e.Message.Contains("fallback=page-capacity"));
+            Assert.All(logger.Entries.Where(e => e.Message.Contains("group-geometry")),
+                e => Assert.Contains("list=False", e.Message));
+        });
+    }
+
+    [Fact]
+    public void RegionBadgesDoNotConsumeControlCapacityOrInheritOversizedControlGlyphs() {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 800, Height = 600 };
+            canvas.Measure(new Size(800, 600)); canvas.Arrange(new Rect(0, 0, 800, 600));
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 100,
+                [VKey.A, VKey.S], [VKey.Q, VKey.W], new FakeKeyLabelResolver(), () => (new(0, 0), Matrix.Identity));
+            Assert.Equal(4, renderer.GetPageCapacity(new(0, 0, 800, 600), 4));
+            var targets = FakeElementHintService.Result(4).Targets.Select((target, i) => target with {
+                Bounds = new(50 + i * 180, 80, 40, 30),
+                VisibleBounds = new(50 + i * 180, 80, 40, 30),
+                Preview = new(70 + i * 180, 95)
+            }).ToArray();
+            var labels = targets.Select((target, i) => new HintLabel(ElementHintHierarchy.Leaf(target),
+                i < 2 ? VKey.A : VKey.S, i % 2 == 0 ? VKey.Q : VKey.W)).ToList();
+            var bounds = new HintRect(50, 250, 200, 100);
+            labels.Add(new(new(-1, null, bounds, bounds.Center, "Controls", []), VKey.D1, null));
+            var view = new HintLevelView(labels, 1, 0, 1, null, null, null, "", false, true, false);
+            renderer.Render(view);
+            Assert.DoesNotContain(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
+            Assert.Equal(5, canvas.Children.OfType<Border>().Count());
+            renderer.RebuildLabels(new LongKeyLabelResolver());
+            renderer.GetPageCapacity(new(0, 0, 800, 600), 4);
+            renderer.Render(view);
+            var content = Assert.IsType<Canvas>(Assert.Single(canvas.Children.OfType<ScrollViewer>(),
+                s => s.Content is Canvas).Content);
+            Assert.Equal(4, content.Children.OfType<Border>().Count());
+            var badge = Assert.Single(canvas.Children.OfType<Border>());
+            Assert.Equal("group-badge:-1", badge.Tag);
+            Assert.True(badge.Width < 200);
+        });
+    }
+
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    [InlineData(2.0)]
+    public void StatusBarRegionUsesFullCanvasBoundsInsteadOfFooterViewport(double dpi) {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 1920, Height = 1080 };
+            canvas.Measure(new Size(1920, 1080)); canvas.Arrange(new Rect(0, 0, 1920, 1080));
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 18,
+                [VKey.A], [VKey.Q], new FakeKeyLabelResolver(),
+                () => (new(-3840, -2160), new Matrix(1 / dpi, 0, 0, 1 / dpi, 0, 0)));
+            renderer.GetPageCapacity(new(-3840, -2160, (int)(1920 * dpi), (int)(1080 * dpi)), 1);
+            var bounds = new HintRect(-3840 + 5 * dpi, -2160 + 1002.5 * dpi, 298.5 * dpi, 27.5 * dpi);
+            var group = new HintEntry(-1, null, bounds, bounds.Center, "Controls", []);
+            renderer.Render(new([new(group, VKey.D1, null)], 1, 0, 1, null, null, null, "", true, true, false));
+            var outline = Assert.Single(canvas.Children.OfType<Rectangle>(), r => Equals(r.Tag, "group:-1"));
+            Assert.Equal(24.5, outline.Height, 6);
+            Assert.Equal(1004, Canvas.GetTop(outline), 6);
+            Assert.Equal(1028.5, Canvas.GetTop(outline) + outline.Height, 6);
+        });
+    }
+
+    [Fact]
+    public void UnplaceableRegionBadgeRemainsInContainedListWithoutDroppingItsNumber() {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 1, Height = 1 };
+            canvas.Measure(new Size(1, 1)); canvas.Arrange(new Rect(0, 0, 1, 1));
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 18,
+                [VKey.A], [VKey.Q], new FakeKeyLabelResolver(), () => (new(0, 0), Matrix.Identity));
+            renderer.GetPageCapacity(new(0, 0, 1, 1), 1);
+            var group = new HintEntry(-1, null, new(0, 0, 1, 1), new(0, 0), "Controls", []);
+            renderer.Render(new([new(group, VKey.D1, null)], 1, 0, 1, null, null, null, "", true, true, false));
+            var list = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
+            var content = Assert.IsType<Canvas>(list.Content);
+            var badge = Assert.Single(content.Children.OfType<Border>());
+            Assert.Equal("group-badge:-1", badge.Tag);
+            var glyph = Assert.Single(content.Children.OfType<Path>(), p => p.Stroke is null);
+            Assert.True(new Rect(Canvas.GetLeft(badge), Canvas.GetTop(badge), badge.Width, badge.Height).Contains(glyph.Data.Bounds));
+            Assert.Equal(.9, badge.Background.Opacity);
+            Assert.True(new Rect(0, 0, 1, 1).Contains(new Rect(Canvas.GetLeft(list), Canvas.GetTop(list), list.Width, list.Height)));
+        });
+    }
+
+    [Theory]
+    [InlineData(1.0)]
+    [InlineData(1.5)]
+    [InlineData(2.0)]
+    public void NumberedGroupOutlinesMatchTheirBadgesWithoutActionConnectors(double dpi) {
+        RunSta(() => {
+            var canvas = new Canvas { Width = 800, Height = 600 };
+            canvas.Measure(new Size(800, 600)); canvas.Arrange(new Rect(0, 0, 800, 600));
+            var logger = new CapturingLogger();
+            var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 18,
+                [VKey.A, VKey.S], [VKey.Q, VKey.W], new FakeKeyLabelResolver(),
+                () => (new(-1920, -1080), new Matrix(1 / dpi, 0, 0, 1 / dpi, 0, 0)), logger);
+            renderer.GetPageCapacity(new(-1920, -1080, 1600, 1200), 4);
+            var bounds = new HintRect(-1800, -1000, 300, 200);
+            var group = new HintEntry(-1, null, bounds, bounds.Center, "PRIVATE-DESCRIPTION-SHOULD-NOT-BE-LOGGED", []);
+            var view = new HintLevelView([new(group, VKey.D1, null)], 1, 0, 1,
+                null, null, null, "", true, true, false, true, Guid.NewGuid());
+            renderer.Render(view);
+            var outline = Assert.Single(canvas.Children.OfType<Rectangle>(), r => Equals(r.Tag, "group:-1"));
+            var badge = Assert.Single(canvas.Children.OfType<Border>());
+            var glyph = Assert.Single(canvas.Children.OfType<Path>(), p => p.Stroke is null);
+            Assert.Equal(Assert.IsType<SolidColorBrush>(outline.Stroke).Color,
+                Assert.IsType<SolidColorBrush>(badge.BorderBrush).Color);
+            Assert.Equal(Assert.IsType<SolidColorBrush>(outline.Stroke).Color,
+                Assert.IsType<SolidColorBrush>(glyph.Fill).Color);
+            Assert.True(outline.RadiusX > 0);
+            Assert.False(outline.IsHitTestVisible);
+            Assert.Empty(canvas.Children.OfType<Line>());
+            Assert.True(new Rect(0, 0, 800, 600).Contains(new Rect(Canvas.GetLeft(outline),
+                Canvas.GetTop(outline), outline.Width, outline.Height)));
+            var spinner = Assert.Single(canvas.Children.OfType<Viewbox>());
+            renderer.Render(view with { FocusedId = -1 });
+            Assert.Same(spinner, Assert.Single(canvas.Children.OfType<Viewbox>()));
+            Assert.Empty(canvas.Children.OfType<Line>());
+            renderer.Render(view with { IsDiscovering = false });
+            Assert.Empty(canvas.Children.OfType<Viewbox>());
+            Assert.Contains(logger.Entries, e => e.Message.Contains($"activation={view.Activation}") &&
+                e.Message.Contains("group-geometry key=D1") && e.Message.Contains("rawDip=") && e.Message.Contains("outlineDip="));
+            Assert.Contains(logger.Entries, e => e.Message.Contains("layout depth=1") && e.Message.Contains("fallback=none"));
+            Assert.DoesNotContain(logger.Entries, e => e.Message.Contains(group.Description));
+        });
+    }
 
     [Theory]
     [InlineData(800, 600, 1.0)]
@@ -29,9 +312,10 @@ public class ElementHintRenderingTests {
         RunSta(() => {
             var canvas = new Canvas { Width = width, Height = height };
             canvas.Measure(new Size(width, height)); canvas.Arrange(new Rect(0, 0, width, height));
+            var logger = new CapturingLogger();
             var renderer = new ElementHintsRenderer(canvas, new ThemeModel(), 100,
                 [VKey.A, VKey.S], [VKey.Q, VKey.W], new LongKeyLabelResolver(),
-                () => (new(-1920, -1080), new Matrix(1 / dpi, 0, 0, 1 / dpi, 0, 0)));
+                () => (new(-1920, -1080), new Matrix(1 / dpi, 0, 0, 1 / dpi, 0, 0)), logger);
             renderer.GetPageCapacity(new(-1920, -1080, (int)width, (int)height), 2, singleKey: true);
             var targets = FakeElementHintService.Result(2).Targets.Select(t => t with {
                 Bounds = new(-1900, -1050, 100, 40),
@@ -42,6 +326,9 @@ public class ElementHintRenderingTests {
                 target.VisibleBounds, target.Preview, i == 0 ? "Tree item - select/expand" : "Button - invoke", []),
                 i == 0 ? VKey.A : VKey.S, null)).ToArray();
             renderer.Render(new(labels, 2, 0, 1, null, 2, 2, "", true, true, true));
+            Assert.Contains(logger.Entries, e => e.Message.Contains("list=True") &&
+                (e.Message.Contains("fallback=oversize-label") || e.Message.Contains("fallback=page-capacity") ||
+                 e.Message.Contains("fallback=placement-collision")));
             canvas.Measure(new Size(width, height)); canvas.Arrange(new Rect(0, 0, width, height)); canvas.UpdateLayout();
             var list = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Canvas);
             Assert.True(new Rect(0, 0, width, height).Contains(
@@ -206,7 +493,7 @@ public class ElementHintRenderingTests {
             var card = Assert.Single(canvas.Children.OfType<Border>());
             Assert.Equal(new CornerRadius(5), card.CornerRadius);
             Assert.Equal(new Thickness(3), card.BorderThickness);
-            Assert.Equal(.4, card.Background.Opacity);
+            Assert.Equal(.9, card.Background.Opacity);
             Assert.Empty(canvas.Children.OfType<Line>());
             var footer = Assert.Single(canvas.Children.OfType<ScrollViewer>(), s => s.Content is Border);
             Assert.Contains("Group focused", Assert.IsType<TextBlock>(Assert.IsType<Border>(footer.Content).Child).Text);
@@ -275,6 +562,10 @@ public class ElementHintRenderingTests {
             Assert.False(spinner.IsHitTestVisible);
             var arc = Assert.Single(Assert.IsType<Canvas>(spinner.Child).Children.OfType<Path>());
             var rotation = Assert.IsType<RotateTransform>(arc.RenderTransform);
+            Assert.True(rotation.HasAnimatedProperties);
+            renderer.Render([], 0, 1, null, null, "Finding controls...", isDiscovering: true);
+            Assert.Same(spinner, Assert.Single(canvas.Children.OfType<Viewbox>()));
+            Assert.Same(rotation, arc.RenderTransform);
             Assert.True(rotation.HasAnimatedProperties);
             renderer.Render([], 0, 1, null, null, "Control discovery timed out");
             Assert.Empty(canvas.Children.OfType<Viewbox>());
@@ -382,7 +673,7 @@ public class ElementHintRenderingTests {
             session.CursorMoveRequested += _ => moves++;
             try {
                 session.Activate(new(0, 0, 300, 150), default);
-                session.OnKey(VKey.A); session.OnKey(VKey.W);
+                session.OnKey(VKey.D2);
                 session.OnKey(VKey.A); session.OnKey(VKey.W);
                 Assert.Equal(6, session.Selected!.Token);
                 renderer.RebuildLabels(new LongKeyLabelResolver());

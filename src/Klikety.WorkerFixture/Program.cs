@@ -17,6 +17,24 @@ if (args[0] == "parent") {
 var input = Console.OpenStandardInput();
 var output = Console.OpenStandardOutput();
 var request = await ElementHintProtocol.ReadAsync<HintRequest>(input, ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
+if (args[0].StartsWith("cold-", StringComparison.Ordinal)) {
+    int discoveries = 0;
+    while (true) {
+        if (request.Command == HintCommand.Discover) { discoveries++; }
+        if (args[0] == "cold-delay") { await Task.Delay(300); }
+        var target = new HintTarget(1, [42, 1], 42, 50000, HintCapabilities.Invoke,
+            new(10, 10, 20, 20), new(10, 10, 20, 20), new(20, 20));
+        bool recovered = discoveries > 1 && args[0] is not ("cold-empty" or "cold-delay");
+        var outcome = recovered ? HintOutcome.Success :
+            args[0] == "cold-error" ? HintOutcome.ProviderError : HintOutcome.NoTargets;
+        await ElementHintProtocol.WriteAsync(output, new HintResponse(1, request.SessionId, request.RequestId,
+            outcome, recovered ? [target] : [], Visited: 1, Reason: $"discoveries={discoveries}", RootProcessId: 42),
+            ElementHintProtocol.MaxResponseBytes, CancellationToken.None);
+        try {
+            request = await ElementHintProtocol.ReadAsync<HintRequest>(input, ElementHintProtocol.MaxRequestBytes, CancellationToken.None);
+        } catch (EndOfStreamException) { return; }
+    }
+}
 if (args[0] == "recover" && !File.Exists(args[1])) { await Task.Delay(Timeout.Infinite); }
 if (args[0] == "delay") { await Task.Delay(int.Parse(args[1])); }
 if (args[0].StartsWith("incremental", StringComparison.Ordinal)) {

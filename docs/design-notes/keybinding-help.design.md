@@ -71,6 +71,11 @@ normal-mode rendering receives no new diagnostics/banner.
   guidance stays concise; technical traversal counts remain in logs. UniformGrid's
   configured chord is projected alongside other enabled modes; Enter is a distinct
   fallback entry only while ElementHints is active.
+- Root region numbers are projected at every depth, not replaced by nested group
+  keys. Prompts explain switching top-level regions from anywhere, and using
+  displayed letter labels to open nested groups. Number commands preserve macro
+  setup priority. Group-focus guidance uses the displayed label, not a presumed
+  local numeric shortcut.
 
 The separate macro global hotkey remains an OS-level command, not an overlay-local key and not routed through help dismissal.
 

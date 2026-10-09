@@ -11,6 +11,48 @@ namespace Klikety.Tests;
 
 public class ElementHintsCoordinatorTests {
     [Fact]
+    public void HintDigitsOpenRegionsInsteadOfSwitchingDisplaysAndGridFallbackRestoresDisplayKeys() {
+        var service = new FakeElementHintService { Response = FakeElementHintService.Result(250) };
+        var logger = new CapturingLogger();
+        var h = Create(service, defaultHints: true, logger: logger);
+        using var coordinator = h.Coordinator;
+        var primary = new Services.DisplayInfo(new(0, 0, 1920, 1080), 1, "DISPLAY1", "A");
+        var secondary = new Services.DisplayInfo(new(1920, 0, 1920, 1080), 1, "DISPLAY2", "B");
+        h.Platform.DisplayCatalog.Result = Services.DisplayCatalogResult.Ok(
+            new Services.DisplaySnapshot([primary, secondary], new(0, 0, 3840, 1080)));
+        h.Hotkey.SimulateActivation();
+        int shows = h.Overlay.ShowCount;
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.DoesNotContain(h.Overlay.CurrentHelp!.Entries, e => e.Category == HelpEntryCategory.Display);
+        Assert.Contains(h.Overlay.CurrentHelp.Entries, e => e.Key == VKey.D2 && e.Command == "Open outlined region");
+        h.Hook.SimulateKeyPress(VKey.D2);
+        Assert.Equal(shows, h.Overlay.ShowCount);
+        Assert.Equal(primary.MonitorBounds, h.Overlay.LastShowBounds);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, p => p.StartsWith("Level 2:"));
+        Assert.Contains(h.Overlay.CurrentHelp.Entries, e => e.Key == VKey.D1 &&
+            e.Command == "Open outlined region" && e.IsAvailable);
+        h.Hook.SimulateKeyPress(VKey.D1);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Prompts, p => p.StartsWith("Level 2:"));
+        Assert.Contains(h.Overlay.CurrentHelp.Entries, e => e.Key == VKey.D2 &&
+            e.Command == "Open outlined region" && e.IsAvailable);
+        Assert.Contains(logger.Entries, e => e.Message.Contains("region-switch") &&
+            e.Message.Contains("previousDepth=2"));
+        Assert.Single(service.Scans);
+        Assert.Empty(h.Mouse.Calls);
+        Assert.Contains(logger.Entries, e => e.Message.Contains("digit-route key=D2 route=received"));
+        Assert.Contains(logger.Entries, e => e.Message.Contains("digit-route key=D2 route=forward-session"));
+        Assert.Contains(logger.Entries, e => e.Message.Contains("number key=D2") && e.Message.Contains("matchedGroup=-2"));
+        Assert.Contains(logger.Entries, e => e.Message.Contains("open-group id=-2") && e.Message.Contains("children=100"));
+        h.Hook.SimulateKeyPress(VKey.Return);
+        h.Hook.SimulateKeyPress(VKey.OemQuestion);
+        Assert.Contains(h.Overlay.CurrentHelp!.Entries, e => e.Key == VKey.D2 && e.Category == HelpEntryCategory.Display);
+        h.Hook.SimulateKeyPress(VKey.D2);
+        Assert.Equal(secondary.MonitorBounds, h.Overlay.LastShowBounds);
+    }
+
+    [Fact]
     public void HelpReportsMacroSetupConsumedEnterAndRecordingEscapeBeforeHintEscape() {
         var service = new FakeElementHintService();
         var h = Create(service, defaultHints: true);
@@ -77,7 +119,7 @@ public class ElementHintsCoordinatorTests {
         var h = Create(service, defaultHints: true);
         using var coordinator = h.Coordinator;
         h.Hotkey.SimulateActivation();
-        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.D1);
         h.Hook.SimulateKeyPress(VKey.A);
         h.Hook.SimulateKeyPress(VKey.OemQuestion);
         Assert.Contains(h.Overlay.CurrentHelp!.Prompts, prompt => prompt.StartsWith("Level 2: two-key"));
@@ -102,7 +144,7 @@ public class ElementHintsCoordinatorTests {
         Assert.Contains(h.Overlay.CurrentHelp.Prompts, prompt => prompt.StartsWith("Group focused."));
         Assert.Contains(h.Overlay.CurrentHelp.Entries, entry => entry.Key == VKey.Space && !entry.IsAvailable);
         h.Hook.SimulateKeyPress(VKey.Escape);
-        h.Hook.SimulateKeyPress(VKey.A);
+        h.Hook.SimulateKeyPress(VKey.D1);
         h.Hook.SimulateKeyPress(VKey.A);
         h.Hook.SimulateKeyPress(VKey.Q);
         h.Hook.SimulateKeyPress(VKey.Escape);
@@ -213,7 +255,8 @@ public class ElementHintsCoordinatorTests {
 
     private static (NavigatorCoordinator Coordinator, FakeHotKeyService Hotkey, FakeKeyboardHookService Hook,
         FakeMouseActionService Mouse, FakeOverlayWindow Overlay, FakePlatformServices Platform) Create(
-        FakeElementHintService service, FakeElementPointGuard? guard = null, bool defaultHints = false) {
+        FakeElementHintService service, FakeElementPointGuard? guard = null, bool defaultHints = false,
+        Microsoft.Extensions.Logging.ILogger? logger = null) {
         var config = new ConfigModel {
             ActionBindings = new() {
                 ["X"] = MouseAction.DoubleClick, ["V"] = MouseAction.RightClick,
@@ -232,9 +275,9 @@ public class ElementHintsCoordinatorTests {
         var overlay = new FakeOverlayWindow { RaiseFocusLostOnHide = true };
         var mouse = new FakeMouseActionService();
         var factory = new ModeSessionFactory(config, new ActionMapper(config.ActionBindings), new FakeGridRenderer(),
-            elementHintsService: service);
+            elementHintsService: service, logger: logger);
         var coordinator = new NavigatorCoordinator(hotkey, hook, mouse, overlay, factory, platform,
-            new FakeModifierDetector(), config, NullLogger.Instance, keyLabelResolverFactory: _ => new FakeKeyLabelResolver(),
+            new FakeModifierDetector(), config, logger ?? NullLogger.Instance, keyLabelResolverFactory: _ => new FakeKeyLabelResolver(),
             elementPointGuard: guard ?? new FakeElementPointGuard());
         return (coordinator, hotkey, hook, mouse, overlay, platform);
     }
@@ -309,7 +352,7 @@ public class ElementHintsCoordinatorTests {
         var h = Create(service, defaultHints: true);
         using var coordinator = h.Coordinator;
         h.Hotkey.SimulateActivation();
-        h.Hook.SimulateKey(VKey.A); h.Hook.SimulateKey(VKey.A);
+        h.Hook.SimulateKey(VKey.D1); h.Hook.SimulateKey(VKey.A);
         if (selected) { h.Hook.SimulateKey(VKey.Q); }
         h.Hook.SimulateKey(VKey.OemQuestion);
         Assert.NotNull(h.Overlay.CurrentHelp);

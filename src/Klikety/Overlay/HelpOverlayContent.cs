@@ -102,7 +102,7 @@ public static class HelpOverlayContentBuilder {
                 available ? null : appScoped ? "Application scope is already active" : "Navigation input has locked scope changes"));
         }
 
-        foreach (var (devicePath, number) in displayNumbers.OrderBy(pair => pair.Value)) {
+        foreach (var (devicePath, number) in displayNumbers.Where(_ => elementHints is null).OrderBy(pair => pair.Value)) {
             if (number is < 1 or > 9) {
                 continue;
             }
@@ -118,6 +118,11 @@ public static class HelpOverlayContentBuilder {
 
         var prompts = new List<string>();
         if (elementHints is { } hints) {
+            foreach (var key in hints.GroupKeys ?? []) {
+                entries.Add(NewEntry(key, "Open outlined region", HelpEntryCategory.Mode, labels, !macroBlocksNavigation) with {
+                    KeyLabel = ((int)key - (int)VKey.D1 + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)
+                });
+            }
             entries.Add(NewEntry(VKey.Return, "Grid fallback", HelpEntryCategory.Mode, labels, !macroBlocksNavigation));
             var hasTargets = hints.EntryCount is { } entryCount ? entryCount > 0 : hints.TargetCount > 0;
             foreach (var arrow in new[] { VKey.Left, VKey.Right, VKey.Up, VKey.Down }) {
@@ -132,7 +137,7 @@ public static class HelpOverlayContentBuilder {
                 prompts.Add(hints.Status);
             }
             if (hasTargets) {
-                prompts.Add($"Level {hints.Depth}: {(hints.SingleKey ? "one-key" : "two-key")} labels. + marks a navigation-only group.");
+                prompts.Add($"Level {hints.Depth}: {(hints.SingleKey ? "one-key" : "two-key")} control/group labels. Numbers switch top-level regions from any depth.");
                 if (hints.Outcome is null) { prompts.Add("Controls continue to appear. Existing labels stay fixed and can be used now."); }
                 if (hints.PageCount > 1) {
                     prompts.Add($"Page {hints.Page + 1} of {hints.PageCount}. Other controls may be on another page.");
@@ -148,13 +153,13 @@ public static class HelpOverlayContentBuilder {
             if (macroBlocksNavigation) {
                 prompts.Add("Finish macro setup first: label, page, action and Enter keys are consumed until the macro slot/confirmation is complete.");
             } else {
-                prompts.Add("Type the label printed on a hint to select without clicking, or open a group. Only displayed labels are valid.");
+                prompts.Add("Type a control label to select without clicking or a nested group's label to open it. Top-level region numbers stay visible and switch regions from any depth. Numbers do not switch monitors in element hints. Only displayed labels are valid.");
                 prompts.Add(hints.HasSelection
                     ? "Target selected. Use an action key to click, move only, or start a drag; targets are checked again before acting."
                     : hints.Prefix is { } prefix
                         ? $"First key {labels.Resolve(config.HorizontalKeys[prefix])} entered. Type a second label key to select; action keys do nothing until selection."
                         : hints.FocusedGroup
-                            ? "Group focused. Type its label to open; action keys cannot act on groups."
+                            ? "Group focused. Type its displayed label to open; action keys cannot act on groups."
                             : "No target selected. Action keys do nothing until a label or arrow selects a control.");
                 if (hints.ArrowKeys) { prompts.Add("Arrows focus controls or groups within this level, never switch pages."); }
                 if (hints.PageCount > 1) { prompts.Add("PgUp/PgDn wrap pages and clear the first key and selection, independently of arrow navigation."); }

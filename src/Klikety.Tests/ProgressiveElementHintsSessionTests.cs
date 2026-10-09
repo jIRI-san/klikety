@@ -6,6 +6,9 @@ using Klikety.Config;
 using Klikety.Grid;
 using Klikety.Input;
 using Klikety.Navigation;
+using Klikety.Tests.Fakes;
+
+using Microsoft.Extensions.Logging;
 
 namespace Klikety.Tests;
 
@@ -13,7 +16,8 @@ public sealed class ProgressiveElementHintsSessionTests {
     private sealed class Service : IElementHintService {
         public HintResponse First { get; set; } = FakeElementHintService.Result(1) with { IsComplete = false };
         public TaskCompletionSource<HintResponse> Next { get; } = new();
-        public TaskCompletionSource<HintResponse> Group { get; } = new();
+        public IReadOnlyList<HintResponse> More { get; init; } = [];
+        public TaskCompletionSource<HintResponse> Group { get; set; } = new();
         public TaskCompletionSource<HintResponse> Resumed { get; } = new();
         public List<int> Opened { get; } = [];
         public List<int> ResumedScopes { get; } = [];
@@ -25,7 +29,10 @@ public sealed class ProgressiveElementHintsSessionTests {
         public async IAsyncEnumerable<HintResponse> DiscoverIncrementallyAsync(ElementTargetContext context, HintRect region,
             [EnumeratorCancellation] CancellationToken ct) {
             yield return First;
-            if (!First.IsComplete) { yield return await Next.Task; }
+            if (!First.IsComplete) {
+                yield return await Next.Task;
+                foreach (var frame in More) { yield return frame; }
+            }
         }
         public async IAsyncEnumerable<HintResponse> ExpandAsync(int groupId, [EnumeratorCancellation] CancellationToken ct) {
             Opened.Add(groupId);
@@ -43,14 +50,18 @@ public sealed class ProgressiveElementHintsSessionTests {
     }
     private sealed class Renderer : IElementHintsRenderer {
         public HintLevelView? Last { get; private set; }
-        public int GetPageCapacity(Rectangle region, int keyCapacity, bool singleKey = false) => keyCapacity;
+        public int? Capacity { get; init; }
+        public int GroupCapacity { get; init; } = 9;
+        public int GetPageCapacity(Rectangle region, int keyCapacity, bool singleKey = false) =>
+            Math.Min(Capacity ?? keyCapacity, keyCapacity);
+        public int GetGroupPageCapacity(Rectangle region) => GroupCapacity;
         public void Render(HintLevelView view) => Last = view;
         public void RebuildLabels(IKeyLabelResolver resolver) { }
         public void FlashInvalidKey() { }
     }
     private static ElementHintsSession Session(Service service, Renderer? renderer = null,
-        ElementHintAssignmentCache? assignments = null) =>
-        new([VKey.A, VKey.S], [VKey.Q, VKey.W], new ActionMapper([]), new(1, 1, 42, 1), service, renderer) {
+        ElementHintAssignmentCache? assignments = null, ILogger? logger = null) =>
+        new([VKey.A, VKey.S], [VKey.Q, VKey.W], new ActionMapper([]), new(1, 1, 42, 1), service, renderer, logger) {
             AssignmentCache = assignments
         };
     private static HintResponse Frame(params int[] ids) => FakeElementHintService.Result(0) with {
@@ -73,6 +84,202 @@ public sealed class ProgressiveElementHintsSessionTests {
         session.Deactivate();
         await session.Retirement;
         return labels;
+    }
+
+    [Fact]
+    public async Task RegionNumbersRemainVisibleAndSwitchFromAnyNestedDepthWithoutActing() {
+        var service = new Service { First = Frame(Enumerable.Range(1, 33).ToArray()) };
+        var renderer = new Renderer();
+        var logger = new CapturingLogger();
+        var session = Session(service, renderer, logger: logger);
+        int moves = 0, actions = 0;
+        session.CursorMoveRequested += _ => moves++;
+        session.ActionRequested += (_, _) => actions++;
+        try {
+            session.Activate(new(0, 0, 1000, 1000), default);
+            var regions = session.Regions.ToArray();
+            Assert.Equal(2, regions.Length);
+            session.OnKey(VKey.D1);
+            Assert.Equal(2, session.Depth);
+            Assert.Equal(regions, renderer.Last!.Regions);
+            Assert.Equal(regions[0].Entry.Id, renderer.Last.ActiveRegionId);
+            Assert.Equal([VKey.D1, VKey.D2], session.HelpState.GroupKeys);
+            var nested = session.Labels.First(l => l.Entry.IsGroup);
+            Assert.DoesNotContain(nested.First, new[] { VKey.D1, VKey.D2 });
+            Choose(session, nested);
+            Assert.Equal(3, session.Depth);
+            Choose(session, session.Labels.First(l => l.Entry.Target is not null));
+            Assert.NotNull(session.Selected);
+            Assert.Equal(1, moves);
+            session.OnKey(VKey.D2);
+            Assert.Equal(2, session.Depth);
+            Assert.Null(session.Selected);
+            Assert.Null(session.Prefix);
+            Assert.Equal(regions, renderer.Last.Regions);
+            Assert.Equal(regions[1].Entry.Id, renderer.Last.ActiveRegionId);
+            session.OnKey(VKey.D1);
+            Assert.Equal(2, session.Depth);
+            Assert.Equal(regions[0].Entry.Id, renderer.Last.ActiveRegionId);
+            Assert.Equal(1, moves);
+            Assert.Equal(0, actions);
+            Assert.Empty(service.Validations);
+            Assert.Contains(logger.Entries, e => e.Message.Contains("region-switch") &&
+                e.Message.Contains("previousDepth=3"));
+            Assert.Contains(logger.Entries, e => e.Message.Contains("region-state") &&
+                e.Message.Contains($"active={regions[1].Entry.Id} visible=2 rootPage=0"));
+            session.OnKey(VKey.Escape);
+            Assert.Equal(1, session.Depth);
+            Assert.Null(renderer.Last.ActiveRegionId);
+        } finally { session.Deactivate(); await session.Retirement; }
+    }
+
+    [Fact]
+    public async Task ReturningFromLocalNestingKeepsRootDiscoveryAliveForRegionSwitching() {
+        var service = new Service { First = Frame(Enumerable.Range(1, 33).ToArray()) with { IsComplete = false } };
+        var renderer = new Renderer();
+        var session = Session(service, renderer);
+        try {
+            session.Activate(new(0, 0, 1000, 1000), default);
+            session.OnKey(VKey.D1);
+            Choose(session, session.Labels.First(l => l.Entry.IsGroup));
+            Assert.Equal(3, session.Depth);
+            session.OnKey(VKey.Escape);
+            session.OnKey(VKey.D2);
+            Assert.Equal(2, session.Depth);
+            service.Next.SetResult(Frame(Enumerable.Range(1, 35).ToArray()));
+            await session.Discovery;
+            Assert.False(renderer.Last!.IsDiscovering);
+            Assert.Equal(35, session.HelpState.TargetCount);
+            Assert.Empty(service.ResumedScopes);
+            Assert.Empty(service.Opened);
+        } finally { session.Deactivate(); await session.Retirement; }
+    }
+
+    [Fact]
+    public async Task PagingChildrenKeepsRootRegionPagePinnedUntilReturningToRoot() {
+        var service = new Service {
+            First = Frame() with {
+                Groups = [new(2, 0, new(10, 10, 100, 100), 11), new(3, 0, new(200, 10, 100, 100), 11)]
+            }
+        };
+        var renderer = new Renderer { Capacity = 1, GroupCapacity = 1 };
+        var session = Session(service, renderer);
+        try {
+            session.Activate(new(0, 0, 1000, 1000), default);
+            Assert.Equal(2, session.PageCount);
+            var firstRegion = Assert.Single(session.Regions);
+            session.OnKey(VKey.D1);
+            service.Group.SetResult(Frame(1, 2) with {
+                GroupId = 2,
+                Targets = Frame(1, 2).Targets.Select(t => t with { DiscoveryGroupId = 2 }).ToArray()
+            });
+            await session.Discovery;
+            Assert.Equal(2, session.PageCount);
+            session.OnKey(VKey.Next);
+            Assert.Equal(1, session.Page);
+            Assert.Equal(firstRegion, Assert.Single(session.Regions));
+            session.OnKey(VKey.A);
+            Assert.NotNull(session.Prefix);
+            session.OnKey(VKey.D1);
+            Assert.Equal(2, session.Depth);
+            Assert.Equal(0, session.Page);
+            Assert.Null(session.Prefix);
+            Assert.Equal(firstRegion.Entry.Id, renderer.Last!.ActiveRegionId);
+            session.OnKey(VKey.Escape);
+            session.OnKey(VKey.Next);
+            var secondRegion = Assert.Single(session.Regions);
+            Assert.NotEqual(firstRegion.Entry.Id, secondRegion.Entry.Id);
+            Assert.Equal(VKey.D1, secondRegion.First);
+            service.Group = new();
+            session.OnKey(VKey.D1);
+            service.Group.SetResult(Frame() with { GroupId = 3 });
+            await session.Discovery;
+            Assert.Equal(secondRegion.Entry.Id, renderer.Last.ActiveRegionId);
+            Assert.Equal([2, 3], service.Opened);
+            Assert.Empty(service.Validations);
+        } finally { session.Deactivate(); await session.Retirement; }
+    }
+
+    [Fact]
+    public async Task RootDiscoveryContinuesWhileRegionSwitchesKeepNumbersAndChildLabelsStable() {
+        var config = new ConfigModel();
+        var service = new Service { First = Frame(Enumerable.Range(1, 120).ToArray()) with { IsComplete = false } };
+        var renderer = new Renderer();
+        var session = new ElementHintsSession(config.HorizontalKeys, config.VerticalKeys, new ActionMapper([]),
+            new(1, 1, 42, 1), service, renderer);
+        try {
+            session.Activate(new(0, 0, 4000, 4000), default);
+            var regions = session.Regions.ToArray();
+            Assert.Equal(2, regions.Length);
+            session.OnKey(VKey.D1);
+            session.OnKey(VKey.D2);
+            Assert.Equal(2, session.Depth);
+            var children = session.Labels.ToArray();
+            service.Next.SetResult(Frame(Enumerable.Range(1, 140).ToArray()));
+            await session.Discovery;
+            Assert.Equal(children, session.Labels);
+            Assert.Equal(regions, renderer.Last!.Regions);
+            Assert.Equal(regions[1].Entry.Id, renderer.Last.ActiveRegionId);
+            Assert.False(renderer.Last.IsDiscovering);
+            Assert.Empty(service.ResumedScopes);
+            Assert.Empty(service.Opened);
+        } finally { session.Deactivate(); await session.Retirement; }
+    }
+
+    [Fact]
+    public async Task SwitchingPendingRemoteRegionsRejectsTheSupersededScope() {
+        var service = new Service {
+            First = Frame() with {
+                Groups = [new(2, 0, new(10, 10, 100, 100), 11), new(3, 0, new(200, 10, 100, 100), 11)]
+            }
+        };
+        var logger = new CapturingLogger();
+        var session = Session(service, logger: logger);
+        try {
+            session.Activate(new(0, 0, 1000, 1000), default);
+            session.OnKey(VKey.D1);
+            var previous = session.Discovery;
+            session.OnKey(VKey.D2);
+            Assert.Equal(2, session.Depth);
+            Assert.Equal([2, 3], service.Opened);
+            service.Group.SetResult(Frame(1) with {
+                GroupId = 3,
+                Targets = Frame(1).Targets.Select(t => t with { DiscoveryGroupId = 3 }).ToArray()
+            });
+            await Task.WhenAll(previous, session.Discovery);
+            Assert.Equal(101, Assert.Single(session.Labels).Entry.Target!.Token);
+            Assert.Equal([VKey.D1, VKey.D2], session.HelpState.GroupKeys);
+            Assert.Contains(logger.Entries, e => e.Message.Contains("ignored-frame") &&
+                e.Message.Contains("scope=3"));
+        } finally { session.Deactivate(); await session.Retirement; }
+    }
+
+    [Fact]
+    public async Task GrowingWindowAddsNumberedSpatialRegionsWithoutRemappingPublishedControls() {
+        var config = new ConfigModel();
+        var service = new Service { First = Frame(Enumerable.Range(1, 80).ToArray()) with { IsComplete = false } };
+        var session = new ElementHintsSession(config.HorizontalKeys, config.VerticalKeys, new ActionMapper([]),
+            new(1, 1, 42, 1), service, new Renderer());
+        try {
+            session.Activate(new(0, 0, 4000, 4000), default);
+            var original = session.Labels.ToArray();
+            Choose(session, original[0]);
+            int selected = session.Selected!.Token;
+            service.Next.SetResult(Frame(Enumerable.Range(1, 180).ToArray()));
+            await session.Discovery;
+            Assert.Equal(selected, session.Selected.Token);
+            Assert.Equal(original, session.Labels.Where(l => !l.Entry.IsGroup));
+            Assert.Equal(9, session.Labels.Count(l => l.Entry.IsGroup));
+            var region = session.Labels.First(l => l.Entry.IsGroup);
+            Assert.Equal(VKey.D1, region.First);
+            Assert.Null(region.Second);
+            Choose(session, region);
+            Assert.Equal(2, session.Depth);
+            Assert.True(session.HelpState.SingleKey);
+            Assert.Equal(10, session.Labels.Count);
+            Assert.All(session.Labels, l => Assert.NotNull(l.Entry.Target));
+            Assert.Empty(service.Validations);
+        } finally { session.Deactivate(); await session.Retirement; }
     }
 
     [Fact]
@@ -138,22 +345,31 @@ public sealed class ProgressiveElementHintsSessionTests {
     [Fact]
     public async Task OffPageAssignmentsAreSavedWithoutVisitingThePage() {
         var cache = new ElementHintAssignmentCache(5);
-        var service = new Service { First = Frame(1, 2, 3, 4) with { IsComplete = false } };
+        var service = new Service {
+            First = Frame(1, 2, 3, 4) with { IsComplete = false },
+            More = [Frame(1, 2, 3, 4, 5, 6) with { IsComplete = false },
+                Frame(1, 2, 3, 4, 5, 6, 7) with { IsComplete = false }, Frame(1, 2, 3, 4, 5, 6, 7, 8)]
+        };
         var session = Session(service, assignments: cache);
         session.Activate(new(0, 0, 1000, 1000), default);
-        service.Next.SetResult(Frame(1, 2, 3, 4, 5, 6, 7, 8));
+        service.Next.SetResult(Frame(1, 2, 3, 4, 5) with { IsComplete = false });
         await session.Discovery;
         Assert.Equal(2, session.PageCount);
         Assert.Equal(0, session.Page);
         session.Deactivate(); await session.Retirement;
-        var nextService = new Service { First = Frame(8) };
+        var nextService = new Service { First = Frame(1, 2, 3, 4, 5, 6, 7, 8) with { IsComplete = false } };
         var next = Session(nextService, assignments: cache);
         try {
             next.Activate(new(0, 0, 1000, 1000), default);
-            var label = Assert.Single(next.Labels);
+            Assert.Equal(2, next.PageCount);
+            Assert.All(next.Labels, l => Assert.False(l.Entry.IsGroup));
+            next.OnKey(VKey.Next);
+            var label = next.Labels.Single(l => l.Entry.Target!.RuntimeId[1] == 8);
             Assert.Equal((VKey.S, (VKey?)VKey.W), (label.First, label.Second));
             Choose(next, label);
             Assert.Equal(108, next.Selected!.Token);
+            nextService.Next.SetResult(Frame(1, 2, 3, 4, 5, 6, 7, 8));
+            await next.Discovery;
         } finally { next.Deactivate(); await next.Retirement; }
     }
 
@@ -371,7 +587,7 @@ public sealed class ProgressiveElementHintsSessionTests {
             session.Activate(new(0, 0, 1000, 1000), default);
             var original = session.Discovery;
             var label = Assert.Single(session.Labels);
-            session.OnKey(label.First); session.OnKey(label.Second!.Value);
+            Choose(session, label);
             var group = session.Discovery;
             session.OnKey(VKey.Escape);
             Assert.Equal([0], service.ResumedScopes);

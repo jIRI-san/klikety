@@ -44,6 +44,36 @@ internal sealed class FakeElementPointGuard : IElementPointGuard {
 }
 
 public class ElementHintsStateMachineTests {
+    [Fact]
+    public void DiagnosticsCorrelateFramesAssignmentsNumbersAndCloseWithoutTargetIdentities() {
+        var service = new FakeElementHintService { Response = FakeElementHintService.Result(11) };
+        var logger = new CapturingLogger();
+        var cache = new ElementHintAssignmentCache(5);
+        var context = new ElementTargetContext(1, 1, 42, 1);
+        ElementHintsSession NewSession() => new([VKey.A, VKey.S], [VKey.Q, VKey.W],
+            new ActionMapper([]), context, service, null, logger) { AssignmentCache = cache };
+        var session = NewSession();
+        session.Activate(new(0, 0, 1000, 1000), default);
+        var activation = session.DiagnosticId;
+        session.OnKey(VKey.D9);
+        session.OnKey(VKey.D1);
+        session.Deactivate();
+        Assert.Contains(logger.Entries, e => e.Message.Contains($"activation={activation}") && e.Message.Contains("frame=1"));
+        Assert.Contains(logger.Entries, e => e.Message.Contains("number key=D9") && e.Message.Contains("visibleGroups=3"));
+        Assert.Contains(logger.Entries, e => e.Message.Contains("open-group") && e.Message.Contains("children=4"));
+        Assert.Contains(logger.Entries, e => e.Message.Contains("assignment-cache saved"));
+        var next = NewSession();
+        next.Activate(new(0, 0, 1000, 1000), default);
+        try {
+            Assert.NotEqual(activation, next.DiagnosticId);
+            Assert.Contains(logger.Entries, e => e.Message.Contains($"activation={next.DiagnosticId}") &&
+                e.Message.Contains("assignment-cache reused=True"));
+            Assert.Contains(logger.Entries, e => e.Message.Contains($"activation={next.DiagnosticId}") &&
+                e.Message.Contains("restoredGroups=3"));
+            Assert.DoesNotContain(logger.Entries, e => e.Message.Contains("RuntimeId") || e.Message.Contains("fingerprint"));
+        } finally { next.Deactivate(); }
+    }
+
     private sealed class HelpCapacityRenderer : IElementHintsRenderer {
         public int Capacity { get; set; } = 3;
         public List<bool> DiscoveryStates { get; } = [];
@@ -84,19 +114,24 @@ public class ElementHintsStateMachineTests {
         session.Activate(new(0, 0, 100, 100), default);
         Assert.Equal(1, session.HelpState.PageCount);
         Assert.Equal(2, session.Labels.Count);
-        session.OnKey(VKey.A);
+        session.OnKey(VKey.D1);
         Assert.Equal(2, session.HelpState.Depth);
-        session.OnKey(VKey.A);
+        session.OnKey(VKey.D1);
         Assert.Equal(0, session.HelpState.Page);
-        Assert.Equal(0, session.HelpState.Prefix);
-        session.OnKey(VKey.Q);
+        Assert.Null(session.HelpState.Prefix);
+        Assert.Equal(2, session.Depth);
+        var nested = session.Labels.First(l => l.Entry.IsGroup);
+        session.OnKey(nested.First);
+        if (nested.Second is { } second) { session.OnKey(second); }
         Assert.Equal(3, session.Depth);
         session.OnKey(VKey.A); session.OnKey(VKey.Q);
         Assert.True(session.HelpState.HasSelection);
         renderer.Capacity = 2;
         session.Relayout();
+        var state = session.HelpState;
         Assert.Equal(new ElementHintsHelpState(HintOutcome.Success, "", 0, 1, 10, null, false,
-            SingleKey: true, EntryCount: 2), session.HelpState);
+            SingleKey: true, EntryCount: 2, GroupKeys: state.GroupKeys), state);
+        Assert.Equal([VKey.D1, VKey.D2], session.HelpState.GroupKeys);
         Assert.Single(service.Scans);
         Assert.Empty(service.Validations);
         session.Deactivate();

@@ -1,8 +1,11 @@
 ---
-description: Development and tooling rules for this repo — terminal commands, agent workflows, and conventions that affect CI/automation.
+description: Development and tooling rules for this repo — mandatory AI-agent diagnostic logging, terminal commands, agent workflows, and conventions that affect CI/automation.
 globs:
   - .github/**
   - .vscode/**
+  - src/Klikety/**
+  - src/Klikety.UiaWorker/**
+  - src/Klikety.Tests/**
 ---
 
 # Dev Rules
@@ -13,6 +16,26 @@ The root README is a landing page, not the full manual. User guides are indexed
 in `docs/README.md`; detailed setup, navigation/screenshots, settings/paths, macros
 and development stay there. `.github/copilot-instructions.md` records this split.
 Update relevant design notes alongside implementation and keep the guides current.
+
+## AI-Agent Application Changes
+
+**Always add diagnostic logging and enable it when working on application
+changes as an AI agent.**
+
+- Add or extend structured logs for the changed runtime paths, including
+  relevant state, counts, timings, decisions and failure reasons. Correlate
+  asynchronous work where needed; gate expensive diagnostic calculations at
+  the configured log level.
+- Enable **Debug** logging for the development runtime and **file logging**
+  when running the app. Verify the effective configuration and emitted logs
+  before handing the runtime back; existing defaults are not proof that logging
+  is enabled. Tests may use the existing capturing logger.
+- Use owned runtime/config/log paths and preserve fixture, Sandbox and offline
+  isolation boundaries. Do not commit local configurations or logs, or change
+  shipping logging defaults as a side effect of investigation.
+- Log diagnostic metadata, not secrets, UIA names/values, passwords, document
+  text or other provider content. Preserve existing bounds and logging/privacy
+  contracts.
 
 ## Terminal Commands
 

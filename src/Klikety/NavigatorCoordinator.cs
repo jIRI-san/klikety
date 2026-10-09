@@ -239,7 +239,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _navDisplay = display;
             _displayNumbers = _topologyStore?.Resolve(_displays)
                 ?? DisplayNumbering.AssignSpatially(_displays);
-            _overlayHost.Show(_displays, display, _displayNumbers);
+            _overlayHost.Show(_displays, display, _displayNumbers, defaultModeName != "ElementHints");
 
             if (!_overlayWindow.IsVisible) {
                 DeactivateOverlay();
@@ -313,6 +313,8 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             _helpLatchedKeys.Remove(e.Key);
             return;
         }
+        LogHintDigit(e.Key, _pendingElementAction is not null ? "pending-action" :
+            _helpLatchedKeys.Contains(e.Key) ? "help-latched" : _debounce.Contains(e.Key) ? "debounced" : "received");
         if (_pendingElementAction is not null) { return; }
         _eventModifiers = (ActionModifiers)((int)e.Modifiers & 7);
 
@@ -356,12 +358,14 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             CloseHelp();
         }
 
-        if (_sessionManager.IsActive && TryHandleDisplayDigit(e.Key)) {
+        if (_sessionManager.IsActive && _sessionManager.ActiveSession is not ElementHintsSession &&
+            TryHandleDisplayDigit(e.Key)) {
             return;
         }
 
         // Macro subsystem gets first priority
         if (_macroHandler.TryHandleKey(e.Key)) {
+            LogHintDigit(e.Key, "macro-consumed");
             return;
         }
 
@@ -416,6 +420,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
 
             try {
                 _sessionManager.SwitchMode(targetMode);
+                _overlayHost.SetDisplayNumbersEnabled(_sessionManager.ActiveSession is not ElementHintsSession);
             } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
                 DeactivateOverlay();
             }
@@ -423,8 +428,17 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         }
 
         // Any key forwarded to session locks the mode
+        LogHintDigit(e.Key, "forward-session");
         _sessionManager.ForwardKey(e.Key);
     }
+
+    private void LogHintDigit(VKey key, string route) {
+        if (key is >= VKey.D1 and <= VKey.D9 && _sessionManager.ActiveSession is ElementHintsSession hints) {
+            LogHintDigitRoute(hints.DiagnosticId, key, route, _helpVisible, _macroHandler.State);
+        }
+    }
+    [LoggerMessage(Level = LogLevel.Debug, Message = "HintDiag activation={Activation} digit-route key={Key} route={Route} helpVisible={HelpVisible} macroState={MacroState}")]
+    private partial void LogHintDigitRoute(Guid activation, VKey key, string route, bool helpVisible, MacroState macroState);
 
     private static int? DisplayNumberFromKey(VKey key) {
         int n = key - VKey.D1 + 1;
@@ -532,6 +546,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
     }
 
     private void OnElementHintsStateChanged() {
+        _overlayHost.SetDisplayNumbersEnabled(false);
         if (_helpVisible) {
             _overlayWindow.UpdateHelp(BuildHelpContent());
         }
@@ -698,6 +713,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
         var point = new Point(Math.Clamp(cursor.X, bounds.Left, bounds.Right - 1),
             Math.Clamp(cursor.Y, bounds.Top, bounds.Bottom - 1));
         _sessionManager.SwitchMode("UniformGrid", point);
+        _overlayHost.SetDisplayNumbersEnabled(true);
         _sessionManager.LockMode();
     }
     private void ResetOverlayForDrag() {
@@ -705,6 +721,7 @@ public sealed partial class NavigatorCoordinator : IDisposable {
             CancelElementAction();
             _sessionManager.ResetForDrag(GetDefaultModeName(), _actionDispatcher.DragStartPoint,
                 _macroHandler.RecordingAppScoped, _macroHandler.RecordingWindowBounds);
+            _overlayHost.SetDisplayNumbersEnabled(_sessionManager.ActiveSession is not ElementHintsSession);
             _overlayWindow.ShowStatusText("Select drag target");
         } catch (Exception ex) when (ex is NotSupportedException or ArgumentException or InvalidOperationException) {
             _actionDispatcher.ClearDragMode();

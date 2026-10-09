@@ -86,13 +86,15 @@ public class ElementHintHierarchyTests {
     }
 
     [Fact]
-    public void PassiveContainersStayFlatUntilCapacityRequiresGrouping() {
+    public void LogicalContainersGroupEvenWhenFlatLabelsFit() {
         var targets = Enumerable.Range(1, 8).Select(i => Target(i, i <= 4 ? 1 : 2)).ToArray();
         var containers = new[] {
             new HintContainer(1, 0, 0, 42, 50026, new(0, 0, 200, 200)),
             new HintContainer(2, 0, 0, 42, 50026, new(0, 200, 200, 200))
         };
-        Assert.All(new ElementHintHierarchy(targets, containers).Build(targets, 100), e => Assert.False(e.IsGroup));
+        var logical = new ElementHintHierarchy(targets, containers).Build(targets, 100);
+        Assert.Equal(2, logical.Count);
+        Assert.All(logical, e => Assert.True(e.IsGroup));
         var grouped = new ElementHintHierarchy(targets, containers).Build(targets, 4);
         Assert.Equal(2, grouped.Count);
         Assert.Equal(targets, Leaves(grouped));
@@ -155,7 +157,7 @@ public class ElementHintHierarchyTests {
             session.OnKey(VKey.Space);
             Assert.Equal(0, actions);
             Assert.Equal(0, moves);
-            session.OnKey(VKey.D);
+            session.OnKey(VKey.D3);
             Assert.Equal(2, session.Depth);
             Assert.Equal(50, session.Labels.Count);
             Assert.False(session.HelpState.SingleKey);
@@ -167,7 +169,7 @@ public class ElementHintHierarchyTests {
             Assert.Equal(1, session.Depth);
             Assert.True(session.HelpState.FocusedGroup);
             Assert.Null(session.Selected);
-            Assert.Equal(VKey.D, session.Labels[2].First);
+            Assert.Equal(VKey.D3, session.Labels[2].First);
             Assert.Empty(service.Validations);
         } finally { session.Deactivate(); }
     }
@@ -214,7 +216,7 @@ public class ElementHintHierarchyTests {
             var rejected = await session.ValidateAsync(CancellationToken.None);
             Assert.Equal(HintOutcome.StaleTarget, rejected.Outcome);
             Assert.Empty(service.Validations);
-            session.OnKey(VKey.A);
+            session.OnKey(VKey.D1);
             Assert.True(renderer.Last!.Compact);
             Assert.True(session.HelpState.SingleKey);
             session.OnKey(VKey.S);
@@ -232,6 +234,51 @@ public class ElementHintHierarchyTests {
             Assert.Null(session.Selected);
             session.OnKey(VKey.Escape);
             Assert.Equal(1, cancel);
+        } finally { session.Deactivate(); }
+    }
+
+    [Fact]
+    public void SpatialOverflowSeparatesInterleavedLeftAndRightPanels() {
+        var targets = Enumerable.Range(0, 8).Select(i => Target(i + 1,
+            bounds: new(i % 2 * 800, i / 2 * 30, 20, 20))).ToArray();
+        var groups = new ElementHintHierarchy(targets, []).Build(targets, 4);
+        Assert.Equal(2, groups.Count);
+        Assert.Equal([1, 3, 5, 7], Leaves(groups[0].Children).Select(t => t.Token));
+        Assert.Equal([2, 4, 6, 8], Leaves(groups[1].Children).Select(t => t.Token));
+        Assert.All(groups, group => Assert.Equal(20, group.Bounds.Width));
+    }
+
+    [Fact]
+    public void GroupDigitsPageIndependentlyWithoutCollidingWithControlLabels() {
+        var targets = Enumerable.Range(1, 20).SelectMany(i => {
+            var bounds = new HintRect(i * 30, 20, 20, 20);
+            return new[] { Target(i * 2 - 1, i, bounds: bounds), Target(i * 2, i, bounds: bounds) };
+        }).Append(Target(41)).ToArray();
+        var containers = Enumerable.Range(1, 20).Select(i =>
+            new HintContainer(i, 0, i * 2 - 1, 42, 50000, targets[(i - 1) * 2].Bounds)).ToArray();
+        var service = new FakeElementHintService {
+            Response = FakeElementHintService.Result(0) with { Targets = targets, Containers = containers }
+        };
+        var config = new ConfigModel();
+        var session = new ElementHintsSession(config.HorizontalKeys, config.VerticalKeys,
+            new ActionMapper([]), new(1, 1), service, null);
+        try {
+            session.Activate(new(0, 0, 1000, 1000), default);
+            Assert.Equal(3, session.PageCount);
+            Assert.Equal(9, session.Labels.Count(l => l.Entry.IsGroup));
+            var leaf = Assert.Single(session.Labels, l => !l.Entry.IsGroup);
+            Assert.Equal(VKey.A, leaf.First);
+            session.OnKey(VKey.A);
+            Assert.Equal(41, session.Selected!.Token);
+            session.OnKey(VKey.D9);
+            Assert.Equal(2, session.Depth);
+            Assert.Null(session.Selected);
+            session.OnKey(VKey.Escape);
+            session.OnKey(VKey.Next);
+            Assert.All(session.Labels, l => Assert.True(l.Entry.IsGroup));
+            Assert.Equal(Enumerable.Range(0, 9).Select(i => (VKey)((int)VKey.D1 + i)), session.Labels.Select(l => l.First));
+            session.OnKey(VKey.Next);
+            Assert.Equal([VKey.D1, VKey.D2], session.Labels.Select(l => l.First));
         } finally { session.Deactivate(); }
     }
 

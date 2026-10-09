@@ -126,6 +126,12 @@ Failure handling: per-file try/catch for `IOException` and `UnauthorizedAccessEx
 
 - `Microsoft.Extensions.Logging` with rolling file sink → `%APPDATA%\Klikety\logs\`.
 - Omitted-field model defaults: `logLevel: Warning`, `fileLoggingEnabled: false`, `retainedLogFileCount: 7`. The extracted first-run template explicitly enables `Debug` file logging. Existing configs retain their values.
+- Element hints share the configured logger with discovery sessions, number-key
+  routing and rendering. `Debug` `HintDiag` records correlate activations and
+  distinguish source/assignment caches, layout fallback and group geometry.
+  Runtime startup logs the app PID, file logging state and effective hint
+  cache/timeout settings. No additional diagnostic switch or provider-content
+  logging is introduced.
 - Debug-level logging in `NavigatorCoordinator`:
   - Every mapped keystroke: key name + state before processing.
   - State transitions: `{before} → {after}` when state changes.

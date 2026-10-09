@@ -8,6 +8,36 @@ namespace Klikety.Tests;
 
 public class OverlayHostTests {
     [Fact]
+    public void HintModeHidesOnlyDisplayNumbersAndRestoresThemWithoutActivatingNavigationAgain() {
+        var nav = new FakeOverlayWindow();
+        var satellites = new List<FakeSatelliteOverlay>();
+        using var host = new OverlayHost(nav, () => {
+            var satellite = new FakeSatelliteOverlay();
+            satellites.Add(satellite);
+            return satellite;
+        });
+        var primary = new DisplayInfo(new Rectangle(0, 0, 1920, 1080), 1, "DISPLAY1", "A");
+        var secondary = new DisplayInfo(new Rectangle(1920, 0, 1920, 1080), 1, "DISPLAY2", "B");
+        host.Show([primary, secondary], primary, new Dictionary<string, int> { ["A"] = 1, ["B"] = 2 },
+            displayNumbersEnabled: false);
+        Assert.Null(satellites[^1].LastNumber);
+        host.Hide();
+        host.ShowLast();
+        Assert.Null(satellites[^1].LastNumber);
+        int shows = nav.ShowCount;
+        host.SetDisplayNumbersEnabled(true);
+        Assert.Equal(2, satellites[^1].LastNumber);
+        Assert.Equal(shows, nav.ShowCount);
+        host.SetDisplayNumbersEnabled(false);
+        Assert.Null(satellites[^1].LastNumber);
+        Assert.Equal(shows, nav.ShowCount);
+        int created = satellites.Count;
+        host.SetDisplayNumbersEnabled(false);
+        Assert.Equal(created, satellites.Count);
+        Assert.Equal(2, host.LastNumbers["B"]);
+    }
+
+    [Fact]
     public void ShowsOneWindowPerDisplay() {
         var nav = new FakeOverlayWindow();
         var satellites = new List<FakeSatelliteOverlay>();

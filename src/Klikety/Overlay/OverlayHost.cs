@@ -32,14 +32,16 @@ public sealed partial class OverlayHost : IDisposable {
 
     private IReadOnlyList<DisplayInfo> _lastDisplays = [];
     private DisplayInfo? _lastNav;
+    private bool _displayNumbersEnabled = true;
 
     public void Show(
         IReadOnlyList<DisplayInfo> displays,
         DisplayInfo navDisplay,
-        IReadOnlyDictionary<string, int> numbers) {
+        IReadOnlyDictionary<string, int> numbers, bool displayNumbersEnabled = true) {
         HideSatellites();
         _lastDisplays = displays;
         _lastNav = navDisplay;
+        _displayNumbersEnabled = displayNumbersEnabled;
         LastNumbers = new Dictionary<string, int>(numbers, StringComparer.Ordinal);
         LogHostShow(
             navDisplay.GdiName,
@@ -47,20 +49,30 @@ public sealed partial class OverlayHost : IDisposable {
             navDisplay.MonitorBounds.Width, navDisplay.MonitorBounds.Height,
             displays.Count);
 
-        foreach (var display in displays) {
-            if (string.Equals(display.DevicePath, navDisplay.DevicePath, StringComparison.Ordinal)) {
+        ShowSatellites();
+        _nav.Show(navDisplay.MonitorBounds);
+    }
+
+    public void SetDisplayNumbersEnabled(bool enabled) {
+        if (_displayNumbersEnabled == enabled) { return; }
+        _displayNumbersEnabled = enabled;
+        HideSatellites();
+        if (_nav.IsVisible) { ShowSatellites(); }
+    }
+
+    private void ShowSatellites() {
+        foreach (var display in _lastDisplays) {
+            if (string.Equals(display.DevicePath, _lastNav?.DevicePath, StringComparison.Ordinal)) {
                 continue;
             }
 
-            int? number = numbers.TryGetValue(display.DevicePath, out int n) && n is >= 1 and <= 9
+            int? number = _displayNumbersEnabled && LastNumbers.TryGetValue(display.DevicePath, out int n) && n is >= 1 and <= 9
                 ? n
                 : null;
             var satellite = _createSatellite();
             satellite.Show(display.MonitorBounds, number);
             _satellites.Add(satellite);
         }
-
-        _nav.Show(navDisplay.MonitorBounds);
     }
 
     public void ShowLast() {
@@ -69,7 +81,7 @@ public sealed partial class OverlayHost : IDisposable {
             return;
         }
 
-        Show(_lastDisplays, _lastNav, LastNumbers);
+        Show(_lastDisplays, _lastNav, LastNumbers, _displayNumbersEnabled);
     }
 
     public void Hide() {
